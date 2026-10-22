@@ -227,6 +227,12 @@ pub(crate) fn takes_yolo(harness: HarnessId) -> bool {
     takes_approval_mode(harness) && capabilities(harness).yolo_mode
 }
 
+/// The harnesses whose agent routine may run in Auto (Claude Code: its classifier decides which
+/// tool calls are safe).
+pub(crate) fn takes_auto(harness: HarnessId) -> bool {
+    takes_approval_mode(harness) && capabilities(harness).auto_mode
+}
+
 /// The harnesses whose agent routine may trust the project once (PI, Claude Code).
 pub(crate) fn takes_trust_once(harness: HarnessId) -> bool {
     let capabilities = capabilities(harness);

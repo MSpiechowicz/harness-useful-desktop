@@ -169,7 +169,7 @@ export class MockRoutines {
       approval: this.approvalOf(stored),
       approved: stored.changed ? stored.approved : null,
       ...LOCAL_ORIGIN,
-      runsUnattended: action.type === 'agent' && (action.approvalMode === 'yolo' || action.trustOnce),
+      runsUnattended: action.type === 'agent' && (action.approvalMode === 'yolo' || action.approvalMode === 'auto' || action.trustOnce),
       canRunNow: status !== 'pending',
       queued: false,
       nextRun: scheduled ? (previewSchedule(routine.when, new Date(), 1).next[0] ?? null) : null,

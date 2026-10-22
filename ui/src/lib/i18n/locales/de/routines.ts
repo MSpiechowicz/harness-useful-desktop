@@ -134,6 +134,8 @@ export const routines: AreaMessages<typeof enRoutines> = {
   'routines.mode.alwaysAsk.hint': 'Fragt vor jedem Tool-Aufruf',
   'routines.mode.write': 'Schreiben',
   'routines.mode.write.hint': 'Fragt, bevor sie Dateien ändert oder Befehle ausführt',
+  'routines.mode.auto': 'Auto',
+  'routines.mode.auto.hint': 'Claude Code führt Tool-Aufrufe aus, die es für sicher hält, und fragt beim Rest',
   'routines.mode.yolo': 'Yolo',
   'routines.mode.yolo.hint': 'Führt jedes Tool ohne Rückfrage aus',
   'routines.source.agent': 'Ein Agent',

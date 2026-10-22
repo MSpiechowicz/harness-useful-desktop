@@ -131,6 +131,8 @@ export const routines = {
   'routines.mode.alwaysAsk.hint': 'Asks before every tool call',
   'routines.mode.write': 'Write',
   'routines.mode.write.hint': 'Asks before it changes files or runs commands',
+  'routines.mode.auto': 'Auto',
+  'routines.mode.auto.hint': 'Claude Code runs the tool calls it judges safe and asks about the rest',
   'routines.mode.yolo': 'Yolo',
   'routines.mode.yolo.hint': 'Runs every tool without asking',
   'routines.source.agent': 'An agent',

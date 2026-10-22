@@ -18,7 +18,8 @@ pub struct SessionRef {
     pub id: String,
 }
 
-/// OMP tool approval mode (`tools.approvalMode`, CLI `--approval-mode`).
+/// Tool approval mode of a chat (OMP `tools.approvalMode`, CLI `--approval-mode`; Claude Code
+/// `--permission-mode`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -29,6 +30,9 @@ pub enum ApprovalMode {
     Write,
     /// Never ask (CLI `yolo`; the OMP default).
     Yolo,
+    /// The harness decides which tool calls are safe and asks about the rest (Claude Code
+    /// `--permission-mode auto`); only where `capabilities.autoMode`.
+    Auto,
 }
 
 /// Arguments of `agent_start`.

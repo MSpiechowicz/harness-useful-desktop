@@ -134,6 +134,8 @@ export const routines: AreaMessages<typeof enRoutines> = {
   'routines.mode.alwaysAsk.hint': 'Pregunta antes de cada llamada a una herramienta',
   'routines.mode.write': 'Escritura',
   'routines.mode.write.hint': 'Pregunta antes de cambiar archivos o ejecutar comandos',
+  'routines.mode.auto': 'Auto',
+  'routines.mode.auto.hint': 'Claude Code ejecuta las llamadas a herramientas que considera seguras y pregunta por el resto',
   'routines.mode.yolo': 'Yolo',
   'routines.mode.yolo.hint': 'Ejecuta todas las herramientas sin preguntar',
   'routines.source.agent': 'Un agente',

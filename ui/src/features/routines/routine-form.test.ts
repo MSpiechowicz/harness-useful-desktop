@@ -147,6 +147,23 @@ describe('the draft', () => {
     expect(runsUnattended(complete({ approvalMode: 'yolo' }))).toBe(true);
   });
 
+  it('keeps Auto only for Claude Code, where it runs tools unattended', () => {
+    harness.summaries = fixtures.harnesses.map((summary) =>
+      summary.info.id === 'claude' ? { ...summary, capabilities: { ...summary.capabilities, chat: true } } : summary,
+    );
+
+    const claude = withHarness(complete({ approvalMode: 'auto' }), 'claude');
+    expect(claude.approvalMode).toBe('auto');
+    expect(draftOf(claude, null).action).toMatchObject({ harness: 'claude', approvalMode: 'auto' });
+    expect(runsUnattended(claude)).toBe(true);
+
+    for (const other of ['omp', 'opencode', 'pi'] as const) {
+      const moved = withHarness(claude, other);
+      expect(moved.approvalMode, other).toBeNull();
+      expect(runsUnattended({ ...moved, approvalMode: 'auto' }), other).toBe(false);
+    }
+  });
+
   it('follows the capabilities the harness list reports and not the name of the harness', () => {
     harness.summaries = fixtures.harnesses.map((summary) =>
       summary.info.id === 'omp' ? { ...summary, capabilities: { ...summary.capabilities, approvalModes: false, projectTrust: true } } : summary,

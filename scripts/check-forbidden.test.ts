@@ -212,7 +212,7 @@ describe('Claude Code permission-mode rules', () => {
   const CLAUDE_SESSION = 'business/src/agent/claude/sample.rs';
   const flag = ['--permission', 'mode'].join('-');
 
-  test.each(['bypassPermissions', 'auto', 'dontAsk', 'acceptEdits', 'plan'])(
+  test.each(['bypassPermissions', 'dontAsk', 'acceptEdits', 'plan', 'manual', 'autoEdits'])(
     'starting in the %s mode is forbidden in the engine',
     (mode) => {
       expectViolation(CLAUDE_LAUNCH, argv(flag, mode), 'claude-permission-mode');
@@ -227,15 +227,16 @@ describe('Claude Code permission-mode rules', () => {
     expectViolation('business/src/claude_stream/sample.rs', `fn s() -> &'static str { "${subtype}" }\n`, 'claude-permission-mode');
   });
 
-  test('the default mode passes', () => {
+  test.each(['default', 'auto'])('the %s mode passes', (mode) => {
     const allowed = [
-      argv(flag, 'default'),
-      `let arg = "${flag}=default";\n`,
+      argv(flag, mode),
+      `let arg = "${flag}=${mode}";\n`,
       `fn a() -> Vec<String> { flag_with("${flag}", WIRE_DEFAULT) }\n`,
-      `//! starts in \`${flag} default\`\n`,
+      `//! starts in \`${flag} ${mode}\`\n`,
     ].join('');
 
     expectClean(CLAUDE_LAUNCH, allowed);
+    expectClean(CLAUDE_SESSION, allowed);
   });
 
   test('the rules stay out of the rest of the code', () => {

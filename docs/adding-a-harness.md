@@ -141,8 +141,9 @@ really does. Beyond the extension kinds (`plugins`, `marketplaces`, `packages`, 
 | --- | --- | --- |
 | `chat` | The app drives chat sessions (`launch_spec` and the chat protocol work). OMP, PI, OpenCode and Claude Code. | The UI shows "Chat coming soon" instead of the chat, the harness picker marks the harness as coming soon, and a chat is never started with it. If no installed harness can chat, the chat view says so. |
 | `chatPreview` | Chat works but is still a preview: the UI marks it with a "Preview" badge. OpenCode and Claude Code. | No badge. |
-| `approvalModes` | The chat has the app's approval modes (Always ask, Write, Yolo) as a per-session override (`LaunchRequest.approval_override`) and `configured_approval_mode` reports the harness's own. OMP, OpenCode and Claude Code. | No approval picker. |
+| `approvalModes` | The chat has the app's approval modes (Always ask, Write, Yolo, Auto) as a per-session override (`LaunchRequest.approval_override`) and `configured_approval_mode` reports the harness's own. OMP, OpenCode and Claude Code. | No approval picker. |
 | `yoloMode` | With `approvalModes`: Yolo (tools run without asking) is one of the modes. OMP and OpenCode. | The picker and the routine form hide Yolo, and a launch asking for it is refused (`approval_override` in `business/src/agent/launch.rs`). Claude Code: the app never starts its bypass mode. |
+| `autoMode` | With `approvalModes`: Auto is one of the modes, the harness's own classifier runs the calls it judges safe and asks about the rest (`--permission-mode auto`). It counts as running tools without asking. Claude Code. | The picker and the routine form hide Auto, a launch asking for it is refused (`approval_override` in `business/src/agent/launch.rs`), and a routine with `approvalMode: "auto"` is Invalid. |
 | `projectTrust` | A launch may trust the project's local resources once (`LaunchRequest.trust_once`, a routine's `trustOnce`). PI and Claude Code. | `trust_once` is dropped. |
 | `projectTrustRequired` | With `projectTrust`: the harness starts only in a folder it trusts itself, so `check_project_trust` runs before the launch and a refused start shows a "Trust once" toast (`ui/src/lib/stores/start-failure.ts`). Once the user trusts a project once, `TrustMemory` (`business/src/agent/trust_memory.rs`, held by the shell's `Agents`) trusts it again for the chats opened there in the same app run, never written, and never for a routine run. Claude Code. | A start is never refused for trust. |
 | `agentPicker` | The chat can switch between the harness's primary agents (`AgentAction::SetAgent`, `GetAvailableAgents`, `SessionState.agent`) and the composer shows an agent picker. None today: OpenCode's engine supports it, but the picker is off because skills cover planning. | No agent picker. |
@@ -277,7 +278,8 @@ rpc_exec_spec(request.binary, request.project, &args)
 Do not pass flags that skip approvals (`--auto-approve`) or detach the extension UI (`--no-ui`); the forbidden-pattern
 guard rejects them without opt-out. The agent inherits the app's environment so it sees the user's provider
 configuration. `approval_override` and `trust_once` reach `launch_spec` only for harnesses whose capabilities enable
-them (`approvalModes`, `projectTrust`); the manager filters them, refuses Yolo where `yoloMode` is false and, where
+them (`approvalModes`, `projectTrust`); the manager filters them, refuses Yolo where `yoloMode` is false, Auto where
+`autoMode` is false and, where
 `projectTrustRequired` is true, refuses a start in an untrusted folder unless the launch trusts the project once.
 
 **Dialect.** `RpcDialect` (`business/src/pi_family/rpc/mod.rs`) is the protocol seam:
@@ -365,8 +367,8 @@ talks to it over stdin and stdout, so there is no port, no password and no serve
 Requests carry ids but user messages do not and a turn ends with a `result` frame, which is why it is not an
 `RpcDialect`. No model flag is passed, so the chat runs on the user's own default model, and `DISABLE_UPDATES=1` is the
 harness's `spawn_env`. The flags the app must never pass, the approval dialogs and modes, the folder trust gate and the
-helper chat are in [security-privacy.md](security-privacy.md#claude-code). Two capabilities carry the approval
-policy: Claude Code sets `approvalModes` but not `yoloMode`, because the app never starts its bypass mode, and it sets
+helper chat are in [security-privacy.md](security-privacy.md#claude-code). The capabilities carry the approval
+policy: Claude Code sets `approvalModes` and `autoMode` but not `yoloMode`, because the app never starts its bypass mode, and it sets
 `projectTrust` and `projectTrustRequired` because stream-json mode skips Claude Code's own trust dialog (see
 [Capabilities](#capabilities)). `launch_spec` ignores `trust_once`: the gate is `Harness::check_project_trust` in the
 manager, and a launch that trusts the project once simply skips it. The chat is a preview (`chatPreview`). The plan with
@@ -652,7 +654,7 @@ The UI renders any harness from data, with these exceptions:
   agent, onboarding): `harness.chatActive` is the active harness when it can chat, else the first installed one that
   can, and `harness.chatComingSoon` names the harness to put in "Chat coming soon" when none can. `cliActions` hides the
   extension action bars and `agents` shows the Agents tab (`extension-items.ts`, `extension-groups.ts`,
-  `extension-detail.ts`). Sessions hide resume and fork when the harness cannot chat. `yoloMode` decides whether Yolo is offered in the approval picker and the routine form
+  `extension-detail.ts`). Sessions hide resume and fork when the harness cannot chat. `yoloMode` and `autoMode` decide whether Yolo and Auto are offered in the approval picker and the routine form
   (`ApprovalBadge.svelte`, `routine-abilities.ts`), and a start refused with the `untrusted` code shows the "Trust once" toast
   (`start-failure.ts`).
 - **Onboarding.** The harness cards are data-driven. The approval step shows a notice only for a daily driver that runs

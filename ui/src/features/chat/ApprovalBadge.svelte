@@ -2,6 +2,7 @@
   import ShieldAlert from '@lucide/svelte/icons/shield-alert';
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
   import ShieldCheck from '@lucide/svelte/icons/shield-check';
+  import ShieldCog from '@lucide/svelte/icons/shield-cog';
   import ShieldHalf from '@lucide/svelte/icons/shield-half';
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
 
@@ -15,7 +16,7 @@
   import { harness } from '$lib/stores/harness.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
-  import { activeMode, MODE_ORDER, MODES, nativeModeLabel } from './approval-modes';
+  import { activeMode, MODES, nativeModeLabel, offeredModes } from './approval-modes';
   import ApprovalOption from './ApprovalOption.svelte';
 
   interface Props {
@@ -25,7 +26,7 @@
   let { session }: Props = $props();
 
   const CLOSE_MS = 220;
-  const MODE_ICONS = { alwaysAsk: ShieldCheck, write: ShieldHalf, yolo: ShieldAlert } satisfies Record<ApprovalMode, unknown>;
+  const MODE_ICONS = { alwaysAsk: ShieldCheck, write: ShieldHalf, auto: ShieldCog, yolo: ShieldAlert } satisfies Record<ApprovalMode, unknown>;
 
   /** `null` is "use the harness configuration". */
   let choice = $state<ApprovalMode | null>(null);
@@ -36,8 +37,8 @@
   const source = $derived(session.info.approvalOverride ? t('chat.approval.source.session') : t('chat.approval.source.config'));
   // A harness with approval modes that reports none of its own (OpenCode) follows its settings until a mode is chosen here.
   const harnessName = $derived(harness.get(session.info.harness)?.info.name ?? '');
-  // Yolo is offered only where the harness can run without asking (Claude Code cannot).
-  const options = $derived(MODE_ORDER.filter((option) => option !== 'yolo' || harness.get(session.info.harness)?.capabilities.yoloMode));
+  // Yolo is offered only where the harness can run without asking (Claude Code cannot), Auto only where it has one (Claude Code).
+  const options = $derived(offeredModes(harness.get(session.info.harness)?.capabilities));
   // A harness with a mode of its own (Claude Code) shows it, read-only, while the app has no mode of its own for the chat.
   const native = $derived(info ? null : session.info.nativeApprovalMode);
   const nativeName = $derived(native ? t('chat.approval.native', { harness: harnessName, mode: nativeModeLabel(native) }) : null);

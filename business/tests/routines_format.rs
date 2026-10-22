@@ -156,6 +156,22 @@ fn harness_rules_and_value_types_are_checked() {
             false,
         ),
         (
+            json!({"type": "agent", "harness": "claude", "prompt": "x", "approvalMode": "auto"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "omp", "prompt": "x", "approvalMode": "auto"}),
+            false,
+        ),
+        (
+            json!({"type": "agent", "harness": "opencode", "prompt": "x", "approvalMode": "auto"}),
+            false,
+        ),
+        (
+            json!({"type": "agent", "harness": "pi", "prompt": "x", "approvalMode": "auto"}),
+            false,
+        ),
+        (
             json!({"type": "agent", "harness": "omp", "prompt": "x", "trustOnce": false}),
             true,
         ),
@@ -357,4 +373,31 @@ fn routine_with(changes: Value) -> Vec<u8> {
     }
 
     serde_json::to_vec_pretty(&routine).unwrap()
+}
+
+#[test]
+fn an_auto_routine_is_claude_codes_only_runs_unattended_and_keeps_its_mode_on_a_rewrite() {
+    let bytes =
+        routine_with(json!({"action": {"type": "agent", "harness": "claude", "prompt": "x", "approvalMode": "auto"}}));
+    let routine = parse_routine_file(&"1".repeat(32), &bytes).unwrap();
+
+    assert!(matches!(
+        routine.action,
+        RoutineAction::Agent {
+            approval_mode: Some(ApprovalMode::Auto),
+            ..
+        }
+    ));
+    assert!(routine.action.runs_unattended(), "its classifier runs tools unasked");
+
+    let rewritten: Value = serde_json::from_slice(&routine_bytes(&routine, serde_json::Map::new())).unwrap();
+    assert_eq!(rewritten["action"]["approvalMode"], "auto");
+
+    let omp =
+        routine_with(json!({"action": {"type": "agent", "harness": "omp", "prompt": "x", "approvalMode": "auto"}}));
+    let refused = parse_routine_file(&"1".repeat(32), &omp).unwrap_err().to_string();
+    assert!(
+        refused.contains("action.approvalMode \"auto\" is for claude only"),
+        "{refused}"
+    );
 }

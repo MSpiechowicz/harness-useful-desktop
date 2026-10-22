@@ -13,6 +13,8 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.mode.write.explanation': 'pyta przed narzędziami, które zmieniają pliki lub uruchamiają polecenia',
   'chat.mode.alwaysAsk.label': 'pytaj za każdym razem',
   'chat.mode.alwaysAsk.explanation': 'pyta przed każdym wywołaniem narzędzia',
+  'chat.mode.auto.label': 'auto',
+  'chat.mode.auto.explanation': 'Claude Code decyduje, które wywołania narzędzi są bezpieczne, i pyta o resztę',
 
   'chat.approval.popover': 'Tryb zatwierdzania',
   'chat.approval.source.session': 'wybrany dla tej sesji',

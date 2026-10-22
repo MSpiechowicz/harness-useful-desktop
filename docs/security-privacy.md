@@ -814,7 +814,7 @@ fork, clone, rename, compact, export, `!command`) work, and are described below.
 - **The chat process.** One `claude` per chat process, started by `harnesses/claude/launch.rs` with exactly
   `--output-format stream-json --verbose --input-format stream-json --permission-prompt-tool stdio
   --include-partial-messages`, plus `--permission-mode default` when an approval override of Always ask or Write is
-  chosen (see Approval modes below) and `--resume <id>` for a saved session (the id must be a lowercase UUID). The
+  chosen, `--permission-mode auto` for Auto (see Approval modes below), and `--resume <id>` for a saved session (the id must be a lowercase UUID). The
   engine adds the session flags in `agent/claude/startup.rs`: `--session-id <fresh UUID>` for a new chat, `--resume <id>
   --fork-session --session-id <fresh UUID>` for a clone, the same with `--resume-session-at <uuid>` for a fork, and
   `--model=<id>` once you picked a model and the chat starts another process (new chat, switch, fork or clone stop the
@@ -829,7 +829,8 @@ fork, clone, rename, compact, export, `!command`) work, and are described below.
   `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions`, `--bare` or `--permission-prompts none`.
   `scripts/check-forbidden.ts` rejects them with no opt-out: `skip-permissions-flag` (both skip flags, in any source
   file), `claude-bypass-mode` (`--permission-mode bypassPermissions`, and `SetPermissionMode` together with
-  `bypassPermissions` in Rust), `claude-no-prompts` (`--permission-prompts none`) and `claude-bare` (`"--bare"` in
+  `bypassPermissions` in Rust), `claude-permission-mode` (any `--permission-mode` value but `default` and `auto` in the
+  Claude Code engine, and `set_permission_mode`), `claude-no-prompts` (`--permission-prompts none`) and `claude-bare` (`"--bare"` in
   `business/src/claude_stream/`, `agent/claude/` and `harnesses/claude/`, since `--bare` is a valid git flag elsewhere). The app offers no
   Yolo approval mode for Claude Code for the same reason, since it would need `--allow-dangerously-skip-permissions`.
 - **Approvals.** Every permission prompt of Claude Code (`can_use_tool`, also one a subagent raises) is held until you
@@ -858,13 +859,18 @@ fork, clone, rename, compact, export, `!command`) work, and are described below.
 - **Approval modes.** Always ask starts Claude Code with `--permission-mode default` and registers a `PreToolUse` hook
   for every tool in `initialize` (matcher `.*`, callback `harness_ask_all`, `ask_all_hooks`) whose callback answers
   `ask`, so even calls Claude Code would allow on its own reach the dialog. Write starts it with `--permission-mode
-  default`. Yolo is not offered (`capabilities.yoloMode` is false): the picker hides it, a launch asking for it is
+  default`. Auto (`capabilities.autoMode`, Claude Code only) starts it with `--permission-mode auto` and no hook:
+  Claude Code's classifier runs the calls it judges safe without asking, and the rest still reach the dialog as
+  `can_use_tool` prompts. Auto counts as running tools without asking: the header badge and the routine form warn, and
+  a routine with `approvalMode: "auto"` shows "Runs tools without asking". A respawn (new chat, switch, fork, clone)
+  keeps the mode, and the AI-naming helper always starts in `default`. Another harness asking for Auto is refused
+  (`Unsupported`), and a routine with `approvalMode: "auto"` for it is Invalid. Yolo is not offered (`capabilities.yoloMode` is false): the picker hides it, a launch asking for it is
   refused (`Unsupported`, `approval_override` in `business/src/agent/launch.rs` and `claude_launch_spec`), and a routine
   with `approvalMode: "yolo"` for Claude Code is Invalid. Without an override your own `permissions.defaultMode` applies,
   as in your terminal. The chat header shows it read-only (`Harness::native_approval_mode`,
   `harnesses/claude/modes.rs`): the value of the last settings layer that sets a known mode (managed over local over
-  project over user, `manual` read as `default`), and `default` otherwise. `default` reads as the app's Write and
-  `bypassPermissions` as Yolo, informational only. A mode the app has no name for (`acceptEdits`, `plan`, `auto`,
+  project over user, `manual` read as `default`), and `default` otherwise. `default` reads as the app's Write, `auto`
+  as Auto and `bypassPermissions` as Yolo, informational only. A mode the app has no name for (`acceptEdits`, `plan`,
   `dontAsk`) is shown under Claude Code's name. `bypassPermissions` and `auto` let tools run without asking, so when
   Claude Code is the daily driver and your settings choose one of them, onboarding shows a notice once (the mode's
   `unattended` flag). The app never changes your settings.

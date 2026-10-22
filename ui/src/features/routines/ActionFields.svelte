@@ -15,7 +15,7 @@
   import { uid } from '$lib/utils/ids';
 
   import { DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS, type FieldKey, LIMITS, length, type Problem, type RoutineForm, runsUnattended, withHarness } from './routine-form';
-  import { abilitiesOf, routineHarnesses } from './routine-abilities';
+  import { abilitiesOf, offers, routineHarnesses } from './routine-abilities';
   import { ACTION_ICONS, ACTION_KINDS, ACTION_LABELS, type ActionKind, HARNESS_NAMES } from './routine-format';
   import ScriptPicker from './ScriptPicker.svelte';
   import UnattendedChip from './UnattendedChip.svelte';
@@ -31,11 +31,12 @@
   const ids = { kind: uid('routine-kind'), prompt: uid('routine-prompt'), harness: uid('routine-harness'), model: uid('routine-model'), modelId: uid('routine-model-id'), mode: uid('routine-mode'), max: uid('routine-max'), command: uid('routine-command'), timeout: uid('routine-timeout') };
 
   /** The approval modes a routine can ask for; `harness` leaves the choice to the harness's own setting. */
-  const MODES: readonly (ApprovalMode | 'harness')[] = ['harness', 'alwaysAsk', 'write', 'yolo'];
+  const MODES: readonly (ApprovalMode | 'harness')[] = ['harness', 'alwaysAsk', 'write', 'auto', 'yolo'];
   const MODE_KEYS = {
     harness: ['routines.mode.harness', 'routines.mode.harness.hint'],
     alwaysAsk: ['routines.mode.alwaysAsk', 'routines.mode.alwaysAsk.hint'],
     write: ['routines.mode.write', 'routines.mode.write.hint'],
+    auto: ['routines.mode.auto', 'routines.mode.auto.hint'],
     yolo: ['routines.mode.yolo', 'routines.mode.yolo.hint'],
   } as const;
 
@@ -45,7 +46,7 @@
     routineHarnesses(form.harness).map((id) => ({ value: id, label: HARNESS_NAMES[id], disabled: id !== form.harness && harnesses.get(id)?.detection.installed === false })),
   );
   const abilities = $derived(abilitiesOf(form.harness));
-  const modes = $derived(MODES.filter((mode) => mode !== 'yolo' || abilities.yoloMode).map((mode) => ({ value: mode, label: t(MODE_KEYS[mode][0]), hint: t(MODE_KEYS[mode][1]) })));
+  const modes = $derived(MODES.filter((mode) => offers(abilities, mode)).map((mode) => ({ value: mode, label: t(MODE_KEYS[mode][0]), hint: t(MODE_KEYS[mode][1]) })));
 
   const prompt = $derived(problemOf('prompt'));
   const model = $derived(problemOf('model'));

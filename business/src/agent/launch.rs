@@ -30,7 +30,8 @@ pub(super) fn ensure_chat(harness: &dyn Harness) -> Result<()> {
 }
 
 /// The approval override `requested` for a chat of `harness`: dropped where the harness has no
-/// approval modes, refused when it is Yolo and the harness does not offer it (Claude Code).
+/// approval modes, refused when it is Yolo or Auto and the harness does not offer it (Yolo on
+/// Claude Code, Auto everywhere else).
 pub(super) fn approval_override(
     harness: &dyn Harness,
     requested: Option<ApprovalMode>,
@@ -41,14 +42,38 @@ pub(super) fn approval_override(
         return Ok(None);
     }
 
-    if requested == Some(ApprovalMode::Yolo) && !capabilities.yolo_mode {
+    let refused = match requested {
+        Some(ApprovalMode::Yolo) if !capabilities.yolo_mode => Some("Yolo"),
+        Some(ApprovalMode::Auto) if !capabilities.auto_mode => Some("Auto"),
+        _ => None,
+    };
+
+    if let Some(mode) = refused {
         return Err(BusinessError::Unsupported(format!(
-            "{} chats have no Yolo mode: choose Always ask or Write",
-            harness.info().name
+            "{} chats have no {mode} mode: choose {}",
+            harness.info().name,
+            offered_modes(capabilities.yolo_mode, capabilities.auto_mode)
         )));
     }
 
     Ok(requested)
+}
+
+/// The approval modes a harness offers, as "Always ask, Write or Yolo".
+fn offered_modes(yolo: bool, auto: bool) -> String {
+    let mut modes = vec!["Always ask", "Write"];
+
+    if yolo {
+        modes.push("Yolo");
+    }
+
+    if auto {
+        modes.push("Auto");
+    }
+
+    let last = modes.pop().unwrap_or_default();
+
+    format!("{} or {last}", modes.join(", "))
 }
 
 /// The session id `request` resumes in `project`. Refused (`invalidInput`) when it names another

@@ -205,8 +205,8 @@ const CLAUDE_RULES: readonly Rule[] = [
   },
   {
     id: 'claude-permission-mode',
-    reason: 'the Claude Code engine starts Claude Code only in its default mode; approvals stay with the user',
-    pattern: new RegExp(String.raw`--permission-mode(?:=|\s+|${QUOTE}\s*,\s*${QUOTE})(?!\s|default\b)`),
+    reason: 'the Claude Code engine starts Claude Code only in its default or auto mode; approvals stay with the user',
+    pattern: new RegExp(String.raw`--permission-mode(?:=|\s+|${QUOTE}\s*,\s*${QUOTE})(?!\s|(?:default|auto)\b)`),
     extensions: ['.rs'],
     only: CLAUDE_ENGINE,
     optOut: false,

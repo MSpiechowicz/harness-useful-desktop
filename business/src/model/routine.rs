@@ -145,15 +145,16 @@ pub enum RoutineAction {
 
 impl RoutineAction {
     /// True for an agent action that runs tools without asking: OMP or OpenCode
-    /// `approvalMode: "yolo"`, or `trustOnce: true` (PI, Claude Code: the project's own resources
-    /// and hooks run unasked).
+    /// `approvalMode: "yolo"`, Claude Code `approvalMode: "auto"` (its classifier approves what it
+    /// judges safe), or `trustOnce: true` (PI, Claude Code: the project's own resources and hooks
+    /// run unasked).
     pub fn runs_unattended(&self) -> bool {
         match self {
             Self::Agent {
                 approval_mode,
                 trust_once,
                 ..
-            } => *approval_mode == Some(ApprovalMode::Yolo) || *trust_once,
+            } => matches!(approval_mode, Some(ApprovalMode::Yolo | ApprovalMode::Auto)) || *trust_once,
             Self::Command { .. } | Self::Script { .. } => false,
         }
     }
@@ -238,7 +239,8 @@ pub struct RoutineView {
     pub approved: Option<Routine>,
     /// A local file or a team routine.
     pub origin: HookOrigin,
-    /// The agent action runs tools without asking (`approvalMode: "yolo"` or `trustOnce: true`).
+    /// The agent action runs tools without asking (`approvalMode: "yolo"` or `"auto"`, or
+    /// `trustOnce: true`).
     pub runs_unattended: bool,
     /// "Run now" may start it: valid and approved (a team routine: turned on here, trusted or
     /// approved, and its folder there).

@@ -26,6 +26,8 @@ pub struct Chat {
     pub spawner: Arc<ScenarioSpawner>,
     /// The canonical project directory.
     pub project: PathBuf,
+    /// The approval override the chat started with.
+    pub approval: Option<ApprovalMode>,
     _dir: TempDir,
     _config: TempDir,
 }
@@ -206,6 +208,7 @@ impl<'a> Setup<'a> {
             sink,
             spawner,
             project,
+            approval: self.approval,
             _dir: dir,
             _config: config,
         }
@@ -225,7 +228,7 @@ pub fn argv(chat: &Chat, index: usize) -> Vec<String> {
     let spec = specs.get(index).expect("that many spawns");
     let args: Vec<String> = spec.args.iter().map(|arg| arg.to_string_lossy().into_owned()).collect();
 
-    assert_allowed_flags(&args);
+    assert_allowed_flags(&args, chat.approval);
     args
 }
 
@@ -246,10 +249,16 @@ fn forbidden_flags() -> Vec<String> {
     ]
 }
 
-/// Asserts a Claude Code command line `args` carries no forbidden flag, sends its permission
-/// prompts to the app (`--permission-prompt-tool stdio`, once), names no mode but `default` and no
+/// Asserts a Claude Code command line `args` of a chat with the approval override `approval`
+/// carries no forbidden flag, sends its permission prompts to the app (`--permission-prompt-tool
+/// stdio`, once), names no mode but `auto` for an Auto override and `default` otherwise, and no
 /// effort but one of Claude Code's levels, in one argument.
-pub fn assert_allowed_flags(args: &[String]) {
+pub fn assert_allowed_flags(args: &[String], approval: Option<ApprovalMode>) {
+    let mode = if approval == Some(ApprovalMode::Auto) {
+        "auto"
+    } else {
+        "default"
+    };
     let forbidden = forbidden_flags();
     let mut prompt_tools = 0;
 
@@ -268,7 +277,7 @@ pub fn assert_allowed_flags(args: &[String]) {
         }
 
         if name == "--permission-mode" {
-            assert_eq!(value, Some("default"), "{args:?}");
+            assert_eq!(value, Some(mode), "{args:?}");
         }
 
         if name == "--effort" {

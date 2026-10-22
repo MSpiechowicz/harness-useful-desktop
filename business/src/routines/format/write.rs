@@ -113,5 +113,6 @@ fn approval_mode_name(mode: ApprovalMode) -> &'static str {
         ApprovalMode::AlwaysAsk => "alwaysAsk",
         ApprovalMode::Write => "write",
         ApprovalMode::Yolo => "yolo",
+        ApprovalMode::Auto => "auto",
     }
 }

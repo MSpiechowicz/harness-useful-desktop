@@ -2,7 +2,7 @@
 //!
 //! The manager validates what the business layer can check itself: the harness matches, the
 //! project is an existing directory, a resumed session id is safe and the project's
-//! ([`resumed_session`]), the per-session approval override (Yolo only where offered) and
+//! ([`resumed_session`]), the per-session approval override (Yolo and Auto only where offered) and
 //! one-time trust apply only where supported, and at most
 //! [`MAX_SESSIONS`] run at once. The rule that `project` must be the active or a recent project
 //! is enforced by the caller (the desktop shell), as is the explicit user confirmation required

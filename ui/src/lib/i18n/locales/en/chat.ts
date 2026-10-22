@@ -10,6 +10,8 @@ export const chat = {
   'chat.mode.write.explanation': 'asks before tools that change files or run commands',
   'chat.mode.alwaysAsk.label': 'ask every time',
   'chat.mode.alwaysAsk.explanation': 'asks before every tool call',
+  'chat.mode.auto.label': 'auto',
+  'chat.mode.auto.explanation': 'Claude Code decides which tool calls are safe and asks about the rest',
 
   'chat.approval.popover': 'Approval mode',
   'chat.approval.source.session': 'chosen for this session',

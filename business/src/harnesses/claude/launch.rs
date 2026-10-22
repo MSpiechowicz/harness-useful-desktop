@@ -7,15 +7,16 @@
 //! as a control request (`--permission-prompt-tool stdio`), so approvals stay with the user. No
 //! flag ever skips them, strips a login method or bypasses the permission mode. An approval
 //! override of Always ask or Write starts Claude Code in its `default` mode (`--permission-mode
-//! default`, see [`modes`](super::modes)); Yolo is refused, and without an override the user's
-//! own mode applies. A resumed session is `--resume <id>`, its id a Claude session UUID; the chat
+//! default`, see [`modes`](super::modes)), Auto in its `auto` mode (`--permission-mode auto`,
+//! whose classifier still sends the asks it does not approve). Yolo is refused, and without an
+//! override the user's own mode applies. A resumed session is `--resume <id>`, its id a Claude session UUID; the chat
 //! engine names a new session itself (`--session-id`) and starts the CLI again for a new session,
 //! a switch, a fork or a clone. No model flag is passed here: the launch request names none (the
 //! chat engine adds `--model=<id>` for a picked model, and Harness Skills' default model role with
 //! its `--effort` for a new session without a pick). A helper chat (AI naming) runs without tools, MCP servers, thinking or a saved session
-//! ([`UTILITY_ARGS`]), also on the default model.
+//! ([`UTILITY_ARGS`]), also on the default model, and never in the `auto` mode.
 
-use super::modes::WIRE_DEFAULT;
+use super::modes::{WIRE_AUTO, WIRE_DEFAULT};
 use super::sessions::is_session_id;
 use crate::error::{BusinessError, Result};
 use crate::harness::{LaunchRequest, flag_with, rpc_exec_spec};
@@ -44,19 +45,20 @@ pub const UTILITY_ARGS: [&str; 5] = [
     "--no-session-persistence",
 ];
 
-/// `claude <stream args> [--permission-mode default] [--resume <id> | <utility args>]` in the
-/// project.
+/// `claude <stream args> [--permission-mode default|auto] [--resume <id> | <utility args>]` in
+/// the project. A helper chat asked for Auto starts in `default`.
 pub fn claude_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
     let mut args: Vec<String> = STREAM_ARGS.map(str::to_owned).to_vec();
 
     match request.approval_override {
         None => {}
-        Some(ApprovalMode::AlwaysAsk | ApprovalMode::Write) => {
+        Some(ApprovalMode::Auto) if !request.utility => args.extend(flag_with("--permission-mode", WIRE_AUTO)),
+        Some(ApprovalMode::AlwaysAsk | ApprovalMode::Write | ApprovalMode::Auto) => {
             args.extend(flag_with("--permission-mode", WIRE_DEFAULT))
         }
         Some(ApprovalMode::Yolo) => {
             return Err(BusinessError::Unsupported(
-                "Claude Code chats have no Yolo mode: choose Always ask or Write".to_owned(),
+                "Claude Code chats have no Yolo mode: choose Always ask, Write or Auto".to_owned(),
             ));
         }
     }
