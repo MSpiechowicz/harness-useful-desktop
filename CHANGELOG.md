@@ -1,3 +1,23 @@
+# [0.40.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.39.0...v0.40.0) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** tokio 1.54.1 for RUSTSEC-2026-0386 ([a87e876](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a87e87644a6233ab7cb677e00c3345738381041b))
+* **memory:** feature flags for vector search, English notes and note language, model presence ([74d926e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/74d926e9cb1dfb90ca2362a797dfa8e2b1bfae51))
+* **memory:** respect an explicit embedder opt-out, close review races ([2fc604d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2fc604d20e6d25441a533c677f3bbe0106a8c18f))
+* **memory:** Settings shows vector search off after a launch-time opt-out ([0bb3024](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0bb302434589eb5d726a4720fed20a0fbf02a8b7))
+* **skills:** rename migration replaces the old marketplace of the same repository ([74f641f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/74f641f87dd0b28a9c06a2b0f636c31a76b15958))
+* **skills:** rename migration replaces the old marketplace of the same repository ([4b87c3f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4b87c3f28831c38580da5ac32fd3a81714d4b4bc))
+
+
+### Features
+
+* **memory:** embedder supervisor, vector search and English notes commands ([55e807c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/55e807cd938dc1817dbe37ae00cc405f82d6eb84))
+* **memory:** Settings switches for vector search and English notes, Not in English filter ([63ccc68](https://github.com/MSpiechowicz/harness-useful-desktop/commit/63ccc689d3ce1a29ff6c6302b6a052700e096cd0))
+* **memory:** vector search status as a clear state row ([6d5b156](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6d5b156441d08f0b0259d423cbc65e770222e211))
+* **memory:** vector search, English notes and the shared harness-memory embedder ([5667923](https://github.com/MSpiechowicz/harness-useful-desktop/commit/56679237a46aee9e2d35973c90903e683adffc93))
+
 # [0.39.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.2...v0.39.0) (2026-10-23)
 
 
