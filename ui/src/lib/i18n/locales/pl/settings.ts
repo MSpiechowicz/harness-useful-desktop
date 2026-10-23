@@ -85,6 +85,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.vector.status.backfilling': 'Indeksowanie notatek',
   'settings.memory.vector.status.updating': 'Aktualizowanie modelu wyszukiwania',
   'settings.memory.vector.status.ready': 'Gotowe',
+  'settings.memory.vector.status.readyDetail': 'Notatki są przeszukiwane według znaczenia',
   'settings.memory.vector.status.elsewhere': 'Działa w innym oknie Harness Desktop',
   'settings.memory.vector.status.failed': 'Wyszukiwanie wektorowe zatrzymało się',
   'settings.memory.vector.progress.label': 'Postęp wyszukiwania wektorowego',

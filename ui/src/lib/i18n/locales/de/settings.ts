@@ -85,6 +85,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.vector.status.backfilling': 'Notizen werden indiziert',
   'settings.memory.vector.status.updating': 'Suchmodell wird aktualisiert',
   'settings.memory.vector.status.ready': 'Bereit',
+  'settings.memory.vector.status.readyDetail': 'Notizen werden nach Bedeutung durchsucht',
   'settings.memory.vector.status.elsewhere': 'Läuft in einem anderen Harness-Desktop-Fenster',
   'settings.memory.vector.status.failed': 'Die Vektorsuche wurde beendet',
   'settings.memory.vector.progress.label': 'Fortschritt der Vektorsuche',

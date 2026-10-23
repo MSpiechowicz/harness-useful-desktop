@@ -83,6 +83,7 @@ export const settings = {
   'settings.memory.vector.status.backfilling': 'Indexing notes',
   'settings.memory.vector.status.updating': 'Updating the search model',
   'settings.memory.vector.status.ready': 'Ready',
+  'settings.memory.vector.status.readyDetail': 'Notes are searched by meaning',
   'settings.memory.vector.status.elsewhere': 'Running in another Harness Desktop window',
   'settings.memory.vector.status.failed': 'Vector search stopped',
   'settings.memory.vector.progress.label': 'Vector search progress',

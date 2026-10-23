@@ -32,12 +32,22 @@
   const busy = $derived(BUSY.includes(state.phase));
   const fraction = $derived(typeof state.progress === 'number' ? Math.min(1, Math.max(0, state.progress)) : null);
   const failed = $derived(state.phase === 'failed');
+  const ready = $derived(state.phase === 'ready');
+
+  /** The dot says the state at a glance: live while it serves, accent while it works, danger when it stopped, neutral otherwise. */
+  const dot = $derived(ready ? 'live-dot text-success' : busy ? 'live-dot text-accent' : failed ? 'size-2 rounded-full bg-current text-danger' : 'size-2 rounded-full bg-current text-fg-3');
 </script>
 
 {#if key}
   <div class="flex flex-col gap-2 pb-4" role="status">
-    <div class="flex items-baseline justify-between gap-3 text-sm">
-      <span class={cx(failed ? 'text-danger' : busy ? 'text-fg-2' : 'text-fg-3')}>{t(key)}</span>
+    <div class="flex items-center justify-between gap-3 text-sm">
+      <span class="flex min-w-0 items-center gap-2.5">
+        <span aria-hidden="true" class="grid size-4 shrink-0 place-items-center"><span data-testid="vector-status-dot" class={dot}></span></span>
+        <span class={cx('font-medium', failed ? 'text-danger' : 'text-fg')}>{t(key)}</span>
+        {#if ready}
+          <span class="min-w-0 text-fg-3">{t('settings.memory.vector.status.readyDetail')}</span>
+        {/if}
+      </span>
       {#if busy && fraction !== null}
         <span class="tabular text-fg-3">{t('settings.memory.vector.percent', { percent: Math.round(fraction * 100) })}</span>
       {/if}

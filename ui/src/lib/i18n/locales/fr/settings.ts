@@ -85,6 +85,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.vector.status.backfilling': 'Indexation des notes',
   'settings.memory.vector.status.updating': 'Mise à jour du modèle de recherche',
   'settings.memory.vector.status.ready': 'Prêt',
+  'settings.memory.vector.status.readyDetail': 'Les notes sont recherchées par sens',
   'settings.memory.vector.status.elsewhere': 'Fonctionne dans une autre fenêtre de Harness Desktop',
   'settings.memory.vector.status.failed': 'La recherche vectorielle s’est arrêtée',
   'settings.memory.vector.progress.label': 'Progression de la recherche vectorielle',

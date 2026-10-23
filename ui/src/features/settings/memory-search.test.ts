@@ -117,6 +117,38 @@ describe('Vector search in the Memory section', () => {
     expect(within(memorySection()).queryByRole('progressbar')).toBeNull();
   });
 
+  it('shows the ready state as a live success dot, a readable label and a short detail', async () => {
+    fakeEmbedder();
+    render(SettingsView);
+
+    const label = await within(memorySection()).findByText('Ready');
+    const dot = within(memorySection()).getByTestId('vector-status-dot');
+
+    expect(dot).toHaveClass('live-dot', 'text-success');
+    expect(label).toHaveClass('text-fg');
+    expect(label).not.toHaveClass('text-fg-3');
+    expect(within(memorySection()).getByText('Notes are searched by meaning')).toBeInTheDocument();
+  });
+
+  it('keeps one row for every phase: an accent dot while it works, a danger dot when it stopped, no detail', async () => {
+    const backend = fakeEmbedder();
+    render(SettingsView);
+    await within(memorySection()).findByText('Ready');
+
+    backend.push({ phase: 'verifying', progress: null, model: null, error: null, modelPresent: false });
+    expect(await within(memorySection()).findByText('Checking the search model')).toBeInTheDocument();
+    expect(within(memorySection()).getByTestId('vector-status-dot')).toHaveClass('text-accent');
+    expect(within(memorySection()).queryByText('Notes are searched by meaning')).toBeNull();
+
+    backend.push({ phase: 'failed', progress: null, model: null, error: 'Boom', modelPresent: false });
+    expect(await within(memorySection()).findByText('Vector search stopped')).toBeInTheDocument();
+    expect(within(memorySection()).getByTestId('vector-status-dot')).toHaveClass('text-danger');
+
+    backend.push({ phase: 'elsewhere', progress: null, model: null, error: null, modelPresent: null });
+    expect(await within(memorySection()).findByText('Running in another Harness Desktop window')).toBeInTheDocument();
+    expect(within(memorySection()).getByTestId('vector-status-dot')).toHaveClass('text-fg-3');
+  });
+
   it('shows neither switch while the server lacks the feature', async () => {
     fakeEmbedder({ old: true });
     render(SettingsView);
