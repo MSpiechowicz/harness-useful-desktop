@@ -122,6 +122,15 @@ pub struct MemoryRemote {
     /// applies the guards of each chat, repository and place, holds saves for review, and saves
     /// the user's own notes and scripts through commands agents cannot reach.
     pub save_guards_supported: bool,
+    /// True when the installed Harness Memory lists `embedder` in `harness-memory features`: it
+    /// runs the local embedder behind vector search.
+    pub embedder_supported: bool,
+    /// True when the installed Harness Memory lists `settings` in `harness-memory features`: it
+    /// has `settings get|set` (the English notes setting).
+    pub settings_supported: bool,
+    /// True when the installed Harness Memory lists `notes-lang` in `harness-memory features`:
+    /// notes carry a `lang` and `notes list` filters by it.
+    pub notes_lang_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does

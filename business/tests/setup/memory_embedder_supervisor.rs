@@ -157,7 +157,14 @@ async fn the_events_reach_the_watcher_and_stopping_closes_stdin_and_leaves_no_pr
 
     embedder.supervisor.stop().await;
 
-    assert_eq!(embedder.supervisor.state(), MemoryEmbedderState::default());
+    assert_eq!(
+        embedder.supervisor.state(),
+        MemoryEmbedderState {
+            model_present: Some(true),
+            ..MemoryEmbedderState::default()
+        },
+        "the model it served is downloaded"
+    );
     assert!(dead(pid).await, "stdin closed, the embedder exited");
     assert!(!embedder.registry.file().exists(), "nothing left to sweep");
     assert_eq!(embedder.starts(), 1, "stopping does not restart it");
@@ -275,7 +282,10 @@ async fn an_older_server_starts_no_embedder_and_a_disabled_one_is_enabled_once_b
     );
     assert_eq!(older.supervisor.state(), MemoryEmbedderState::default());
 
-    let current = embedder(&[("FAKE_EMBEDDER_ENABLED", "false")], &[10]);
+    let current = embedder(
+        &[("FAKE_EMBEDDER_ENABLED", "false"), ("FAKE_EMBEDDER_MODEL", "present")],
+        &[10],
+    );
     let mut updates = current.supervisor.subscribe();
     let features = MemoryFeatures::new();
 
@@ -299,8 +309,63 @@ async fn an_older_server_starts_no_embedder_and_a_disabled_one_is_enabled_once_b
         .supervisor
         .reconcile(&current.setup.env, current.setup.runner(), &features, false)
         .await;
-    assert_eq!(current.supervisor.state(), MemoryEmbedderState::default());
+    assert_eq!(
+        current.supervisor.state(),
+        MemoryEmbedderState {
+            model_present: Some(true),
+            ..MemoryEmbedderState::default()
+        }
+    );
     assert!(dead(current.pids()[0]).await);
+}
+
+#[tokio::test]
+async fn a_stopped_embedder_learns_from_the_status_whether_a_model_is_downloaded() {
+    let answers: [(Vars, Option<bool>); 3] = [
+        (&[("FAKE_EMBEDDER_MODEL", "present")], Some(true)),
+        (&[("FAKE_EMBEDDER_MODEL", "absent")], Some(false)),
+        (&[("FAKE_EMBEDDER_MODEL", "unknown")], None),
+    ];
+
+    for (vars, expected) in answers {
+        let stopped = embedder(vars, &[10]);
+
+        stopped
+            .supervisor
+            .reconcile(
+                &stopped.setup.env,
+                stopped.setup.runner(),
+                &MemoryFeatures::new(),
+                false,
+            )
+            .await;
+
+        assert_eq!(stopped.supervisor.state().model_present, expected, "{vars:?}");
+        assert_eq!(stopped.supervisor.state().phase, EmbedderPhase::Off);
+        assert_eq!(stopped.starts(), 0, "nothing runs");
+    }
+
+    let launching = embedder(
+        &[("FAKE_EMBEDDER_ENABLED", "true"), ("FAKE_EMBEDDER_MODEL", "present")],
+        &[10],
+    );
+    let mut updates = launching.supervisor.subscribe();
+
+    launching
+        .supervisor
+        .reconcile(
+            &launching.setup.env,
+            launching.setup.runner(),
+            &MemoryFeatures::new(),
+            true,
+        )
+        .await;
+    until(&mut updates, |state| state.phase == EmbedderPhase::Ready).await;
+    assert_eq!(launching.supervisor.state().model_present, Some(true));
+
+    launching.supervisor.set_model_present(Some(false));
+    assert_eq!(launching.supervisor.state().model_present, Some(false));
+    launching.supervisor.stop().await;
 }
 
 #[tokio::test]

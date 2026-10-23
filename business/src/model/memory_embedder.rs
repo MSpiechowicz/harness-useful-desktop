@@ -49,6 +49,10 @@ pub struct MemoryEmbedderState {
     pub model: Option<String>,
     /// The last error it reported, or why it was given up (redacted, clipped).
     pub error: Option<String>,
+    /// Whether a downloaded model is on this computer: `embedder status --json` says so when the
+    /// app starts, after the embedder stopped and after the model was removed, and `ready` makes
+    /// it true. `None` while it is not known (the server did not say, or was not asked yet).
+    pub model_present: Option<bool>,
 }
 
 /// The answer of `memory_set_vector_search`.

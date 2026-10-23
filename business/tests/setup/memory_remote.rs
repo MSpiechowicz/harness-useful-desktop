@@ -129,6 +129,9 @@ fn without_a_file_team_memory_is_off() {
             team_and_local_supported: false,
             scripts_team_and_local_supported: false,
             save_guards_supported: false,
+            embedder_supported: false,
+            settings_supported: false,
+            notes_lang_supported: false,
             config_path: "~/.config/harness-memory/config.toml".to_owned(),
             problem: None,
         }
@@ -175,29 +178,6 @@ fn a_saved_url_is_shown_without_password_query_or_token() {
 
     let wire = serde_json::to_string(&remote).unwrap();
     assert!(!wire.contains(PASSWORD) && !wire.contains(TOKEN), "{wire}");
-}
-
-#[test]
-fn every_scheme_names_its_kind() {
-    let (_dir, env, path) = home();
-    let cases = [
-        ("POSTGRES://h/db", Some(MemoryRemoteKind::Postgres)),
-        ("libsql://team.turso.io", Some(MemoryRemoteKind::Libsql)),
-        ("https://sqld.example.com", Some(MemoryRemoteKind::Libsql)),
-        (
-            "mongodb+srv://u:p@cluster.example.com/memory",
-            Some(MemoryRemoteKind::Mongodb),
-        ),
-        ("mysql://h/db", None),
-    ];
-
-    for (url, kind) in cases {
-        write(&path, &format!("database_url = \"{url}\"\n"));
-        let remote = get(&env);
-
-        assert_eq!(remote.kind, kind, "{url}");
-        assert_eq!(remote.problem.is_some(), kind.is_none(), "{url}");
-    }
 }
 
 #[test]

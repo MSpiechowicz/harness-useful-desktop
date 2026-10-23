@@ -1,8 +1,11 @@
+import { untrack } from 'svelte';
+
 import { t } from '$lib/i18n/i18n.svelte';
 import type { MemoryEmbedderState } from '$lib/ipc/bindings/MemoryEmbedderState';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
+import { memoryRemote, type MemoryRemoteStore } from './memoryRemote.svelte';
 import { prefs, type PrefsStore } from './prefs.svelte';
 import { toasts, type ToastsStore } from './toasts.svelte';
 
@@ -16,7 +19,9 @@ function missing(error: IpcFailure): boolean {
 
 /**
  * Vector search and the English notes setting of Harness Memory, as the Memory section of the settings shows them.
- * The embedder's state follows `memory_embedder_watch`, the settings are read when the section opens.
+ * The embedder's state follows `memory_embedder_watch`, the settings are read when the section opens. Whether the installed server has
+ * either comes from its `features` line (`embedderSupported`, `settingsSupported`, read with the remote memory settings). Only while those
+ * are not loaded yet does a rejected call stand in for the answer.
  */
 export class MemorySearchStore {
   /** The embedder right now. Null until the watch said so. */
@@ -27,16 +32,14 @@ export class MemorySearchStore {
   removing = $state(false);
   /** Why the last removal failed. */
   removeFailure = $state<string | null>(null);
-  /** The model was deleted and vector search stayed off since, so there is nothing left to remove. */
-  modelRemoved = $state(false);
 
   /** Whether agents must write notes in English. Null until the server said so. */
   englishNotes = $state<boolean | null>(null);
   englishPending = $state(false);
 
   /**
-   * Whether the server has `settings`: null until it answered. The server lists `embedder` and `settings` in the same release and the app
-   * has no probe of its own for the embedder, so this also stands for vector search until a refusal says otherwise.
+   * Whether the server has `settings`, as a call answered or refused: null until it did. Used only while the server's features are not known.
+   * The server lists `embedder` and `settings` in the same release, so this also stands for vector search until a refusal says otherwise.
    */
   private settingsListed = $state<boolean | null>(null);
   private vectorRefused = $state(false);
@@ -45,15 +48,21 @@ export class MemorySearchStore {
     private readonly transport: Transport,
     private readonly notifications: ToastsStore,
     private readonly appPrefs: PrefsStore,
+    private readonly remote: MemoryRemoteStore,
   ) {}
 
   /** Whether the installed Harness Memory runs vector search. Unknown counts as no: nothing is shown before it is known. */
   get vectorSupported(): boolean {
-    return this.settingsListed === true && !this.vectorRefused;
+    const listed = this.remote.value?.embedderSupported;
+
+    return listed ?? (this.settingsListed === true && !this.vectorRefused);
   }
 
+  /** Whether the installed Harness Memory has `settings get|set`. Unknown counts as no. */
   get settingsSupported(): boolean {
-    return this.settingsListed === true;
+    const listed = this.remote.value?.settingsSupported;
+
+    return listed ?? (this.settingsListed === true);
   }
 
   /** The switch position: the stored pref, on by default. */
@@ -75,9 +84,9 @@ export class MemorySearchStore {
     return WORKING.some((each) => each === phase);
   }
 
-  /** The "Remove downloaded model" action is offered: vector search is off and the model is not deleted yet. */
+  /** The "Remove downloaded model" action is offered: vector search is off and the server said a model is downloaded. Unknown hides it. */
   get canRemoveModel(): boolean {
-    return this.vectorSupported && !this.vectorOn && !this.modelRemoved && this.state?.phase === 'off';
+    return this.vectorSupported && !this.vectorOn && this.state?.modelPresent === true;
   }
 
   /**
@@ -110,7 +119,6 @@ export class MemorySearchStore {
     this.vectorPending = false;
     this.removing = false;
     this.removeFailure = null;
-    this.modelRemoved = false;
     this.englishNotes = null;
     this.englishPending = false;
     this.settingsListed = null;
@@ -119,6 +127,11 @@ export class MemorySearchStore {
 
   /** Reads the English notes setting. A server without it, or none installed, hides the switch. */
   async loadSettings(): Promise<void> {
+    // A server known to lack `settings` is not asked. Untracked: the effect that reads the settings must not run again with every read of the remote settings.
+    if (untrack(() => this.remote.value?.settingsSupported) === false) {
+      return;
+    }
+
     try {
       const settings = await this.transport.invoke('memory_settings_get', undefined);
 
@@ -146,7 +159,6 @@ export class MemorySearchStore {
       const switched = await this.transport.invoke('memory_set_vector_search', { enabled });
 
       this.state = switched.state;
-      this.modelRemoved = enabled ? false : this.modelRemoved;
 
       if (this.appPrefs.value) {
         this.appPrefs.value = { ...this.appPrefs.value, vectorSearch: switched.vectorSearch };
@@ -154,7 +166,8 @@ export class MemorySearchStore {
     } catch (error) {
       const failure = IpcFailure.from(error);
 
-      if (missing(failure)) {
+      // A refusal only counts while the server's features are not known: once they are, the switch follows them.
+      if (missing(failure) && this.remote.value === null) {
         this.vectorRefused = true;
       } else {
         this.notifications.push({ title: t('shell.toast.saveFailed'), description: failure.message, tone: 'danger' });
@@ -171,7 +184,6 @@ export class MemorySearchStore {
 
     try {
       this.state = await this.transport.invoke('memory_embedder_remove_model', undefined);
-      this.modelRemoved = true;
 
       return true;
     } catch (error) {
@@ -201,4 +213,4 @@ export class MemorySearchStore {
   }
 }
 
-export const memorySearch = new MemorySearchStore(ipc, toasts, prefs);
+export const memorySearch = new MemorySearchStore(ipc, toasts, prefs, memoryRemote);

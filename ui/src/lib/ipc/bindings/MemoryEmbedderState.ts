@@ -21,4 +21,10 @@ model: string | null,
 /**
  * The last error it reported, or why it was given up (redacted, clipped).
  */
-error: string | null, };
+error: string | null, 
+/**
+ * Whether a downloaded model is on this computer: `embedder status --json` says so when the
+ * app starts, after the embedder stopped and after the model was removed, and `ready` makes
+ * it true. `None` while it is not known (the server did not say, or was not asked yet).
+ */
+modelPresent: boolean | null, };

@@ -240,7 +240,9 @@ flowchart LR
     - **Gating.** `harness-memory features` gates each part: `embedder` (the supervisor, the vector search switch and the
       model removal), `settings` (the English notes setting) and `notes-lang` (`lang` in a note and the `--lang`
       filter, dropped from a query for a server that does not list it). A server without the line answers
-      `unsupported`, and Harness Memory not installed answers `notFound`.
+      `unsupported`, and Harness Memory not installed answers `notFound`. The page reads the same lines from
+      `MemoryRemote` (`embedderSupported`, `settingsSupported`, `notesLangSupported`, next to `saveGuardsSupported`) and
+      falls back to a rejected call only while those are not loaded.
     - **Pref.** `vectorSearch` in `prefs.json` (default on, also for a file without the key) is server-managed:
       only `memory_set_vector_search` changes it, because it also runs `embedder enable|disable` and starts or stops the
       process. The embedder is wanted while `memoryEnabled` and `vectorSearch` are both on.
@@ -252,6 +254,9 @@ flowchart LR
       A crash restarts it after 1, 5 and 30 s, at most three times within ten minutes, then the phase is `failed`.
       An exit 0 on its own leaves it `off`. `{"event":"busy"}` means another app instance runs the embedder, the phase
       is `elsewhere` and it is not started again.
+      `MemoryEmbedderState.modelPresent` says whether a downloaded model is on the computer: `embedder status --json`
+      (`model_present`) sets it at the launch reconcile and whenever the embedder is stopped on purpose, `ready` makes it
+      true, a removal makes it false, and it stays `null` (unknown) when the server does not say.
     - **IPC.** `memory_set_vector_search(enabled)` returns the stored pref and the state. `memory_embedder_watch`
       streams the state over a channel, now and on every change (one listener, a new one replaces the old).
       `memory_embedder_remove_model` deletes the model files and vectors after stopping the embedder.

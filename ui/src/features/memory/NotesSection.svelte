@@ -18,6 +18,7 @@
   import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
+  import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -64,8 +65,8 @@
   const filtered = $derived(viewState.notesKind !== null || placeApplied(places, viewState.notesPlace) || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden || viewState.notesNotEnglish);
   // Team notes hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
-  // The server says which notes are not in English: a server that does not leaves `lang` empty everywhere, and then the filter has nothing to offer.
-  const langKnown = $derived(rows.some((row) => row.lang === 'en' || row.lang === 'other'));
+  // The server's `features` say whether it tells which notes are not in English. Until they are read, rows that carry a language stand in for it.
+  const langListed = $derived(memoryRemote.value?.notesLangSupported ?? rows.some((row) => row.lang === 'en' || row.lang === 'other'));
   // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
   const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
 
@@ -229,7 +230,7 @@
     <HiddenFilter count={hiddenCount} on={notesTeam.showHidden} onchange={showHidden} />
   {/if}
 
-  {#if langKnown || viewState.notesNotEnglish}
+  {#if langListed || viewState.notesNotEnglish}
     <NotEnglishFilter on={viewState.notesNotEnglish} onchange={showNotEnglish} />
   {/if}
 
@@ -303,7 +304,7 @@
       <div class="flex items-center gap-1.5">
         <NoteKindBadge kind={note.kind} size="lg" />
 
-        {#if note.lang === 'other'}
+        {#if langListed && note.lang === 'other'}
           <NoteLangBadge />
         {/if}
       </div>

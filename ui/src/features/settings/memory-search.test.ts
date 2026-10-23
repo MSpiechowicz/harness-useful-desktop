@@ -14,8 +14,11 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { samplePrefs } from '../../../tests/helpers';
 import SettingsView from './SettingsView.svelte';
 
-const READY: MemoryEmbedderState = { phase: 'ready', progress: null, model: 'multilingual', error: null };
-const OFF: MemoryEmbedderState = { phase: 'off', progress: null, model: null, error: null };
+const READY: MemoryEmbedderState = { phase: 'ready', progress: null, model: 'multilingual', error: null, modelPresent: true };
+/** Stopped, with the model still on this computer. */
+const OFF: MemoryEmbedderState = { phase: 'off', progress: null, model: null, error: null, modelPresent: true };
+/** Stopped after the model was removed. */
+const OFF_WITHOUT_MODEL: MemoryEmbedderState = { ...OFF, modelPresent: false };
 
 interface Options {
   /** The server lists neither `embedder` nor `settings`. */
@@ -24,10 +27,14 @@ interface Options {
   team?: boolean;
   englishNotes?: boolean;
   removal?: () => MemoryEmbedderState;
+  /** The stopped embedder the watch starts with while vector search is off. */
+  stopped?: MemoryEmbedderState;
+  /** What the server's feature lines say, over the mock's (a current server). */
+  features?: Partial<Pick<MemoryRemote, 'embedderSupported' | 'settingsSupported' | 'notesLangSupported'>>;
 }
 
 /** A Harness Memory that answers the embedder and settings commands, and lets the test push embedder states the way the watch does. */
-function fakeEmbedder({ old = false, team = false, englishNotes = true, removal = () => OFF }: Options = {}) {
+function fakeEmbedder({ old = false, team = false, englishNotes = true, removal = () => OFF_WITHOUT_MODEL, stopped = OFF, features = {} }: Options = {}) {
   const passthrough = ipc.invoke.bind(ipc);
   let emit: (state: MemoryEmbedderState) => void = () => {};
   let stored = englishNotes;
@@ -36,7 +43,7 @@ function fakeEmbedder({ old = false, team = false, englishNotes = true, removal 
     switch (name) {
       case 'memory_embedder_watch':
         emit = (args as CommandArgs<'memory_embedder_watch'>).onEvent;
-        emit(prefs.value?.vectorSearch === false ? OFF : READY);
+        emit(prefs.value?.vectorSearch === false ? stopped : READY);
 
         return null as CommandResult<K>;
       case 'memory_settings_get':
@@ -52,14 +59,17 @@ function fakeEmbedder({ old = false, team = false, englishNotes = true, removal 
       case 'memory_set_vector_search': {
         const { enabled } = args as CommandArgs<'memory_set_vector_search'>;
 
-        return { vectorSearch: enabled, state: enabled ? READY : OFF } as CommandResult<K>;
+        return { vectorSearch: enabled, state: enabled ? READY : stopped } as CommandResult<K>;
       }
       case 'memory_embedder_remove_model':
         return removal() as CommandResult<K>;
       case 'memory_remote_get': {
         const remote = (await passthrough(name, args)) as MemoryRemote;
 
-        return (team ? { ...remote, enabled: true, kind: 'postgres', urlRedacted: 'postgres://me@db.team.example:5432/mem' } : remote) as CommandResult<K>;
+        const lines = old ? { embedderSupported: false, settingsSupported: false } : features;
+        const listed = { ...remote, ...lines };
+
+        return (team ? { ...listed, enabled: true, kind: 'postgres', urlRedacted: 'postgres://me@db.team.example:5432/mem' } : listed) as CommandResult<K>;
       }
       default:
         return passthrough(name, args);
@@ -111,6 +121,15 @@ describe('Vector search in the Memory section', () => {
     expect(within(memorySection()).queryByRole('switch', { name: 'English notes' })).toBeNull();
   });
 
+  it('follows the server\'s feature lines for each switch, whatever a call answered', async () => {
+    fakeEmbedder({ features: { embedderSupported: true, settingsSupported: false } });
+    render(SettingsView);
+
+    expect(await within(memorySection()).findByRole('switch', { name: 'Vector search' })).toBeInTheDocument();
+    await waitFor(() => expect(memorySearch.settingsSupported).toBe(false));
+    expect(within(memorySection()).queryByRole('switch', { name: 'English notes' })).toBeNull();
+  });
+
   it('hides the switch for good once the server refuses it', async () => {
     const { invoke } = fakeEmbedder();
     invoke.mockImplementation(async <K extends CommandName>(name: K) => {
@@ -136,22 +155,22 @@ describe('Vector search in the Memory section', () => {
     render(SettingsView);
     await within(memorySection()).findByText('Ready');
 
-    backend.push({ phase: 'downloading', progress: 0.42, model: null, error: null });
+    backend.push({ phase: 'downloading', progress: 0.42, model: null, error: null, modelPresent: false });
 
     const bar = await within(memorySection()).findByRole('progressbar', { name: 'Vector search progress' });
     expect(bar).toHaveAttribute('aria-valuenow', '42');
     expect(within(memorySection()).getByText('Downloading the search model')).toBeInTheDocument();
     expect(within(memorySection()).getByText('42%')).toBeInTheDocument();
 
-    backend.push({ phase: 'downloading', progress: null, model: null, error: null });
+    backend.push({ phase: 'downloading', progress: null, model: null, error: null, modelPresent: false });
 
     await waitFor(() => expect(within(memorySection()).getByRole('progressbar')).not.toHaveAttribute('aria-valuenow'));
     expect(within(memorySection()).queryByText(/%$/)).toBeNull();
 
-    backend.push({ phase: 'backfilling', progress: 0.5, model: 'multilingual', error: null });
+    backend.push({ phase: 'backfilling', progress: 0.5, model: 'multilingual', error: null, modelPresent: true });
     expect(await within(memorySection()).findByText('Indexing notes')).toBeInTheDocument();
 
-    backend.push({ phase: 'updating', progress: 0.1, model: 'multilingual', error: null });
+    backend.push({ phase: 'updating', progress: 0.1, model: 'multilingual', error: null, modelPresent: true });
     expect(await within(memorySection()).findByText('Updating the search model')).toBeInTheDocument();
 
     backend.push(READY);
@@ -163,13 +182,13 @@ describe('Vector search in the Memory section', () => {
     render(SettingsView);
     await within(memorySection()).findByText('Ready');
 
-    backend.push({ phase: 'failed', progress: null, model: null, error: 'The model could not be downloaded' });
+    backend.push({ phase: 'failed', progress: null, model: null, error: 'The model could not be downloaded', modelPresent: false });
 
     expect(await within(memorySection()).findByText('Vector search stopped')).toBeInTheDocument();
     expect(within(memorySection()).getByText('The model could not be downloaded')).toBeInTheDocument();
     expect(within(memorySection()).queryByRole('button', { name: /retry|refresh/i })).toBeNull();
 
-    backend.push({ phase: 'elsewhere', progress: null, model: null, error: null });
+    backend.push({ phase: 'elsewhere', progress: null, model: null, error: null, modelPresent: null });
 
     expect(await within(memorySection()).findByText('Running in another Harness Desktop window')).toBeInTheDocument();
     expect(within(memorySection()).queryByText('Vector search stopped')).toBeNull();
@@ -202,6 +221,23 @@ describe('Vector search in the Memory section', () => {
     await fireEvent.click(vector);
     await fireEvent.click(vector);
 
+    expect(await within(memorySection()).findByRole('button', { name: 'Remove downloaded model' })).toBeInTheDocument();
+  });
+
+  it('offers the removal only once the server says a model is downloaded', async () => {
+    const backend = fakeEmbedder({ stopped: { ...OFF, modelPresent: null } });
+    prefs.value = samplePrefs({ motion: 'off', vectorSearch: false });
+    render(SettingsView);
+
+    await within(memorySection()).findByRole('switch', { name: 'Vector search' });
+    await waitFor(() => expect(memorySearch.state?.modelPresent).toBeNull());
+    expect(within(memorySection()).queryByRole('button', { name: 'Remove downloaded model' })).toBeNull();
+
+    backend.push(OFF_WITHOUT_MODEL);
+    await waitFor(() => expect(memorySearch.state?.modelPresent).toBe(false));
+    expect(within(memorySection()).queryByRole('button', { name: 'Remove downloaded model' })).toBeNull();
+
+    backend.push(OFF);
     expect(await within(memorySection()).findByRole('button', { name: 'Remove downloaded model' })).toBeInTheDocument();
   });
 

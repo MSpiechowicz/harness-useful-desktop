@@ -131,9 +131,19 @@ impl EmbedderTracker {
         self.busy
     }
 
-    /// A process is starting: `starting`, with the model it served and nothing else of its past.
+    /// A process is starting: `starting`, keeping the model it served and whether a model is
+    /// downloaded, nothing else of its past.
     pub fn starting(&mut self) -> bool {
         self.reset(EmbedderPhase::Starting, None)
+    }
+
+    /// Whether a downloaded model is on this computer, as `embedder status` or a removal says.
+    /// True when the state shown changed.
+    pub fn model_present(&mut self, present: Option<bool>) -> bool {
+        let changed = self.state.model_present != present;
+
+        self.state.model_present = present;
+        changed
     }
 
     /// The embedder is not running and is not meant to (`off`).
@@ -158,6 +168,7 @@ impl EmbedderTracker {
             progress: None,
             model: self.state.model.clone().filter(|_| phase != EmbedderPhase::Off),
             error,
+            model_present: self.state.model_present,
         };
 
         before != self.state
@@ -218,6 +229,7 @@ impl EmbedderTracker {
         }
 
         self.state.error = None;
+        self.state.model_present = Some(true);
         self.settle();
     }
 
@@ -351,6 +363,8 @@ pub async fn set_embedder_enabled(env: &Env, runner: &dyn ProcessRunner, server:
 pub struct EmbedderStatus {
     /// The switch of `embedder enable|disable` (off when the server does not say).
     pub enabled: bool,
+    /// Whether a downloaded model is on this computer (`None` when the server does not say).
+    pub model_present: Option<bool>,
 }
 
 /// `embedder status --json`. `protocol` when the answer is not JSON.
@@ -365,6 +379,7 @@ pub async fn embedder_status(env: &Env, runner: &dyn ProcessRunner, server: &Pat
 
     Ok(EmbedderStatus {
         enabled: data.get("enabled").and_then(Value::as_bool).unwrap_or(false),
+        model_present: data.get("model_present").and_then(Value::as_bool),
     })
 }
 

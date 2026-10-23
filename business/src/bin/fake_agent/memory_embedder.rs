@@ -8,7 +8,9 @@
 //!   script ends the process waits for stdin EOF and exits 0, as the real embedder does. Without a
 //!   script it prints `ready` and waits.
 //! - `embedder enable|disable` print nothing and exit 0. `embedder status --json` prints
-//!   `{"enabled": FAKE_EMBEDDER_ENABLED == "true", "running": false, …}`. `embedder remove-model`
+//!   `{"enabled": FAKE_EMBEDDER_ENABLED == "true", "running": false, "model_present": …, …}`
+//!   (`model_present` is true when `FAKE_EMBEDDER_MODEL=present`, left out when it is `unknown`,
+//!   else false). `embedder remove-model`
 //!   exits 1 with the server's line when `FAKE_EMBEDDER_REMOVE=refuse`, else 0.
 //! - `settings get --json` prints `{"english_notes": FAKE_ENGLISH_NOTES != "false"}`; `settings set
 //!   english_notes=<bool> --json` prints that value back.
@@ -54,14 +56,21 @@ pub fn settings(args: &[String]) -> ! {
 fn status() -> ! {
     let enabled = std::env::var("FAKE_EMBEDDER_ENABLED").is_ok_and(|value| value == "true");
 
-    print(&json!({
+    let mut status = json!({
         "enabled": enabled,
         "running": false,
         "active_model": null,
         "pending_model": null,
-        "model_present": false,
         "vectors": 0,
-    }))
+    });
+
+    match std::env::var("FAKE_EMBEDDER_MODEL").as_deref() {
+        Ok("unknown") => {}
+        Ok("present") => status["model_present"] = json!(true),
+        _ => status["model_present"] = json!(false),
+    }
+
+    print(&status)
 }
 
 fn remove_model() -> ! {

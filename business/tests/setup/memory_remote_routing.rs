@@ -151,3 +151,41 @@ fn the_note_keys_take_remote_local_and_hooks_do_not() {
         "hooks and routines stay two-valued"
     );
 }
+
+#[test]
+fn the_vector_search_lines_reach_the_page_as_their_own_flags() {
+    let home = Home::new();
+    let listing = |embedder, settings, notes_lang| FeaturesSupport::Listed {
+        notes_remote_local: false,
+        notes_hide: false,
+        push_json: false,
+        scripts_remote_local: false,
+        scripts_hide: false,
+        scripts_push_json: false,
+        save_guards: false,
+        embedder,
+        settings,
+        notes_lang,
+    };
+    let flags = |features| {
+        let remote = memory_remote_get(&home.env, support(features));
+
+        (
+            remote.embedder_supported,
+            remote.settings_supported,
+            remote.notes_lang_supported,
+        )
+    };
+
+    assert_eq!(flags(listing(true, true, true)), (true, true, true));
+    assert_eq!(flags(listing(false, true, false)), (false, true, false));
+    assert_eq!(flags(listing(true, false, true)), (true, false, true));
+
+    for features in [
+        FeaturesSupport::Unsupported,
+        FeaturesSupport::NotInstalled,
+        FeaturesSupport::Unknown,
+    ] {
+        assert_eq!(flags(features), (false, false, false), "{features:?}");
+    }
+}

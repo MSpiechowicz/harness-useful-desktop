@@ -163,26 +163,37 @@ impl EmbedderSupervisor {
 
     /// Makes the embedder run when `wanted` (project memory and vector search are on) and the
     /// installed Harness Memory lists `embedder`, and stop otherwise. A server that does not know
-    /// the embedder, or is not installed, starts nothing. The embedder's own switch is turned on
-    /// first when `embedder status` says it is off (an app that updated while the pref was already
-    /// on). Failures are logged: the state tells the rest.
+    /// the embedder, or is not installed, starts nothing. `embedder status` also tells whether a
+    /// downloaded model is on this computer (`modelPresent`), whether the embedder starts or not.
+    /// The embedder's own switch is turned on first when the status says it is off (an app that
+    /// updated while the pref was already on). Failures are logged: the state tells the rest.
     pub async fn reconcile(&self, env: &Env, runner: &dyn ProcessRunner, features: &MemoryFeatures, wanted: bool) {
         let _deciding = self.reconciling.lock().await;
 
+        let server = feature_server(env, runner, features, FeaturesSupport::embedder, "vector search").await;
+
         if !wanted {
             self.stop().await;
+
+            if let Ok(server) = server {
+                self.read_model_present(env, runner, &server).await;
+            }
+
             return;
         }
 
-        let Ok(server) = feature_server(env, runner, features, FeaturesSupport::embedder, "vector search").await else {
+        let Ok(server) = server else {
             self.stop().await;
             return;
         };
 
         match embedder_status(env, runner, &server).await {
-            Ok(status) if status.enabled => {}
-            Ok(_) => {
-                if let Err(error) = set_embedder_enabled(env, runner, &server, true).await {
+            Ok(status) => {
+                self.set_model_present(status.model_present);
+
+                if !status.enabled
+                    && let Err(error) = set_embedder_enabled(env, runner, &server, true).await
+                {
                     tracing::warn!(%error, "the embedder could not be switched on");
                     return;
                 }
@@ -194,6 +205,22 @@ impl EmbedderSupervisor {
         }
 
         self.start(embedder_spec(env, &server)).await;
+    }
+
+    /// Records whether a downloaded model is on this computer (`None`: not known) and publishes
+    /// the state when that changed.
+    pub fn set_model_present(&self, present: Option<bool>) {
+        self.shared.update(|tracker| tracker.model_present(present));
+    }
+
+    /// Asks `embedder status` whether a downloaded model is on this computer. A server that does
+    /// not say, or cannot be asked, leaves what is known as it is.
+    async fn read_model_present(&self, env: &Env, runner: &dyn ProcessRunner, server: &Path) {
+        match embedder_status(env, runner, server).await {
+            Ok(status) if status.model_present.is_some() => self.set_model_present(status.model_present),
+            Ok(_) => {}
+            Err(error) => tracing::warn!(%error, "the embedder's status could not be read"),
+        }
     }
 
     /// Stops the embedder: closes its stdin, waits [`SupervisorOptions::stop_grace`], then kills

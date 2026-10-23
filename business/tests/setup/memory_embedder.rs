@@ -11,7 +11,7 @@ use harness_business::ecosystem::{
 use harness_business::model::{
     EmbedderPhase, MemoryEmbedderState, MemoryScriptsAvailability, NoteLangFilter, NoteSummary,
 };
-use memory_stand_in::{CURRENT, Setup};
+use memory_stand_in::{CURRENT, Setup, Vars};
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
@@ -199,9 +199,32 @@ fn an_error_fails_the_embedder_and_busy_hands_it_to_another_instance() {
     assert!(tracker.stopped());
     assert_eq!(
         tracker.state(),
-        &MemoryEmbedderState::default(),
-        "off forgets the model"
+        &MemoryEmbedderState {
+            model_present: Some(true),
+            ..MemoryEmbedderState::default()
+        },
+        "off forgets the model it served but not that it is downloaded"
     );
+}
+
+#[test]
+fn whether_a_model_is_downloaded_is_unknown_until_told_and_ready_makes_it_true() {
+    let mut tracker = EmbedderTracker::new();
+    assert_eq!(tracker.state().model_present, None);
+
+    assert!(tracker.model_present(Some(false)));
+    assert!(!tracker.model_present(Some(false)), "the same answer is not a change");
+    assert!(tracker.starting());
+    assert_eq!(tracker.state().model_present, Some(false), "starting keeps it");
+
+    tracker.apply(parse_event(r#"{"event":"ready","model":"m1","dim":384}"#).unwrap());
+    assert_eq!(tracker.state().model_present, Some(true));
+
+    assert!(tracker.failed("gone"));
+    assert_eq!(tracker.state().model_present, Some(true), "a failure keeps it");
+
+    assert!(tracker.model_present(Some(false)), "a removal says it is gone");
+    assert_eq!(tracker.state().model_present, Some(false));
 }
 
 #[test]
@@ -233,12 +256,23 @@ async fn the_short_commands_run_through_the_installed_server_that_lists_the_feat
     .expect("the embedder is listed");
     assert_eq!(server, setup.binary);
 
-    assert!(
-        embedder_status(&setup.env, setup.runner(), &server)
+    let status = embedder_status(&setup.env, setup.runner(), &server).await.unwrap();
+    assert!(status.enabled);
+    assert_eq!(status.model_present, Some(false));
+
+    let answers: [(Vars, Option<bool>); 2] = [
+        (&[("FAKE_EMBEDDER_MODEL", "present")], Some(true)),
+        (&[("FAKE_EMBEDDER_MODEL", "unknown")], None),
+    ];
+
+    for (vars, expected) in answers {
+        let other = Setup::installed(CURRENT, vars);
+        let status = embedder_status(&other.env, other.runner(), &other.binary)
             .await
-            .unwrap()
-            .enabled
-    );
+            .unwrap();
+
+        assert_eq!(status.model_present, expected, "{vars:?}");
+    }
     set_embedder_enabled(&setup.env, setup.runner(), &server, false)
         .await
         .unwrap();

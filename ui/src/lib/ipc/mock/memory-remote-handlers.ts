@@ -3,6 +3,8 @@ import type { MemoryRemote } from '../bindings/MemoryRemote';
 import type { MemoryRemoteKind } from '../bindings/MemoryRemoteKind';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
+import { embedderScenarioFromLocation } from './memory-embedder-handlers';
+import { notesLangListed } from './memory-notes-handlers';
 import { scriptsSupported } from './memory-scripts-handlers';
 import type { Handlers } from './types';
 
@@ -149,6 +151,10 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       scriptsTeamAndLocalSupported: true,
       // And for save guards: the Memory button, held saves and the Settings cards.
       saveGuardsSupported: true,
+      // Vector search and the English notes setting come in one release: `?embedder=old` is a Harness Memory without either, `?lang=old` one without note languages.
+      embedderSupported: embedderScenarioFromLocation() !== 'old',
+      settingsSupported: embedderScenarioFromLocation() !== 'old',
+      notesLangSupported: notesLangListed(),
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };

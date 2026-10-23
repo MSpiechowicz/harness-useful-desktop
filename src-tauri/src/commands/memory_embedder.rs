@@ -58,7 +58,7 @@ pub async fn memory_embedder_watch(
 }
 
 /// Stops the embedder if it runs, then deletes the model files and the vectors
-/// (`embedder remove-model`, 60 s). Answers the embedder's state (`off`). The `vectorSearch` pref
+/// (`embedder remove-model`, 60 s). Answers the embedder's state (`off`, `modelPresent` false). The `vectorSearch` pref
 /// is left as it is, so turn vector search off first to keep the model from being fetched again at
 /// the next launch. `unsupported`, `notFound` and `process` as `memory_set_vector_search`.
 #[tauri::command]
@@ -67,6 +67,7 @@ pub async fn memory_embedder_remove_model(state: State<'_, AppState>) -> Command
 
     state.memory_embedder.stop().await;
     remove_embedder_model(&state.env, &state.runner, &server).await?;
+    state.memory_embedder.set_model_present(Some(false));
 
     Ok(state.memory_embedder.state())
 }
