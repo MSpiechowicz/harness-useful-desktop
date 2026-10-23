@@ -251,16 +251,25 @@ impl CommandExecutionItem {
 
 /// The command to show for `command`, everything that runs: the script of a plain
 /// `<shell> -lc '<script>'` (or `-c`) wrapper of `bash`, `sh` or `zsh` whose script holds no `'`
-/// (so it runs exactly as written), else the line as run, unchanged. Never Codex's reading of it
+/// (so it runs exactly as written), else the line as run, unchanged. The shell is named alone or
+/// lies in a system folder ([`SHELL_FOLDERS`]): one anywhere else (a program of the project named
+/// like a shell) is another program, so its line shows whole. Never Codex's reading of it
 /// (`commandActions`), which leaves parts of a pipeline or a sequence out.
 pub fn shown_command(command: &str) -> &str {
     unwrapped_script(command).unwrap_or(command)
 }
 
+/// The folders a shell wrapper's program may lie in for its script to show alone.
+const SHELL_FOLDERS: [&str; 4] = ["/bin", "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin"];
+
 /// The script of a plain shell wrapper (see [`shown_command`]).
 fn unwrapped_script(command: &str) -> Option<&str> {
     let (program, rest) = command.split_once(' ')?;
-    let shell = program.rsplit('/').next().unwrap_or(program);
+    let shell = match program.rsplit_once('/') {
+        Some((folder, name)) if SHELL_FOLDERS.contains(&folder) => name,
+        Some(_) => return None,
+        None => program,
+    };
 
     if !matches!(shell, "bash" | "sh" | "zsh") {
         return None;

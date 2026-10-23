@@ -31,6 +31,7 @@ use std::path::Path;
 
 use serde_json::Value;
 
+use super::dialog_text::in_project;
 use super::{Chat, CodexSession};
 use crate::codex_rpc::wire::outbound::{ApprovalPolicy, SandboxMode, ThreadSettings};
 use crate::codex_rpc::wire::results::ThreadSession;
@@ -143,7 +144,8 @@ pub(super) fn followed_mode(
 }
 
 /// What the sandbox of `session` allows beyond the project: folders outside it to write in (the
-/// user's `writable_roots`) and network access.
+/// user's `writable_roots`, resolved as an approval's paths are: a link in the project to a folder
+/// outside or a `..` counts as outside) and network access.
 fn widened(session: &ThreadSession, project: &Path) -> Vec<String> {
     let Some(sandbox) = &session.sandbox else {
         return Vec::new();
@@ -157,7 +159,7 @@ fn widened(session: &ThreadSession, project: &Path) -> Vec<String> {
         .into_iter()
         .flatten()
         .filter_map(Value::as_str)
-        .filter(|root| !Path::new(root).starts_with(project))
+        .filter(|root| !in_project(Path::new(root), project))
         .collect();
 
     if !roots.is_empty() {

@@ -54,12 +54,14 @@ impl CodexSession {
 
     /// Starts a new thread in the chat.
     async fn new_session(&self) -> Result<AgentReply> {
-        let request = Request::ThreadStart(ThreadStart {
-            settings: self.chat.project_settings().await,
-            ..ThreadStart::default()
-        });
+        let request = |settings| {
+            Request::ThreadStart(ThreadStart {
+                settings,
+                ..ThreadStart::default()
+            })
+        };
 
-        self.chat.move_to(&request, false, "start a new chat").await
+        self.chat.move_to(request, false, "start a new chat").await
     }
 
     /// Moves the chat to the saved thread `session` of the project.
@@ -77,13 +79,15 @@ impl CodexSession {
 
         chat.check_owned(&session.id).await?;
 
-        let request = Request::ThreadResume(ThreadResume {
-            thread_id: session.id.clone(),
-            settings: chat.project_settings().await,
-            exclude_turns: true,
-        });
+        let request = |settings| {
+            Request::ThreadResume(ThreadResume {
+                thread_id: session.id.clone(),
+                settings,
+                exclude_turns: true,
+            })
+        };
 
-        chat.move_to(&request, true, "switch the session").await
+        chat.move_to(request, true, "switch the session").await
     }
 
     /// Forks at message `entry_id` (see the module docs).
@@ -98,14 +102,16 @@ impl CodexSession {
             return Err(BusinessError::NotFound(format!("message {entry_id} in this chat")));
         }
 
-        let request = Request::ThreadFork(ThreadFork {
-            thread_id: source,
-            last_turn_id: Some(entry_id.to_owned()),
-            settings: chat.project_settings().await,
-            exclude_turns: true,
-        });
+        let request = |settings| {
+            Request::ThreadFork(ThreadFork {
+                thread_id: source,
+                last_turn_id: Some(entry_id.to_owned()),
+                settings,
+                exclude_turns: true,
+            })
+        };
 
-        chat.move_to(&request, true, ACTION).await
+        chat.move_to(request, true, ACTION).await
     }
 
     /// Duplicates the thread with every turn.
@@ -113,14 +119,17 @@ impl CodexSession {
         const ACTION: &str = "clone the chat";
 
         let chat = &self.chat;
-        let request = Request::ThreadFork(ThreadFork {
-            thread_id: chat.saved_thread(ACTION)?,
-            last_turn_id: None,
-            settings: chat.project_settings().await,
-            exclude_turns: true,
-        });
+        let source = chat.saved_thread(ACTION)?;
+        let request = |settings| {
+            Request::ThreadFork(ThreadFork {
+                thread_id: source,
+                last_turn_id: None,
+                settings,
+                exclude_turns: true,
+            })
+        };
 
-        chat.move_to(&request, true, ACTION).await
+        chat.move_to(request, true, ACTION).await
     }
 }
 
@@ -195,9 +204,15 @@ impl Chat {
         Ok(())
     }
 
-    /// Moves the chat to the thread `request` starts, resumes or forks (see the module docs);
-    /// `saved`: it starts with saved turns.
-    async fn move_to(self: &Arc<Self>, request: &Request, saved: bool, action: &str) -> Result<AgentReply> {
+    /// Moves the chat to the thread `request` starts, resumes or forks with the settings it is
+    /// given (see the module docs); `saved`: it starts with saved turns. A busy chat is refused
+    /// before Codex is asked anything (the settings read its servers again).
+    async fn move_to(
+        self: &Arc<Self>,
+        request: impl FnOnce(ThreadSettings) -> Request,
+        saved: bool,
+        action: &str,
+    ) -> Result<AgentReply> {
         self.saves_threads()?;
 
         let _moving = self.moving.lock().await;
@@ -212,7 +227,8 @@ impl Chat {
             live.counts.total
         };
 
-        let session = thread(self, request, DEFAULT_TIMEOUT).await?;
+        let request = request(self.project_settings().await);
+        let session = thread(self, &request, DEFAULT_TIMEOUT).await?;
 
         {
             let mut live = self.lock();

@@ -220,6 +220,7 @@ impl Chat {
             message_count: 0,
             queued_count: 0,
             context_usage: self.context_usage(live),
+            memory_guards: None,
         }
     }
 

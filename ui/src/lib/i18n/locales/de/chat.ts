@@ -43,6 +43,7 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.approvalCard.label': 'Freigabe erforderlich',
   'chat.approvalCard.denies': 'lehnt ab',
+  'chat.approvalCard.readsAs.codex': 'Codex liest das als: {reading}',
 
   'chat.ask.compact.title': 'Unterhaltung verdichten',
   'chat.ask.compact.description': 'Fasst ältere Nachrichten zusammen, um Kontext freizugeben. Du kannst dem Agenten sagen, was er behalten soll.',

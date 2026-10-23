@@ -284,3 +284,63 @@ async fn approvals_name_everything_they_grant() {
     chat.settled(1).await;
     chat.finish().await;
 }
+
+/// The args of the card of tool call `id`.
+fn card_args(chat: &CodexChat, id: &str) -> serde_json::Value {
+    chat.events()
+        .into_iter()
+        .find_map(|event| match event {
+            AgentEvent::ToolStart { tool_call_id, args, .. } if tool_call_id == id => Some(args),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("no card {id}"))
+}
+
+#[tokio::test]
+async fn approvals_show_what_a_title_could_hide() {
+    let chat = codex_engine_support::start_with("codex_engine_asks_hidden.jsonl", Setup::default(), |project| {
+        // A dangling link in the project to a file outside it.
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("../gone/evil.desktop", project.join("link.md")).unwrap();
+        #[cfg(not(unix))]
+        let _ = project;
+    })
+    .await;
+    chat.act(prompt("Tidy up.")).await;
+
+    // A move names where it goes: out of the project counts as outside, so nothing is allowed for good.
+    let change = answer(&chat, 0, "Reject").await;
+    let (title, options) = select(&change);
+    #[cfg(unix)]
+    assert_eq!(
+        title,
+        format!(
+            "Allow apply_patch: outside the project /etc/autostart/x.desktop (moved from notes.md), {}, a.txt (moved to sub/b.txt)?",
+            chat.project.join("link.md").display()
+        )
+    );
+    #[cfg(unix)]
+    assert_eq!(options, ["Allow once", "Reject"]);
+    let args = card_args(&chat, "patch-move");
+    assert_eq!(args["changes"][0]["moveTo"], "/etc/autostart/x.desktop");
+    assert_eq!(args["changes"][2].get("moveTo"), None);
+
+    // A repository's own bash is not a system shell: the whole line shows, its program first.
+    let repo = answer(&chat, 1, "Reject").await;
+    assert_eq!(select(&repo).0, "Allow shell: ./tools/bash -lc 'ls -1'?"); // guard-allow: installer-shell
+    let command = &card_args(&chat, "exec-repo")["command"];
+    assert_eq!(command, "./tools/bash -lc 'ls -1'"); // guard-allow: installer-shell
+
+    // No card shows this command: the title shows all that runs, nothing masked.
+    let unseen = answer(&chat, 2, "Reject").await;
+    assert_eq!(select(&unseen).0, "Allow shell: A_TOKEN=x&&touch y?");
+
+    // Hidden characters are spelled out in the title and on the card.
+    let bidi = answer(&chat, 3, "Reject").await;
+    let shown = "echo ok⟨U+202E⟩ #; rm -rf x⟨U+200B⟩";
+    assert_eq!(select(&bidi).0, format!("Allow shell: {shown}?"));
+    assert_eq!(card_args(&chat, "exec-bidi")["command"], shown);
+
+    chat.settled(1).await;
+    chat.finish().await;
+}

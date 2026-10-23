@@ -140,6 +140,7 @@ pub fn session_state(value: &Value) -> SessionState {
         message_count: count(value, "messageCount"),
         queued_count: queued.map_or(0, |number| u32::try_from(number).unwrap_or(u32::MAX)),
         context_usage: context_usage(value.get("contextUsage")),
+        memory_guards: None,
     }
 }
 

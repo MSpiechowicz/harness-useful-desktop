@@ -29,6 +29,7 @@ use crate::model::AgentEvent;
 use crate::pi_family::normalize::tool_result;
 use crate::pi_family::touched::touched_paths;
 use crate::security::redact_text;
+use crate::signed_docs::unicode::spelled_out;
 
 /// The card name of a command.
 pub const SHELL: &str = "shell";
@@ -310,9 +311,10 @@ fn status(item: &ThreadItem) -> Option<ItemStatus> {
 /// The card name and args of a tool item; `None` for other items.
 fn card(item: &ThreadItem) -> Option<(String, Value)> {
     let card = match item {
+        // Hidden characters spelled out, as in the approval's title (`dialog_text.rs`).
         ThreadItem::CommandExecution(command) => (
             SHELL.to_owned(),
-            json!({ "command": command.shown_command(), "cwd": command.cwd }),
+            json!({ "command": spelled_out(command.shown_command()), "cwd": command.cwd }),
         ),
         ThreadItem::FileChange(change) => (APPLY_PATCH.to_owned(), file_args(&change.changes)),
         ThreadItem::McpToolCall(call) => {
@@ -330,11 +332,17 @@ fn card(item: &ThreadItem) -> Option<(String, Value)> {
     Some(card)
 }
 
-/// A file change's args: its first file as `path`, every file with its kind as `changes`.
+/// A file change's args: its first file as `path`, every file with its kind (and where a move
+/// takes it, `moveTo`) as `changes`.
 fn file_args(changes: &[FileUpdateChange]) -> Value {
     let listed: Vec<Value> = changes
         .iter()
-        .map(|change| json!({ "path": change.path, "kind": change.kind.kind }))
+        .map(
+            |change| match change.kind.move_path.as_deref().filter(|to| !to.is_empty()) {
+                Some(to) => json!({ "path": change.path, "kind": change.kind.kind, "moveTo": to }),
+                None => json!({ "path": change.path, "kind": change.kind.kind }),
+            },
+        )
         .collect();
 
     match changes.first() {
@@ -343,11 +351,16 @@ fn file_args(changes: &[FileUpdateChange]) -> Value {
     }
 }
 
-/// Each file's kind and path, then its patch.
+/// Each file's kind and path (and where a move takes it), then its patch.
 fn patches(changes: &[FileUpdateChange]) -> String {
     let parts: Vec<String> = changes
         .iter()
-        .map(|change| format!("{} {}\n{}", change.kind.kind, change.path, change.diff))
+        .map(
+            |change| match change.kind.move_path.as_deref().filter(|to| !to.is_empty()) {
+                Some(to) => format!("{} {} (moved to {to})\n{}", change.kind.kind, change.path, change.diff),
+                None => format!("{} {}\n{}", change.kind.kind, change.path, change.diff),
+            },
+        )
         .collect();
 
     parts.join("\n")

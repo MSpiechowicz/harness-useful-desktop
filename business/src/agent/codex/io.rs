@@ -95,6 +95,22 @@ impl Live {
             self.run_turns.push(id.to_owned());
         }
     }
+
+    /// Codex started turn `id`. A new prompt turn while no `turn/start` waits for its answer but
+    /// one the chat gave up on does is that one, taken after all (its answer may never come): its
+    /// message counts again, and the answer, if it comes, does not count it twice.
+    fn late_turn_started(&mut self, id: &str) {
+        let new = !self.run_turns.iter().any(|turn| turn == id);
+        let late = self.turn_requests.is_empty() && !self.late_turns.is_empty();
+
+        if !new || !late || !self.mapper.is_streaming() {
+            return;
+        }
+
+        self.late_turns.remove(0);
+        self.counts.user += 1;
+        self.counts.total += 1;
+    }
 }
 
 /// The error Codex gets for a request of its own the app could not read.
@@ -168,6 +184,7 @@ impl Chat {
             Hint::TokenUsage(usage) => live.stats.on_token_usage(&usage),
             Hint::TurnStarted(id) => {
                 if !id.is_empty() {
+                    live.late_turn_started(&id);
                     live.ran(&id);
                     live.turn_id = Some(id);
                 }

@@ -204,11 +204,18 @@ async fn a_stop_before_a_turn_codex_refuses_ends_with_it() {
 
 #[tokio::test]
 async fn a_turn_codex_takes_after_the_chat_gave_up_waiting_counts_its_message() {
+    for scenario in ["codex_engine_prompt_late.jsonl", "codex_engine_prompt_lost.jsonl"] {
+        late_turn_counts_its_message(scenario).await;
+    }
+}
+
+/// `scenario`: Codex answers the turn/start late, or only starts the turn.
+async fn late_turn_counts_its_message(scenario: &str) {
     let slow = codex_engine_support::Setup {
         prompt_ack_timeout: Some(std::time::Duration::from_millis(200)),
         ..codex_engine_support::Setup::default()
     };
-    let chat = codex_engine_support::start_with("codex_engine_prompt_late.jsonl", slow, |_| {}).await;
+    let chat = codex_engine_support::start_with(scenario, slow, |_| {}).await;
 
     let waited = chat.session.send(prompt("Slow to start.")).await;
     assert!(matches!(waited, Err(BusinessError::Timeout(_))), "{waited:?}");
@@ -223,7 +230,7 @@ async fn a_turn_codex_takes_after_the_chat_gave_up_waiting_counts_its_message() 
     let AgentReply::Stats { stats } = chat.act(AgentAction::GetSessionStats).await else {
         panic!("not stats");
     };
-    assert_eq!((stats.user_messages, stats.assistant_messages), (1, 1));
+    assert_eq!((stats.user_messages, stats.assistant_messages), (1, 1), "{scenario}");
 
     chat.finish().await;
 }

@@ -997,15 +997,20 @@ them below are the ones they follow.
   command only when Codex offers it. The app never sends `acceptWithExecpolicyAmendment`, because that writes a lasting
   rule into your Codex command rules. Extra permissions are granted only as the dialog shows them (network access,
   folders to read, folders to write): a request for anything else, such as `fileSystem.entries`, is declined at once.
-  A file change names every path outside the project and the folder it asks to write below, and then offers no Always
-  allow. An ask about another thread than the chat's is declined (`business/src/agent/codex/dialogs.rs`). A dialog's
-  title names everything that is granted and is never cut, most widening first: the folder to write below, writes, paths
-  outside the project, then reads and the project's files (`dialog_text.rs`). A path counts as inside the project only
-  once the symbolic links of its deepest existing folder are resolved, so a link in the project to a folder outside
-  is named as outside. A long title scrolls on the approval card instead of being clamped (it is clamped only when the
-  command below repeats it in full). A command is shown as it runs, with its spacing and line breaks: the script of a
-  plain `bash`/`sh`/`zsh -lc '<script>'` wrapper, else the whole line, never Codex's own reading of it
-  (`commandActions`, which can leave parts of a pipeline out). That reading is only a hint above the command.
+  A file change names every path outside the project (also where a move takes a file) and the folder it asks to write
+  below, and with either offers no Always allow. An ask about another thread than the chat's is declined
+  (`business/src/agent/codex/dialogs.rs`). A dialog's title names everything that is granted and is never cut, most
+  widening first: the folder to write below, writes, paths outside the project, then reads and the project's files
+  (`dialog_text.rs`). A path counts as inside the project only once the symbolic links of its deepest existing folder
+  are resolved, and a dangling link is followed to where it points, so a link in the project to a place outside is
+  named as outside. A path that cannot be told, or climbs out with `..`, counts as outside, and the `writableRoots`
+  warning resolves its folders the same way. A long title scrolls on the approval card instead of being clamped (it is
+  clamped only when the command below repeats it in full, so input for a running command or one command of it shows in
+  full), and so does a long command, so the buttons stay in view. A command is shown as it runs, with its spacing and
+  line breaks and unredacted: the script of a plain `bash`/`sh`/`zsh -lc '<script>'` wrapper of a system shell (named
+  alone or in `/bin`, `/usr/bin`, `/usr/local/bin`, `/opt/homebrew/bin`), else the whole line, never Codex's own reading
+  of it (`commandActions`, which can leave parts of a pipeline out). That reading is only a hint, labelled as Codex's.
+  Bidirectional controls and zero-width characters are spelled out (`⟨U+202E⟩`) in the title and on the card.
   An oversized request whose numeric id the app cannot read whole is not answered under another id
   (`business/src/pi_family/rpc/codec.rs`).
 - **Approval modes.** Always ask is `approvalPolicy: untrusted` with the `workspace-write` sandbox, Write is `on-request`

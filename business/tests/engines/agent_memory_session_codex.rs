@@ -3,8 +3,10 @@
 //! project with (`config/read`) and names `HARNESS_MEMORY_SESSION` among the variables of each
 //! harness-memory server there, in the `config` of its threads (the scenarios check it), never on
 //! the command line. The chat's own guards count as applied (`memoryGuards`) only when a server
-//! gets the variable or passes it on already. A chat without a memory identity asks nothing. Every
-//! Codex spawn drops a relative `CODEX_HOME`, which Codex would resolve in the project.
+//! gets the variable or passes it on already, as of the newest read: each new thread reads again.
+//! A server that cannot be told is named in a notice. A chat without a memory identity asks
+//! nothing. Every Codex spawn drops a relative `CODEX_HOME`, which Codex would resolve in the
+//! project.
 
 use crate::agent_support;
 use crate::common;
@@ -14,9 +16,12 @@ use std::path::Path;
 
 use agent_support::{Run, options, start_at};
 use common::write_file;
+use harness_business::BusinessError;
 use harness_business::ecosystem::SESSION_VAR;
 use harness_business::env::Env;
-use harness_business::model::{AgentEvent, HarnessId, KindGuard, MemoryChatGuards, MemoryChatStart, NoticeLevel};
+use harness_business::model::{
+    AgentAction, AgentEvent, HarnessId, KindGuard, MemoryChatGuards, MemoryChatStart, NoticeLevel,
+};
 use harness_business::process::ExecSpec;
 use pretty_assertions::assert_eq;
 
@@ -119,7 +124,14 @@ async fn the_threads_pass_the_chat_key_to_the_memory_servers_codex_lists() {
     let spec = spawned(&run);
     assert!(spec.env.iter().any(|(name, value)| name == SESSION_VAR && value == KEY));
     stop(&run).await;
-    assert!(warnings(&run).is_empty(), "{:?}", warnings(&run));
+    // team.memory cannot be named: a notice says so, although the others pass the key on.
+    let shown = warnings(&run);
+    assert_eq!(shown.len(), 1, "{shown:?}");
+    assert!(
+        shown[0].contains("team.memory") && !shown[0].contains("docs"),
+        "{}",
+        shown[0]
+    );
 }
 
 #[tokio::test]
@@ -215,4 +227,68 @@ async fn a_relative_codex_home_is_not_passed_on() {
             .contains(&OsString::from("CODEX_HOME"))
     );
     stop(&absolute).await;
+}
+
+/// The `memoryGuards` of every `state` the chat sent.
+fn guard_states(run: &Run) -> Vec<Option<bool>> {
+    run.events()
+        .into_iter()
+        .filter_map(|event| match event {
+            AgentEvent::State { state } => Some(state.memory_guards),
+            _ => None,
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn the_guards_follow_the_servers_codex_lists_for_each_new_thread() {
+    let run = start("codex_memory_refresh.jsonl", Case::default()).await;
+    assert!(run.info.memory_guards);
+    let key = run.key().to_owned();
+
+    run.manager
+        .send(&key, crate::codex_engine_support::prompt("Work a while."))
+        .await
+        .expect("the turn starts");
+    run.wait("the turn", |event| matches!(event, AgentEvent::AgentStart))
+        .await;
+
+    // Refused at once: Codex is not asked for its servers first (it answers no such read now).
+    let started = std::time::Instant::now();
+    let refused = run.manager.send(&key, AgentAction::NewSession).await.unwrap_err();
+    assert!(matches!(refused, BusinessError::Unsupported(_)), "{refused:?}");
+    assert!(started.elapsed() < std::time::Duration::from_secs(5), "refused at once");
+
+    run.manager
+        .send(&key, AgentAction::Abort)
+        .await
+        .expect("the turn stops");
+    run.wait("the settle", |event| matches!(event, AgentEvent::Settled { .. }))
+        .await;
+
+    // A second server that cannot be told is named, although the first one gets the key.
+    run.manager
+        .send(&key, AgentAction::NewSession)
+        .await
+        .expect("a new chat");
+    let shown = warnings(&run);
+    assert_eq!(shown.len(), 1, "{shown:?}");
+    assert!(
+        shown[0].contains("team.memory") && !shown[0].contains(';'),
+        "{}",
+        shown[0]
+    );
+    assert!(run.manager.info(&key).unwrap().memory_guards);
+
+    // No server gets the key any more: the state and the session's info say so.
+    run.manager
+        .send(&key, AgentAction::NewSession)
+        .await
+        .expect("a new chat");
+    assert!(!run.manager.info(&key).unwrap().memory_guards);
+    assert_eq!(guard_states(&run).last(), Some(&Some(false)));
+    assert!(guard_states(&run).contains(&Some(true)));
+    assert_eq!(warnings(&run).len(), 1, "nothing new to name");
+
+    stop(&run).await;
 }

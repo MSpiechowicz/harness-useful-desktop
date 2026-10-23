@@ -1,0 +1,20 @@
+// Approvals whose title could hide what is granted: a patch that moves a project file outside the
+// project (and one inside it), a write through a dangling link in the project that points outside, a
+// command run by a repository's own `bash` (not a system shell, so its line shows whole), a command
+// with no card whose secret-looking assignment runs more after it, and a command with a
+// bidirectional control and a zero-width space.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "reply": {"turn": {"id": "turn-hidden", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-hidden", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"emit": {"method": "item/started", "params": {"item": {"type": "fileChange", "id": "patch-move", "changes": [{"path": "/work/project/notes.md", "kind": {"type": "update", "move_path": "/etc/autostart/x.desktop"}, "diff": "x\n"}, {"path": "/work/project/a.txt", "kind": {"type": "update", "move_path": "/work/project/sub/b.txt"}, "diff": "x\n"}, {"path": "/work/project/link.md", "kind": {"type": "add"}, "diff": "x\n"}], "status": "inProgress"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-hidden"}, "emittedAtMs": 1}}
+{"emit": {"id": "file:1", "method": "item/fileChange/requestApproval", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-hidden", "itemId": "patch-move", "reason": null, "grantRoot": null}}}
+{"expect": "answer", "match": {"/id": "file:1", "/result/decision": "decline"}}
+{"emit": {"method": "item/started", "params": {"item": {"type": "commandExecution", "id": "exec-repo", "pluginId": null, "scriptPath": null, "command": "./tools/bash -lc 'ls -1'", "cwd": "/work/project", "processId": null, "source": "agent", "status": "inProgress", "commandActions": [{"type": "listFiles", "command": "ls -1", "path": null}], "aggregatedOutput": null, "exitCode": null, "durationMs": null}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-hidden"}, "emittedAtMs": 1}}
+{"emit": {"id": 50, "method": "item/commandExecution/requestApproval", "params": {"kind": "command", "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-hidden", "itemId": "exec-repo", "command": "./tools/bash -lc 'ls -1'", "cwd": "/work/project", "commandActions": [{"type": "listFiles", "command": "ls -1", "path": null}]}}}
+{"expect": "answer", "match": {"/id": 50, "/result/decision": "decline"}}
+{"emit": {"id": 51, "method": "item/commandExecution/requestApproval", "params": {"kind": "command", "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-hidden", "itemId": "exec-unseen", "command": "/bin/bash -lc 'A_TOKEN=x&&touch y'", "cwd": "/work/project", "commandActions": []}}}
+{"expect": "answer", "match": {"/id": 51, "/result/decision": "decline"}}
+{"emit": {"method": "item/started", "params": {"item": {"type": "commandExecution", "id": "exec-bidi", "pluginId": null, "scriptPath": null, "command": "/bin/bash -lc 'echo ok‮ #; rm -rf x​'", "cwd": "/work/project", "processId": null, "source": "agent", "status": "inProgress", "commandActions": [], "aggregatedOutput": null, "exitCode": null, "durationMs": null}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-hidden"}, "emittedAtMs": 1}}
+{"emit": {"id": 52, "method": "item/commandExecution/requestApproval", "params": {"kind": "command", "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-hidden", "itemId": "exec-bidi", "command": "/bin/bash -lc 'echo ok‮ #; rm -rf x​'", "cwd": "/work/project", "commandActions": []}}}
+{"expect": "answer", "match": {"/id": 52, "/result/decision": "decline"}}
+{"emit": {"method": "turn/completed", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-hidden", "items": [], "status": "completed", "error": null}}, "emittedAtMs": 1}}

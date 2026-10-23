@@ -1,0 +1,8 @@
+// Codex takes a turn only after the chat gave up waiting for its answer, and that answer never comes:
+// only the turn's turn/started does. The turn runs, and its message counts once more.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "as": "lost", "hold": true}
+{"sleep": 600}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-lost", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"emit": {"method": "item/completed", "params": {"item": {"type": "agentMessage", "id": "msg-lost", "text": "Late answer.", "phase": "final_answer"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-lost"}, "emittedAtMs": 1}}
+{"emit": {"method": "turn/completed", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-lost", "items": [], "status": "completed", "error": null}}, "emittedAtMs": 1}}

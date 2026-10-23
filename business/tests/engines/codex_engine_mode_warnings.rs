@@ -84,3 +84,39 @@ async fn an_override_codex_runs_with_extra_writable_roots_is_named() {
 
     chat.finish().await;
 }
+
+#[tokio::test]
+async fn writable_roots_are_resolved_before_they_count_as_the_project() {
+    let outside = tempfile::tempdir().unwrap();
+    let chat = start_with("codex_engine_mode_roots.jsonl", Setup::default(), |project| {
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(outside.path(), project.join("home-link")).unwrap();
+            std::fs::create_dir(project.join("inner")).unwrap();
+            std::os::unix::fs::symlink(project.join("inner"), project.join("inner-link")).unwrap();
+        }
+        #[cfg(not(unix))]
+        let _ = (project, &outside);
+    })
+    .await;
+    chat.wait("the commands", |event| {
+        matches!(event, AgentEvent::CommandsUpdated { .. })
+    })
+    .await;
+
+    let project = chat.project.display();
+    #[cfg(unix)]
+    assert_eq!(
+        warnings(&chat),
+        [format!(
+            "Codex's settings give this chat more than its mode shows: writing also in {project}/home-link, {project}/sub/../../x"
+        )]
+    );
+    #[cfg(not(unix))]
+    assert!(
+        warnings(&chat).iter().any(|warning| warning.contains("/sub/../../x")),
+        "{project}"
+    );
+
+    chat.finish().await;
+}
