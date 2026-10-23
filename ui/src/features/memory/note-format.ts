@@ -25,7 +25,7 @@ export const KIND_LABELS = {
 export function noteColumns(): Column[] {
   return [
     { key: 'title', label: t('memory.notes.column.title'), sortable: true },
-    { key: 'kind', label: t('memory.notes.column.kind'), width: '9rem', sortable: true },
+    { key: 'kind', label: t('memory.notes.column.kind'), width: '12rem', sortable: true },
     { key: 'scope', label: t('memory.notes.column.scope'), width: '12rem', from: 'md', sortable: true },
     { key: 'place', label: t('memory.notes.column.place'), width: '8rem', from: 'lg', sortable: true },
     { key: 'updated', label: t('memory.notes.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },

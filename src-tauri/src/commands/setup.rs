@@ -25,6 +25,7 @@ use super::harness::{ensure_detected, find, find_in, installed_binary, summaries
 use crate::error::CommandResult;
 use crate::hooks::after_member_install;
 use crate::mcp_cli::CliContext;
+use crate::memory_embedder::reconcile;
 use crate::memory_setup::{after_install, register_in};
 use crate::state::AppState;
 
@@ -66,6 +67,7 @@ pub async fn setup_install_memory(
 
     if result.ok {
         after_install(&state).await;
+        reconcile(&state).await;
     }
 
     Ok(result)

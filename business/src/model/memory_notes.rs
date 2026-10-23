@@ -49,6 +49,20 @@ pub enum NoteSort {
     Place,
 }
 
+/// Which notes `memory_notes_list` keeps by the language the server detected (`--lang`). Asked of a
+/// server that lists `notes-lang` only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum NoteLangFilter {
+    /// Notes written in English.
+    En,
+    /// Notes flagged as not written in English.
+    Other,
+    /// Notes whose language was not detected yet.
+    Unknown,
+}
+
 /// Ascending or descending.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -104,6 +118,11 @@ pub struct NoteSummary {
     /// False from a server that does not say.
     #[serde(default)]
     pub hidden: bool,
+    /// The language the server detected: `en`, `other` (flagged, it gets a rewrite hint) or
+    /// nothing yet. `None` from a server that does not say.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub lang: Option<String>,
 }
 
 /// One note with its body.

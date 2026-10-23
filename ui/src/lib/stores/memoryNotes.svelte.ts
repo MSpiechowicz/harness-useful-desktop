@@ -32,6 +32,8 @@ export interface NotesRequest {
   page: number;
   /** Only the team notes hidden on this computer. */
   hidden: boolean;
+  /** Only the notes the server flagged as not written in English. */
+  notEnglish: boolean;
 }
 
 /** The request as the loader's key: the loader fetches again whenever any of it changes, and drops answers to older ones. */
@@ -41,7 +43,7 @@ export function notesKey(request: NotesRequest): string {
 
 /** One page of the notes `reach` covers (every repository, one, or the global ones), with the count of every kind and scope. */
 export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => {
-  const { query, scope, kind, place, sort, order, page, hidden } = JSON.parse(key) as NotesRequest;
+  const { query, scope, kind, place, sort, order, page, hidden, notEnglish } = JSON.parse(key) as NotesRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_notes_list', {
@@ -54,6 +56,7 @@ export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => 
     place: place ?? undefined,
     sort,
     order,
+    lang: notEnglish ? 'other' : undefined,
     hidden: hidden || undefined,
   });
 });

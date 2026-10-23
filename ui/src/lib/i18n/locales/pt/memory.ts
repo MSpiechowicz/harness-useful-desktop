@@ -282,6 +282,8 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.copy.blocked.help': 'Estas notas ficam neste computador. Corrija o motivo exibido e compare de novo.',
   'memory.copy.blocked.table.label': 'Notas que não podem ser copiadas',
   'memory.hidden.filter': 'Ocultas neste computador ({count})',
+  'memory.lang.filter': 'Não está em inglês',
+  'memory.lang.badge': 'Não está em inglês',
   'memory.hidden.hide': 'Ocultar neste computador',
   'memory.hidden.unhide': 'Mostrar de novo',
   'memory.hidden.help.readOnly': 'Esta nota remota é somente leitura aqui. Oculte-a para os agentes deste computador não a verem. Os seus colegas de equipe continuam vendo.',

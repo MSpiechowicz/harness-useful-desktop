@@ -22,6 +22,9 @@ const NOTES_ONLY: FeaturesSupport = FeaturesSupport::Listed {
     scripts_hide: false,
     scripts_push_json: false,
     save_guards: false,
+    embedder: false,
+    settings: false,
+    notes_lang: false,
 };
 
 /// The script features only.
@@ -33,6 +36,9 @@ const SCRIPTS_ONLY: FeaturesSupport = FeaturesSupport::Listed {
     scripts_hide: true,
     scripts_push_json: true,
     save_guards: false,
+    embedder: false,
+    settings: false,
+    notes_lang: false,
 };
 
 fn scripts_routed(scripts: MemoryNotesRouting, trust_team_scripts: bool) -> MemoryRemoteChange {
@@ -113,6 +119,9 @@ fn a_server_without_the_script_features_never_gets_remote_local_scripts_written(
         scripts_hide: false,
         scripts_push_json: true,
         save_guards: false,
+        embedder: false,
+        settings: false,
+        notes_lang: false,
     };
 
     for (features, wording) in [

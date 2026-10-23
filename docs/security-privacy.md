@@ -87,7 +87,7 @@ your terminal (see [Limits](#limits)).
 
 The app contains no analytics client. Its only HTTP clients are the updater and the companion release lookup; the one
 other downloads, those of the companion installers (dashboard, memory server and Harness Skills for OpenCode and Codex), are made by the installer command
-itself, and only after consent. Enumerated:
+itself, and only after consent. The one more download, the search model, is made by `harness-memory`, not by the app. Enumerated:
 
 | Request | When | Details |
 | --- | --- | --- |
@@ -96,6 +96,7 @@ itself, and only after consent. Enumerated:
 | Dashboard installer download | Only when the user confirms **Install the dashboard** in Recommended setup (onboarding, or **Run recommended setup** in Ecosystem), or, for an already installed dashboard with a newer release, without asking each time while **Update extensions automatically** (`autoUpdateExtensions`, on by default) and **Check companions for updates** are on | The app opens no connection itself. The installer command it runs (a `curl` of `install.sh` piped to `sh` on Linux and macOS, `irm` of `install.ps1` piped to `iex` on Windows) fetches the script from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/` and then whatever that script downloads, the dashboard release. GitHub sees the IP address and the request. See [Process spawning](#process-spawning). |
 | Memory server installer download | Only when the user confirms the install of Harness Memory (Recommended setup, or the **Project memory** switch in Settings), or, for an already installed server with a newer release, without asking each time under the same two switches as the dashboard | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/` and then the `harness-memory` release it names; its `install.sh` and `install.ps1` verify the release's `checksums.txt`. |
 | Harness Skills installer download | Only when the user confirms the install of the Harness Skills for OpenCode or Codex in Recommended setup. It is never part of the automatic family updates. The one exception is the launch migration of the Harness Skills names (below), which reruns it for an install found only under the names before Harness Skills 0.4.0. | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/` (`install.sh` fetched by a `curl` held to HTTPS and TLS 1.2 or newer, `install.ps1` by `irm`). The script needs Node.js 22 or newer and downloads the skills' release tarball from `codeload.github.com`, checks its entries, sizes and manifests, and runs `useful-skills install --host opencode --scope user`, or `--host codex` when the app sets `HARNESS_SKILLS_HOST=codex` for the Codex install (that run also needs the `codex` command, adds the skills' marketplace and plugin with it and registers the `harness-useful-skills` MCP server through `codex mcp add`). There is no checksum: the trust model is that of the skills' own updater. GitHub sees the IP address and the request. |
+| Search model download (by `harness-memory`) | Only while vector search is on (the `vectorSearch` pref, on by default, and project memory on), when the embedder first starts without the model files, and again when a Harness Memory release names a newer model | The app opens no connection itself. `harness-memory embedder run`, which the app starts, fetches two files, `model_quantized.onnx` and `tokenizer.json` (about 135 MB together), from one GitHub release of `MSpiechowicz/harness-useful-memory`. Each file's SHA-256 and size are compiled into `harness-memory`, and a file that does not match is not used. Nothing is sent but the request itself, so GitHub sees the IP address and when the model was fetched. It reads nothing from Hugging Face. `HARNESS_MEMORY_MODEL_BASE_URL` can move the base URL (HTTPS, or HTTP to localhost), the hashes stay pinned. With vector search off, nothing is fetched. |
 | Extension catalog refresh | While **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default) is on: the first look 30 s after start, then every 30 minutes. With **Update extensions automatically** on, the catalogs are refreshed on the same schedule even with this switch off, never more often than every 30 minutes (see below). | The app opens no connection itself. For each OMP catalog it runs `omp plugin marketplace update <name>`, and OMP clones or fetches that catalog's repository from the git or `https` URL it was added with: hosts you chose when adding the catalog (GitHub for the Harness Skills). The host sees the IP address and the request. |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL, or `http` to localhost, with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
@@ -152,8 +153,8 @@ Everything else:
 - Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
   package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
   `omp plugin install`, `pi install` or `opencode plugin` do in your terminal.
-- Project memory opens no connection once installed (the installer above is the only download). `harness-memory` speaks MCP over stdio to the harness that started it
-  and has no HTTP client; the only program it runs is `git` (see
+- Project memory opens no connection once installed, apart from the search model download (the installer above and that download are the only ones, and the app itself makes neither). `harness-memory` speaks MCP over stdio to the harness that started it
+  and, apart from that download by the embedder, has no HTTP client; the only program it runs is `git` (see
   [Process spawning](#process-spawning)). What an agent reads from it is sent by the harness to its model provider like
   the rest of its context. The exception is a team database
   you set in Settings: then `harness-memory` itself connects to it (PostgreSQL, libSQL or MongoDB at the URL you gave).
@@ -1298,10 +1299,49 @@ config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$X
   symbolic link at the file or its folder is refused. TOML strings are escaped, so quotes, backslashes and any Unicode in
   a password round-trip. Settings also reports what the server checks: a file other users can change or that another
   user owns (the server refuses it), or one other users can read.
+- **English notes setting.** Whether agents must write notes in English is stored in the team database, not in
+  `config.toml` or in the app's prefs, so it is team-wide: one teammate changing it (`settings set english_notes=…`)
+  changes it for everyone. The app reads and writes it only through `harness-memory settings`. See
+  [Vector search and English notes](#vector-search-and-english-notes).
 - **Testing.** `memory_remote_test` runs the installed `harness-memory check` (20 s limit, stdin closed, output capped)
   with the typed URL and token in `HARNESS_MEMORY_DATABASE_URL` and `HARNESS_MEMORY_DATABASE_TOKEN`, never on the
   command line; the app's own values of those variables and of `HARNESS_MEMORY_CONFIG` are not passed on. Its first line
   is shown after the typed and saved secrets are masked and `redact_text` ran over it.
+
+### Vector search and English notes
+
+Vector search finds notes close in meaning to a query, next to the keyword search. It is on by default (the
+`vectorSearch` pref, with project memory on) and runs in a separate local process, `harness-memory embedder run`, the
+embedder. The model and the code are the server's own, see its repository.
+
+- **One process, tracked.** The app starts one embedder per computer through the tracked spawner (the same one that
+  keeps agents from outliving the app), with its standard input piped and open. The embedder exits when that input
+  closes, so stopping it is closing the input, waiting 2 s and killing what is left. Hiding the window to the tray
+  leaves it running, quitting the app stops it. A second app instance finds the embedder's lock taken and does not start
+  another. A crash restarts it three times at most within ten minutes. The app logs the phase it reached and never what
+  the embedder printed.
+- **Opt-out is respected.** A switch turned off on the command line (`harness-memory embedder disable`, which leaves
+  `embedder.toml` in the data folder) is never turned on again by the app: at launch it leaves the embedder off and turns
+  the `vectorSearch` pref off. Only a switch nobody chose yet (no file) follows the default. Turning the setting off in
+  the app also works with a Harness Memory that predates the embedder.
+- **Local socket only.** Every `harness-memory mcp` asks the embedder over a Unix socket (mode `0600`, in the data folder,
+  or in the temporary folder when that path is long, and a client refuses a socket that is not a socket or not owned by
+  the current user) or, on Windows, a named pipe named for the user. No TCP port is opened. The app itself never
+  connects to it.
+- **What is stored.** `vectors.sqlite3` in the Harness Memory data folder holds one vector per note (and the hash of the
+  text it was made from), for this computer. Vectors are never written to a team database. The model files are in
+  `models/<id>/` there. `embedder.toml` holds the on or off switch, and `embedder.lock` and `embedder.sock` exist while
+  the embedder runs. The note text goes to the embedder process on this computer and nowhere else.
+- **Download.** The model is fetched once, from a GitHub release of the memory repository, with its SHA-256 pinned (see
+  the Network table). Turning vector search off stops the embedder and fetches nothing. Removing the model
+  (`memory_embedder_remove_model`) deletes the model files and the vectors.
+- **Fallback.** While vector search is on and the embedder does not answer, `note_search` returns the keyword results
+  with one line saying so. While it is off, search is keyword-only and silent.
+
+English notes is a setting of the memory store (on when nothing is stored). With it on, `harness-memory` refuses an
+agent's `note_save` or `note_update` whose text is clearly not English, with a message asking for a rewrite, and nothing
+is saved or held. The refusal happens in `harness-memory`, not in the app. Saves the user makes in the app (the Notes
+view, the waiting card) are never refused: the server only warns. The app does not detect the language itself.
 
 ### Save guards
 
@@ -1598,6 +1638,9 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in four cases (a shared setup never reaches OpenCode, and an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; the `harness-desktop` entry (the app's own hooks server), added automatically at launch in release builds and by Recommended setup; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entries ever changed are the app's own `harness-memory` and `harness-desktop` ones. Not app data; nothing else in it is touched. |
 | Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
 | Script approval files | `desktop.alive` and `requests/<id>.json`, `requests/<id>.decision` in the same folder as the project memory database | `desktop.alive` (empty) is touched by the app every 5 s while it runs and removed at exit. Run requests (the script's summary and body, its previous approved version, the arguments, the agent's client name) are written by the server and read by the app; the app writes only the one-word answer. The server removes a request and its answer within 45 s. See [Script approval](#script-approval). `0600` files in a `0700` folder on Unix. |
+| Search model | `models/<id>/` (`model_quantized.onnx`, `tokenizer.json`) in `<data>/harness-memory` | The int8 embedding model, about 135 MB, downloaded by `harness-memory` when vector search is on and checked against a pinned SHA-256. No user data. Deleted by `memory_embedder_remove_model` and by `harness-memory embedder remove-model`. |
+| Note vectors | `vectors.sqlite3` in the same folder | A vector and a text hash per note, the store each belongs to (a hash of the file path or of the team URL without credentials), the active model and the read position per store. Derived from your notes, local to this computer, never in the team database. |
+| Embedder files | `embedder.toml`, `embedder.lock` and `embedder.sock` in the same folder (the socket may be in the temporary folder when the path is long) | `embedder.toml` is `enabled = true\|false`. The lock and the socket (`0600`) exist while the embedder runs. Windows uses a named pipe instead of the socket file. |
 | Save guard files | `guards/global.json`, `guards/chats/<chatKey>.json` and `held/<chatKey>/<heldId>.json` in the same folder as the project memory database | Which saves agents may make (pause flags, per-chat switches, the git roots of repositories turned off) and the saves held for your review (the arguments the agent sent). The app writes the guards, the server writes the held items and the app settles them through the server's commands. Local only, never in the team database. `0600` files in `0700` folders on Unix. See [Save guards](#save-guards). |
 | `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
 | Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |
@@ -1611,16 +1654,17 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `codex-thread-parents.json` | The app's local data folder: `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS), `%LOCALAPPDATA%` (Windows), each followed by `com.mspiechowicz.harness-useful-desktop` | `{"version": 1, "threads": {"<thread id>": "<parent thread id>" or null}}`: which Codex thread each saved thread was forked from, read once per thread with `thread/read` (Codex's `thread/list` leaves it out), for the Sessions view's forks. Thread ids only, no titles, prompts or paths. At most 10,000 entries (the oldest go first), an entry goes when the app deletes its thread. Written atomically, never through a symbolic link, folder `0700` and file `0600` on Unix. A file that cannot be used is read as empty and replaced. Without a local data folder the ids are kept in memory for the app run (`business/src/harnesses/codex/sessions/parents.rs`). |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
-`AppPrefs` (`business/src/model/prefs.rs`) has twenty-three fields and never holds secrets or chat content:
+`AppPrefs` (`business/src/model/prefs.rs`) has twenty-four fields and never holds secrets or chat content:
 `version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr`, `pl` or `pt` for Brazilian Portuguese; anything else loads as `en`), `introEnabled`,
 `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `activeProject`, `rememberRecentProjects`, `recentProjects` (12 at
 most), `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`, `approvalNoticeSeen`,
-`binaryOverrides`, `chatDefaults` and `memoryEnabled` (project memory, on by default).
+`binaryOverrides`, `chatDefaults`, `memoryEnabled` (project memory, on by default) and `vectorSearch` (vector search, on by default).
 
-**Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects`, `binaryOverrides`
-and `memoryEnabled` decide which directories are read, which programs run and which harness files are written. Only
-Rust changes them: through the native pickers and the project and harness commands, and `memoryEnabled` through
-`memory_set_enabled`, which also adds or removes the `harness-memory` entries. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
+**Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects`, `binaryOverrides`,
+`memoryEnabled` and `vectorSearch` decide which directories are read, which programs run and which harness files are written. Only
+Rust changes them: through the native pickers and the project and harness commands, `memoryEnabled` through
+`memory_set_enabled`, which also adds or removes the `harness-memory` entries, and `vectorSearch` through
+`memory_set_vector_search`, which also starts or stops the embedder. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
 `introEnabled`, `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `rememberRecentProjects`,
 `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`,
 `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the

@@ -282,6 +282,8 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.copy.blocked.help': 'Diese Notizen bleiben auf diesem Computer. Behebe den genannten Grund und vergleiche dann erneut.',
   'memory.copy.blocked.table.label': 'Notizen, die nicht kopiert werden können',
   'memory.hidden.filter': 'Auf diesem Computer ausgeblendet ({count})',
+  'memory.lang.filter': 'Nicht auf Englisch',
+  'memory.lang.badge': 'Nicht auf Englisch',
   'memory.hidden.hide': 'Auf diesem Computer ausblenden',
   'memory.hidden.unhide': 'Wieder einblenden',
   'memory.hidden.help.readOnly': 'Diese Remote-Notiz ist hier schreibgeschützt. Blende sie aus, damit Agenten auf diesem Computer sie nicht sehen. Deine Teamkollegen sehen sie weiterhin.',

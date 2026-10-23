@@ -87,6 +87,7 @@ pub fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
         RunEvent::Exit => {
             if let Some(state) = app.try_state::<AppState>() {
                 state.script_requests.stop();
+                crate::memory_embedder::stop_for_exit(&state);
             }
         }
         _ => {}
@@ -109,6 +110,7 @@ fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
 
     let agents = state.agents.clone();
     let hooks = state.hooks.clone();
+    let embedder = state.memory_embedder.clone();
     let routines = state.routines.clone();
     let handle = app.clone();
     let deadline = Instant::now() + EXIT_BUDGET;
@@ -123,7 +125,8 @@ fn begin_shutdown<R: Runtime>(app: &AppHandle<R>, code: i32) {
             let stopping = agents.clone();
 
             tauri::async_runtime::spawn(async move {
-                stopping.stop_all().await;
+                // The embedder's stdin closes with the agents', so both stop within the budget.
+                tokio::join!(stopping.stop_all(), embedder.stop());
 
                 // The exits reach the chats' hook tasks, which run their sessionEnd commands.
                 let left = deadline.saturating_duration_since(Instant::now());

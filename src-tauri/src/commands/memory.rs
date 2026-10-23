@@ -9,6 +9,7 @@ use tauri::async_runtime::block_on;
 use super::blocking;
 use crate::error::CommandResult;
 use crate::hooks::seed_available;
+use crate::memory_embedder::reconcile;
 use crate::memory_setup::{register, unregister_all};
 use crate::state::AppState;
 
@@ -54,6 +55,9 @@ async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<MemorySwi
     if enabled {
         seed_available(&state.hooks).await;
     }
+
+    // Vector search runs only while project memory is on.
+    reconcile(state).await;
 
     let env = state.env.clone();
     let runner = state.runner;

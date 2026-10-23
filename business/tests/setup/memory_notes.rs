@@ -24,6 +24,7 @@ fn first_page() -> NotesQuery {
         kind: None,
         scope: None,
         place: None,
+        lang: None,
         sort: None,
         hidden: false,
     }
@@ -124,6 +125,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         kind: Some(NoteKind::Fix),
         scope: None,
         place: None,
+        lang: None,
         sort: None,
         hidden: false,
     };
@@ -155,6 +157,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         kind: None,
         scope: None,
         place: None,
+        lang: None,
         sort: Some(NoteSort::Title),
         hidden: false,
     };
@@ -176,6 +179,7 @@ async fn search_kind_order_and_page_narrow_the_list() {
         kind: None,
         scope: None,
         place: None,
+        lang: None,
         sort: Some(NoteSort::Updated),
         hidden: false,
     };
@@ -194,6 +198,7 @@ async fn every_sort_goes_to_the_server_by_its_name() {
         kind: None,
         scope: None,
         place: None,
+        lang: None,
         sort: Some(sort),
         hidden: false,
     };

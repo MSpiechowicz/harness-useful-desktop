@@ -36,6 +36,9 @@ fn a_server_that_lists_every_feature_routes_notes_and_scripts_to_both_and_is_ask
             scripts_hide: true,
             scripts_push_json: true,
             save_guards: false,
+            embedder: false,
+            settings: false,
+            notes_lang: false,
         }
     );
     assert!(answer.team_and_local());
@@ -144,4 +147,39 @@ fn save_guards_are_read_from_their_own_line() {
 
     assert!(!FeaturesSupport::Unsupported.save_guards());
     assert!(!FeaturesSupport::Unknown.save_guards());
+}
+
+#[test]
+fn the_embedder_settings_and_lang_features_are_read_from_their_own_lines() {
+    let (_dir, env) = installed();
+
+    let current = wait(MemoryFeatures::new().support(&env, &features("embedder\nsettings\nnotes-lang\n")));
+    assert!(current.embedder());
+    assert!(current.settings());
+    assert!(current.notes_lang());
+    assert!(!current.save_guards());
+
+    let partial = wait(MemoryFeatures::new().support(&env, &features("settings\n")));
+    assert!(!partial.embedder());
+    assert!(partial.settings());
+    assert!(!partial.notes_lang());
+
+    // An older server lists none of them, so nothing new happens.
+    let older = wait(MemoryFeatures::new().support(
+        &env,
+        &features("notes-remote-local\nnotes-hide\npush-json\nsave-guards\n"),
+    ));
+    assert!(matches!(older, FeaturesSupport::Listed { .. }));
+    assert!(!older.embedder() && !older.settings() && !older.notes_lang());
+
+    for other in [
+        FeaturesSupport::Unsupported,
+        FeaturesSupport::NotInstalled,
+        FeaturesSupport::Unknown,
+    ] {
+        assert!(
+            !other.embedder() && !other.settings() && !other.notes_lang(),
+            "{other:?}"
+        );
+    }
 }

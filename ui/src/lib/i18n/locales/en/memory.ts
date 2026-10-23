@@ -279,6 +279,8 @@ export const memory = {
   'memory.copy.blocked.help': 'These notes stay on this computer. Fix the reason shown, then compare again.',
   'memory.copy.blocked.table.label': 'Notes that cannot be copied',
   'memory.hidden.filter': 'Hidden on this computer ({count})',
+  'memory.lang.filter': 'Not in English',
+  'memory.lang.badge': 'Not in English',
   'memory.hidden.hide': 'Hide on this computer',
   'memory.hidden.unhide': 'Unhide',
   'memory.hidden.help.readOnly': 'This remote note is read-only here. Hide it to stop agents on this computer from seeing it. Your teammates still see it.',

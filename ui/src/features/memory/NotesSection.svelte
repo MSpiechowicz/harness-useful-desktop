@@ -18,6 +18,7 @@
   import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
+  import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -31,10 +32,12 @@
   import MemoryReachFilter from './MemoryReachFilter.svelte';
   import MemorySearch from './MemorySearch.svelte';
   import MemoryTable from './MemoryTable.svelte';
+  import NotEnglishFilter from './NotEnglishFilter.svelte';
   import { notesImport } from './notes-import-state.svelte';
   import { notesTeam } from './notes-team.svelte';
   import NoteEditor from './NoteEditor.svelte';
   import NoteKindBadge from './NoteKindBadge.svelte';
+  import NoteLangBadge from './NoteLangBadge.svelte';
   import NotePanel from './NotePanel.svelte';
   import PlaceFilter, { placeApplied } from './PlaceFilter.svelte';
   import { KIND_LABELS, NOTE_KINDS, noteColumns, noteScopeText, totalCount } from './note-format';
@@ -59,9 +62,11 @@
   // An older Harness Memory cannot combine the scope with the kind: it gets the kind only, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.notesQuery.trim() !== '');
-  const filtered = $derived(viewState.notesKind !== null || placeApplied(places, viewState.notesPlace) || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden);
+  const filtered = $derived(viewState.notesKind !== null || placeApplied(places, viewState.notesPlace) || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden || viewState.notesNotEnglish);
   // Team notes hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
+  // The server's `features` say whether it tells which notes are not in English. Until they are read, rows that carry a language stand in for it.
+  const langListed = $derived(memoryRemote.value?.notesLangSupported ?? rows.some((row) => row.lang === 'en' || row.lang === 'other'));
   // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
   const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
 
@@ -88,6 +93,11 @@
     notesTeam.showHidden = on;
     viewState.notesPage = 0;
     viewState.noteId = null;
+  }
+
+  function showNotEnglish(on: boolean): void {
+    viewState.notesNotEnglish = on;
+    viewState.notesPage = 0;
   }
 
   function chooseKind(kind: NoteKind | null): void {
@@ -220,6 +230,10 @@
     <HiddenFilter count={hiddenCount} on={notesTeam.showHidden} onchange={showHidden} />
   {/if}
 
+  {#if langListed || viewState.notesNotEnglish}
+    <NotEnglishFilter on={viewState.notesNotEnglish} onchange={showNotEnglish} />
+  {/if}
+
   <FilterMenu
     label={t('memory.filter.kind')}
     prefix={t('memory.filter.kind')}
@@ -287,7 +301,13 @@
     {#if column.key === 'title'}
       <span class="text-fg">{spelledOut(note.title)}</span>
     {:else if column.key === 'kind'}
-      <NoteKindBadge kind={note.kind} size="lg" />
+      <div class="flex items-center gap-1.5">
+        <NoteKindBadge kind={note.kind} size="lg" />
+
+        {#if langListed && note.lang === 'other'}
+          <NoteLangBadge />
+        {/if}
+      </div>
     {:else if column.key === 'scope'}
       <div class="min-w-0 text-fg-2"><ScopeLabel scope={memoryScope(note, projectScopes.data ?? [], t('memory.scripts.row.thisRepo'))} /></div>
     {:else if column.key === 'place'}

@@ -144,6 +144,10 @@ pub struct AppPrefs {
     /// detected harness's user MCP file at launch and after its install (default on). Server-managed:
     /// only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
     pub memory_enabled: bool,
+    /// Whether Harness Memory searches by meaning as well as by keywords, through the local embedder
+    /// the app keeps running (default on, also for a file without this key). Server-managed: only
+    /// `memory_set_vector_search` changes it, since it also starts or stops the embedder.
+    pub vector_search: bool,
     /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
     /// running (default off). Without a tray icon closing always quits.
     pub keep_running_in_tray: bool,
@@ -184,6 +188,7 @@ impl Default for AppPrefs {
             binary_overrides: Vec::new(),
             chat_defaults: Vec::new(),
             memory_enabled: true,
+            vector_search: true,
             keep_running_in_tray: false,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,

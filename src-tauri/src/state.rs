@@ -8,8 +8,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::app_dirs::{child_processes_dir, local_data_dir};
 use harness_business::ecosystem::{
-    ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, MemoryFeatures, MemoryKinds, MemoryScripts,
-    NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport,
+    ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor, MemoryFeatures, MemoryKinds,
+    MemoryScripts, NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -27,6 +27,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::agents::Agents;
 use crate::drops::DropSink;
 use crate::hooks::HookRuntime;
+use crate::memory_embedder::EmbedderWatch;
 use crate::memory_held::HeldWatcher;
 use crate::memory_requests::ScriptRequests;
 use crate::routines::RoutineRuntime;
@@ -62,6 +63,11 @@ pub struct AppState {
     /// What else the installed Harness Memory can do (`harness-memory features`, probed once per
     /// binary).
     pub memory_features: MemoryFeatures,
+    /// The embedder behind vector search (`harness-memory embedder run`), kept running while project
+    /// memory and vector search are on.
+    pub memory_embedder: Arc<EmbedderSupervisor>,
+    /// The page told when the embedder's state changes.
+    pub embedder_watch: EmbedderWatch,
     /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
     pub script_requests: Arc<ScriptRequests>,
     /// The page told when the saves Harness Memory holds for review change.
@@ -122,6 +128,7 @@ impl AppState {
         Ok(Self {
             updates: Updates::from_config(app.config()),
             attachments_dir,
+            memory_embedder: Arc::new(EmbedderSupervisor::new(agents.spawner())),
             agents: Arc::new(agents),
             ..Self::new(config_dir, env)
         })
@@ -154,6 +161,8 @@ impl AppState {
             memory_scripts,
             memory_kinds: MemoryKinds::new(),
             memory_features: MemoryFeatures::new(),
+            memory_embedder: Arc::new(EmbedderSupervisor::new(Arc::new(TokioSpawner))),
+            embedder_watch: EmbedderWatch::default(),
             script_requests: Arc::new(ScriptRequests::default()),
             memory_held: Arc::new(HeldWatcher::default()),
             memory_chat_writes: Arc::new(ChatGuardWrites::default()),

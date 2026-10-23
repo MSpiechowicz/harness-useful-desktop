@@ -6,6 +6,7 @@ import { MEMORY_NOTES_POLL_MS, MEMORY_SCRIPTS_POLL_MS } from '$lib/stores/live';
 import { reachScope } from '$lib/stores/memory-reach';
 import { project } from '$lib/stores/project.svelte';
 import { revalidateProjectScopes } from '$lib/stores/project-scopes.svelte';
+import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
 import { noteRepos, scriptRepos } from '$lib/stores/memoryRepos.svelte';
 import { noteDetail, noteList, type NotesRequest, notesKey } from '$lib/stores/memoryNotes.svelte';
 import { scriptDetail, scriptList, type ScriptsRequest, scriptsKey } from '$lib/stores/memoryScripts.svelte';
@@ -75,6 +76,15 @@ export function useNotesData(): void {
   // A server is asked for what it answers: the scope next to the kind only while it combines filters (it says so with every page).
   const combined = $derived(noteList.data?.combinedFilters ?? true);
 
+  // A server that does not tell the language of notes cannot filter by it: the choice is dropped, so the list and the chip agree.
+  const langUnsupported = $derived(memoryRemote.value?.notesLangSupported === false);
+
+  $effect(() => {
+    if (langUnsupported && viewState.notesNotEnglish) {
+      viewState.notesNotEnglish = false;
+    }
+  });
+
   const request = $derived<NotesRequest>({
     query: query.value,
     scope: combined ? reachScope(viewState.memoryReach) : null,
@@ -84,6 +94,7 @@ export function useNotesData(): void {
     order: viewState.notesSort.desc ? 'desc' : 'asc',
     page: viewState.notesPage,
     hidden: notesTeam.showHidden,
+    notEnglish: viewState.notesNotEnglish && !langUnsupported,
   });
 
   // The editor and the import review belong to the project on screen and to this view: neither outlives a switch of project or leaving the view.

@@ -13,7 +13,7 @@ use harness_business::ecosystem::{
 };
 use harness_business::model::{
     LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, NoteDetail, NoteDraft, NoteKind,
-    NoteSaved, NoteSort, ScriptPlace, ScriptScope, SortOrder,
+    NoteLangFilter, NoteSaved, NoteSort, ScriptPlace, ScriptScope, SortOrder,
 };
 use tauri::State;
 
@@ -22,7 +22,9 @@ use crate::error::CommandResult;
 use crate::state::AppState;
 
 /// One page of the project's repository notes and the global ones, of one `kind`, one `scope` and
-/// one `place` when asked. Never fails for a missing or old server: see the page's `availability`
+/// one `place` and one detected `lang` (`en`, `other`, `unknown`) when asked. A server that does not list
+/// `notes-lang` ignores `lang` (its notes carry no language). Never fails for a missing or old
+/// server: see the page's `availability`
 /// (`notes` is empty unless `available`); a server that does not filter by place drops `place` and
 /// answers `places: null`, one that does not combine filters drops `scope` too and answers
 /// `combinedFilters: false`. `hidden` lists the team notes hidden on this machine instead.
@@ -43,6 +45,7 @@ pub async fn memory_notes_list(
     kind: Option<NoteKind>,
     scope: Option<ScriptScope>,
     place: Option<ScriptPlace>,
+    lang: Option<NoteLangFilter>,
     sort: Option<NoteSort>,
     order: Option<SortOrder>,
     hidden: Option<bool>,
@@ -52,6 +55,7 @@ pub async fn memory_notes_list(
         kind,
         scope,
         place,
+        lang,
         sort,
         hidden: hidden.unwrap_or(false),
     };
@@ -186,12 +190,19 @@ async fn list(
 ) -> CommandResult<MemoryNotesPage> {
     let project = project_root(state, project).await?;
 
+    // A server without `notes-lang` would refuse `--lang` as a usage error.
+    let query = if query.lang.is_some() {
+        query.for_server(state.memory_features.support(&state.env, &state.runner).await)
+    } else {
+        query.clone()
+    };
+
     Ok(list_notes(
         &state.env,
         &state.memory_scripts,
         &state.runner,
         Repos::of(project.as_deref(), repos.as_ref())?,
-        query,
+        &query,
     )
     .await)
 }
@@ -255,6 +266,7 @@ mod tests {
             kind: None,
             scope: None,
             place: None,
+            lang: None,
             sort: None,
             hidden: false,
         }

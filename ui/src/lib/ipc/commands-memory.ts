@@ -10,6 +10,10 @@ import type { MemorySwitchResult } from './bindings/MemorySwitchResult';
 import type { NoteDetail } from './bindings/NoteDetail';
 import type { NoteDraft } from './bindings/NoteDraft';
 import type { NoteKind } from './bindings/NoteKind';
+import type { NoteLangFilter } from './bindings/NoteLangFilter';
+import type { MemoryEmbedderState } from './bindings/MemoryEmbedderState';
+import type { MemorySettings } from './bindings/MemorySettings';
+import type { MemoryVectorSwitchResult } from './bindings/MemoryVectorSwitchResult';
 import type { NoteSaved } from './bindings/NoteSaved';
 import type { NoteSort } from './bindings/NoteSort';
 import type { NotesImportFormat } from './bindings/NotesImportFormat';
@@ -51,6 +55,29 @@ export const memoryCommands = {
    * `server.installed` false means nothing was registered; offer `setup_install_memory`.
    */
   memory_set_enabled: cmd<{ enabled: boolean }, MemorySwitchResult>(),
+  /**
+   * The "Vector search" switch: runs `embedder enable|disable`, stores `vectorSearch`, then starts or stops the embedder (it starts only while
+   * `memoryEnabled` is on too). The answer holds the stored pref and the embedder's state right then: follow it with `memory_embedder_watch`.
+   * Nothing changes when it rejects: `unsupported` for a Harness Memory without the `embedder` feature, `notFound` when it is not installed,
+   * `process` with the server's (redacted) line.
+   */
+  memory_set_vector_search: cmd<{ enabled: boolean }, MemoryVectorSwitchResult>(),
+  /**
+   * Sends the embedder's state (`phase`, `progress` 0 to 1 or null, `model`, `error`) to `onEvent` now and on every change, replacing the
+   * previous listener. `phase` is off, starting, downloading, verifying, loading, ready, backfilling, updating, failed or elsewhere (another
+   * app instance runs the one embedder of this computer).
+   */
+  memory_embedder_watch: cmd<{ onEvent: EventSink<MemoryEmbedderState> }, null>(),
+  /**
+   * Stops the embedder if it runs, then deletes the model files and the vectors (`embedder remove-model`, 60 s) and answers its state (`off`).
+   * Leaves `vectorSearch` as it is: turn vector search off first, or the model is fetched again at the next launch. `unsupported`,
+   * `notFound` and `process` as `memory_set_vector_search`.
+   */
+  memory_embedder_remove_model: cmd<undefined, MemoryEmbedderState>(),
+  /** The settings Harness Memory keeps in its store (`settings get --json`): `englishNotes` is on unless set otherwise. `unsupported` without the `settings` feature, `notFound` when it is not installed. */
+  memory_settings_get: cmd<undefined, MemorySettings>(),
+  /** Turns English notes on or off in every store the server writes (a team database applies to the whole team) and answers the setting as stored. Errors as `memory_settings_get`, `process` with the server's line when it refuses. */
+  memory_settings_set: cmd<{ englishNotes: boolean }, MemorySettings>(),
   /** The team database in Harness Memory's config.toml: the URL redacted, the token as `hasToken`, and any `problem` with the file. */
   memory_remote_get: cmd<undefined, MemoryRemote>(),
   /**
@@ -254,6 +281,8 @@ export const memoryCommands = {
       scope?: ScriptScope;
       /** The notes kept in one place; a server that predates it drops it (the page then says `places: null`). */
       place?: ScriptPlace;
+      /** The notes of one detected language (`en`, `other`, `unknown`); a server without `notes-lang` ignores it (every note then has `lang: null`). */
+      lang?: NoteLangFilter;
       sort?: NoteSort;
       order?: SortOrder;
       /** Only the team notes hidden on this computer (the page's `total` is then their count). */

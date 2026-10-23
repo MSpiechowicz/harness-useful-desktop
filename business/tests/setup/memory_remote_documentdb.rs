@@ -72,6 +72,29 @@ impl DocumentDbFile for Home {
 }
 
 #[test]
+fn every_scheme_names_its_kind() {
+    let home = Home::new();
+    let cases = [
+        ("POSTGRES://h/db", Some(MemoryRemoteKind::Postgres)),
+        ("libsql://team.turso.io", Some(MemoryRemoteKind::Libsql)),
+        ("https://sqld.example.com", Some(MemoryRemoteKind::Libsql)),
+        (
+            "mongodb+srv://u:p@cluster.example.com/memory",
+            Some(MemoryRemoteKind::Mongodb),
+        ),
+        ("mysql://h/db", None),
+    ];
+
+    for (url, kind) in cases {
+        home.write(&format!("database_url = \"{url}\"\n"));
+        let remote = home.get();
+
+        assert_eq!(remote.kind, kind, "{url}");
+        assert_eq!(remote.problem.is_some(), kind.is_none(), "{url}");
+    }
+}
+
+#[test]
 fn the_kind_of_a_saved_mongodb_url_follows_the_key_then_the_host() {
     let home = Home::new();
     let cases = [

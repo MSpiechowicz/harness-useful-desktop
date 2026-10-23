@@ -182,7 +182,9 @@ pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
 /// and `routinesSupported` [`TeamDocsSupport::keeps_docs`] of each kind, `documentdbSupported`
 /// [`KindsSupport::documentdb`], `teamAndLocalSupported` [`FeaturesSupport::team_and_local`],
 /// `scriptsTeamAndLocalSupported` [`FeaturesSupport::scripts_team_and_local`],
-/// `saveGuardsSupported` [`FeaturesSupport::save_guards`]; the saved values
+/// `saveGuardsSupported` [`FeaturesSupport::save_guards`], `embedderSupported`
+/// [`FeaturesSupport::embedder`], `settingsSupported` [`FeaturesSupport::settings`],
+/// `notesLangSupported` [`FeaturesSupport::notes_lang`]; the saved values
 /// are reported either way. `kind` is the saved URL's
 /// as the server picks it ([`saved_kind`]).
 pub fn memory_remote_get(env: &Env, support: impl Into<MemorySupport>) -> MemoryRemote {
@@ -237,6 +239,9 @@ fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport)
         team_and_local_supported: support.features.team_and_local(),
         scripts_team_and_local_supported: support.features.scripts_team_and_local(),
         save_guards_supported: support.features.save_guards(),
+        embedder_supported: support.features.embedder(),
+        settings_supported: support.features.settings(),
+        notes_lang_supported: support.features.notes_lang(),
         config_path,
         problem: config
             .problem
