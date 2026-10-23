@@ -14,8 +14,8 @@ use codex_support::{FakeCodex, add_stdio, binary, cli, read_toml, remove, stdio,
 use harness_business::ecosystem::mcp_cli::{add_args, remove_args};
 use harness_business::ecosystem::{
     Blocked, DesktopRegistration, McpFile, MemoryRegistration, Shape, desktop_mcp_state, mcp_state, mcp_target,
-    memory_mcp_state,
-    register_dashboard_mcp_cli, register_desktop_mcp_cli, register_memory_mcp_cli, unregister_memory_mcp_cli,
+    memory_mcp_state, register_dashboard_mcp_cli, register_desktop_mcp_cli, register_memory_mcp_cli,
+    unregister_memory_mcp_cli,
 };
 use harness_business::env::Env;
 use harness_business::harness::{Harness, HarnessCli};
