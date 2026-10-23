@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { describe, expect, it } from 'vitest';
 
 import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
@@ -18,6 +19,8 @@ function stateEvent(patch: Partial<SessionState>): AgentEvent {
 function mount(events: AgentEvent[], harness: HarnessId = 'claude') {
   const { session } = chatSession(events, { harness });
   render(ThinkingPicker, { session });
+
+  return session;
 }
 
 function picker(): HTMLElement | null {
@@ -37,8 +40,18 @@ describe('ThinkingPicker', () => {
     expect(picker()).toBeNull();
   });
 
-  it('shows the default level for a known model whose level is unknown', () => {
-    mount([READY, stateEvent({ thinkingLevel: null })]);
+  it('stays hidden when the level is unknown and the model offers no levels', async () => {
+    const session = mount([READY, stateEvent({ thinkingLevel: null })], 'opencode');
+    session.thinkingLevels = [];
+    await tick();
+
+    expect(picker()).toBeNull();
+  });
+
+  it('shows the default level when the model offers levels to pick from', async () => {
+    const session = mount([READY, stateEvent({ thinkingLevel: null })]);
+    session.thinkingLevels = ['low', 'high'];
+    await tick();
 
     expect(picker()?.textContent).toContain('default');
   });
