@@ -13,8 +13,9 @@ use crate::model::{ExtensionAction, InstallScope};
 ///
 /// - A marketplace harness that renamed its plugin ID (Claude Code, [`SkillsStrategy::Marketplace`]
 ///   with a `legacy` ID): the install of the new plugin with its marketplace (the old one's
-///   registration does not stand in for it, since it carries the old name), then the removal of the
-///   old plugin, because Claude Code keeps the two as separate plugins and both would load, and of
+///   registration does not stand in for it, since it carries the old name, and when the same
+///   repository is registered under the old name that registration is removed first), then the
+///   removal of the old plugin, because Claude Code keeps the two as separate plugins and both would load, and of
 ///   the old marketplace when nothing else is installed from it. Once the new plugin is there the
 ///   step is the removal alone. A plugin the user switched off is left alone.
 /// - An installer host (OpenCode, Codex): its installer, which migrates the old plugin, MCP entry
@@ -50,6 +51,12 @@ pub fn legacy_skills_step(env: &Env, harness: &dyn Harness) -> Option<LegacySkil
 }
 
 /// The step of a marketplace harness whose plugin `legacy` is installed (see [`legacy_skills_step`]).
+///
+/// Claude Code names a marketplace once per source: adding the repository again while it is
+/// registered under another name (the old one) answers "already on disk" and registers nothing, so
+/// the install of the new plugin would not find its marketplace. That old registration is removed
+/// first, and with it the old plugin, when no other plugin is installed from it. If one is, the
+/// step is `None`: the old install keeps working and nothing else is broken for it.
 fn marketplace_step(
     registries: &MarketplaceRegistries,
     source: &str,
@@ -63,23 +70,93 @@ fn marketplace_step(
         return None;
     }
 
+    let cleanup = cleanup_actions(registries, legacy);
     let installed = registries.plugins.iter().any(|found| is_plugin_named(&found.id, name));
 
-    let install = if installed {
-        Vec::new()
-    } else {
-        let registered = registries
-            .marketplaces
-            .iter()
-            .any(|(marketplace, from)| marketplace == name && same_repository(from, source));
+    if installed {
+        return Some(LegacySkillsStep::Actions {
+            remove_first: Vec::new(),
+            install: Vec::new(),
+            cleanup,
+        });
+    }
 
-        install_actions(registered, source, plugin)
-    };
+    match source_registration(registries, name, source, Some(legacy)) {
+        SourceRegistration::Named => Some(LegacySkillsStep::Actions {
+            remove_first: Vec::new(),
+            install: install_actions(true, source, plugin),
+            cleanup,
+        }),
+        SourceRegistration::Absent => Some(LegacySkillsStep::Actions {
+            remove_first: Vec::new(),
+            install: install_actions(false, source, plugin),
+            cleanup,
+        }),
+        SourceRegistration::Other { in_use: true, .. } => None,
+        SourceRegistration::Other { name: holder, .. } => {
+            // Removing the marketplace of the old plugin takes the plugin with it.
+            let cleanup = if legacy.rsplit_once('@').is_some_and(|(_, from)| from == holder) {
+                Vec::new()
+            } else {
+                cleanup
+            };
 
-    Some(LegacySkillsStep::Actions {
-        install,
-        cleanup: cleanup_actions(registries, legacy),
-    })
+            Some(LegacySkillsStep::Actions {
+                remove_first: vec![ExtensionAction::MarketplaceRemove { name: holder }],
+                install: install_actions(false, source, plugin),
+                cleanup,
+            })
+        }
+    }
+}
+
+/// How the repository `source` is registered as a marketplace (see [`source_registration`]).
+pub(super) enum SourceRegistration {
+    /// Under the name the plugin's ID expects.
+    Named,
+    /// Not at all.
+    Absent,
+    /// Under another name (the old one), which the harness answers "already on disk" to when the
+    /// source is added again, so the expected marketplace is never registered. `in_use`: a plugin
+    /// is installed from it, which removing the marketplace would take away.
+    Other { name: String, in_use: bool },
+}
+
+/// How `source` is registered, for a plugin named `name`. A plugin `except` (the one being
+/// replaced) does not count as using the marketplace.
+pub(super) fn source_registration(
+    registries: &MarketplaceRegistries,
+    name: &str,
+    source: &str,
+    except: Option<&str>,
+) -> SourceRegistration {
+    let from_source = |(_, from): &&(String, String)| same_repository(from, source);
+
+    if registries
+        .marketplaces
+        .iter()
+        .filter(from_source)
+        .any(|(marketplace, _)| marketplace == name)
+    {
+        return SourceRegistration::Named;
+    }
+
+    match registries.marketplaces.iter().find(from_source) {
+        Some((holder, _)) => SourceRegistration::Other {
+            in_use: marketplace_in_use(registries, holder, except),
+            name: holder.clone(),
+        },
+        None => SourceRegistration::Absent,
+    }
+}
+
+/// True when a plugin other than `except` (if any) is installed (in any scope) from `marketplace`.
+fn marketplace_in_use(registries: &MarketplaceRegistries, marketplace: &str, except: Option<&str>) -> bool {
+    registries
+        .all_plugin_ids
+        .iter()
+        .filter(|id| Some(id.as_str()) != except)
+        .any(|id| id.rsplit_once('@').is_some_and(|(_, from)| from == marketplace))
 }
 
 /// The removal of the plugin `legacy`, and of its marketplace when it is registered and no other
@@ -95,13 +172,7 @@ fn cleanup_actions(registries: &MarketplaceRegistries, legacy: &str) -> Vec<Exte
 
     let registered = registries.marketplaces.iter().any(|(name, _)| name == marketplace);
 
-    let in_use = registries
-        .all_plugin_ids
-        .iter()
-        .filter(|id| id.as_str() != legacy)
-        .any(|id| id.rsplit_once('@').is_some_and(|(_, from)| from == marketplace));
-
-    if registered && !in_use {
+    if registered && !marketplace_in_use(registries, marketplace, Some(legacy)) {
         actions.push(ExtensionAction::MarketplaceRemove {
             name: marketplace.to_owned(),
         });
@@ -113,9 +184,12 @@ fn cleanup_actions(registries: &MarketplaceRegistries, legacy: &str) -> Vec<Exte
 /// What [`legacy_skills_step`] runs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LegacySkillsStep {
-    /// Extension actions through the harness's CLI: `install` first (empty when the new plugin is
-    /// already installed), then `cleanup`, which removes what the old names left.
+    /// Extension actions through the harness's CLI, in this order: `remove_first` (empty unless the
+    /// old marketplace registration stands in the way of the new one, see [`marketplace_step`]; a
+    /// failure after it leaves no Harness Skills), `install` (empty when the new plugin is already
+    /// installed), then `cleanup`, which removes what the old names left.
     Actions {
+        remove_first: Vec<ExtensionAction>,
         install: Vec<ExtensionAction>,
         cleanup: Vec<ExtensionAction>,
     },

@@ -15,9 +15,8 @@ mod registries;
 
 use std::path::{Path, PathBuf};
 
-use self::github::same_repository;
 pub use self::legacy::{LegacySkillsStep, legacy_skills_step};
-use self::legacy::{install_actions, is_plugin_named};
+use self::legacy::{SourceRegistration, install_actions, is_plugin_named, source_registration};
 use self::registries::marketplace_registries;
 use super::catalog::{CODEX_SKILLS_MIN_VERSION, SKILLS_PLUGIN, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
@@ -425,8 +424,9 @@ fn find_node(env: &Env) -> Option<ResolvedBinary> {
 
 /// Installed when the user has the skills plugin (`plugin`, or another `name@…` of its name; on OMP
 /// also an npm install) and it is switched on; otherwise the marketplace add (unless a marketplace
-/// from `source` is registered, see [`same_repository`]) and the user-scope plugin install, or for
-/// a plugin that is off its enable. The plugin `legacy` (its ID before Harness Skills 0.4.0) still
+/// from `source` is registered under the expected name, and after the removal of one registered
+/// under another name when no plugin is installed from it, see [`source_registration`]) and the
+/// user-scope plugin install, or for a plugin that is off its enable. The plugin `legacy` (its ID before Harness Skills 0.4.0) still
 /// counts, the new one first.
 fn marketplace_skills(
     env: &Env,
@@ -463,14 +463,21 @@ fn marketplace_skills(
         None => {}
     }
 
-    let registered = registries
-        .marketplaces
-        .iter()
-        .any(|(_, from)| same_repository(from, source));
+    let actions = match source_registration(&registries, name, source, None) {
+        SourceRegistration::Named => install_actions(true, source, plugin),
+        SourceRegistration::Absent => install_actions(false, source, plugin),
+        // A plugin installed from it stays, and the marketplace with it: only the install is offered.
+        SourceRegistration::Other { in_use: true, .. } => install_actions(true, source, plugin),
+        // The harness would not register the expected marketplace beside it: it goes first.
+        SourceRegistration::Other { name: old, .. } => {
+            let mut actions = vec![ExtensionAction::MarketplaceRemove { name: old }];
+            actions.extend(install_actions(false, source, plugin));
 
-    SkillsSetup::Install {
-        actions: install_actions(registered, source, plugin),
-    }
+            actions
+        }
+    };
+
+    SkillsSetup::Install { actions }
 }
 
 /// The app's own server in `file`; a manual edit names this app's program.
