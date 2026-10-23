@@ -248,6 +248,46 @@ tool schemas dropped) into `business/tests/fixtures/codex/app_server/`. The scra
     PermissionRequest, PostToolUse, PreCompact, PostCompact, SessionStart, SessionEnd, SubagentStart, SubagentStop.
     Profiles exist (`ConfigProfile`).
 
+## Residuals (known, accepted)
+
+- A reopened chat starts without the approval mode picked before an app restart (every harness, on main before this
+  branch). The header shows the real mode.
+- Windows npm install (`codex.cmd`): Trust once is refused by the batch-script argument check.
+- Fork keeps the chosen message's whole turn including its reply (OpenCode / PI fork before the message).
+- No session tree for Codex: `thread/list` has no `forkedFromId`. A fork appears only after its own first turn.
+- Sessions list filters on the exact cwd: threads started in a subfolder of the project are not listed.
+- Reasoning text: gpt-5.6-terra returns empty reasoning summaries even with `summary: "auto"`.
+- Question dialogs (`request_user_input`) only exist in Codex's Plan mode, which the app does not expose: built from
+  the bindings, tested with synthetic frames only.
+- The naming helper cannot switch off MCP servers Codex does not list in `config/read` (plugin servers); it runs
+  read-only with `untrusted` approvals, which it declines.
+- Harness Skills have no Codex adapter yet (decision 6): separate issue in harness-useful-skills.
+- Switched-off MCP servers are not shared from Codex (Codex cannot import one switched off); OMP/PI/OpenCode still
+  share them.
+
+## Real-provider checklist
+
+Run with your own `codex login` on 0.154–0.156. Recordings and real-CLI checks already cover the protocol, trust,
+modes, forks, skills, the notes-guard key and the sessions calls (see Verified facts and the Status table).
+
+1. Onboarding: Codex shows as installed, the approval notice matches your `config.toml` (yours: on-request with an
+   extra writable root and network).
+2. Config view: `config.toml` as TOML, secrets (the context7 Authorization header, node_repl env) hidden.
+3. Extensions: your plugins, marketplaces, skills (incl. `~/.agents/skills`) and MCP servers listed.
+4. Recommended setup: dashboard + memory + desktop MCP rows add through `codex mcp add`; check `config.toml` after.
+   Then a new chat offers the memory button ("Ask before saving") and a note save asks.
+5. New chat on the configured model `gpt-6-astra`: the error from Codex shows and the picker offers gpt-5.6-terra.
+6. Chat on gpt-5.6-terra in Write: streamed reply, a command approval (Allow once / Reject), a file change (Always
+   allow), the context meter, stop mid-command, steer while a command runs, a queued follow-up and Remove queued.
+7. Always ask: `!ls` refused; Write: `!ls` runs and shows its output.
+8. `/compact`, rename, fork at the first message, clone, new chat, switch back, HTML export.
+9. A skill as `/name`.
+10. Sessions view: list, open, touched files, delete a fork, then its parent.
+11. A project with its own `.codex/config.toml`: notice, Trust once, the project setting applies for that chat only.
+12. Extensions: install and remove one plugin through `codex plugin` (output and exit code are untested).
+13. Share setup export from Codex, then import on another harness (and back).
+14. One routine on Codex and one hook (toolEnd on `apply_patch`).
+
 ## Risks
 
 - `app-server` is labelled experimental: method shapes may move between releases. Mitigation: pin supported
