@@ -1,3 +1,11 @@
+## [0.38.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.1...v0.38.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* **chat:** hide the thinking picker when the level is unknown ([8c698a9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8c698a9d9d30489638575c261b9976ef54db3e45))
+* **routines:** show why an agent run failed ([9823a0e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9823a0e0477ef1d7684bedbab6f11290eff25c72))
+
 ## [0.38.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.0...v0.38.1) (2026-10-23)
 
 
