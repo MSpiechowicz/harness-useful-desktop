@@ -70,6 +70,7 @@ pub mod memory_binary;
 pub mod memory_cli;
 mod memory_copy_answer;
 pub mod memory_embedder;
+mod memory_embedder_lines;
 pub mod memory_embedder_supervisor;
 pub mod memory_features;
 pub mod memory_guards;
@@ -127,7 +128,7 @@ pub use memory_embedder::{
     EmbedderEvent, EmbedderStatus, EmbedderTracker, embedder_status, feature_server, get_settings, parse_event,
     remove_embedder_model, set_embedder_enabled, set_settings,
 };
-pub use memory_embedder_supervisor::{EmbedderSupervisor, SupervisorOptions, embedder_spec};
+pub use memory_embedder_supervisor::{EmbedderSupervisor, Reconciled, SupervisorOptions, embedder_spec};
 pub use memory_features::{FeaturesSupport, MemoryFeatures};
 pub use memory_guards::{
     CHAT_MAX_AGE, ChatGuardWrites, SESSION_VAR, chat_repo_root, check_chat_key, is_chat_key, read_chat, read_chat_repo,

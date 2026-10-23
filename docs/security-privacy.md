@@ -1320,6 +1320,10 @@ embedder. The model and the code are the server's own, see its repository.
   leaves it running, quitting the app stops it. A second app instance finds the embedder's lock taken and does not start
   another. A crash restarts it three times at most within ten minutes. The app logs the phase it reached and never what
   the embedder printed.
+- **Opt-out is respected.** A switch turned off on the command line (`harness-memory embedder disable`, which leaves
+  `embedder.toml` in the data folder) is never turned on again by the app: at launch it leaves the embedder off and turns
+  the `vectorSearch` pref off. Only a switch nobody chose yet (no file) follows the default. Turning the setting off in
+  the app also works with a Harness Memory that predates the embedder.
 - **Local socket only.** Every `harness-memory mcp` asks the embedder over a Unix socket (mode `0600`, in the data folder,
   or in the temporary folder when that path is long, and a client refuses a socket that is not a socket or not owned by
   the current user) or, on Windows, a named pipe named for the user. No TCP port is opened. The app itself never

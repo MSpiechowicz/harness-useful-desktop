@@ -103,6 +103,20 @@ describe('notes the server flagged as not in English', () => {
     expect(screen.queryByTitle('Not in English')).toBeNull();
   });
 
+  it('drops a chosen Not in English filter on a server that does not list notes-lang', async () => {
+    const invoke = fakeMemory();
+    withNotesLang(invoke, false);
+    viewState.notesNotEnglish = true;
+    await showNotes();
+    await waitFor(() => expect(memoryRemote.value?.notesLangSupported).toBe(false));
+
+    await waitFor(() => expect(viewState.notesNotEnglish).toBe(false));
+    await waitFor(() => expect(calls(invoke, 'memory_notes_list').at(-1)).toMatchObject({ lang: undefined }));
+    expect(screen.queryByRole('button', { name: 'Not in English' })).toBeNull();
+    expect(noteRow(3)).not.toBeNull();
+    expect(noteRow(4)).not.toBeNull();
+  });
+
   it('reads the rows when the feature line could not be read', async () => {
     const invoke = fakeMemory();
     withNotesLang(invoke, undefined);

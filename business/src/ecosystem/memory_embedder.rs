@@ -76,7 +76,7 @@ pub fn parse_event(line: &str) -> Option<EmbedderEvent> {
         "verifying" => EmbedderEvent::Verifying,
         "loading" => EmbedderEvent::Loading,
         "ready" => EmbedderEvent::Ready {
-            model: text("model").unwrap_or_default(),
+            model: model_name(text("model")),
         },
         "backfill" => EmbedderEvent::Backfill {
             store: text("store")?,
@@ -90,7 +90,7 @@ pub fn parse_event(line: &str) -> Option<EmbedderEvent> {
             total: number("total"),
         },
         "switched" => EmbedderEvent::Switched {
-            model: text("model").unwrap_or_default(),
+            model: model_name(text("model")),
         },
         "cleanup-done" => EmbedderEvent::CleanupDone,
         "idle" => EmbedderEvent::Idle,
@@ -102,6 +102,21 @@ pub fn parse_event(line: &str) -> Option<EmbedderEvent> {
     };
 
     Some(event)
+}
+
+/// The most characters of a model name that are kept.
+const MAX_MODEL_CHARS: usize = 200;
+
+/// A model name from the embedder's output: clipped to [`MAX_MODEL_CHARS`], then redacted and
+/// clipped like an error line. Empty when it said none.
+fn model_name(model: Option<String>) -> String {
+    let model = model.unwrap_or_default();
+    let end = model
+        .char_indices()
+        .nth(MAX_MODEL_CHARS)
+        .map_or(model.len(), |(end, _)| end);
+
+    clean(&model[..end])
 }
 
 /// What the embedder's events add up to: the [`MemoryEmbedderState`] shown, plus what is needed to
@@ -302,9 +317,9 @@ fn fraction(done: u64, total: u64) -> Option<f64> {
 
 /// What the stores in `progress` have done together; `None` without any.
 fn total_fraction(progress: &BTreeMap<String, (u64, u64)>) -> Option<f64> {
-    let (done, total) = progress
-        .values()
-        .fold((0, 0), |(done, total), (d, t)| (done + d, total + t));
+    let (done, total) = progress.values().fold((0_u64, 0_u64), |(done, total), (d, t)| {
+        (done.saturating_add(*d), total.saturating_add(*t))
+    });
 
     if progress.is_empty() {
         return None;

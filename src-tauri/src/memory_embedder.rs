@@ -8,6 +8,7 @@
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
+use harness_business::ecosystem::Reconciled;
 use harness_business::model::MemoryEmbedderState;
 use tauri::async_runtime::{self, JoinHandle};
 use tauri::ipc::Channel;
@@ -59,18 +60,40 @@ pub fn spawn_on_launch(app: &AppHandle) {
 }
 
 /// Makes the embedder run or stop as the prefs and the installed server say (see the module docs).
-/// Does nothing once shutdown began.
+/// Does nothing once shutdown began, also when it began while the server was being asked. An
+/// embedder switched off on the command line stays off and turns the `vectorSearch` pref off, so
+/// the switch in the settings shows what runs.
 pub(crate) async fn reconcile(state: &AppState) {
-    if state.agents.is_shutting_down() {
+    let closing = || state.agents.is_shutting_down();
+
+    if closing() {
         return;
     }
 
     let wanted = wanted(state).await;
 
-    state
+    let settled = state
         .memory_embedder
-        .reconcile(&state.env, &state.runner, &state.memory_features, wanted)
+        .reconcile(&state.env, &state.runner, &state.memory_features, wanted, &closing)
         .await;
+
+    if settled == Reconciled::OptedOut {
+        turn_vector_search_off(state).await;
+    }
+}
+
+async fn turn_vector_search_off(state: &AppState) {
+    let prefs = state.prefs.clone();
+
+    let saved =
+        async_runtime::spawn_blocking(move || prefs.with(|store| store.update(|prefs| prefs.vector_search = false)))
+            .await;
+
+    match saved {
+        Ok(Ok(_)) => tracing::info!("vector search is off: the embedder was switched off outside the app"),
+        Ok(Err(error)) => tracing::warn!(%error, "the vector search pref could not be saved"),
+        Err(error) => tracing::warn!(%error, "the vector search pref could not be saved"),
+    }
 }
 
 /// True while project memory and vector search are both on.

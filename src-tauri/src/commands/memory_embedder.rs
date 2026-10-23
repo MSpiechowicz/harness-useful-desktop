@@ -4,11 +4,9 @@
 //! Each needs the feature of the installed server: `notFound` when Harness Memory is not
 //! installed, `unsupported` when it predates it. See `harness_business::ecosystem::memory_embedder`.
 
-use harness_business::Result;
-use harness_business::ecosystem::{
-    FeaturesSupport, feature_server, get_settings, remove_embedder_model, set_embedder_enabled, set_settings,
-};
-use harness_business::model::{MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
+use harness_business::ecosystem::{FeaturesSupport, feature_server, get_settings, set_embedder_enabled, set_settings};
+use harness_business::model::{AppPrefs, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
+use harness_business::{BusinessError, Result};
 use tauri::State;
 use tauri::ipc::Channel;
 
@@ -21,7 +19,12 @@ use crate::state::AppState;
 /// then starts or stops the embedder (it starts only while project memory is on too). The answer
 /// holds the stored pref and the embedder's state right then (follow it with
 /// `memory_embedder_watch`). Nothing changes when the server refuses: `unsupported` for a Harness
-/// Memory without `embedder`, `notFound` when it is not installed, `process` with its line.
+/// Memory without `embedder`, `notFound` when it is not installed, `process` with its line. A pref
+/// that cannot be stored undoes the server's switch and answers the error.
+///
+/// Turning it off also works on a Harness Memory without `embedder` (`unsupported` for turning it
+/// on): the pref is stored, there is nothing to switch, and the choice holds once the server is
+/// updated.
 #[tauri::command]
 pub async fn memory_set_vector_search(
     state: State<'_, AppState>,
@@ -31,11 +34,30 @@ pub async fn memory_set_vector_search(
 }
 
 async fn set_vector_search(state: &AppState, enabled: bool) -> CommandResult<MemoryVectorSwitchResult> {
-    let server = embedder_server(state).await?;
-    set_embedder_enabled(&state.env, &state.runner, &server, enabled).await?;
+    let was = stored_vector_search(state).await;
 
-    let prefs = state.prefs.clone();
-    let saved = blocking(move || Ok(prefs.with(|store| store.update(|prefs| prefs.vector_search = enabled))?)).await?;
+    let switched = match embedder_server(state).await {
+        Ok(server) => {
+            set_embedder_enabled(&state.env, &state.runner, &server, enabled).await?;
+            Some(server)
+        }
+        // Opting out needs no server: there is nothing to switch off.
+        Err(BusinessError::Unsupported(_)) if !enabled => None,
+        Err(error) => return Err(error.into()),
+    };
+
+    let saved = match store_vector_search(state, enabled).await {
+        Ok(saved) => saved,
+        Err(error) => {
+            if let Some(server) = switched
+                && let Err(undo) = set_embedder_enabled(&state.env, &state.runner, &server, was).await
+            {
+                tracing::warn!(%undo, "the embedder's switch could not be put back");
+            }
+
+            return Err(error);
+        }
+    };
 
     reconcile(state).await;
 
@@ -43,6 +65,20 @@ async fn set_vector_search(state: &AppState, enabled: bool) -> CommandResult<Mem
         vector_search: saved.vector_search,
         state: state.memory_embedder.state(),
     })
+}
+
+async fn stored_vector_search(state: &AppState) -> bool {
+    let prefs = state.prefs.clone();
+
+    blocking(move || Ok(prefs.with(|store| store.load().vector_search)))
+        .await
+        .unwrap_or(true)
+}
+
+async fn store_vector_search(state: &AppState, enabled: bool) -> CommandResult<AppPrefs> {
+    let prefs = state.prefs.clone();
+
+    blocking(move || Ok(prefs.with(|store| store.update(|prefs| prefs.vector_search = enabled))?)).await
 }
 
 /// Sends the embedder's state (`phase`, `progress`, `model`, `error`) to `on_event` now and on
@@ -65,9 +101,10 @@ pub async fn memory_embedder_watch(
 pub async fn memory_embedder_remove_model(state: State<'_, AppState>) -> CommandResult<MemoryEmbedderState> {
     let server = embedder_server(&state).await?;
 
-    state.memory_embedder.stop().await;
-    remove_embedder_model(&state.env, &state.runner, &server).await?;
-    state.memory_embedder.set_model_present(Some(false));
+    state
+        .memory_embedder
+        .remove_model(&state.env, &state.runner, &server)
+        .await?;
 
     Ok(state.memory_embedder.state())
 }
@@ -116,7 +153,6 @@ async fn settings_server(state: &AppState) -> Result<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use harness_business::BusinessError;
     use harness_business::model::{EmbedderPhase, IpcErrorCode};
     use tauri::async_runtime::block_on;
 
@@ -183,5 +219,81 @@ mod tests {
         let server = block_on(settings_server(&state)).expect("settings are listed");
         let settings = block_on(get_settings(&state.env, &state.runner, &server)).expect("read");
         assert!(settings.english_notes);
+    }
+
+    #[test]
+    fn opting_out_works_on_a_server_without_the_embedder_and_opting_in_does_not() {
+        let dir = TempDir::new("vector-old-server");
+        let state = home_state(&dir);
+
+        if place_memory_server(&dir.path().join("home")).is_none() {
+            return;
+        }
+
+        // The server answers `features` with a usage error: it predates every feature.
+        std::fs::write(dir.path().join("home").join(".fake-memory-features"), "none").expect("older server");
+
+        let on = block_on(set_vector_search(&state, true)).expect_err("nothing to switch on");
+        assert_eq!(on.code(), IpcErrorCode::Unsupported);
+        assert!(
+            state.prefs.with(|store| store.load().vector_search),
+            "the pref stays on"
+        );
+
+        let off = block_on(set_vector_search(&state, false)).expect("the opt-out is stored");
+        assert_eq!((off.vector_search, off.state.phase), (false, EmbedderPhase::Off));
+        assert!(!state.prefs.with(|store| store.load().vector_search));
+
+        let on = block_on(set_vector_search(&state, true)).expect_err("still nothing to switch on");
+        assert_eq!(on.code(), IpcErrorCode::Unsupported);
+        assert!(
+            !state.prefs.with(|store| store.load().vector_search),
+            "the opt-out holds"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_pref_that_cannot_be_stored_puts_the_servers_switch_back() {
+        let dir = TempDir::new("vector-rollback");
+        let state = home_state(&dir);
+
+        if place_memory_server(&dir.path().join("home")).is_none() {
+            return;
+        }
+
+        // The prefs folder cannot be created any more: the write after `embedder disable` fails.
+        std::fs::remove_dir_all(dir.path().join("config")).ok();
+        std::fs::write(dir.path().join("config"), "not a folder").expect("block the prefs folder");
+
+        let refused = block_on(set_vector_search(&state, false)).expect_err("the pref is not stored");
+        assert_ne!(refused.code(), IpcErrorCode::Unsupported);
+
+        let switch = std::fs::read_to_string(dir.path().join("home").join(".fake-embedder-switch"));
+        assert_eq!(switch.as_deref().ok(), Some("enable"), "disabled, then put back");
+    }
+
+    #[test]
+    fn an_embedder_switched_off_on_the_command_line_turns_the_pref_off_at_launch() {
+        let dir = TempDir::new("vector-opt-out");
+        let state = home_state(&dir);
+
+        if place_memory_server(&dir.path().join("home")).is_none() {
+            return;
+        }
+
+        let folder = harness_business::ecosystem::memory_data_dir(&state.env).expect("a data folder");
+        std::fs::create_dir_all(&folder).expect("data folder");
+        std::fs::write(folder.join("embedder.toml"), "enabled = false\n").expect("the switch file");
+        assert!(state.prefs.with(|store| store.load().vector_search));
+
+        block_on(reconcile(&state));
+
+        assert!(!state.prefs.with(|store| store.load().vector_search));
+        assert_eq!(state.memory_embedder.state().phase, EmbedderPhase::Off);
+        assert!(
+            !dir.path().join("home").join(".fake-embedder-switch").exists(),
+            "it was not switched on"
+        );
     }
 }

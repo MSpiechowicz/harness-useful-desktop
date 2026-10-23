@@ -271,7 +271,7 @@ async fn an_older_server_starts_no_embedder_and_a_disabled_one_is_enabled_once_b
 
     older
         .supervisor
-        .reconcile(&older.setup.env, older.setup.runner(), &features, true)
+        .reconcile(&older.setup.env, older.setup.runner(), &features, true, &|| false)
         .await;
 
     assert_eq!(older.starts(), 0, "nothing spawned");
@@ -291,7 +291,7 @@ async fn an_older_server_starts_no_embedder_and_a_disabled_one_is_enabled_once_b
 
     current
         .supervisor
-        .reconcile(&current.setup.env, current.setup.runner(), &features, true)
+        .reconcile(&current.setup.env, current.setup.runner(), &features, true, &|| false)
         .await;
     until(&mut updates, |state| state.phase == EmbedderPhase::Ready).await;
 
@@ -307,7 +307,7 @@ async fn an_older_server_starts_no_embedder_and_a_disabled_one_is_enabled_once_b
 
     current
         .supervisor
-        .reconcile(&current.setup.env, current.setup.runner(), &features, false)
+        .reconcile(&current.setup.env, current.setup.runner(), &features, false, &|| false)
         .await;
     assert_eq!(
         current.supervisor.state(),
@@ -337,6 +337,7 @@ async fn a_stopped_embedder_learns_from_the_status_whether_a_model_is_downloaded
                 stopped.setup.runner(),
                 &MemoryFeatures::new(),
                 false,
+                &|| false,
             )
             .await;
 
@@ -358,6 +359,7 @@ async fn a_stopped_embedder_learns_from_the_status_whether_a_model_is_downloaded
             launching.setup.runner(),
             &MemoryFeatures::new(),
             true,
+            &|| false,
         )
         .await;
     until(&mut updates, |state| state.phase == EmbedderPhase::Ready).await;
@@ -376,7 +378,7 @@ async fn an_enabled_embedder_is_not_enabled_again_and_a_missing_server_runs_noth
 
     enabled
         .supervisor
-        .reconcile(&enabled.setup.env, enabled.setup.runner(), &features, true)
+        .reconcile(&enabled.setup.env, enabled.setup.runner(), &features, true, &|| false)
         .await;
     until(&mut updates, |state| state.phase == EmbedderPhase::Ready).await;
 
@@ -390,8 +392,10 @@ async fn an_enabled_embedder_is_not_enabled_again_and_a_missing_server_runs_noth
     let absent = Setup::without_server(EMBEDDER, &[]);
     let supervisor = EmbedderSupervisor::new(absent.stand_in.clone());
     supervisor
-        .reconcile(&absent.env, absent.runner(), &MemoryFeatures::new(), true)
+        .reconcile(&absent.env, absent.runner(), &MemoryFeatures::new(), true, &|| false)
         .await;
     assert!(absent.requested().is_empty());
     assert_eq!(supervisor.state(), MemoryEmbedderState::default());
 }
+
+mod reconcile_cases;

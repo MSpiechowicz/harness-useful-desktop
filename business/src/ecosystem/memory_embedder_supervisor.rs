@@ -16,24 +16,29 @@
 //! Only the phases are logged, never what the embedder printed.
 
 use std::collections::VecDeque;
-use std::io;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
+use tokio::io::{AsyncWrite, BufReader};
 use tokio::sync::{Notify, watch};
 use tokio::task::JoinHandle;
 
 use super::catalog::MEMORY_BINARY;
-use super::memory_embedder::{EmbedderTracker, embedder_status, feature_server, parse_event, set_embedder_enabled};
+use super::memory_embedder::{
+    EmbedderTracker, embedder_status, feature_server, parse_event, remove_embedder_model, set_embedder_enabled,
+};
+use super::memory_embedder_lines::{discard, next_line};
 use super::memory_features::{FeaturesSupport, MemoryFeatures};
+use super::memory_requests::memory_data_dir;
 use crate::env::Env;
+use crate::error::Result;
 use crate::model::MemoryEmbedderState;
 use crate::process::{ChildHandle, ExecSpec, ProcessRunner, ProcessSpawner, SpawnedProcess, launcher_search_dirs};
 
-/// The longest stdout line read; the rest of a longer line is dropped.
-const MAX_LINE_BYTES: u64 = 64 * 1024;
+/// The file in the server's data folder that `embedder enable|disable` writes. It does not exist
+/// until a choice was made.
+const SWITCH_FILE: &str = "embedder.toml";
 
 /// How the supervisor restarts and stops the embedder.
 #[derive(Debug, Clone)]
@@ -64,6 +69,17 @@ pub fn embedder_spec(env: &Env, server: &Path) -> ExecSpec {
         .cwd(&env.home)
         .env("NO_COLOR", "1")
         .search_dirs(launcher_search_dirs(env, server))
+}
+
+/// What [`EmbedderSupervisor::reconcile`] settled on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reconciled {
+    /// The embedder runs or stays stopped as asked.
+    Settled,
+    /// The embedder's own switch was turned off on purpose (`embedder disable` on the command line,
+    /// its file exists) while vector search was wanted. It was left off and not started: the
+    /// caller turns its `vectorSearch` pref off to agree.
+    OptedOut,
 }
 
 /// The state and the tracker behind it, shared with the task.
@@ -139,7 +155,18 @@ impl EmbedderSupervisor {
     /// still going (the embedder runs, or waits to be restarted); a task that gave up (`failed`,
     /// `elsewhere`) or ended (`off`) is replaced.
     pub async fn start(&self, spec: ExecSpec) -> bool {
+        self.start_unless(spec, &|| false).await
+    }
+
+    /// [`Self::start`], unless `closing` says so. It is asked while the start is held against
+    /// [`Self::stop`], so a stop that follows the flag `closing` reads never finds nothing to stop
+    /// and then lets a start through.
+    pub async fn start_unless(&self, spec: ExecSpec, closing: &(dyn Fn() -> bool + Sync)) -> bool {
         let mut running = self.running.lock().await;
+
+        if closing() {
+            return false;
+        }
 
         if running.as_ref().is_some_and(|running| !running.task.is_finished()) {
             return false;
@@ -165,9 +192,19 @@ impl EmbedderSupervisor {
     /// installed Harness Memory lists `embedder`, and stop otherwise. A server that does not know
     /// the embedder, or is not installed, starts nothing. `embedder status` also tells whether a
     /// downloaded model is on this computer (`modelPresent`), whether the embedder starts or not.
-    /// The embedder's own switch is turned on first when the status says it is off (an app that
-    /// updated while the pref was already on). Failures are logged: the state tells the rest.
-    pub async fn reconcile(&self, env: &Env, runner: &dyn ProcessRunner, features: &MemoryFeatures, wanted: bool) {
+    /// The embedder's own switch is turned on first when the status says it is off and was never
+    /// chosen (an app that updated while the pref was already on). A switch that was turned off on
+    /// purpose (`embedder.toml` exists) is respected: nothing starts and [`Reconciled::OptedOut`]
+    /// tells the caller. Nothing starts once `closing` is true (the app is quitting).
+    /// Failures are logged: the state tells the rest.
+    pub async fn reconcile(
+        &self,
+        env: &Env,
+        runner: &dyn ProcessRunner,
+        features: &MemoryFeatures,
+        wanted: bool,
+        closing: &(dyn Fn() -> bool + Sync),
+    ) -> Reconciled {
         let _deciding = self.reconciling.lock().await;
 
         let server = feature_server(env, runner, features, FeaturesSupport::embedder, "vector search").await;
@@ -179,32 +216,53 @@ impl EmbedderSupervisor {
                 self.read_model_present(env, runner, &server).await;
             }
 
-            return;
+            return Reconciled::Settled;
         }
 
         let Ok(server) = server else {
             self.stop().await;
-            return;
+            return Reconciled::Settled;
         };
 
         match embedder_status(env, runner, &server).await {
             Ok(status) => {
                 self.set_model_present(status.model_present);
 
-                if !status.enabled
-                    && let Err(error) = set_embedder_enabled(env, runner, &server, true).await
-                {
-                    tracing::warn!(%error, "the embedder could not be switched on");
-                    return;
+                if !status.enabled {
+                    if switched_off_on_purpose(env) {
+                        tracing::info!("the embedder was switched off outside the app; leaving it off");
+                        self.stop().await;
+                        return Reconciled::OptedOut;
+                    }
+
+                    if let Err(error) = set_embedder_enabled(env, runner, &server, true).await {
+                        tracing::warn!(%error, "the embedder could not be switched on");
+                        return Reconciled::Settled;
+                    }
                 }
             }
             Err(error) => {
                 tracing::warn!(%error, "the embedder's status could not be read");
-                return;
+                return Reconciled::Settled;
             }
         }
 
-        self.start(embedder_spec(env, &server)).await;
+        self.start_unless(embedder_spec(env, &server), closing).await;
+        Reconciled::Settled
+    }
+
+    /// Stops the embedder, then deletes the model files and the vectors (`embedder remove-model`),
+    /// and records that no model is downloaded. It holds the lock of [`Self::reconcile`], so no
+    /// reconcile starts the embedder again between the two (the server refuses to remove a model
+    /// that is in use). A reconcile that waited starts it after the removal, if it is wanted.
+    pub async fn remove_model(&self, env: &Env, runner: &dyn ProcessRunner, server: &Path) -> Result<()> {
+        let _deciding = self.reconciling.lock().await;
+
+        self.stop().await;
+        remove_embedder_model(env, runner, server).await?;
+        self.set_model_present(Some(false));
+
+        Ok(())
     }
 
     /// Records whether a downloaded model is on this computer (`None`: not known) and publishes
@@ -238,6 +296,15 @@ impl EmbedderSupervisor {
 
         self.shared.update(EmbedderTracker::stopped);
     }
+}
+
+/// True when the embedder's switch file exists: someone chose, and it is off (the status said so).
+fn switched_off_on_purpose(env: &Env) -> bool {
+    let Some(folder) = memory_data_dir(env) else {
+        return false;
+    };
+
+    folder.join(SWITCH_FILE).try_exists().unwrap_or(false)
 }
 
 /// How one process ended.
@@ -398,43 +465,4 @@ async fn kill(child: &mut dyn ChildHandle) {
     child.kill_process_group();
 
     tokio::time::timeout(Duration::from_secs(2), child.wait()).await.ok();
-}
-
-/// Reads and drops `stream` so a full pipe never blocks the embedder. Its text is not kept: it can
-/// quote the data the embedder works on.
-async fn discard(mut stream: Box<dyn AsyncRead + Send + Unpin>) {
-    let mut buffer = [0_u8; 4096];
-
-    while matches!(stream.read(&mut buffer).await, Ok(read) if read > 0) {}
-}
-
-/// The next line of `reader` (at most [`MAX_LINE_BYTES`], the rest of a longer one is dropped);
-/// `None` at the end of the stream.
-async fn next_line<R: AsyncBufRead + Unpin>(reader: &mut R, buffer: &mut Vec<u8>) -> io::Result<Option<String>> {
-    loop {
-        buffer.clear();
-        let read = (&mut *reader).take(MAX_LINE_BYTES).read_until(b'\n', buffer).await?;
-
-        if read == 0 {
-            return Ok(None);
-        }
-
-        if buffer.ends_with(b"\n") || (read as u64) < MAX_LINE_BYTES {
-            return Ok(Some(String::from_utf8_lossy(buffer).into_owned()));
-        }
-
-        skip_rest_of_line(reader, buffer).await?;
-    }
-}
-
-/// Reads up to the end of the line a read stopped in the middle of.
-async fn skip_rest_of_line<R: AsyncBufRead + Unpin>(reader: &mut R, buffer: &mut Vec<u8>) -> io::Result<()> {
-    loop {
-        buffer.clear();
-        let read = (&mut *reader).take(MAX_LINE_BYTES).read_until(b'\n', buffer).await?;
-
-        if read == 0 || buffer.ends_with(b"\n") {
-            return Ok(());
-        }
-    }
 }

@@ -7,8 +7,10 @@
 //!   until killed). When the
 //!   script ends the process waits for stdin EOF and exits 0, as the real embedder does. Without a
 //!   script it prints `ready` and waits.
-//! - `embedder enable|disable` print nothing and exit 0. `embedder status --json` prints
-//!   `{"enabled": FAKE_EMBEDDER_ENABLED == "true", "running": false, "model_present": …, …}`
+//! - `embedder enable|disable` print nothing, exit 0 and remember the switch in `.fake-embedder-switch` of
+//!   their working directory. `embedder status --json` prints
+//!   `{"enabled": …, "running": false, "model_present": …, …}` (`enabled` is what the last
+//!   `enable|disable` of that working directory said, else `FAKE_EMBEDDER_ENABLED == "true"`)
 //!   (`model_present` is true when `FAKE_EMBEDDER_MODEL=present`, left out when it is `unknown`,
 //!   else false). `embedder remove-model`
 //!   exits 1 with the server's line when `FAKE_EMBEDDER_REMOVE=refuse`, else 0.
@@ -24,12 +26,18 @@ use serde_json::{Value, json};
 /// The ready line of a stand-in without a script.
 const READY: &str = r#"{"event":"ready","model":"fake-model","dim":384}"#;
 
+/// Where `embedder enable|disable` remember the switch, in the working directory.
+const SWITCH_FILE: &str = ".fake-embedder-switch";
+
 /// `harness-memory embedder <args>`.
 pub fn embedder(args: &[String]) -> ! {
     match args.first().map(String::as_str) {
         None => run(),
         Some("run") if args.len() == 1 => run(),
-        Some("enable" | "disable") if args.len() == 1 => std::process::exit(0),
+        Some(switch @ ("enable" | "disable")) if args.len() == 1 => {
+            std::fs::write(SWITCH_FILE, switch).ok();
+            std::process::exit(0);
+        }
         Some("status") if args.get(1..) == Some(&["--json".to_owned()][..]) => status(),
         Some("remove-model") if args.len() == 1 => remove_model(),
         _ => usage(),
@@ -54,7 +62,11 @@ pub fn settings(args: &[String]) -> ! {
 }
 
 fn status() -> ! {
-    let enabled = std::env::var("FAKE_EMBEDDER_ENABLED").is_ok_and(|value| value == "true");
+    let enabled = match std::fs::read_to_string(SWITCH_FILE).as_deref() {
+        Ok("enable") => true,
+        Ok(_) => false,
+        Err(_) => std::env::var("FAKE_EMBEDDER_ENABLED").is_ok_and(|value| value == "true"),
+    };
 
     let mut status = json!({
         "enabled": enabled,

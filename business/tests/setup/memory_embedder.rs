@@ -238,6 +238,39 @@ fn an_error_message_is_redacted_before_it_is_shown() {
     assert!(!message.contains(&secret), "{message}");
 }
 
+#[test]
+fn stores_that_report_the_largest_counts_neither_overflow_nor_stay_unfinished() {
+    let huge = u64::MAX;
+    let lines = [
+        json!({ "event": "backfill", "store": "a", "done": huge, "total": huge }).to_string(),
+        json!({ "event": "backfill", "store": "b", "done": huge, "total": huge }).to_string(),
+    ];
+
+    let tracker = tracker_after(&[&lines[0], &lines[1]]);
+
+    assert_eq!(shown(&tracker), (EmbedderPhase::Ready, None));
+}
+
+#[test]
+fn a_model_name_from_the_embedder_is_redacted_and_clipped_like_an_error() {
+    let secret = ["ghp_", &"a1B2".repeat(9)].concat();
+    let long = "m".repeat(300);
+
+    for event in ["ready", "switched"] {
+        let line = json!({ "event": event, "model": format!("{long}{secret}") }).to_string();
+        let model = tracker_after(&[&line]).state().model.clone().expect("a model");
+
+        assert_eq!(model.chars().count(), 200, "{event}");
+        assert!(!model.contains(&secret), "{event}");
+
+        let line = json!({ "event": event, "model": format!("cache/{secret}") }).to_string();
+        let model = tracker_after(&[&line]).state().model.clone().expect("a model");
+
+        assert!(model.starts_with("cache/"), "{event}: {model}");
+        assert!(!model.contains(&secret), "{event}: {model}");
+    }
+}
+
 #[tokio::test]
 async fn the_short_commands_run_through_the_installed_server_that_lists_the_features() {
     let setup = Setup::installed(
