@@ -1,3 +1,33 @@
+# [0.39.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.2...v0.39.0) (2026-10-23)
+
+
+### Bug Fixes
+
+* **codex:** final repairs after review pass 3 ([faf22a0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/faf22a012aa35f41ac16182b96a60367d39695a7))
+* **codex:** review pass 1 repairs ([188fa24](https://github.com/MSpiechowicz/harness-useful-desktop/commit/188fa2423d512c850e60405bc980fa30b3e78da6))
+* **codex:** review pass 2 repairs for setup, trust and sessions ([6b5f821](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6b5f82137bf97cff2ebd1241412260c3f44a1f07))
+* **codex:** review pass 2 repairs for the chat engine ([0c3d708](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0c3d7086c04c8039f88812d4d80f7031284f2fbf))
+* **codex:** sessions match the real app-server ([94aec09](https://github.com/MSpiechowicz/harness-useful-desktop/commit/94aec0974c087e886df1445cf3023d2309e90b4c))
+* **codex:** setup offers to add missing MCP entries instead of a manual step ([bcb9624](https://github.com/MSpiechowicz/harness-useful-desktop/commit/bcb96246ad85aa3525a6885dc5f5c296076223d7))
+
+
+### Features
+
+* **codex:** app-server wire types, event mapper and fake dialect (S7) ([4b6c697](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4b6c6977408d1e2bc29280bdad330de6a4259193))
+* **codex:** approval modes and trust once (S9) ([90223a2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/90223a24fd01095ab144d34bc351effe2062acc3))
+* **codex:** chat engine core over codex app-server (S8) ([7ab810c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7ab810c1ff34c21772ea6e6c1e9610ea6837dd66))
+* **codex:** chat operations and chat on as Preview (S10) ([7f3eb12](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7f3eb12ab0a0c1a0ce9c8833542bda070f1020ea))
+* **codex:** Codex harness, unified Harness Skills names and routine model pickers ([#43](https://github.com/MSpiechowicz/harness-useful-desktop/issues/43)) ([aaed0d6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/aaed0d67699c08b956248c2812fa36728d5279c4))
+* **codex:** config view, extensions, setup and share setup (S2, S3, S5, S6) ([ff47d63](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ff47d6316fd58647e49b21ed0c9a07ab5339ca90))
+* **codex:** install Harness Skills for Codex from Recommended setup ([9c9722e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9c9722e4fa1ca94eb8e303353a3a3c79b44e4a95))
+* **codex:** register Codex as the fifth harness (S1) ([a2703b9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a2703b9e891426ba152a63b7a2cb441b788b3b0b))
+* **codex:** session tree from a cached parent lookup ([2144195](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2144195bc7da4d5771ebb9c187ea659b7b717e3b))
+* **codex:** sessions through a short-lived app-server (S4) ([f1fd398](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f1fd3981efac0013a5da1127a7539f5b991bfaac))
+* **codex:** UI polish for the Codex preview (S12) ([72a09bd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/72a09bde8669ac078f5994b3d3ee9818c2ff68ed))
+* **routines:** model and thinking level dropdowns in the routine editor ([7c0e250](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7c0e2505fb2fc374ce491892be99aa570af2ebb2))
+* **skills:** adopt the unified harness-useful-skills names with automatic migration ([a0d83bd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a0d83bd77a494f38ca58953c2c62fefb873e0498))
+* **skills:** fully automatic name migration, Claude cleanup and dashboard rename ([8389c72](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8389c72c2cee23ea5c33a57c0cc7a8c58208fdae))
+
 ## [0.38.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.1...v0.38.2) (2026-10-23)
 
 
