@@ -43,7 +43,8 @@ async fn startup_sends_initialize_and_emits_ready_state_and_commands_first() {
     let AgentEvent::State { state } = &events[1] else {
         unreachable!()
     };
-    let args = argv(&chat, 0);
+    // The chat that came up: a start the manager retried (a busy executable under load) spawns again.
+    let args = argv(&chat, chat.spawner.requested().len() - 1);
     let named = args
         .iter()
         .position(|arg| arg == "--session-id")
