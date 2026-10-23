@@ -7,6 +7,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { memorySearch } from '$lib/stores/memoryEmbedder.svelte';
+  import { prefs } from '$lib/stores/prefs.svelte';
 
   import SettingRow from './SettingRow.svelte';
   import VectorSearchStatus from './VectorSearchStatus.svelte';
@@ -18,9 +19,10 @@
   const teamDatabase = $derived(memoryRemote.value?.enabled === true);
   const englishDescription = $derived(t(teamDatabase ? 'settings.memory.english.descriptionTeam' : 'settings.memory.english.description'));
 
-  // The embedder is followed while the settings are open, and the settings are read again with every look at them.
+  // The embedder is followed while the settings are open, and the settings (and the stored vector search pref) are read again with every look at them.
   $effect(() => {
     void memorySearch.loadSettings();
+    void prefs.syncServerManaged();
 
     return memorySearch.watch();
   });

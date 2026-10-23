@@ -13,6 +13,8 @@ export class PrefsStore {
   status = $state<PrefsStatus>('idle');
   /** True while `memory_set_enabled` is in flight. */
   memoryPending = $state(false);
+  /** True while `memory_set_vector_search` is in flight (set by the memory search store). */
+  vectorSearchPending = $state(false);
   /** Entries the last "off" switch left in files with comments: the user removes them by hand, so they stay listed until dismissed. */
   memoryManualRemovals = $state<ManualRemoval[]>([]);
   error = $state<IpcFailure | null>(null);
@@ -51,7 +53,7 @@ export class PrefsStore {
   }
 
   /**
-   * Re-reads the fields the backend owns (active project, recent projects, binary overrides, project memory)
+   * Re-reads the fields the backend owns (active project, recent projects, binary overrides, project memory, vector search)
    * without disturbing the UI-managed ones or an in-flight update.
    */
   async syncServerManaged(): Promise<void> {
@@ -66,6 +68,8 @@ export class PrefsStore {
           binaryOverrides: fresh.binaryOverrides,
           // A switch in flight decides the value once it returns.
           memoryEnabled: this.memoryPending ? this.value.memoryEnabled : fresh.memoryEnabled,
+          // The backend turns it off by itself when the embedder is opted out at launch.
+          vectorSearch: this.vectorSearchPending ? this.value.vectorSearch : fresh.vectorSearch,
         };
       }
     } catch {

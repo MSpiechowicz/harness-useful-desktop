@@ -28,6 +28,7 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{EmbedderPhase, MemoryEmbedderState, MemorySettings};
 use crate::process::ProcessRunner;
+use crate::security::redact_text;
 
 /// The most stores whose progress is followed at once (a computer has a handful).
 const MAX_STORES: usize = 64;
@@ -107,16 +108,16 @@ pub fn parse_event(line: &str) -> Option<EmbedderEvent> {
 /// The most characters of a model name that are kept.
 const MAX_MODEL_CHARS: usize = 200;
 
-/// A model name from the embedder's output: clipped to [`MAX_MODEL_CHARS`], then redacted and
-/// clipped like an error line. Empty when it said none.
+/// A model name from the embedder's output: redacted first (a secret cut by the clip would escape
+/// the masks), then clipped to [`MAX_MODEL_CHARS`]. Empty when it said none.
 fn model_name(model: Option<String>) -> String {
-    let model = model.unwrap_or_default();
-    let end = model
+    let redacted = redact_text(&model.unwrap_or_default());
+    let end = redacted
         .char_indices()
         .nth(MAX_MODEL_CHARS)
-        .map_or(model.len(), |(end, _)| end);
+        .map_or(redacted.len(), |(end, _)| end);
 
-    clean(&model[..end])
+    redacted[..end].to_owned()
 }
 
 /// What the embedder's events add up to: the [`MemoryEmbedderState`] shown, plus what is needed to

@@ -268,6 +268,13 @@ fn a_model_name_from_the_embedder_is_redacted_and_clipped_like_an_error() {
 
         assert!(model.starts_with("cache/"), "{event}: {model}");
         assert!(!model.contains(&secret), "{event}: {model}");
+
+        // A secret that straddles the clip is masked whole, not cut into an unmasked prefix.
+        let line = json!({ "event": event, "model": format!("{}/{secret}", "m".repeat(195)) }).to_string();
+        let model = tracker_after(&[&line]).state().model.clone().expect("a model");
+
+        assert!(model.chars().count() <= 200, "{event}");
+        assert!(!model.contains("ghp_"), "{event}: {model}");
     }
 }
 

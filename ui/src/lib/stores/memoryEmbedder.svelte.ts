@@ -99,8 +99,15 @@ export class MemorySearchStore {
     this.transport
       .invoke('memory_embedder_watch', {
         onEvent: (state) => {
-          if (listening) {
-            this.state = state;
+          if (!listening) {
+            return;
+          }
+
+          this.state = state;
+
+          // An embedder that is off while the pref says on was switched off by the backend (an opt-out at launch): read the pref again.
+          if (state.phase === 'off' && untrack(() => this.appPrefs.value?.vectorSearch) !== false) {
+            void this.appPrefs.syncServerManaged();
           }
         },
       })
@@ -154,6 +161,7 @@ export class MemorySearchStore {
     }
 
     this.vectorPending = true;
+    this.appPrefs.vectorSearchPending = true;
 
     try {
       const switched = await this.transport.invoke('memory_set_vector_search', { enabled });
@@ -174,6 +182,7 @@ export class MemorySearchStore {
       }
     } finally {
       this.vectorPending = false;
+      this.appPrefs.vectorSearchPending = false;
     }
   }
 

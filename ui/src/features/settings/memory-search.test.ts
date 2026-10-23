@@ -31,10 +31,12 @@ interface Options {
   stopped?: MemoryEmbedderState;
   /** What the server's feature lines say, over the mock's (a current server). */
   features?: Partial<Pick<MemoryRemote, 'embedderSupported' | 'settingsSupported' | 'notesLangSupported'>>;
+  /** What the backend stores as `vectorSearch`, when it differs from what the webview loaded (a launch-time opt-out). */
+  stored?: boolean;
 }
 
 /** A Harness Memory that answers the embedder and settings commands, and lets the test push embedder states the way the watch does. */
-function fakeEmbedder({ old = false, team = false, englishNotes = true, removal = () => OFF_WITHOUT_MODEL, stopped = OFF, features = {} }: Options = {}) {
+function fakeEmbedder({ old = false, team = false, englishNotes = true, removal = () => OFF_WITHOUT_MODEL, stopped = OFF, features = {}, stored: storedVector }: Options = {}) {
   const passthrough = ipc.invoke.bind(ipc);
   let emit: (state: MemoryEmbedderState) => void = () => {};
   let stored = englishNotes;
@@ -43,9 +45,14 @@ function fakeEmbedder({ old = false, team = false, englishNotes = true, removal 
     switch (name) {
       case 'memory_embedder_watch':
         emit = (args as CommandArgs<'memory_embedder_watch'>).onEvent;
-        emit(prefs.value?.vectorSearch === false ? stopped : READY);
+        emit((storedVector ?? prefs.value?.vectorSearch) === false ? stopped : READY);
 
         return null as CommandResult<K>;
+      case 'prefs_get': {
+        const saved = (await passthrough(name, args)) as CommandResult<'prefs_get'>;
+
+        return (storedVector === undefined ? saved : { ...saved, vectorSearch: storedVector }) as CommandResult<K>;
+      }
       case 'memory_settings_get':
       case 'memory_settings_set': {
         if (old) {
@@ -238,6 +245,17 @@ describe('Vector search in the Memory section', () => {
     expect(within(memorySection()).queryByRole('button', { name: 'Remove downloaded model' })).toBeNull();
 
     backend.push(OFF);
+    expect(await within(memorySection()).findByRole('button', { name: 'Remove downloaded model' })).toBeInTheDocument();
+  });
+
+  it('shows the switch off and offers the removal when the backend turned vector search off after the prefs were loaded', async () => {
+    fakeEmbedder({ stored: false });
+    prefs.value = samplePrefs({ motion: 'off', vectorSearch: true });
+    render(SettingsView);
+
+    const vector = await within(memorySection()).findByRole('switch', { name: 'Vector search' });
+
+    await waitFor(() => expect(vector).toHaveAttribute('aria-checked', 'false'));
     expect(await within(memorySection()).findByRole('button', { name: 'Remove downloaded model' })).toBeInTheDocument();
   });
 
