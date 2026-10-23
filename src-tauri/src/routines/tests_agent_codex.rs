@@ -62,6 +62,7 @@ fn an_unattended_codex_run_in_approval_mode_write_takes_its_turn_and_finishes() 
     let model = RoutineModel {
         provider: "openai".to_owned(),
         id: "gpt-5.6-luna".to_owned(),
+        thinking: None,
     };
     let session = RunSession {
         harness: HarnessId::Codex,
