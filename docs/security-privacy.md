@@ -998,7 +998,16 @@ them below are the ones they follow.
   rule into your Codex command rules. Extra permissions are granted only as the dialog shows them (network access,
   folders to read, folders to write): a request for anything else, such as `fileSystem.entries`, is declined at once.
   A file change names every path outside the project and the folder it asks to write below, and then offers no Always
-  allow. An ask about another thread than the chat's is declined (`business/src/agent/codex/dialogs.rs`).
+  allow. An ask about another thread than the chat's is declined (`business/src/agent/codex/dialogs.rs`). A dialog's
+  title names everything that is granted and is never cut, most widening first: the folder to write below, writes, paths
+  outside the project, then reads and the project's files (`dialog_text.rs`). A path counts as inside the project only
+  once the symbolic links of its deepest existing folder are resolved, so a link in the project to a folder outside
+  is named as outside. A long title scrolls on the approval card instead of being clamped (it is clamped only when the
+  command below repeats it in full). A command is shown as it runs, with its spacing and line breaks: the script of a
+  plain `bash`/`sh`/`zsh -lc '<script>'` wrapper, else the whole line, never Codex's own reading of it
+  (`commandActions`, which can leave parts of a pipeline out). That reading is only a hint above the command.
+  An oversized request whose numeric id the app cannot read whole is not answered under another id
+  (`business/src/pi_family/rpc/codec.rs`).
 - **Approval modes.** Always ask is `approvalPolicy: untrusted` with the `workspace-write` sandbox, Write is `on-request`
   with `workspace-write` (Codex's own default) and Yolo is `never` with `danger-full-access`. Yolo is offered because
   Codex's `capabilities.yoloMode` is true, and it runs commands with full access to the machine without asking. Auto is
@@ -1006,7 +1015,10 @@ them below are the ones they follow.
   only the sandbox mode, so Codex keeps the writable roots and network setting of your `[sandbox_workspace_write]`.
   Changing the mode resumes the thread. An override also sends `approvalsReviewer: "user"`. When Codex answers the
   thread with another policy, sandbox or reviewer (settings it must keep), the chat warns and follows what Codex runs,
-  also for the `!command` gate. With no override nothing is sent and your `config.toml` applies. The chat header
+  also for the `!command` gate. With no override nothing is sent and your `config.toml` applies. With or without one,
+  the chat warns when Codex's answer gives the thread more than its mode shows: folders outside the project to write in
+  (`writableRoots`), network access, and without an override a model reviewer (`approvalsReviewer` other than `user`)
+  or full access outside Yolo. A chat shows each such warning once, not again for every thread it moves to. The chat header
   and onboarding show the configured `approval_policy / sandbox`, and onboarding warns when it is `never` or
   `danger-full-access`. The app never changes your Codex settings.
 - **Trust once.** Codex applies a project's own `.codex/config.toml`, hooks and rules only in a folder your `config.toml`
@@ -1025,7 +1037,9 @@ them below are the ones they follow.
   written: they are your own session data. A thread id the app puts on a command line or a request is a lowercase UUID
   (`is_thread_id`). Frames over 4 MiB a line are not read: a request among them is answered with an error, the app's
   request they answer fails at once, and a tool card whose end was dropped ends as failed. The AI-naming helper's thread
-  runs read-only with web search and the configured MCP servers switched off, and its asks are declined.
+  runs read-only with web search and every MCP server Codex lists for the project (`config/read`) switched off, and its
+  asks are declined. A helper whose servers Codex does not list does not start. Servers Codex does not list there (a
+  plugin's own) and servers with a dotted name stay on for it.
 - **Trust boundary.** In a trusted folder, a project's `.codex` hooks, rules and MCP servers run as you, as in a terminal.
   The user's own Codex hooks run as they do there too, and the app's own hooks stay app-side, so nothing runs twice. Trust
   once only in a repository you would run `codex` in.
@@ -1300,9 +1314,13 @@ every chat, the Ask default new chats start with, and the repositories where age
   global notes and scripts included. The agent is told that nothing was saved and not to retry.
 - **The session variable.** The app starts every chat's harness with `HARNESS_MEMORY_SESSION=<chatKey>`, a random
   lowercase UUID per chat, which the `harness-memory mcp` child inherits. Codex clears the environment of its MCP
-  servers, so a Codex chat launch also names the variable in each harness-memory server's `env_vars`, for that process
-  only (`-c mcp_servers.<name>.env_vars=[…]`, the server's own variables kept, `config.toml` never written). It names
-  the chat to the server and is no secret. A utility agent and any launch without a chat identity get no value (an inherited one is removed). A value that
+  servers, so a Codex chat asks Codex which servers it runs the project with (`config/read`) and names the variable in
+  the `env_vars` of each harness-memory stdio server listed, in the `config` of each thread it starts, resumes or forks
+  (the server's own variables kept, nothing on the command line, `config.toml` never written,
+  `business/src/agent/codex/memory.rs`). A server Codex did not list is never named. When no server gets the variable
+  the chat's own guards do not apply: the chat says so (`memoryGuards: false`, no Memory button, a notice when a
+  harness-memory server could not be told) and only the guards for every chat apply. It names the chat to the server
+  and is no secret. A utility agent and any launch without a chat identity get no value (an inherited one is removed). A value that
   is not a UUID makes every guarded call refuse.
 - **Local files, never in the team database.** In the same folder as `desktop.alive` (`<data>/harness-memory`,
   `HARNESS_MEMORY_DIR` overrides it): `guards/global.json` and `guards/chats/<chatKey>.json`, written by the app (version

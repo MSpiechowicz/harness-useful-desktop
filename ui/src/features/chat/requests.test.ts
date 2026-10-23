@@ -204,6 +204,23 @@ describe('approval card bound to its tool call', () => {
     expect(screen.getByText(command)).toBeInTheDocument();
   });
 
+  it('never clamps a title that names more than the call shows, and keeps a command as written', async () => {
+    const title = `Allow apply_patch: writing anywhere below /, ${Array.from({ length: 40 }, (_, index) => `src/file-${index}.rs`).join(', ')}?`;
+    await mountBound([{ id: 'call_a', name: 'apply_patch', args: { path: '/work/src/file-0.rs' } }], permission('per_1', title, 'call_a'));
+
+    const heading = screen.getByRole('heading', { name: title });
+    expect(heading.className).not.toContain('line-clamp');
+    expect(heading.className).toContain('overflow-y-auto');
+  });
+
+  it('shows a command over two lines with its spacing', async () => {
+    const command = "printf  '%s'\nsecond line";
+    await mountBound([{ id: 'call_a', name: 'bash', args: { command } }], permission('per_1', `Allow shell: ${command}?`, 'call_a'));
+
+    const shown = screen.getByText((_, element) => element?.tagName === 'DIV' && element.textContent === `$${command}`);
+    expect(shown.className).toContain('whitespace-pre-wrap');
+  });
+
   it('shows a 300-character path in full', async () => {
     const path = `/work/${'deep/'.repeat(58)}secret.txt`;
     await mountBound([{ id: 'call_a', name: 'write', args: { path } }], permission('per_1', 'Allow write?', 'call_a'));

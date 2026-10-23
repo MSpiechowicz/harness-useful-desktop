@@ -21,7 +21,7 @@ const NOT_A_REPOSITORY = fixtures.recentProjects[1].path;
 const attached: string[] = [];
 
 async function show(folder = PROJECT) {
-  const { session } = chatSession([], { project: folder });
+  const { session } = chatSession([], { project: folder, memoryGuards: true });
   memoryChat.attach(session.key, { key: KEY, guards: defaultGuards({ notes: false, scripts: false }) });
   attached.push(session.key);
   render(MemoryButton, { session });
@@ -71,6 +71,15 @@ describe('the Memory button of a chat', () => {
     harness.summaries = fixtures.harnesses.map((summary) => ({ ...summary, capabilities: { ...summary.capabilities, memoryChatGuards: false } }));
 
     await show();
+
+    expect(screen.queryByRole('button', { name: /^Memory/ })).toBeNull();
+  });
+
+  it('is not shown when the chat’s key reached no harness-memory server', async () => {
+    const { session } = chatSession([], { harness: 'codex', project: PROJECT, memoryGuards: false });
+    memoryChat.attach(session.key, { key: KEY, guards: defaultGuards({ notes: false, scripts: false }) });
+    attached.push(session.key);
+    render(MemoryButton, { session });
 
     expect(screen.queryByRole('button', { name: /^Memory/ })).toBeNull();
   });

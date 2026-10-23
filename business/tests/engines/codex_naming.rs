@@ -1,6 +1,8 @@
-//! AI naming with Codex: the helper chat's ephemeral thread never asks and cannot write. A prompt
-//! that fails on the configured model goes once more on Codex's default model before the chat
-//! settles, and one that the configured model answers settles the chat once.
+//! AI naming with Codex: the helper chat's ephemeral thread never asks and cannot write, and every
+//! MCP server Codex lists for the project (`config/read`) is switched off for it. A helper whose
+//! servers Codex does not list does not start. A prompt that fails on the configured model goes
+//! once more on Codex's default model before the chat settles, and one that the configured model
+//! answers settles the chat once.
 
 use crate::codex_engine_support;
 
@@ -14,7 +16,8 @@ const PROMPT: &str =
 
 #[tokio::test]
 async fn a_failed_model_is_retried_once_on_the_default_model_before_the_helper_settles() {
-    // The user's MCP server is switched off for the helper's thread (the scenario checks it).
+    // The servers Codex lists are switched off for the helper's thread, and a server only the
+    // app's own reading of config.toml has is not named (the scenario checks both).
     let helper = codex_engine_support::Setup {
         utility: true,
         ..codex_engine_support::Setup::default()
@@ -22,7 +25,7 @@ async fn a_failed_model_is_retried_once_on_the_default_model_before_the_helper_s
     let chat = codex_engine_support::start_with("codex_engine_naming.jsonl", helper, |project| {
         let config = project.join(codex_engine_support::HOME).join("config.toml");
         std::fs::create_dir_all(config.parent().unwrap()).unwrap();
-        std::fs::write(config, "[mcp_servers.docs]\ncommand = \"docs-server\"\n").unwrap();
+        std::fs::write(config, "[mcp_servers.local-only]\ncommand = \"local-server\"\n").unwrap();
     })
     .await;
 
@@ -80,4 +83,14 @@ async fn a_helper_whose_model_answers_settles_once_with_the_answer() {
             .count(),
         1
     );
+}
+
+#[tokio::test]
+async fn a_helper_whose_servers_codex_does_not_list_does_not_start() {
+    let launched = codex_engine_support::launch_as("codex_engine_naming_unread.jsonl", None, true).await;
+
+    let Err(error) = launched.result else {
+        panic!("the helper started with servers it could not switch off");
+    };
+    assert!(error.to_string().contains("MCP servers"), "{error}");
 }

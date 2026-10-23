@@ -10,12 +10,12 @@ use harness_business::agent::AgentSession;
 use harness_business::model::{AgentAction, AgentEvent, AgentReply, ApprovalMode};
 use pretty_assertions::assert_eq;
 
-const CLONE: &str = "01a164a2-3333-7000-8000-000000000003";
-const FORK: &str = "01a164a2-2222-7000-8000-000000000002";
-const NEW: &str = "01a164a2-1111-7000-8000-000000000001";
+pub(crate) const CLONE: &str = "01a164a2-3333-7000-8000-000000000003";
+pub(crate) const FORK: &str = "01a164a2-2222-7000-8000-000000000002";
+pub(crate) const NEW: &str = "01a164a2-1111-7000-8000-000000000001";
 
 /// The first turn of the saved history.
-const FIRST_TURN: &str = "01a164a0-4c86-7902-8de6-44d0f7bc8ac7";
+pub(crate) const FIRST_TURN: &str = "01a164a0-4c86-7902-8de6-44d0f7bc8ac7";
 
 fn in_mode(approval: ApprovalMode) -> Setup {
     Setup {
@@ -33,7 +33,7 @@ fn mode_of(chat: &CodexChat) -> Option<ApprovalMode> {
 }
 
 /// Waits until the chat's state names thread `id`.
-async fn moved_to(chat: &CodexChat, id: &str) {
+pub(crate) async fn moved_to(chat: &CodexChat, id: &str) {
     chat.wait(
         "the new thread",
         |event| matches!(event, AgentEvent::State { state } if state.session_id == id),

@@ -113,6 +113,7 @@ async fn every_chat_harness_gets_the_chat_key_and_its_guards_first() {
 
         let data = data_folder(&run);
         assert_eq!(read_chat(&data, KEY).unwrap(), Some(guards()), "{harness:?}");
+        assert!(run.info.memory_guards, "the chat's own guards apply ({harness:?})");
 
         run.manager.stop(run.key()).await.unwrap();
     }
@@ -122,6 +123,7 @@ async fn every_chat_harness_gets_the_chat_key_and_its_guards_first() {
 async fn a_chat_without_a_memory_identity_never_passes_one_on() {
     let run = start(HarnessId::Omp, "omp", "omp_basic.jsonl", None).await;
     assert_no_session_variable(&run);
+    assert!(!run.info.memory_guards);
 
     run.manager.stop(run.key()).await.unwrap();
 }
@@ -136,6 +138,7 @@ async fn a_helper_chat_has_no_memory_identity() {
     .expect("the helper starts");
 
     assert_eq!(env_value(&spawned(&run), SESSION_VAR), None);
+    assert!(!run.info.memory_guards);
 
     let data = data_folder(&run);
     assert_eq!(read_chat(&data, KEY).unwrap(), None, "no guards written");

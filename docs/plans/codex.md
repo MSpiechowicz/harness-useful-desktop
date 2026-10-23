@@ -142,11 +142,15 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 10. **Naming:** harness id `codex`, name "Codex", short "CX", colour from the dashboard palette's existing Codex entry
     (`ui/src/lib/dashboard/palette.ts:48`), contrast checked in both themes.
 
-11. **Notes guard (user, 2026-10-22: "a"):** each chat launch adds
-    `-c mcp_servers.<name>.env_vars=[<existing…>, "HARNESS_MEMORY_SESSION"]` for every harness-memory stdio server
-    already in the effective config, so the guard can work. Nothing is written to `config.toml`. Real CLI check: the
-    override merges (command, args and other keys stay); an override for a server that is not configured makes
-    `codex app-server` exit, so it is never added for a missing server.
+11. **Notes guard (user, 2026-10-22: "a"; redesigned in repair round 2):** after the handshake a chat with a memory
+    identity reads the project's effective MCP servers from Codex (`config/read{cwd}`) and sends
+    `"mcp_servers.<name>.env_vars": [<existing…>, "HARNESS_MEMORY_SESSION"]` in the `config` of every `thread/start`,
+    `thread/resume` and `thread/fork` for each enabled harness-memory stdio server listed (read again before each
+    new, resumed or forked thread). Nothing is written to `config.toml` and nothing goes on the command line (works
+    with `codex.cmd`). Real CLI (Round 2): the thread's server sees the variable; a thread naming a server Codex does
+    not have fails with `invalid transport`, so only listed servers are named. The chat reports its own guards as
+    applied (`AgentSessionInfo.memoryGuards`) only when a server got the key. The naming helper switches off every
+    server of the same read. Residual: plugin servers that `config/read` does not list stay on for the helper.
 
 ## Architecture
 

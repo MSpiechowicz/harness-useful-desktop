@@ -15,7 +15,7 @@
 
 <div class={cx('chat-radius overflow-hidden border border-line bg-canvas font-mono text-[13px] leading-relaxed', className)}>
   {#if command}
-    <div class="border-b border-line px-3.5 py-2 break-all text-fg"><span class="mr-2 text-accent-text select-none">$</span>{command}</div>
+    <div class="border-b border-line px-3.5 py-2 break-all whitespace-pre-wrap text-fg"><span class="mr-2 text-accent-text select-none">$</span>{command}</div>
   {/if}
 
   {#if text !== '' || running}

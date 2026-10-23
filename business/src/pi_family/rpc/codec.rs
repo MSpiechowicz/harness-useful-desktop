@@ -25,8 +25,10 @@ static TYPE_FIELD: LazyLock<Regex> =
 static ID_FIELD: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""id"\s*:\s*"([A-Za-z0-9_:.-]{1,128})""#).expect("static regex is valid"));
 
+/// A JSON-RPC frame's own `id`, a number or a string, only as a whole value (followed by `,` or
+/// `}`), so a longer number is never read as its first digits.
 static RPC_ID_FIELD: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#""id"\s*:\s*(-?[0-9]{1,18}|"[A-Za-z0-9_:.-]{1,128}")"#).expect("static regex is valid")
+    Regex::new(r#""id"\s*:\s*(-?[0-9]{1,32}|"[A-Za-z0-9_:.-]{1,128}")\s*[,}]"#).expect("static regex is valid")
 });
 
 static METHOD_FIELD: LazyLock<Regex> =

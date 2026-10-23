@@ -216,7 +216,17 @@ fn assert_all_matched(received: &Mutex<Vec<Value>>) {
         .collect();
 
     assert!(mismatches.is_empty(), "{mismatches:#?}");
-    assert!(events_of(received, "notice").is_empty(), "no hook failed");
+
+    // A chat's own notices (a Codex thread that may write outside the project) are no hook failure.
+    let failed: Vec<Value> = events_of(received, "notice")
+        .into_iter()
+        .filter(|event| {
+            event["message"]
+                .as_str()
+                .is_some_and(|message| message.starts_with("The hook "))
+        })
+        .collect();
+    assert!(failed.is_empty(), "no hook failed: {failed:#?}");
 }
 
 /// Waits until `file` in the project reads `expected` (hook commands run in the background), and

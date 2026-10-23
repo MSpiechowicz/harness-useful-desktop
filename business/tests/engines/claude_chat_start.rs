@@ -157,6 +157,7 @@ fn only_claude_remembers_a_project_trusted_once() {
         native_approval_mode: None,
         trusted_once: true,
         trust_offered: true,
+        memory_guards: false,
         protocol_version: None,
     };
 

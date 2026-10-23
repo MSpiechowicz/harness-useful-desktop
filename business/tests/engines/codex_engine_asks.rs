@@ -4,7 +4,7 @@
 
 use crate::codex_engine_support;
 
-use codex_engine_support::{CodexChat, prompt, start};
+use codex_engine_support::{CodexChat, Setup, prompt, start};
 use harness_business::BusinessError;
 use harness_business::model::{AgentEvent, NoticeLevel, UiPurpose, UiRequest, UiRequestKind};
 use pretty_assertions::assert_eq;
@@ -44,7 +44,11 @@ async fn approvals_are_allowed_once_for_the_session_or_rejected() {
         probe.tool_call_id.as_deref(),
         Some("exec-f61152e4-887b-4723-add5-193b11a1ad79")
     );
-    assert!(title.starts_with("Allow shell: pwd && rg --files"), "{title}");
+    // The command as it runs: its script is double-quoted, so the wrapper stays.
+    assert!(
+        title.starts_with("Allow shell: /usr/bin/bash -lc \"pwd && rg --files"), // guard-allow: installer-shell
+        "{title}"
+    );
     assert_eq!(options, ["Allow once", "Reject"], "Codex lists no session answer here");
 
     let change = answer(&chat, 1, "Always allow").await;
@@ -129,7 +133,10 @@ async fn asks_are_answered_by_what_the_chat_can_show() {
     // The permissions it cannot show and the other thread's ask got no dialog.
     let change = chat.dialog(0).await;
     let (title, options) = select(&change);
-    assert!(title.starts_with("Allow apply_patch: outside the project /home/user/.bashrc, a.rs, b.rs, c.rs and 1 more, writing anywhere below /"), "{title}");
+    assert_eq!(
+        title,
+        "Allow apply_patch: writing anywhere below /, outside the project /home/user/.bashrc, a.rs, b.rs, c.rs, d.rs?"
+    );
     assert_eq!(
         options,
         ["Allow once", "Reject"],
@@ -144,7 +151,7 @@ async fn asks_are_answered_by_what_the_chat_can_show() {
     let permissions = answer(&chat, 2, "Allow once").await;
     assert_eq!(
         select(&permissions).0,
-        "Allow extra permissions: network access, writing /srv/out?"
+        "Allow extra permissions: writing /srv/out, network access?"
     );
 
     let events = chat.settled(1).await;
@@ -162,17 +169,14 @@ async fn asks_are_answered_by_what_the_chat_can_show() {
 }
 
 #[tokio::test]
-async fn a_long_command_says_how_much_is_left_out_and_a_form_masks_secrets() {
+async fn a_long_command_is_shown_in_full_as_written_and_a_form_masks_secrets() {
     let chat = start("codex_engine_asks_long.jsonl").await;
     chat.act(prompt("Echo a lot.")).await;
 
     let dialog = answer(&chat, 0, "Reject").await;
     let (title, _) = select(&dialog);
-    assert!(
-        title.ends_with("… (500 more characters)?"),
-        "{}",
-        &title[title.len() - 60..]
-    );
+    let command = format!("printf  '%s'\n{} end-of-command", "x".repeat(2480));
+    assert_eq!(title, format!("Allow shell: {command}?"));
 
     let form = chat.dialog(1).await;
     let shown = input_title(&form);
@@ -222,5 +226,61 @@ async fn frames_over_the_limit_are_answered_and_end_what_they_were_about() {
     assert!(matches!(refused, BusinessError::Protocol(_)), "{refused:?}");
     assert!(started.elapsed() < std::time::Duration::from_secs(5), "failed at once");
 
+    chat.finish().await;
+}
+
+#[tokio::test]
+async fn approvals_name_everything_they_grant() {
+    let chat = codex_engine_support::start_with("codex_engine_asks_full.jsonl", Setup::default(), |project| {
+        // A link in the project to the folder above it.
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("..", project.join("cfg")).unwrap();
+        #[cfg(not(unix))]
+        let _ = project;
+    })
+    .await;
+    chat.act(prompt("Tidy up.")).await;
+
+    // The whole script runs, not only the ls Codex reads in it: the card shows it too, ls as a hint.
+    let command = answer(&chat, 0, "Reject").await;
+    assert_eq!(select(&command).0, "Allow shell: ls | xargs touch x?");
+    let card = chat.events().into_iter().find_map(|event| match event {
+        AgentEvent::ToolStart {
+            tool_call_id,
+            args,
+            intent,
+            ..
+        } if tool_call_id == "exec-pipe" => Some((args, intent)),
+        _ => None,
+    });
+    let (args, intent) = card.expect("the command's card");
+    assert_eq!(args["command"], "ls | xargs touch x");
+    assert_eq!(intent.as_deref(), Some("ls"));
+
+    // The write comes first, before 2 KB of reads.
+    let permissions = answer(&chat, 1, "Reject").await;
+    let title = select(&permissions).0;
+    assert!(
+        title.starts_with("Allow extra permissions: writing /, reading /data/archive/0000/"),
+        "{title}"
+    );
+    assert!(
+        title.contains("/data/archive/0044/") && title.len() > 2_100,
+        "nothing is cut"
+    );
+
+    let change = answer(&chat, 2, "Reject").await;
+    let title = select(&change).0;
+    #[cfg(unix)]
+    assert!(
+        title.starts_with(&format!(
+            "Allow apply_patch: outside the project {}",
+            chat.project.join("cfg/autostart/x.desktop").display()
+        )),
+        "{title}"
+    );
+    assert!(title.ends_with("src/lib.rs?"), "{title}");
+
+    chat.settled(1).await;
     chat.finish().await;
 }

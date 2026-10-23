@@ -2,8 +2,9 @@
 //! project the harness trusts or trusts once, run through the harness's command line with its
 //! spawn environment and the launcher search path of its binary. A chat with a memory identity
 //! has its guards written first ([`prepare_memory_chat`]) and, once they are, its key passed as
-//! `HARNESS_MEMORY_SESSION`, which the harness's MCP servers inherit; any other launch has that
-//! variable removed, so a value the app itself inherited never names a chat.
+//! `HARNESS_MEMORY_SESSION`, which the harness's MCP servers inherit (Codex, which clears their
+//! environment, is told per thread to pass it on, see `codex/memory.rs`); any other launch has
+//! that variable removed, so a value the app itself inherited never names a chat.
 
 use std::path::Path;
 
@@ -16,7 +17,6 @@ use crate::harness::{Harness, LaunchRequest};
 use crate::model::{AgentStartRequest, ApprovalMode, MemoryChatStart};
 use crate::pi_family::sessions::is_safe_session_id;
 use crate::process::{ExecSpec, launcher_search_dirs};
-use crate::security::is_safe_arg;
 
 /// Refuses a harness whose chat the app cannot drive yet, before anything is resolved or spawned.
 pub(super) fn ensure_chat(harness: &dyn Harness) -> Result<()> {
@@ -132,28 +132,10 @@ pub(super) fn exec_spec(
         .env_remove_prefix(SESSION_VAR);
 
     if let Some(key) = memory_session {
-        spec = spec.env(SESSION_VAR, key).args(memory_session_args(deps, request));
+        spec = spec.env(SESSION_VAR, key);
     }
 
     Ok(spec)
-}
-
-/// [`Harness::memory_session_args`] of the harness of `deps`; none for a batch-script binary that
-/// would not take them (`cmd.exe` re-parses its arguments), whose MCP servers then go without
-/// the chat's key.
-fn memory_session_args(deps: &AgentDeps<'_>, request: &LaunchRequest<'_>) -> Vec<String> {
-    let args = deps.harness.memory_session_args(deps.env, request);
-    let batch_safe = args.iter().all(|arg| is_safe_arg(arg.trim_start_matches('-')));
-
-    if deps.binary.is_batch_script && !batch_safe {
-        tracing::warn!(
-            harness = ?deps.harness.id(),
-            "the chat key cannot be passed to the harness's memory server through a batch-script binary"
-        );
-        return Vec::new();
-    }
-
-    args
 }
 
 /// Writes the guards of `chat` in `project` (with the project root there) to Harness Memory's data

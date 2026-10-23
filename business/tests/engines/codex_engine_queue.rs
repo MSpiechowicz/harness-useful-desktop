@@ -1,10 +1,12 @@
 //! Steering, the app's follow-up queue and abort of a Codex chat: a steer goes into the running
 //! turn (or, when that turn is over, runs as the next), follow-ups wait in the app and one can be
-//! withdrawn, and an abort cancels the open approval and interrupts the turn.
+//! withdrawn, and an abort cancels the open approval and interrupts the turn. A turn Codex takes
+//! after the chat gave up waiting still counts its message.
 
 use crate::codex_engine_support;
 
 use codex_engine_support::{prompt, replies, start};
+use harness_business::BusinessError;
 use harness_business::model::{AgentAction, AgentEvent, AgentReply, PromptStatus, StreamingBehavior};
 use pretty_assertions::assert_eq;
 
@@ -197,5 +199,31 @@ async fn a_stop_before_a_turn_codex_refuses_ends_with_it() {
     assert_eq!(stats.user_messages, 1, "the refused message is not counted");
 
     // The scripted Codex fails on any turn/interrupt.
+    chat.finish().await;
+}
+
+#[tokio::test]
+async fn a_turn_codex_takes_after_the_chat_gave_up_waiting_counts_its_message() {
+    let slow = codex_engine_support::Setup {
+        prompt_ack_timeout: Some(std::time::Duration::from_millis(200)),
+        ..codex_engine_support::Setup::default()
+    };
+    let chat = codex_engine_support::start_with("codex_engine_prompt_late.jsonl", slow, |_| {}).await;
+
+    let waited = chat.session.send(prompt("Slow to start.")).await;
+    assert!(matches!(waited, Err(BusinessError::Timeout(_))), "{waited:?}");
+
+    chat.wait("the late answer", |_| {
+        replies(&chat.events()).iter().any(|text| text == "Late answer.")
+    })
+    .await;
+    chat.wait("the settle", |event| matches!(event, AgentEvent::Settled { .. }))
+        .await;
+
+    let AgentReply::Stats { stats } = chat.act(AgentAction::GetSessionStats).await else {
+        panic!("not stats");
+    };
+    assert_eq!((stats.user_messages, stats.assistant_messages), (1, 1));
+
     chat.finish().await;
 }

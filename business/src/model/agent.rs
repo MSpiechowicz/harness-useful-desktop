@@ -89,6 +89,10 @@ pub struct AgentSessionInfo {
     /// has nothing of the project to leave out (Codex without an untrusted `.codex/` layer), so
     /// the chat offers no trust button.
     pub trust_offered: bool,
+    /// True when Harness Memory gets the chat's memory identity, so the chat's own guards (and
+    /// "Ask before saving") apply: the chat has one and its harness passes it on. False for a
+    /// Codex chat with no harness-memory server Codex could be told to pass it to.
+    pub memory_guards: bool,
     /// RPC protocol version reported by the agent, once known.
     pub protocol_version: Option<u32>,
 }

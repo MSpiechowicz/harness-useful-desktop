@@ -239,6 +239,7 @@ impl AgentManager {
             approval_override,
             trust_once,
             utility: request.utility,
+            memory_session: memory_session.is_some(),
             sink,
             options: &self.options,
             abort,
@@ -255,6 +256,9 @@ impl AgentManager {
             native_approval_mode: harness.native_approval_mode(deps.env, Some(&project)),
             trusted_once: trust_once,
             trust_offered: harness.trust_once_offered(deps.env, &project),
+            memory_guards: memory_session.is_some()
+                && harness.capabilities().memory_chat_guards
+                && session.memory_passed_on(),
             protocol_version: session.protocol_version(),
         };
 

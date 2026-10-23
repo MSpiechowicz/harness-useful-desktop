@@ -24,8 +24,9 @@
   const command = $derived(subject ? commandOf(subject) : null);
   // Nothing about what is approved is cut off: the command and the argument are shown in full.
   const argument = $derived(subject ? fullPrimaryArg(subject.args) : null);
-  // The title may repeat a long command; it is clamped only when the call below shows it in full.
-  const clampTitle = $derived(command !== null || argument !== null);
+  // The title may repeat a long command; it is clamped only when the command below shows it in full. Anything else it names
+  // (every path a change or a grant covers) is never cut: a long title scrolls instead.
+  const clampTitle = $derived(command !== null);
 
   function answer(option: string): void {
     void session.respond(prompt.id, { type: 'value', value: option });
@@ -58,7 +59,12 @@
       <Icon size={18} class="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
 
       <div class="flex min-w-0 flex-1 flex-col gap-1">
-        <h3 class={cx('text-base font-semibold break-words text-fg', clampTitle && 'line-clamp-2')} title={clampTitle ? prompt.title : undefined}>{prompt.title}</h3>
+        {#if clampTitle}
+          <h3 class="line-clamp-2 text-base font-semibold break-words whitespace-pre-wrap text-fg" title={prompt.title}>{prompt.title}</h3>
+        {:else}
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
+          <h3 class="max-h-48 overflow-y-auto text-base font-semibold break-words whitespace-pre-wrap text-fg" tabindex="0">{prompt.title}</h3>
+        {/if}
         {#if subject}
           <p class="text-sm text-fg-2">{toolTitle(subject)}{#if argument && !command} · <span class="font-mono break-all">{argument}</span>{/if}</p>
         {/if}

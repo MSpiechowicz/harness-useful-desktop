@@ -78,6 +78,30 @@ async fn an_oversized_frame_is_dropped_and_reading_resumes_at_the_next_newline()
 }
 
 #[tokio::test]
+async fn an_oversized_frame_keeps_its_whole_numeric_id_or_none() {
+    let pad = "x".repeat(200);
+    let input = format!(
+        "{{\"id\":12345678901234567890,\"result\":\"{pad}\"}}\n{{\"id\": 42 , \"method\":\"m\",\"params\":\"{pad}\"}}\n{{\"id\":{},\"result\":\"{pad}\"}}\n",
+        "9".repeat(40)
+    );
+
+    let ids: Vec<Option<String>> = frames(input.as_bytes(), 100)
+        .await
+        .iter()
+        .map(|frame| match frame {
+            Frame::Fault(fault) => fault.rpc_id.clone(),
+            Frame::Json(value) => panic!("expected a fault, got {value}"),
+        })
+        .collect();
+
+    assert_eq!(
+        ids,
+        [Some("12345678901234567890".to_owned()), Some("42".to_owned()), None],
+        "never the first digits of a longer number"
+    );
+}
+
+#[tokio::test]
 async fn an_oversized_final_frame_without_newline_is_still_reported() {
     let input = vec![b'x'; 600];
 

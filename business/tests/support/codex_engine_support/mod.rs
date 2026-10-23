@@ -30,8 +30,12 @@ pub struct Setup {
     pub approval_override: Option<ApprovalMode>,
     pub trust_once: bool,
     pub utility: bool,
+    /// The chat has a memory identity (its threads pass it on).
+    pub memory_session: bool,
     /// The limit of each startup step, when not the default.
     pub startup_timeout: Option<std::time::Duration>,
+    /// How long the chat waits for Codex to take a turn, when not the default.
+    pub prompt_ack_timeout: Option<std::time::Duration>,
 }
 
 /// A Codex chat and what it saw.
@@ -101,6 +105,9 @@ pub async fn launch_with(name: &str, resume: Option<&str>, setup: Setup, prepare
         startup_timeout: setup
             .startup_timeout
             .unwrap_or(harness_business::agent::STARTUP_TIMEOUT),
+        prompt_ack_timeout: setup
+            .prompt_ack_timeout
+            .unwrap_or(harness_business::agent::SessionOptions::default().prompt_ack_timeout),
         ..options()
     };
 
@@ -142,6 +149,7 @@ async fn started(
         approval_override: setup.approval_override,
         trust_once: setup.trust_once,
         utility: setup.utility,
+        memory_session: setup.memory_session,
         sink: sink.clone(),
         options,
         abort: Box::pin(std::future::pending()),

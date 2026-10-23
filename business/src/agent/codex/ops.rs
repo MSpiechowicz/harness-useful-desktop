@@ -23,6 +23,7 @@
 //! - Right after startup the chat lists its skills and, for a resumed thread, counts its saved
 //!   messages, both in the background.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use super::approvals::followed_mode;
@@ -54,7 +55,7 @@ impl CodexSession {
     /// Starts a new thread in the chat.
     async fn new_session(&self) -> Result<AgentReply> {
         let request = Request::ThreadStart(ThreadStart {
-            settings: self.chat.project_settings(),
+            settings: self.chat.project_settings().await,
             ..ThreadStart::default()
         });
 
@@ -78,7 +79,7 @@ impl CodexSession {
 
         let request = Request::ThreadResume(ThreadResume {
             thread_id: session.id.clone(),
-            settings: chat.project_settings(),
+            settings: chat.project_settings().await,
             exclude_turns: true,
         });
 
@@ -100,7 +101,7 @@ impl CodexSession {
         let request = Request::ThreadFork(ThreadFork {
             thread_id: source,
             last_turn_id: Some(entry_id.to_owned()),
-            settings: chat.project_settings(),
+            settings: chat.project_settings().await,
             exclude_turns: true,
         });
 
@@ -115,7 +116,7 @@ impl CodexSession {
         let request = Request::ThreadFork(ThreadFork {
             thread_id: chat.saved_thread(ACTION)?,
             last_turn_id: None,
-            settings: chat.project_settings(),
+            settings: chat.project_settings().await,
             exclude_turns: true,
         });
 
@@ -124,9 +125,12 @@ impl CodexSession {
 }
 
 impl Chat {
-    /// What every new, resumed or forked thread of the chat runs with: the project as its folder
-    /// and the chat's approval mode (see `approvals.rs`).
-    fn project_settings(&self) -> ThreadSettings {
+    /// What every new, resumed or forked thread of the chat runs with: the project as its folder,
+    /// the chat's approval mode (see `approvals.rs`) and its memory identity's servers as Codex
+    /// lists them now (`memory.rs`).
+    async fn project_settings(&self) -> ThreadSettings {
+        self.refresh_memory_config().await;
+
         self.thread_settings(self.project.to_string_lossy().into_owned())
     }
 
@@ -232,11 +236,12 @@ impl Chat {
         let held = !live.queue.is_empty();
 
         live.mapper = CodexMapper::new(&self.project);
-        if let Some(warning) = live.follow(session, self.approval_override) {
+        if let Some(warning) = live.follow(session, self.approval_override, &self.project) {
             self.shared.emit(warning);
         }
         live.turn_id = None;
         live.turn_requests.clear();
+        live.late_turns.clear();
         live.abort_pending = false;
         live.queue.clear();
         live.last_reply = None;
@@ -256,16 +261,19 @@ impl Chat {
 }
 
 impl Live {
-    /// Follows thread `session` (started, resumed or forked): its id, title, model, effort,
-    /// provider and approval mode (the chat's `approval_override` when Codex runs it, else the one
-    /// Codex answered with, see [`followed_mode`]). The warning when Codex does not run the
-    /// override.
+    /// Follows thread `session` (started, resumed or forked) of a chat in `project`: its id, title,
+    /// model, effort, provider and approval mode (the chat's `approval_override` when Codex runs
+    /// it, else the one Codex answered with, see [`followed_mode`]). The warning when Codex does
+    /// not run the override or gives the thread more than its mode, unless the chat showed the same
+    /// one before.
     pub(super) fn follow(
         &mut self,
         session: ThreadSession,
         approval_override: Option<ApprovalMode>,
+        project: &Path,
     ) -> Option<AgentEvent> {
-        let (mode, warning) = followed_mode(approval_override, &session);
+        let (mode, warning) = followed_mode(approval_override, &session, project);
+        let warning = warning.filter(|warning| self.first_warning(warning));
 
         self.mode = mode;
         self.mapper.follow_thread(&session.thread.id);
@@ -279,6 +287,20 @@ impl Live {
         }
 
         warning
+    }
+
+    /// True the first time the chat shows `warning`.
+    fn first_warning(&mut self, warning: &AgentEvent) -> bool {
+        let AgentEvent::Notice { message, .. } = warning else {
+            return true;
+        };
+
+        if self.mode_warnings.contains(message) {
+            return false;
+        }
+
+        self.mode_warnings.push(message.clone());
+        true
     }
 }
 

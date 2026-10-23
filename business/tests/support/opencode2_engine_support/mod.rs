@@ -335,6 +335,7 @@ pub async fn start_through(
         approval_override: approval,
         trust_once: false,
         utility,
+        memory_session: false,
         sink: sink.clone(),
         options: &options,
         abort,

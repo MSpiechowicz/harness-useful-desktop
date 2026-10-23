@@ -2,12 +2,14 @@
 //! (the app's name and version, the experimental API on, Codex's noise opted out of) → its result
 //! within the startup limit ([`STARTUP_TIMEOUT`](crate::agent::STARTUP_TIMEOUT)), Codex's version
 //! from its user agent → the `initialized` notification → `model/list` (a list Codex refuses or
-//! does not send in time leaves the picker empty until it asks again) → `thread/start` in the
-//! project, or `thread/read` (the thread must be of the project or a folder inside it, else
-//! `notFound`) and `thread/resume` of the resumed thread without its turns (a helper chat's
-//! thread is ephemeral: not saved, not listed, see `naming.rs`) → `ready`, `state`, `commandsUpdated` and the notice of an untrusted project,
-//! then the events that arrived meanwhile. The skills and a resumed thread's saved messages are
-//! read after that, in the background.
+//! does not send in time leaves the picker empty until it asks again) → for a helper chat or one
+//! with a memory identity, the MCP servers Codex runs the project with (`config/read`,
+//! `memory.rs`) → `thread/start` in the project, or `thread/read` (the thread must be of the
+//! project or a folder inside it, else `notFound`) and `thread/resume` of the resumed thread
+//! without its turns (a helper chat's thread is ephemeral: not saved, not listed, see
+//! `naming.rs`) → `ready`, `state`, `commandsUpdated`, the notice of an untrusted project and the
+//! one of a memory identity no server gets, then the events that arrived meanwhile. The skills
+//! and a resumed thread's saved messages are read after that, in the background.
 //!
 //! - No model is sent: the user's `config.toml` applies. The approval policy and sandbox are
 //!   those of the chat's approval mode, none without an override (`approvals.rs`, Auto is refused
@@ -24,6 +26,7 @@ use tokio::sync::oneshot;
 
 use super::approvals::{mode_policy, trust_notice};
 use super::io::{read_stdout, refused};
+use super::memory::{McpServers, memory_config, memory_notice};
 use super::naming::helper_thread;
 use super::settings::commands;
 use super::{Chat, CodexSession, Live};
@@ -33,7 +36,7 @@ use crate::codex_rpc::wire::answers::initialized;
 use crate::codex_rpc::wire::outbound::{Initialize, Request, ThreadResume, ThreadStart};
 use crate::codex_rpc::wire::results::{InitializeResult, Model, Page, ThreadSession};
 use crate::error::{BusinessError, Result};
-use crate::harnesses::codex::{is_thread_id, mcp_servers};
+use crate::harnesses::codex::is_thread_id;
 use crate::model::AgentEvent;
 
 /// What a thread starts with.
@@ -79,30 +82,24 @@ impl CodexSession {
             attachments_dir: options.attachments_dir.clone(),
             export_dir: options.export_dir.clone(),
             helper: launch.utility,
+            memory_session: launch.memory_session && !launch.utility,
+            prompt_ack_timeout: options.prompt_ack_timeout,
             moving: tokio::sync::Mutex::new(()),
             approval_override: launch.approval_override,
             live: Mutex::new(Live::new(&launch.project, launch.utility)),
         });
         chat_tx.send(chat.clone()).ok();
 
-        // The helper's thread switches off the MCP servers Codex would start for it.
-        let helper_servers: Vec<String> = match launch.utility {
-            true => mcp_servers(&launch.config_dir, &launch.project, launch.trust_once)
-                .into_iter()
-                .map(|(name, _)| name)
-                .collect(),
-            false => Vec::new(),
+        let cwd = launch.project.to_string_lossy().into_owned();
+        let steps = handshake(&chat, &start, cwd, options.startup_timeout);
+
+        let memory_notice = match run_startup(options, launch.abort, steps).await {
+            Ok(notice) => notice,
+            Err(error) => return Err(process.fail_start(error).await),
         };
 
-        let cwd = launch.project.to_string_lossy().into_owned();
-        let steps = handshake(&chat, &start, cwd, &helper_servers, options.startup_timeout);
-
-        if let Err(error) = run_startup(options, launch.abort, steps).await {
-            return Err(process.fail_start(error).await);
-        }
-
         let notice = trust_notice(&launch.config_dir, &launch.project, launch.trust_once, launch.utility);
-        chat.open(notice);
+        chat.open(notice.into_iter().chain(memory_notice));
         chat.opened(matches!(start, Start::Resume(_)));
 
         Ok(Self { process, chat })
@@ -110,8 +107,8 @@ impl CodexSession {
 }
 
 impl Chat {
-    /// Emits the first events, `notice` last.
-    fn open(&self, notice: Option<AgentEvent>) {
+    /// Emits the first events, `notices` last.
+    fn open(&self, notices: impl IntoIterator<Item = AgentEvent>) {
         let first = {
             let live = self.lock();
 
@@ -123,7 +120,7 @@ impl Chat {
                 AgentEvent::CommandsUpdated { commands: commands() },
             ]
             .into_iter()
-            .chain(notice)
+            .chain(notices)
             .collect()
         };
 
@@ -131,8 +128,9 @@ impl Chat {
     }
 }
 
-/// The handshake, the models and the thread, each within `limit`.
-async fn handshake(chat: &Chat, start: &Start, cwd: String, helper_servers: &[String], limit: Duration) -> Result<()> {
+/// The handshake, the models, the MCP servers and the thread, each within `limit`; the notice of
+/// a memory identity no server gets (`memory.rs`).
+async fn handshake(chat: &Chat, start: &Start, cwd: String, limit: Duration) -> Result<Option<AgentEvent>> {
     let hello = Request::Initialize(Initialize::desktop(env!("CARGO_PKG_VERSION")));
     let init: InitializeResult = chat.request(&hello, limit).await.map_err(|error| match error {
         BusinessError::Timeout(_) => BusinessError::Timeout(format!(
@@ -163,6 +161,18 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, helper_servers: &[St
         }
     };
 
+    // The helper's thread switches off every MCP server Codex would start for it, so a read that
+    // fails fails the helper.
+    let helper_servers = match chat.helper {
+        true => chat.mcp_servers(limit).await.map_err(|error| {
+            BusinessError::Protocol(format!(
+                "Codex did not list the MCP servers the helper chat switches off: {error}"
+            ))
+        })?,
+        false => McpServers::new(),
+    };
+    let memory_notice = chat.memory_session_servers(limit).await;
+
     // A thread of another folder is never resumed here (as a switch checks it too).
     if let Start::Resume(thread_id) = start {
         chat.check_owned(thread_id).await?;
@@ -171,7 +181,7 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, helper_servers: &[St
     let settings = chat.thread_settings(cwd);
 
     let request = match start {
-        Start::New { ephemeral: true } => Request::ThreadStart(helper_thread(settings, helper_servers)),
+        Start::New { ephemeral: true } => Request::ThreadStart(helper_thread(settings, &helper_servers)),
         Start::New { ephemeral: false } => Request::ThreadStart(ThreadStart {
             settings,
             ..ThreadStart::default()
@@ -188,11 +198,39 @@ async fn handshake(chat: &Chat, start: &Start, cwd: String, helper_servers: &[St
     let mut live = chat.lock();
     live.codex_version = version;
     live.models = models;
-    if let Some(warning) = live.follow(session, chat.approval_override) {
+    if let Some(warning) = live.follow(session, chat.approval_override, &chat.project) {
         chat.shared.emit(warning);
     }
 
-    Ok(())
+    Ok(memory_notice)
+}
+
+impl Chat {
+    /// For a chat with a memory identity: the `env_vars` its threads get and whether the identity
+    /// reaches a server (`memory.rs`), and the notice when it cannot. A read that fails leaves the
+    /// identity with no server.
+    async fn memory_session_servers(&self, limit: Duration) -> Option<AgentEvent> {
+        if !self.memory_session {
+            return None;
+        }
+
+        let servers = match self.mcp_servers(limit).await {
+            Ok(servers) => servers,
+            Err(error) => {
+                tracing::warn!(%error, "Codex did not list its MCP servers, the chat's memory guards do not apply");
+                return None;
+            }
+        };
+
+        let memory = memory_config(&servers);
+        let notice = memory_notice(&memory);
+
+        let mut live = self.lock();
+        live.memory_config = memory.config;
+        live.memory_passed_on = memory.passed_on;
+
+        notice
+    }
 }
 
 /// Starts, resumes or forks a thread; Codex's refusal fails with its reason.

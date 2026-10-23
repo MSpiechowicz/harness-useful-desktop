@@ -78,6 +78,10 @@ fn settles(events: &[AgentEvent]) -> Vec<Option<bool>> {
         .collect()
 }
 
+/// The recorded probe command as Codex runs it (its script is double-quoted, so it stays wrapped).
+const PROBE_COMMAND: &str =
+    r#"/usr/bin/bash -lc "pwd && rg --files -g 'AGENTS.md' -g '"'!node_modules'"' -g '"'!vendor'"'""#; // guard-allow: installer-shell
+
 #[test]
 fn every_recorded_run_maps_cleanly_and_ends_what_it_starts() {
     let pairs = [
@@ -146,11 +150,17 @@ fn approvals_accepted_run_their_tools_and_name_the_written_file() {
         ]
     );
 
+    // The card shows the command as it runs, Codex's reading of it as the hint.
     let first = events.iter().find_map(|event| match event {
-        AgentEvent::ToolStart { name, args, .. } => Some((name.clone(), args["command"].clone())),
+        AgentEvent::ToolStart { name, args, intent, .. } => {
+            Some((name.clone(), args["command"].clone(), intent.clone()))
+        }
         _ => None,
     });
-    assert_eq!(first, Some(("shell".to_owned(), probe.into())));
+    assert_eq!(
+        first,
+        Some(("shell".to_owned(), PROBE_COMMAND.into(), Some(probe.to_owned())))
+    );
 
     assert_eq!(
         replies(&events),
@@ -187,8 +197,9 @@ fn approvals_are_asks_and_a_file_change_names_its_files() {
     };
     assert_eq!(asks[0].request_id, RequestId::Number(0));
     assert_eq!(asks[0].item_id(), Some("exec-f61152e4-887b-4723-add5-193b11a1ad79"));
+    assert_eq!(probe.shown_command(), Some(PROBE_COMMAND));
     assert_eq!(
-        probe.shown_command(),
+        probe.reading(),
         Some("pwd && rg --files -g 'AGENTS.md' -g '!node_modules' -g '!vendor'")
     );
     assert_eq!(probe.cwd.as_deref(), Some("/work/project"));

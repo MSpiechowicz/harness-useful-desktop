@@ -57,6 +57,8 @@ mod claude_wire_encode;
 mod codex_engine;
 mod codex_engine_asks;
 mod codex_engine_history;
+mod codex_engine_memory;
+mod codex_engine_mode_warnings;
 mod codex_engine_models;
 mod codex_engine_modes;
 mod codex_engine_ops;

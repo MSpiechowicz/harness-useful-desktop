@@ -197,6 +197,7 @@ impl<'a> Setup<'a> {
             approval_override: self.approval,
             trust_once: false,
             utility: self.utility,
+            memory_session: false,
             sink: sink.clone(),
             options: &self.options,
             abort: Box::pin(std::future::pending()),

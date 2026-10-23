@@ -42,6 +42,8 @@ function infoFor(request: AgentStartRequest): AgentSessionInfo {
     trustedOnce,
     // A project trusted once had something to trust.
     trustOffered: base.trustOffered || trustedOnce,
+    // Every mock harness that takes a chat's key passes it on.
+    memoryGuards: request.memoryChat !== null && capabilities?.memoryChatGuards === true,
   };
 }
 

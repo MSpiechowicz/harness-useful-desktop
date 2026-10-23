@@ -238,17 +238,48 @@ pub struct CommandExecutionItem {
 }
 
 impl CommandExecutionItem {
-    /// The command to show: Codex's reading of it when it found one command, else the line as run.
+    /// The command to show: what runs, in full (see [`shown_command`]).
     pub fn shown_command(&self) -> &str {
-        shown_command(&self.command, &self.command_actions)
+        shown_command(&self.command)
+    }
+
+    /// Codex's reading of the command, a hint next to it (see [`command_reading`]).
+    pub fn reading(&self) -> Option<&str> {
+        command_reading(&self.command, &self.command_actions)
     }
 }
 
-/// The command to show for `command` with Codex's reading `actions` of it.
-pub fn shown_command<'a>(command: &'a str, actions: &'a [CommandAction]) -> &'a str {
+/// The command to show for `command`, everything that runs: the script of a plain
+/// `<shell> -lc '<script>'` (or `-c`) wrapper of `bash`, `sh` or `zsh` whose script holds no `'`
+/// (so it runs exactly as written), else the line as run, unchanged. Never Codex's reading of it
+/// (`commandActions`), which leaves parts of a pipeline or a sequence out.
+pub fn shown_command(command: &str) -> &str {
+    unwrapped_script(command).unwrap_or(command)
+}
+
+/// The script of a plain shell wrapper (see [`shown_command`]).
+fn unwrapped_script(command: &str) -> Option<&str> {
+    let (program, rest) = command.split_once(' ')?;
+    let shell = program.rsplit('/').next().unwrap_or(program);
+
+    if !matches!(shell, "bash" | "sh" | "zsh") {
+        return None;
+    }
+
+    let quoted = rest.strip_prefix("-lc ").or_else(|| rest.strip_prefix("-c "))?;
+    let script = quoted.strip_prefix('\'')?.strip_suffix('\'')?;
+
+    (!script.contains('\'') && !script.trim().is_empty()).then_some(script)
+}
+
+/// Codex's reading of `command` (`actions`) when it found one command that is not what
+/// [`shown_command`] shows: a hint only, as it can leave parts out.
+pub fn command_reading<'a>(command: &str, actions: &'a [CommandAction]) -> Option<&'a str> {
     match actions {
-        [single] if !single.command.trim().is_empty() => &single.command,
-        _ => command,
+        [single] if !single.command.trim().is_empty() && single.command != shown_command(command) => {
+            Some(&single.command)
+        }
+        _ => None,
     }
 }
 

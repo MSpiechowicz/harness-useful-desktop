@@ -13,7 +13,8 @@
 //!   held like a follow-up.
 //! - Every message gets a fresh `clientUserMessageId` and every turn counts with the mapper
 //!   (`sent`) before it is written; one Codex does not take is taken back (`withdrawn`), and so is
-//!   the message from the chat's counts. The prompt-taken call runs when Codex answered a prompt
+//!   the message from the chat's counts (counted again when Codex takes it after the chat gave up
+//!   waiting). The prompt-taken call runs when Codex answered a prompt
 //!   action's `turn/start` (`io.rs`).
 //! - **Abort:** the open asks are cancelled (their dialogs close), then `turn/interrupt` stops the
 //!   running turn; one whose id is not known yet is interrupted once it is, unless Codex never
@@ -33,7 +34,7 @@ use crate::codex_rpc::wire::outbound::{Request, TurnStart, TurnSteer, next_reque
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, ImageAttachment, NoticeLevel, StreamingBehavior};
 use crate::pi_family::rpc::RpcResponse;
-use crate::pi_family::rpc::pending::{ABORT_TIMEOUT, DEFAULT_TIMEOUT, PROMPT_ACK_TIMEOUT};
+use crate::pi_family::rpc::pending::{ABORT_TIMEOUT, DEFAULT_TIMEOUT};
 
 /// The reasoning summary every turn asks for, so reasoning shows as thinking (Verified fact 10).
 const SUMMARY: &str = "auto";
@@ -202,7 +203,16 @@ impl Chat {
         }
 
         message.queue = StreamingBehavior::FollowUp;
-        let placed = self.place(&mut self.lock(), message)?;
+        let placed = {
+            let mut live = self.lock();
+            let placed = self.place(&mut live, message);
+
+            if placed.is_err() {
+                uncount(&mut live);
+            }
+
+            placed?
+        };
 
         match placed {
             Placed::Turn { call, queued } => {
@@ -277,7 +287,10 @@ impl Chat {
                 let chat = self.clone();
                 tokio::spawn(async move { chat.dispatch(call).await });
             }
-            Err(error) => tracing::debug!(%error, "a Codex follow-up could not be sent"),
+            Err(error) => {
+                uncount(live);
+                tracing::debug!(%error, "a Codex follow-up could not be sent");
+            }
         }
 
         self.queue_changed(live);
@@ -339,10 +352,11 @@ impl Chat {
     }
 
     /// Writes a turn's `turn/start` and waits until Codex took it; a turn it did not take is
-    /// taken back from the mapper.
+    /// taken back from the mapper. One it did not answer in time is remembered: when Codex takes
+    /// it later, its message counts again (`io.rs`).
     async fn send_turn(self: &Arc<Self>, call: Call) -> Result<()> {
         let key = call.key.clone();
-        let answer = self.await_call(call, "turn/start", PROMPT_ACK_TIMEOUT).await;
+        let answer = self.await_call(call, "turn/start", self.prompt_ack_timeout).await;
 
         let error = match answer {
             Ok(Ok(_)) => return Ok(()),
@@ -354,6 +368,10 @@ impl Chat {
             let mut live = self.lock();
             live.turn_requests.retain(|(request, _)| *request != key);
             uncount(&mut live);
+
+            if matches!(error, BusinessError::Timeout(_)) {
+                live.late_turns.push(key);
+            }
 
             let mapped = live.mapper.withdrawn();
             live.forget_abort();

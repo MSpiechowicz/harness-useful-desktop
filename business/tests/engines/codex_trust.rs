@@ -42,7 +42,8 @@ fn user_trusts_in(home: &Path, project: &Path) {
     write_file(&home.join(HOME).join("config.toml"), &entry);
 }
 
-/// The notices of a chat once it opened.
+/// The notices of a chat once it opened, without the warnings about its sandbox (the recorded
+/// thread may write in an extra root and reach the network).
 async fn notices(chat: &CodexChat) -> Vec<(NoticeLevel, String)> {
     chat.wait("the commands", |event| {
         matches!(event, AgentEvent::CommandsUpdated { .. })
@@ -52,7 +53,7 @@ async fn notices(chat: &CodexChat) -> Vec<(NoticeLevel, String)> {
     chat.events()
         .into_iter()
         .filter_map(|event| match event {
-            AgentEvent::Notice { level, message } => Some((level, message)),
+            AgentEvent::Notice { level, message } if level != NoticeLevel::Warning => Some((level, message)),
             _ => None,
         })
         .collect()

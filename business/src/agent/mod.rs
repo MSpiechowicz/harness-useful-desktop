@@ -95,6 +95,9 @@ pub struct SessionOptions {
     /// Where an engine that hands images to the agent as files (Codex) saves them; `None` is the
     /// `attachments` folder in the app's data folder, never the project.
     pub attachments_dir: Option<PathBuf>,
+    /// How long a Codex chat waits for Codex to take a turn
+    /// ([`PROMPT_ACK_TIMEOUT`](crate::pi_family::rpc::pending::PROMPT_ACK_TIMEOUT)).
+    pub prompt_ack_timeout: Duration,
 }
 
 impl Default for SessionOptions {
@@ -109,6 +112,7 @@ impl Default for SessionOptions {
             export_dir: None,
             event_silence: EVENT_SILENCE,
             attachments_dir: None,
+            prompt_ack_timeout: crate::pi_family::rpc::pending::PROMPT_ACK_TIMEOUT,
         }
     }
 }
@@ -123,6 +127,7 @@ impl std::fmt::Debug for SessionOptions {
             .field("export_dir", &self.export_dir)
             .field("event_silence", &self.event_silence)
             .field("attachments_dir", &self.attachments_dir)
+            .field("prompt_ack_timeout", &self.prompt_ack_timeout)
             .finish_non_exhaustive()
     }
 }

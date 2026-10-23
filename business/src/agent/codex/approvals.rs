@@ -15,6 +15,10 @@
 //!   Codex's policy, also for the `!command` gate ([`followed_mode`]).
 //! - **No override:** nothing is sent and the user's `config.toml` applies. The chat's mode is
 //!   then the one Codex answers the thread with (by its approval policy).
+//! - **More than the mode:** with or without an override, the chat warns when Codex's answer gives
+//!   the thread more than its mode shows: folders outside the project to write in, network access,
+//!   and without an override a model reviewer or full access outside Yolo. A chat shows each
+//!   warning once, not again for every thread it moves to (`ops.rs`).
 //! - **`!command`s** (`thread/shellCommand`) run outside Codex's sandbox without asking: refused in
 //!   Always ask ([`codex_bash_allowed`]), confirmed by the user in the app otherwise.
 //! - **Asks** become the app's approval dialogs (`dialogs.rs`): `Always allow` is Codex's
@@ -69,15 +73,42 @@ pub fn codex_bash_allowed(mode: Option<ApprovalMode>) -> Result<()> {
 /// The reviewer an override asks for: the user.
 const USER_REVIEWER: &str = "user";
 
-/// The chat's mode for the thread Codex answered with `session` when the chat asked for
-/// `requested` (see the module docs), and the warning when Codex runs it otherwise.
+/// The chat's mode for the thread Codex answered with `session` in `project` when the chat asked
+/// for `requested` (see the module docs), and the warning when Codex runs it otherwise or gives it
+/// more than the mode shows ([`widened`]).
 pub(super) fn followed_mode(
     requested: Option<ApprovalMode>,
     session: &ThreadSession,
+    project: &Path,
 ) -> (Option<ApprovalMode>, Option<AgentEvent>) {
     let answered = answered_mode(session.approval_policy.as_ref());
+    let sandbox_type = session
+        .sandbox
+        .as_ref()
+        .and_then(|sandbox| sandbox.get("type"))
+        .and_then(Value::as_str);
+    let reviewer = session
+        .approvals_reviewer
+        .as_deref()
+        .filter(|reviewer| *reviewer != USER_REVIEWER);
+
     let Some((policy, sandbox)) = mode_policy(requested).ok().flatten() else {
-        return (answered, None);
+        let mut parts = Vec::new();
+
+        if let Some(reviewer) = reviewer {
+            parts.push(format!("approvals reviewed by {reviewer}"));
+        }
+
+        if sandbox_type == Some(SandboxMode::DangerFullAccess.policy_type()) && answered != Some(ApprovalMode::Yolo) {
+            parts.push("full access without a sandbox".to_owned());
+        }
+
+        parts.extend(widened(session, project));
+
+        return (
+            answered,
+            given_more(&parts, "Codex's settings give this chat more than its mode shows"),
+        );
     };
 
     let answered_policy = match &session.approval_policy {
@@ -85,33 +116,74 @@ pub(super) fn followed_mode(
         Some(_) => "granular",
         None => policy.name(),
     };
-    let answered_sandbox = session
-        .sandbox
-        .as_ref()
-        .and_then(|sandbox| sandbox.get("type"))
-        .and_then(Value::as_str)
-        .unwrap_or(sandbox.policy_type());
-    let reviewer = session
-        .approvals_reviewer
-        .as_deref()
-        .filter(|reviewer| *reviewer != USER_REVIEWER);
+    let answered_sandbox = sandbox_type.unwrap_or(sandbox.policy_type());
+    let widening = widened(session, project);
 
     let differs = answered_policy != policy.name() || answered_sandbox != sandbox.policy_type() || reviewer.is_some();
     if !differs {
-        return (requested, None);
+        let warning = given_more(&widening, "Codex's settings give this chat more than its mode");
+        return (requested, warning);
     }
 
     let reviewed = reviewer.map(|reviewer| format!(", approvals reviewed by {reviewer}"));
     let runs = format!("{answered_policy} / {answered_sandbox}{}", reviewed.unwrap_or_default());
+    let also = match widening.is_empty() {
+        true => String::new(),
+        false => format!(". Its settings also give it {}", widening.join(", ")),
+    };
     let warning = AgentEvent::Notice {
         level: NoticeLevel::Warning,
         message: format!(
-            "Codex runs this chat with {runs}, not with the mode the chat asked for: Codex's own settings keep it. The chat shows what Codex runs"
+            "Codex runs this chat with {runs}, not with the mode the chat asked for: Codex's own settings keep it{also}. The chat shows what Codex runs"
         ),
     };
 
     // A granular policy has no mode of the app: the requested one stays (and with it the gate).
     (answered.or(requested), Some(warning))
+}
+
+/// What the sandbox of `session` allows beyond the project: folders outside it to write in (the
+/// user's `writable_roots`) and network access.
+fn widened(session: &ThreadSession, project: &Path) -> Vec<String> {
+    let Some(sandbox) = &session.sandbox else {
+        return Vec::new();
+    };
+
+    let mut parts = Vec::new();
+
+    let roots: Vec<&str> = sandbox
+        .get("writableRoots")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter(|root| !Path::new(root).starts_with(project))
+        .collect();
+
+    if !roots.is_empty() {
+        parts.push(format!("writing also in {}", roots.join(", ")));
+    }
+
+    let network = sandbox.get("networkAccess");
+    let open = network == Some(&Value::Bool(true)) || network.and_then(Value::as_str) == Some("enabled");
+
+    if open {
+        parts.push("network access".to_owned());
+    }
+
+    parts
+}
+
+/// The warning `<lead>: <parts>`; none without parts.
+fn given_more(parts: &[String], lead: &str) -> Option<AgentEvent> {
+    if parts.is_empty() {
+        return None;
+    }
+
+    Some(AgentEvent::Notice {
+        level: NoticeLevel::Warning,
+        message: format!("{lead}: {}", parts.join(", ")),
+    })
 }
 
 /// The app's mode for the approval policy Codex answered a thread with (a granular one has none).
@@ -139,15 +211,18 @@ pub(super) fn trust_notice(codex_home: &Path, project: &Path, trusted_once: bool
 
 impl Chat {
     /// The settings a thread of this chat starts, resumes or forks with in `cwd`: its mode's
-    /// approval policy and sandbox, nothing without an override.
+    /// approval policy and sandbox, nothing without an override, and the `env_vars` that pass the
+    /// chat's memory identity on (`memory.rs`).
     pub(super) fn thread_settings(&self, cwd: String) -> ThreadSettings {
         let policy = mode_policy(self.approval_override).ok().flatten();
+        let memory = self.lock().memory_config.clone();
 
         ThreadSettings {
             cwd: Some(cwd),
             approval_policy: policy.map(|(approval, _)| approval),
             sandbox: policy.map(|(_, sandbox)| sandbox),
             approvals_reviewer: policy.map(|_| USER_REVIEWER.to_owned()),
+            config: (!memory.is_empty()).then_some(memory),
             ..ThreadSettings::default()
         }
     }

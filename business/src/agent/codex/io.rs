@@ -111,9 +111,10 @@ impl Chat {
         let mut mapped = vec![Mapped::Event(Box::new(event))];
         let mut owed = Vec::new();
 
-        let id = fault.rpc_id.as_deref().map(|id| match id.parse::<i64>() {
-            Ok(number) => RequestId::Number(number),
-            Err(_) => RequestId::Text(id.trim_matches('"').to_owned()),
+        // A string id as written, a number only when it fits Codex's ids (none rather than another).
+        let id = fault.rpc_id.as_deref().and_then(|id| match id.strip_prefix('"') {
+            Some(text) => Some(RequestId::Text(text.trim_end_matches('"').to_owned())),
+            None => id.parse::<i64>().ok().map(RequestId::Number),
         });
 
         match (id, fault.method.as_deref()) {
@@ -222,6 +223,20 @@ impl Chat {
     fn answered(&self, live: &mut Live, response: Response, owed: &mut Vec<Value>) {
         let id = response.id.to_string();
         let position = live.turn_requests.iter().position(|(request, _)| *request == id);
+
+        if let Some(late) = live.late_turns.iter().position(|request| *request == id) {
+            live.late_turns.remove(late);
+
+            // Codex took the turn after all: its message counts again.
+            if let Ok(started) = response.result::<TurnStarted>() {
+                live.counts.user += 1;
+                live.counts.total += 1;
+
+                if !started.turn.id.is_empty() {
+                    live.ran(&started.turn.id);
+                }
+            }
+        }
 
         if let Some(position) = position {
             let (_, prompt) = live.turn_requests.remove(position);

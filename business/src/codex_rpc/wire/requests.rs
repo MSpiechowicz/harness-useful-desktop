@@ -10,7 +10,7 @@
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 
-use super::items::{CommandAction, shown_command};
+use super::items::{CommandAction, command_reading, shown_command};
 use super::{RequestId, params};
 use crate::claude_stream::wire::nullable;
 
@@ -98,11 +98,14 @@ pub struct CommandApproval {
 }
 
 impl CommandApproval {
-    /// The command to show: Codex's reading of it when it found one command, else the line as run.
+    /// The command to show: what runs, in full (see [`shown_command`]).
     pub fn shown_command(&self) -> Option<&str> {
-        let command = self.command.as_deref()?;
+        self.command.as_deref().map(shown_command)
+    }
 
-        Some(shown_command(command, &self.command_actions))
+    /// Codex's reading of the command, a hint next to it (see [`command_reading`]).
+    pub fn reading(&self) -> Option<&str> {
+        command_reading(self.command.as_deref()?, &self.command_actions)
     }
 
     /// True when Codex accepts the answer named `decision` (`accept`, `acceptForSession`,

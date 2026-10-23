@@ -67,6 +67,11 @@ pub enum Request {
     McpServerStatusList {
         thread_id: Option<String>,
     },
+    /// The effective settings of a thread in `cwd` (every layer Codex loads there), without
+    /// the layers themselves.
+    ConfigRead {
+        cwd: String,
+    },
 }
 
 impl Request {
@@ -91,6 +96,7 @@ impl Request {
             Self::SkillsList { .. } => "skills/list",
             Self::AccountRead => "account/read",
             Self::McpServerStatusList { .. } => "mcpServerStatus/list",
+            Self::ConfigRead { .. } => "config/read",
         }
     }
 
@@ -121,6 +127,7 @@ impl Request {
                 }
                 params
             }
+            Self::ConfigRead { cwd } => json!({ "cwd": cwd, "includeLayers": false }),
         }
     }
 

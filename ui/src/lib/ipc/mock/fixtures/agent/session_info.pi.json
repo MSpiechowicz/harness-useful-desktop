@@ -8,5 +8,6 @@
   "nativeApprovalMode": null,
   "trustedOnce": false,
   "trustOffered": true,
+  "memoryGuards": false,
   "protocolVersion": null
 }

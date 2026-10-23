@@ -32,6 +32,7 @@ mod forms;
 mod history;
 mod images;
 mod io;
+mod memory;
 mod naming;
 mod ops;
 mod prompts;
@@ -76,6 +77,10 @@ struct Chat {
     export_dir: Option<PathBuf>,
     /// A helper chat (AI naming): an ephemeral thread without session operations.
     helper: bool,
+    /// The chat has a memory identity, which its threads pass on (`memory.rs`).
+    memory_session: bool,
+    /// How long Codex may take to answer a `turn/start` (`prompts.rs`).
+    prompt_ack_timeout: std::time::Duration,
     /// One session operation at a time.
     moving: tokio::sync::Mutex<()>,
     /// The chat's approval mode, sent with its threads (`approvals.rs`); `None` keeps the user's.
@@ -103,10 +108,14 @@ struct Live {
     effort: Option<String>,
     /// The approval mode the thread runs in (`approvals.rs`).
     mode: Option<ApprovalMode>,
+    /// The mode warnings the chat showed, each once (`approvals.rs`).
+    mode_warnings: Vec<String>,
     /// The running turn as `turn/start` answered it (before its `turn/started`).
     turn_id: Option<String>,
     /// `turn/start` requests not answered yet: their id and whether a prompt action sent them.
     turn_requests: Vec<(String, bool)>,
+    /// `turn/start` requests the chat gave up waiting for: one Codex takes later counts again.
+    late_turns: Vec<String>,
     /// The user stopped a turn whose id was not known yet: interrupt it once it is.
     abort_pending: bool,
     /// Steering Codex has not taken yet and the app's follow-ups, oldest first.
@@ -133,6 +142,10 @@ struct Live {
     shell: Option<Shell>,
     /// A helper chat's prompt, sent once more on Codex's default model when its turn fails.
     naming: Option<String>,
+    /// The `config` entries every thread of a chat with a memory identity gets (`memory.rs`).
+    memory_config: serde_json::Map<String, serde_json::Value>,
+    /// The chat's memory identity reaches a harness-memory server (`memory.rs`).
+    memory_passed_on: bool,
 }
 
 /// A queued user message.
@@ -160,8 +173,10 @@ impl Live {
             model: None,
             effort: None,
             mode: None,
+            mode_warnings: Vec::new(),
             turn_id: None,
             turn_requests: Vec::new(),
+            late_turns: Vec::new(),
             abort_pending: false,
             queue: Vec::new(),
             dialogs: Dialogs::new(project, helper),
@@ -175,6 +190,8 @@ impl Live {
             skills: Vec::new(),
             shell: None,
             naming: None,
+            memory_config: serde_json::Map::new(),
+            memory_passed_on: false,
         }
     }
 

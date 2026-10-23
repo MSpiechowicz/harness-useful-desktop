@@ -113,11 +113,17 @@ impl Tools {
             },
         );
 
+        // A command's card names Codex's reading of it as a hint, above the command in full.
+        let intent = match item {
+            ThreadItem::CommandExecution(command) => command.reading().map(str::to_owned),
+            _ => None,
+        };
+
         out.push(AgentEvent::ToolStart {
             tool_call_id: id.to_owned(),
             name,
             args,
-            intent: None,
+            intent,
         });
     }
 

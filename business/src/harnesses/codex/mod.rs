@@ -28,7 +28,6 @@ mod trust;
 pub use catalog::CodexCatalog;
 pub use cli::codex_cli_action;
 pub use extensions::{MarketplaceRecord, PluginRecord, marketplace_records, plugin_records};
-use launch::memory_session_args;
 pub use launch::{APP_SERVER_ARGS, codex_launch_spec, is_thread_id};
 pub use paths::{PROJECT_DIR_NAME, codex_home};
 pub use settings::{CONFIG_FILE, is_plain_name, mcp_servers, user_config_path};
@@ -188,10 +187,6 @@ impl Harness for Codex {
         } else {
             spec
         }
-    }
-
-    fn memory_session_args(&self, env: &Env, request: &LaunchRequest<'_>) -> Vec<String> {
-        memory_session_args(env, request.project, request.trust_once)
     }
 
     fn trust_once_offered(&self, env: &Env, project: &Path) -> bool {

@@ -53,6 +53,9 @@ pub struct SessionLaunch<'a> {
     pub trust_once: bool,
     /// A short-lived helper agent without a saved session.
     pub utility: bool,
+    /// The chat has a memory identity: `spec` sets `HARNESS_MEMORY_SESSION`. An engine whose
+    /// harness clears its MCP servers' environment tells it to pass the variable on (Codex).
+    pub memory_session: bool,
     /// Receives the events.
     pub sink: Arc<dyn EventSink>,
     /// Timing knobs.
@@ -95,6 +98,16 @@ impl AgentSession {
             Self::OpenCodeV2(session) => session.protocol_version(),
             Self::Claude(session) => session.protocol_version(),
             Self::Codex(session) => session.protocol_version(),
+        }
+    }
+
+    /// Whether the harness passes a chat's memory identity on to Harness Memory: always, except
+    /// for a Codex chat whose harness-memory servers could not be told to (see
+    /// `codex/memory.rs`).
+    pub fn memory_passed_on(&self) -> bool {
+        match self {
+            Self::Codex(session) => session.memory_passed_on(),
+            _ => true,
         }
     }
 
