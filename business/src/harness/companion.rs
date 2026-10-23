@@ -28,9 +28,10 @@ pub enum SkillsStrategy {
         /// The package source, as the harness CLI takes it (for example `git:github.com/owner/repo`).
         source: &'static str,
     },
-    /// The Harness Skills' own installer script (OpenCode's `install.sh` / `install.ps1`): the app
-    /// runs it for the user once they confirm, and its install record tells whether it is there.
-    Installer,
+    /// The Harness Skills' own installer script (`install.sh` / `install.ps1`, OpenCode and Codex):
+    /// the app runs it for the user once they confirm, and its install record tells whether it is
+    /// there.
+    Installer(SkillsHost),
     /// A command the user runs themselves.
     Manual {
         /// The command to copy.
@@ -43,6 +44,15 @@ pub enum SkillsStrategy {
         /// Why, for display.
         reason: &'static str,
     },
+}
+
+/// The harness an installer script of the Harness Skills installs for (its `HARNESS_SKILLS_HOST`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkillsHost {
+    /// OpenCode, the script's default.
+    OpenCode,
+    /// Codex (`HARNESS_SKILLS_HOST=codex`, Harness Skills 0.3.13 and newer).
+    Codex,
 }
 
 /// Where a harness reads user MCP servers from.

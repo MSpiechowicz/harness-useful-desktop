@@ -42,7 +42,7 @@ not guaranteed, it says so under [Limits](#limits).
   and host names are part of sources and URLs. Bundles are not signed. See [Shared setups](#shared-setups).
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
 - No shell is spawned, with three exceptions: the companion installers (Harness Dashboard, Harness Memory and the Harness Skills
-  for OpenCode), fixed
+  for OpenCode and Codex), fixed
   commands that run only after you confirm them, command hooks, shell commands that run only when you wrote them or
   approved that exact version, and the `!command` you type in a Claude Code chat, which the app runs itself because Claude
   Code has no shell mode there (see [Process spawning](#process-spawning), [Hooks](#hooks) and
@@ -86,7 +86,7 @@ your terminal (see [Limits](#limits)).
 ## Network
 
 The app contains no analytics client. Its only HTTP clients are the updater and the companion release lookup; the one
-other downloads, those of the companion installers (dashboard, memory server and Harness Skills for OpenCode), are made by the installer command
+other downloads, those of the companion installers (dashboard, memory server and Harness Skills for OpenCode and Codex), are made by the installer command
 itself, and only after consent. Enumerated:
 
 | Request | When | Details |
@@ -95,7 +95,7 @@ itself, and only after consent. Enumerated:
 | Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Four fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,memory,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all four are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
 | Dashboard installer download | Only when the user confirms **Install the dashboard** in Recommended setup (onboarding, or **Run recommended setup** in Ecosystem), or, for an already installed dashboard with a newer release, without asking each time while **Update extensions automatically** (`autoUpdateExtensions`, on by default) and **Check companions for updates** are on | The app opens no connection itself. The installer command it runs (a `curl` of `install.sh` piped to `sh` on Linux and macOS, `irm` of `install.ps1` piped to `iex` on Windows) fetches the script from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/` and then whatever that script downloads, the dashboard release. GitHub sees the IP address and the request. See [Process spawning](#process-spawning). |
 | Memory server installer download | Only when the user confirms the install of Harness Memory (Recommended setup, or the **Project memory** switch in Settings), or, for an already installed server with a newer release, without asking each time under the same two switches as the dashboard | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/` and then the `harness-memory` release it names; its `install.sh` and `install.ps1` verify the release's `checksums.txt`. |
-| Harness Skills installer download | Only when the user confirms the install of the Harness Skills for OpenCode in Recommended setup. It is never part of the automatic family updates. | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/` (`install.sh` fetched by a `curl` held to HTTPS and TLS 1.2 or newer, `install.ps1` by `irm`). The script needs Node.js 22 or newer and downloads the skills' release tarball from `codeload.github.com`, checks its entries, sizes and manifests, and runs `useful-skills install --host opencode --scope user`. There is no checksum: the trust model is that of the skills' own updater. GitHub sees the IP address and the request. |
+| Harness Skills installer download | Only when the user confirms the install of the Harness Skills for OpenCode or Codex in Recommended setup. It is never part of the automatic family updates. | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/` (`install.sh` fetched by a `curl` held to HTTPS and TLS 1.2 or newer, `install.ps1` by `irm`). The script needs Node.js 22 or newer and downloads the skills' release tarball from `codeload.github.com`, checks its entries, sizes and manifests, and runs `useful-skills install --host opencode --scope user`, or `--host codex` when the app sets `HARNESS_SKILLS_HOST=codex` for the Codex install (that run also needs the `codex` command, adds the skills' marketplace and plugin with it and registers the `useful_skills` MCP server through `codex mcp add`). There is no checksum: the trust model is that of the skills' own updater. GitHub sees the IP address and the request. |
 | Extension catalog refresh | While **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default) is on: the first look 30 s after start, then every 30 minutes. With **Update extensions automatically** on, the catalogs are refreshed on the same schedule even with this switch off, never more often than every 30 minutes (see below). | The app opens no connection itself. For each OMP catalog it runs `omp plugin marketplace update <name>`, and OMP clones or fetches that catalog's repository from the git or `https` URL it was added with: hosts you chose when adding the catalog (GitHub for the Harness Skills). The host sees the IP address and the request. |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL, or `http` to localhost, with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
@@ -147,7 +147,7 @@ Everything else:
   setup installs the Harness Skills for OMP the same way (`omp plugin marketplace add`, then `omp plugin install` at
   user scope, through `extension_action`, after you confirm). For PI it runs `pi install` of the skills' package the same
   way. For Claude Code it runs `claude plugin marketplace add` and `claude plugin install` of the skills' plugin at user
-  scope the same way, after you confirm. Codex has no Harness Skills adapter yet, so Recommended setup installs none for it. For OpenCode it runs the Harness Skills installer (see the Network table). Removing an OpenCode plugin runs nothing:
+  scope the same way, after you confirm. For OpenCode and Codex it runs the Harness Skills installer (see the Network table), for Codex with `HARNESS_SKILLS_HOST=codex`. Removing an OpenCode plugin runs nothing:
   it edits a local file.
 - Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
   package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
@@ -159,7 +159,7 @@ Everything else:
   you set in Settings: then `harness-memory` itself connects to it (PostgreSQL, libSQL or MongoDB at the URL you gave).
   The app still opens no connection; **Test** runs `harness-memory check`, which does. See [Team database](#team-database).
 - The Ecosystem tab shows install commands for copying (`business/src/ecosystem/catalog.rs`). The app never runs them,
-  except the Harness Dashboard, Harness Memory and Harness Skills (OpenCode) installers (see [Process spawning](#process-spawning)).
+  except the Harness Dashboard, Harness Memory and Harness Skills (OpenCode, Codex) installers (see [Process spawning](#process-spawning)).
 
 ## Files the app never reads
 
@@ -336,21 +336,21 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   See [Hooks](#hooks).
 - **Companion installers (a shell).** Recommended setup can run the official Harness Dashboard installer
   (`setup_install_dashboard`), the official Harness Memory installer (`setup_install_memory`, also offered by the
-  **Project memory** switch) and the Harness Skills installer for OpenCode (`setup_install_opencode_skills`), all
+  **Project memory** switch) and the Harness Skills installer for OpenCode and for Codex (`setup_install_opencode_skills`, `setup_install_codex_skills`), all
   through `run_installer` in `business/src/ecosystem/installer.rs`. It is the only place
   the app runs an install command. The only other places that name a shell are the command hook runner (see
   [Hooks](#hooks)) and the `!command` of a Claude Code chat (see [Claude Code](#claude-code)). Each command is a Rust constant per companion and OS
   (`DASHBOARD_INSTALL_SH` / `DASHBOARD_INSTALL_PS1_SCRIPT`, `MEMORY_INSTALL_SH` / `MEMORY_INSTALL_PS1_SCRIPT` and
-  `SKILLS_INSTALL_SH` / `SKILLS_INSTALL_PS1_SCRIPT` in `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
+  `SKILLS_INSTALL_SH` / `SKILLS_INSTALL_PS1_SCRIPT` and, for Codex, `CODEX_SKILLS_INSTALL_SH` / `CODEX_SKILLS_INSTALL_PS1` in `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
   `<SystemRoot>\System32\WindowsPowerShell\v1.0` with `-NoProfile` on Windows. The webview sends only `confirmed`; no
   command line, path or URL. The command fails with `invalidInput` unless `confirmed` is true (the UI asks first and
   lists what the installer changes), and only one install per companion runs at a time. The child runs in the home
-  directory with `NO_COLOR=1`, inherits the app's environment, has its stdin closed, lives in its own process group
+  directory with `NO_COLOR=1`, inherits the app's environment (except that the OpenCode skills installer never inherits `HARNESS_SKILLS_HOST`, the Codex one gets `HARNESS_SKILLS_HOST=codex` and loses a relative `CODEX_HOME`), has its stdin closed, lives in its own process group
   and is killed with it after 10 minutes. Its output reaches the UI line by line with escapes stripped and secrets
   redacted (`redact_text`; 2 KiB per line, 256 KiB in all); the log keeps only counts and the exit code. Success needs
   exit code 0 and a `harness-dashboard` (or `harness-memory`) that reports a version afterwards, because a piped
   download can exit 0 after failing. The Harness Skills have no binary: success needs an install record
-  (`plugins/useful-skills/install-record.json` in OpenCode's config directory) that is a regular file, not a symlink,
+  (`plugins/useful-skills/install-record.json` in OpenCode's config directory, `useful-skills/install-record.json` in the Codex home) that is a regular file, not a symlink,
   of at most 256 KiB, with a valid `version`. The skills' installer runs `node`, so the usual install directories are
   appended to its `PATH` (after the user's own entries). It downloads the skills' release tarball and checks its
   entries, sizes and manifests, but has no checksum, so it trusts GitHub and the repository like the skills' updater. After a successful memory install the app registers the server (see the next

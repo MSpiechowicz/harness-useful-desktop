@@ -14,7 +14,7 @@ import { harness } from '$lib/stores/harness.svelte';
 import { CompanionInstaller } from './companion-installer.svelte';
 import { onboarding } from './onboarding-state.svelte';
 import { runSetup } from './setup-run';
-import { commandOf, companionEffects, MCP_COMPANION, refusalText, type Companion, type Installer, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
+import { commandOf, companionEffects, MCP_COMPANION, refusalText, skillsInstallerOf, type Companion, type Installer, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
 
 export type SetupLoad = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -51,7 +51,7 @@ export class SetupController {
   private phases = $state<Record<string, ItemPhase>>({});
   private failures = $state<Record<string, string>>({});
 
-  /** The installers' output and outcome: the two companions' each on its own row, the Harness Skills' for OpenCode under the skills row. */
+  /** The installers' output and outcome: the two companions' each on its own row, the Harness Skills' for OpenCode and Codex under the skills row. */
   readonly installers: Record<Installer, CompanionInstaller>;
 
   private token = 0;
@@ -64,6 +64,7 @@ export class SetupController {
       dashboard: new CompanionInstaller('dashboard', transport),
       memory: new CompanionInstaller('memory', transport),
       opencodeSkills: new CompanionInstaller('opencodeSkills', transport),
+      codexSkills: new CompanionInstaller('codexSkills', transport),
     };
   }
 
@@ -280,7 +281,11 @@ export class SetupController {
         plan.commands.push(...entry.skills.actions.map((action) => ({ owner: entry.harness, command: commandOf(entry.harness, action) })));
       } else if (entry.skills.type === 'script') {
         plan.commands.push({ owner: entry.harness, command: entry.skills.command });
-        plan.effects.push({ owner: 'opencodeSkills', effects: entry.skills.sideEffects });
+
+        const owner = skillsInstallerOf(entry.harness);
+        if (owner) {
+          plan.effects.push({ owner, effects: entry.skills.sideEffects });
+        }
       }
     }
 
@@ -384,9 +389,13 @@ export class SetupController {
   }
 
   private async installSkills(entry: HarnessSetup): Promise<void> {
-    // The skills of a harness with its own installer script (only OpenCode has one): the same confirmed run and streamed output as a companion's.
+    // The skills of a harness with its own installer script (OpenCode and Codex): the same confirmed run and streamed output as a companion's.
     if (entry.skills.type === 'script') {
-      await this.runInstaller('opencodeSkills', `skills:${entry.harness}`);
+      const installer = skillsInstallerOf(entry.harness);
+
+      if (installer) {
+        await this.runInstaller(installer, `skills:${entry.harness}`);
+      }
 
       return;
     }

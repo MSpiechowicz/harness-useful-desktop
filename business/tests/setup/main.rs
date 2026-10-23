@@ -64,6 +64,7 @@ mod memory_server;
 mod memory_team_docs_mine;
 mod memory_trust;
 mod memory_user_save;
+mod setup_codex_skills;
 mod setup_installer;
 mod setup_mcp_register;
 mod setup_mcp_register_claude;

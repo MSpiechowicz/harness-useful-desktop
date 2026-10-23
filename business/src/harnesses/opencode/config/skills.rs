@@ -17,9 +17,9 @@ use std::path::Path;
 
 use super::layers::project_config_enabled;
 use crate::ecosystem::installer::Installed;
-use crate::ecosystem::skills_record::opencode_skills_installed;
+use crate::ecosystem::skills_record::skills_installed;
 use crate::env::Env;
-use crate::harness::OpenCodeGeneration;
+use crate::harness::{OpenCodeGeneration, SkillsHost};
 use crate::harnesses::opencode::{PROJECT_DIR_NAME, config_dir};
 use crate::harnesses::skills_config::{MissingRoot, models_path, models_section, settings_present, workflow_section};
 use crate::model::{ConfigLayer, ConfigSection};
@@ -60,7 +60,10 @@ pub(super) fn sections(env: &Env, project: Option<&Path>, generation: OpenCodeGe
 
     let installed_in_project = project_scope.as_ref().is_some_and(|(_, scope)| has_record(scope));
 
-    if settings_present(&config) || installed_in_project || opencode_skills_installed(env) != Installed::Missing {
+    if settings_present(&config)
+        || installed_in_project
+        || skills_installed(env, SkillsHost::OpenCode) != Installed::Missing
+    {
         sections.push(workflow_section(WORKFLOW_TEXT, &config, MissingRoot::Defaults, project));
     }
 
@@ -77,7 +80,7 @@ pub(super) fn sections(env: &Env, project: Option<&Path>, generation: OpenCodeGe
 }
 
 /// Whether the install scope folder `scope` holds an install record, usable or not (the user
-/// scope's is [`opencode_skills_installed`]).
+/// scope's is [`skills_installed`]).
 fn has_record(scope: &Path) -> bool {
     let record = scope.join("plugins").join("useful-skills").join("install-record.json");
 

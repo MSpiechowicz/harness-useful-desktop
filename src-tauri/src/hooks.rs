@@ -467,7 +467,7 @@ pub async fn after_member_install(runtime: &HookRuntime, companion: Companion) {
     let member = match companion {
         Companion::Memory => HookRequirement::HarnessMemory,
         Companion::Dashboard => HookRequirement::HarnessDashboard,
-        Companion::OpenCodeSkills => return,
+        Companion::OpenCodeSkills | Companion::CodexSkills => return,
     };
 
     runtime.refresh_members();

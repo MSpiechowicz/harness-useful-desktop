@@ -1,7 +1,8 @@
-//! The Harness Skills for OpenCode on this machine. They have no binary to ask for a version: their
-//! installer (`install.sh`, `install.ps1`) writes an install record,
-//! `<OpenCode config dir>/plugins/useful-skills/install-record.json`, and that record is what counts
-//! as installed.
+//! The Harness Skills for OpenCode and for Codex on this machine. They have no binary to ask for a
+//! version: their installer (`install.sh`, `install.ps1`) writes an install record, and that record
+//! is what counts as installed. OpenCode's is
+//! `<OpenCode config dir>/plugins/useful-skills/install-record.json`, Codex's
+//! `<Codex home>/useful-skills/install-record.json`.
 //!
 //! The record counts only when it is a regular file (a symlink does not count) of at most
 //! [`MAX_RECORD_BYTES`] holding a JSON object whose `version` is a version string: at most
@@ -16,7 +17,8 @@ use serde_json::Value;
 
 use super::installer::Installed;
 use crate::env::Env;
-use crate::harnesses::opencode;
+use crate::harness::SkillsHost;
+use crate::harnesses::{codex, opencode};
 use crate::security::SafeReader;
 
 /// Size cap for reading the record.
@@ -25,19 +27,22 @@ pub const MAX_RECORD_BYTES: u64 = 256 * 1024;
 /// Longest version accepted from the record.
 pub const MAX_VERSION_CHARS: usize = 64;
 
-/// Where the installer writes the record: `plugins/useful-skills/install-record.json` in OpenCode's
-/// global config directory.
-pub fn opencode_skills_record(env: &Env) -> PathBuf {
-    opencode::config_dir(env)
-        .join("plugins")
-        .join("useful-skills")
-        .join("install-record.json")
+/// Where the installer of `host` writes the record: `plugins/useful-skills/install-record.json` in
+/// OpenCode's global config directory, `useful-skills/install-record.json` in the Codex home.
+pub fn skills_record(env: &Env, host: SkillsHost) -> PathBuf {
+    match host {
+        SkillsHost::OpenCode => opencode::config_dir(env)
+            .join("plugins")
+            .join("useful-skills")
+            .join("install-record.json"),
+        SkillsHost::Codex => codex::codex_home(env).join("useful-skills").join("install-record.json"),
+    }
 }
 
-/// The installed version of the Harness Skills for OpenCode, from the install record; `None` when
+/// The installed version of the Harness Skills for `host`, from the install record; `None` when
 /// there is no usable record (see the module docs).
-pub fn opencode_skills_version(env: &Env) -> Option<String> {
-    let path = opencode_skills_record(env);
+pub fn skills_version(env: &Env, host: SkillsHost) -> Option<String> {
+    let path = skills_record(env, host);
 
     let metadata = match fs::symlink_metadata(&path) {
         Ok(metadata) => metadata,
@@ -69,14 +74,14 @@ pub fn opencode_skills_version(env: &Env) -> Option<String> {
     version
 }
 
-/// The Harness Skills for OpenCode as found: the record's version, found without one when the
-/// record is there but unusable, missing when there is none.
-pub fn opencode_skills_installed(env: &Env) -> Installed {
-    if let Some(version) = opencode_skills_version(env) {
+/// The Harness Skills for `host` as found: the record's version, found without one when the record
+/// is there but unusable, missing when there is none.
+pub fn skills_installed(env: &Env, host: SkillsHost) -> Installed {
+    if let Some(version) = skills_version(env, host) {
         return Installed::Version(version);
     }
 
-    if fs::symlink_metadata(opencode_skills_record(env)).is_ok() {
+    if fs::symlink_metadata(skills_record(env, host)).is_ok() {
         return Installed::NoVersion;
     }
 

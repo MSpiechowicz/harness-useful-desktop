@@ -536,12 +536,16 @@ fn companion_setup(&self) -> CompanionSetup {
   for the user through `extension_action` (`PackageInstall`), so `cli_action` must support it. The step reports the
   skills as installed when the harness's user settings list the package (`user_has_package`, in
   `business/src/ecosystem/setup.rs`); extend that if your CLI records packages elsewhere.
-- `Installer`: the Harness Skills have their own installer script (OpenCode's `install.sh` / `install.ps1`, which
-  need Node.js 22 or newer). The app runs it through a `Companion` (`OpenCodeSkills`, in
-  `business/src/ecosystem/installer.rs`) after the user confirms, with no CLI action. The step reports the skills as
-  installed when the installer's install record holds a version (`business/src/ecosystem/skills_record.rs`: a regular
-  file, not a symlink, `plugins/useful-skills/install-record.json` in the config directory). A new script installer needs
-  its own `Companion`, a fixed command per OS in `catalog.rs`, and a Tauri command.
+- `Installer(SkillsHost)`: the Harness Skills have their own installer script (`install.sh` / `install.ps1`, which
+  need Node.js 22 or newer), one run per host (`HARNESS_SKILLS_HOST`: OpenCode by default, `codex`). The app runs it
+  through a `Companion` (`OpenCodeSkills`, `CodexSkills`, in `business/src/ecosystem/installer.rs`) after the user
+  confirms, with no CLI action. The step reports the skills as installed when the host's install record holds a version
+  (`business/src/ecosystem/skills_record.rs`: a regular file, not a symlink, `plugins/useful-skills/install-record.json`
+  in OpenCode's config directory, `useful-skills/install-record.json` in the Codex home). A record older than the first
+  release with the host's adapter (`CODEX_SKILLS_MIN_VERSION`, 0.3.13) is offered the installer again, with
+  `outdatedFrom` set so the UI says "Update available". The installer registers the `useful_skills` MCP server itself,
+  so the MCP matrix does not. A new script host needs its own `SkillsHost` and `Companion`, a fixed command per OS in
+  `catalog.rs`, and a Tauri command.
 - `Manual { command, note }`: the user copies a command, the app never runs it. Use it when you have not verified an
   install command against the CLI yet, and say so in `note`. The step reports the skills as installed
   when the harness's user settings list the package (`user_has_package`, in `business/src/ecosystem/setup.rs`);
@@ -760,7 +764,7 @@ every harness, with no `_`/`else` arm, so the compiler finds the next one. When 
 - `ui/src/features/extensions/actions/action-model.ts`: `installAndRemoveOnly` and the user-scope-only check name each
   harness.
 - `ui/src/lib/ipc/mock/setup-handlers.ts` and `setup-roster.ts`: the mock keeps a real row per harness (Codex's skills
-  row says "Harness Skills for Codex are not available yet."), not a placeholder.
+  row is the installer script with its changes), not a placeholder.
 
 **An `app-server` style engine is its own engine.** See [Other chat protocols](#other-chat-protocols). Take the protocol
 from the bindings the CLI generates (`codex app-server generate-ts` and `generate-json-schema`, which carry no version

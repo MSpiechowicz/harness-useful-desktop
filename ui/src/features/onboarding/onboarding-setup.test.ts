@@ -334,13 +334,13 @@ describe('Set up step', () => {
 
     // Nothing to tick: every missing piece is part of the one action.
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
-    expect(screen.getByText('10 items to install')).toBeInTheDocument();
+    expect(screen.getByText('11 items to install')).toBeInTheDocument();
 
     // The table is MCP servers only: skills are one row of the family card, summed across the harnesses found.
     expect(within(rows[0]).queryByRole('group', { name: 'Harness Skills' })).toBeNull();
     expect(within(rows[0]).getAllByRole('group')).toHaveLength(3);
     expect(within(installer('Harness Skills')).getByText('Partly installed')).toBeInTheDocument();
-    expect(screen.getByText('Installs the skills in Oh My Pi, Pi, and Claude Code')).toBeInTheDocument();
+    expect(screen.getByText('Installs the skills in Oh My Pi, Pi, Claude Code, and Codex')).toBeInTheDocument();
 
     // A column per MCP server, with the same states.
     // Claude Code chats now, so its MCP entries show their state like the others' (its memory entry is switched off here).
@@ -401,11 +401,8 @@ describe('Set up step', () => {
     expect(screen.queryByText(/It is switched off in the file/)).toBeNull();
     await fireEvent.click(screen.getByRole('button', { name: 'Details: Claude Code' }));
     expect(await screen.findByText(/It is switched off in the file/)).toBeInTheDocument();
-    // A found harness the skills cannot be installed in is listed on the skills row with its reason.
-    expect(within(installer('Harness Skills')).queryByRole('region', { name: 'Codex' })).toBeNull();
-    await openFamilyDetails();
-    const unavailable = family().getByRole('region', { name: 'Codex' });
-    expect(within(unavailable).getByText('Harness Skills for Codex are not available yet.')).toBeInTheDocument();
+    // Codex's skills come from the installer script now, so no harness is left with a reason and the card has no Details.
+    expect(familyDetails()).toBeNull();
   });
 
   it('shows OpenCode as coming soon and leaves its config alone', async () => {

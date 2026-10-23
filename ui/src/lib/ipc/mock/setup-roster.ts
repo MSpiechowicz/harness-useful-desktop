@@ -43,14 +43,25 @@ export const OPENCODE_SKILLS_SIDE_EFFECTS = [
   'Updates come from /useful-skills update in OpenCode.',
 ];
 
-/** What `setup_status` reports for Codex's skills: Harness Skills have no Codex adapter yet. */
-export const CODEX_SKILLS: SkillsSetup = { type: 'unavailable', reason: 'Harness Skills for Codex are not available yet.', code: null };
+/** The same installer for Codex (`HARNESS_SKILLS_HOST=codex`) and what it changes, as the backend words them. */
+export const CODEX_SKILLS_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | HARNESS_SKILLS_HOST=codex sh";
+export const CODEX_SKILLS_SIDE_EFFECTS = [
+  'Adds the Harness Skills marketplace and plugin to Codex.',
+  'Writes the us-* agents and the memory runtime into the Codex folder (~/.codex).',
+  'Registers the useful_skills MCP server with codex mcp add.',
+  'Needs Node.js 22 or newer and the codex command.',
+  'Restart Codex and running Codex chats to load the skills.',
+  'Updates come from running this installer again.',
+];
 
 /** What `setup_status` reports for OpenCode's skills when Node.js is found. */
-export const OPENCODE_SKILLS: SkillsSetup = { type: 'script', command: OPENCODE_SKILLS_COMMAND, sideEffects: OPENCODE_SKILLS_SIDE_EFFECTS };
+export const OPENCODE_SKILLS: SkillsSetup = { type: 'script', command: OPENCODE_SKILLS_COMMAND, sideEffects: OPENCODE_SKILLS_SIDE_EFFECTS, outdatedFrom: null };
+
+/** What it reports for Codex's skills when Node.js is found. */
+export const CODEX_SKILLS: SkillsSetup = { type: 'script', command: CODEX_SKILLS_COMMAND, sideEffects: CODEX_SKILLS_SIDE_EFFECTS, outdatedFrom: null };
 
 /** What it reports when Node.js is missing. */
-export const OPENCODE_SKILLS_NO_NODE: SkillsSetup = { type: 'unavailable', reason: 'Needs Node.js 22 or newer.', code: 'nodeMissing' };
+export const SKILLS_NO_NODE: SkillsSetup = { type: 'unavailable', reason: 'Needs Node.js 22 or newer.', code: 'nodeMissing' };
 
 const FIVE: RosterEntry[] = [
   {

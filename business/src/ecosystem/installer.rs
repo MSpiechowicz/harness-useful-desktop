@@ -1,5 +1,5 @@
 //! Runs the official installer of a [`Companion`] (Harness Dashboard, Harness Memory, the Harness
-//! Skills for OpenCode) for the "Recommended setup" step and the "Project memory" install, the only
+//! Skills for OpenCode or Codex) for the "Recommended setup" step and the "Project memory" install, the only
 //! place the app runs an install command (and the only place allowed to name a shell, enforced by
 //! the `installer-shell` guard rule).
 //!
@@ -13,10 +13,14 @@
 //! - Success: exit code 0 **and** the companion found with a version afterwards
 //!   ([`Companion::installed`]: its binary reporting one, or the Harness Skills' install record
 //!   holding one), since `curl … | sh` exits with 0 when the download failed.
-//! - `PATH`: the Harness Skills' installer runs `node`, so the usual install directories
-//!   ([`extra_search_dirs`]) are appended to its `PATH`, the same places the setup step looks for
-//!   `node` after `PATH`. It also gets OpenCode's spawn variables (`OPENCODE_DISABLE_AUTOUPDATE`),
-//!   so an `opencode` it runs does not update itself.
+//! - `PATH`: the Harness Skills' installer runs `node` (and `codex` for Codex), so the usual install
+//!   directories ([`extra_search_dirs`]) are appended to its `PATH`, the same places the setup step
+//!   looks for `node` after `PATH`.
+//! - Environment: the OpenCode installer gets OpenCode's spawn variables
+//!   (`OPENCODE_DISABLE_AUTOUPDATE`), so an `opencode` it runs does not update itself, and never an
+//!   inherited `HARNESS_SKILLS_HOST`. The Codex installer gets `HARNESS_SKILLS_HOST=codex`, and an
+//!   inherited relative `CODEX_HOME` is dropped (the app ignores it, see
+//!   [`crate::harnesses::codex::codex_home`]).
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -24,6 +28,7 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::time::{Instant, sleep_until, timeout};
 
+use super::catalog::{CODEX_SKILLS_INSTALL_PS1, CODEX_SKILLS_INSTALL_SH};
 use super::catalog::{
     DASHBOARD_BINARY, DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_PS1_SCRIPT, DASHBOARD_INSTALL_SH, MEMORY_BINARY,
     MEMORY_INSTALL_PS1, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_SH, SKILLS_INSTALL_PS1, SKILLS_INSTALL_PS1_SCRIPT,
@@ -33,9 +38,10 @@ use super::dashboard::resolve_dashboard;
 use super::detect::dashboard_version;
 use super::installer_log::{Log, Splitter};
 use super::memory_binary::{memory_version, resolve_memory};
-use super::skills_record::opencode_skills_installed;
+use super::skills_record::skills_installed;
 use crate::env::{Env, OsKind};
 use crate::error::Result;
+use crate::harness::SkillsHost;
 use crate::harnesses::opencode::SPAWN_ENV;
 use crate::model::{DashboardInstallResult, InstallLogLine, InstallStream};
 use crate::process::{ChildHandle, ExecSpec, ExitInfo, ProcessRunner, ProcessSpawner, TokioRunner, extra_search_dirs};
@@ -63,6 +69,12 @@ const KILL_GRACE: Duration = Duration::from_secs(5);
 /// Read buffer size.
 const CHUNK: usize = 8 * 1024;
 
+/// The variable that picks the Harness Skills installer's host.
+const HOST_VAR: &str = "HARNESS_SKILLS_HOST";
+
+/// The Codex installer's variables: the host.
+const CODEX_SKILLS_ENV: &[(&str, &str)] = &[(HOST_VAR, "codex")];
+
 /// A companion whose official installer the app runs once the user confirms it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Companion {
@@ -73,6 +85,8 @@ pub enum Companion {
     /// Harness Skills for OpenCode: files in OpenCode's config directory, no binary (see
     /// [`super::skills_record`]).
     OpenCodeSkills,
+    /// Harness Skills for Codex: files in the Codex home, no binary (see [`super::skills_record`]).
+    CodexSkills,
 }
 
 /// A companion as found on this machine.
@@ -104,6 +118,7 @@ impl Companion {
             Self::Dashboard => DASHBOARD_BINARY,
             Self::Memory => MEMORY_BINARY,
             Self::OpenCodeSkills => "Harness Skills for OpenCode",
+            Self::CodexSkills => "Harness Skills for Codex",
         }
     }
 
@@ -120,7 +135,8 @@ impl Companion {
                 Some(binary) => probed(memory_version(env, runner, &binary).await),
                 None => Installed::Missing,
             },
-            Self::OpenCodeSkills => opencode_skills_installed(env),
+            Self::OpenCodeSkills => skills_installed(env, SkillsHost::OpenCode),
+            Self::CodexSkills => skills_installed(env, SkillsHost::Codex),
         }
     }
 
@@ -129,7 +145,7 @@ impl Companion {
         match self {
             Self::Dashboard => "`harness-dashboard version`",
             Self::Memory => "`harness-memory --version`",
-            Self::OpenCodeSkills => "the Harness Skills install record",
+            Self::OpenCodeSkills | Self::CodexSkills => "the Harness Skills install record",
         }
     }
 
@@ -143,6 +159,11 @@ impl Companion {
             ),
             Self::Memory => (MEMORY_INSTALL_SH, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_PS1),
             Self::OpenCodeSkills => (SKILLS_INSTALL_SH, SKILLS_INSTALL_PS1_SCRIPT, SKILLS_INSTALL_PS1),
+            Self::CodexSkills => (
+                CODEX_SKILLS_INSTALL_SH,
+                CODEX_SKILLS_INSTALL_PS1,
+                CODEX_SKILLS_INSTALL_PS1,
+            ),
         }
     }
 
@@ -151,16 +172,35 @@ impl Companion {
     fn search_dirs(self, env: &Env) -> Vec<PathBuf> {
         match self {
             Self::Dashboard | Self::Memory => Vec::new(),
-            Self::OpenCodeSkills => extra_search_dirs(env),
+            Self::OpenCodeSkills | Self::CodexSkills => extra_search_dirs(env),
         }
     }
 
     /// Variables set for its installer: the Harness Skills' installer may run `opencode`, which
-    /// gets OpenCode's own spawn variables so it never updates itself meanwhile.
+    /// gets OpenCode's own spawn variables so it never updates itself meanwhile. The Codex
+    /// installer is the same script for another host.
     fn installer_env(self) -> &'static [(&'static str, &'static str)] {
         match self {
             Self::Dashboard | Self::Memory => &[],
             Self::OpenCodeSkills => SPAWN_ENV,
+            Self::CodexSkills => CODEX_SKILLS_ENV,
+        }
+    }
+
+    /// Inherited variables dropped from its installer's environment: a host the user exported
+    /// never turns the OpenCode install into another, and a relative `CODEX_HOME` is one the app
+    /// ignores but the installer would resolve against its working directory.
+    fn removed_env(self, env: &Env) -> Vec<&'static str> {
+        match self {
+            Self::Dashboard | Self::Memory => Vec::new(),
+            Self::OpenCodeSkills => vec![HOST_VAR],
+            Self::CodexSkills => {
+                let relative = env
+                    .var("CODEX_HOME")
+                    .is_some_and(|home| !std::path::Path::new(home).is_absolute());
+
+                if relative { vec!["CODEX_HOME"] } else { Vec::new() }
+            }
         }
     }
 }
@@ -242,7 +282,10 @@ pub async fn run_installer_with(
     sink: impl FnMut(InstallLogLine),
 ) -> Result<DashboardInstallResult> {
     let installer = installer(env, companion);
-    let spec = ExecSpec::new(&installer.program)
+    let spec = companion
+        .removed_env(env)
+        .into_iter()
+        .fold(ExecSpec::new(&installer.program), ExecSpec::env_remove_prefix)
         .args(installer.args.iter().cloned())
         .cwd(&env.home)
         .env("NO_COLOR", "1")
@@ -386,8 +429,10 @@ fn summary(
         (Installed::Missing, Companion::Dashboard | Companion::Memory) => {
             format!("The installer finished, but {name} was not found afterwards; the download may have failed.")
         }
-        (Installed::Missing, Companion::OpenCodeSkills) => "The installer finished, but the Harness Skills install \
+        (Installed::Missing, Companion::OpenCodeSkills | Companion::CodexSkills) => {
+            "The installer finished, but the Harness Skills install \
              record was not found afterwards. The install may have failed."
-            .to_owned(),
+                .to_owned()
+        }
     }
 }

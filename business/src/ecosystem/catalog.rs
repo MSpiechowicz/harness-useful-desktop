@@ -75,7 +75,7 @@ pub const MEMORY_INSTALL_PS1_SCRIPT: &str =
 /// The memory server's Windows installer, as a copyable command.
 pub const MEMORY_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.ps1 | iex\"";
 
-/// The Harness Skills' Unix installer for OpenCode, as a copyable shell command (also the script
+/// The Harness Skills' Unix installer for OpenCode (the script's default host), as a copyable shell command (also the script
 /// the setup step runs on Linux and macOS). `curl` is held to HTTPS and TLS 1.2 or newer, redirects
 /// included.
 pub const SKILLS_INSTALL_SH: &str = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | sh";
@@ -87,6 +87,19 @@ pub const SKILLS_INSTALL_PS1_SCRIPT: &str =
 
 /// The Harness Skills' Windows installer for OpenCode, as a copyable command.
 pub const SKILLS_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.ps1 | iex\"";
+
+/// The Harness Skills' Unix installer for Codex (the same script with `HARNESS_SKILLS_HOST=codex`,
+/// Harness Skills 0.3.13 and newer), as a copyable shell command (also the script the setup step
+/// runs on Linux and macOS).
+pub const CODEX_SKILLS_INSTALL_SH: &str = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | HARNESS_SKILLS_HOST=codex sh";
+
+/// The PowerShell script of the Harness Skills' Windows installer for Codex (what the setup step
+/// runs there), also its copyable command: it is meant to be pasted into a PowerShell prompt.
+pub const CODEX_SKILLS_INSTALL_PS1: &str = "$env:HARNESS_SKILLS_HOST = 'codex'; irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.ps1 | iex";
+
+/// The first Harness Skills release with a Codex adapter: the installer refuses older ones, and
+/// an older install record counts as needing an update.
+pub const CODEX_SKILLS_MIN_VERSION: &str = "0.3.13";
 
 /// True when `id` runs on `os` (the sidebar needs tmux or a native pane: Linux and macOS only).
 pub fn supported_on(id: EcosystemId, os: OsKind) -> bool {

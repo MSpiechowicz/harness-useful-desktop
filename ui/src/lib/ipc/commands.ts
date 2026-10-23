@@ -136,6 +136,8 @@ export const commands = {
   setup_install_memory: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   /** Runs the Harness Skills installer for OpenCode (its own script, which needs Node.js 22). `ok` once their install record holds a version. */
   setup_install_opencode_skills: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
+  /** Runs the same Harness Skills installer for Codex (`HARNESS_SKILLS_HOST=codex`, needs Node.js 22 and the `codex` command). `ok` once their install record holds a version. */
+  setup_install_codex_skills: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the installed Harness Memory server in one harness (turning Project memory on); `invalidInput` while it is not installed. */
   setup_register_memory: cmd<{ harness: HarnessId }, McpState>(),

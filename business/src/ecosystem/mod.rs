@@ -2,12 +2,12 @@
 //! shown in the app.
 //!
 //! - [`catalog`]: names, links and copyable install steps (not run, except the dashboard's, the
-//!   memory server's and the Harness Skills' OpenCode installers).
+//!   memory server's and the Harness Skills' OpenCode and Codex installers).
 //! - [`detect`]: which tools are installed (`ecosystem_status`).
 //! - [`setup`]: what the "Recommended setup" step offers (`setup_status`).
-//! - [`installer`]: runs the dashboard's, the memory server's or the Harness Skills' OpenCode
-//!   installer, once the user confirms, and [`skills_record`]: the install record that tells
-//!   whether the Harness Skills for OpenCode are installed.
+//! - [`installer`]: runs the dashboard's, the memory server's or the Harness Skills' OpenCode or
+//!   Codex installer, once the user confirms, and [`skills_record`]: the install record that tells
+//!   whether the Harness Skills for OpenCode or Codex are installed.
 //! - [`mcp_merge`]: adds server entries to a harness's user MCP file without overwriting any, and
 //!   [`mcp_cli`]: the companion servers in a file only the harness's CLI changes (Claude Code).
 //! - [`mcp_register`]: the dashboard's MCP server in a harness's user MCP file, and the state of
@@ -152,4 +152,4 @@ pub use memory_trust::{script_sha256, trust_scripts};
 pub use memory_user_save::SaveRoute;
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status, share_mcp_target};
-pub use skills_record::{opencode_skills_record, opencode_skills_version};
+pub use skills_record::{skills_installed, skills_record, skills_version};

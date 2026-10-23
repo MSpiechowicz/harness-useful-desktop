@@ -9,7 +9,8 @@
   import SetupFamilyRow from './SetupFamilyRow.svelte';
   import SetupDetails from './SetupDetails.svelte';
   import SetupLog from './SetupLog.svelte';
-  import { companionChip, skillsRowChip, skillsTargets, skillsUnavailable, type Companion } from './setup-model';
+  import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+  import { companionChip, SKILLS_INSTALLER_HARNESSES, skillsInstallerOf, skillsRowChip, skillsTargets, skillsUnavailable, type Companion } from './setup-model';
   import { setup } from './setup-state.svelte';
   import { nameOf } from './setup-view';
 
@@ -38,15 +39,18 @@
   const unavailable = $derived(skillsUnavailable(data.harnesses));
   const failures = $derived(setup.skillsFailures());
 
-  /** The Harness Skills' own installer (OpenCode) has output once it ran, like a companion's. */
-  const scriptInstaller = setup.installers.opencodeSkills;
-  const scriptRan = $derived(setup.phase('skills:opencode') !== 'idle' || scriptInstaller.log.length > 0);
+  /** The Harness Skills' own installer (OpenCode, Codex) has output once it ran for a harness, like a companion's. */
+  const scriptRan = (harness: HarnessId) => {
+    const installer = skillsInstallerOf(harness);
+
+    return installer !== null && (setup.phase(`skills:${harness}`) !== 'idle' || setup.installers[installer].log.length > 0);
+  };
 
   /** A companion's installer has output once it ran, even if it printed nothing yet. */
   const ran = (companion: Companion) => setup.phase(companion) !== 'idle' || setup.installers[companion].log.length > 0;
 
   /** Nothing ran and nothing to note: no toggle at all. */
-  const hasDetails = $derived(COMPANIONS.some(ran) || scriptRan || unavailable.length > 0 || manual.length > 0);
+  const hasDetails = $derived(COMPANIONS.some(ran) || SKILLS_INSTALLER_HARNESSES.some(scriptRan) || unavailable.length > 0 || manual.length > 0);
 </script>
 
 <!-- The whole Harness family on the step that sets it up: one row each, whatever its state, in the order they run. A failure stays under its row, the output and the notes sit behind the card's Details. -->
@@ -89,14 +93,17 @@
         {/if}
       {/each}
 
-      {#if scriptRan}
-        {@const name = nameOf('opencode')}
+      {#each SKILLS_INSTALLER_HARNESSES.filter(scriptRan) as harness (harness)}
+        {@const name = nameOf(harness)}
+        {@const installer = skillsInstallerOf(harness)}
 
-        <section class="flex flex-col gap-2" aria-label={name}>
-          <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
-          <SetupLog lines={scriptInstaller.log} />
-        </section>
-      {/if}
+        {#if installer}
+          <section class="flex flex-col gap-2" aria-label={name}>
+            <h4 class="text-xs font-medium tracking-wider text-fg-3 uppercase">{name}</h4>
+            <SetupLog lines={setup.installers[installer].log} />
+          </section>
+        {/if}
+      {/each}
 
       {#each unavailable as { harness, reason } (harness)}
         {@const name = nameOf(harness)}

@@ -88,7 +88,10 @@ async fn without_a_record_the_installer_is_offered_with_what_it_changes() {
     let home = tempfile::tempdir().unwrap();
     let env = env_with_node(home.path()).with_os(OsKind::Linux);
 
-    let SkillsSetup::Script { command, side_effects } = opencode_skills(&env).await else {
+    let SkillsSetup::Script {
+        command, side_effects, ..
+    } = opencode_skills(&env).await
+    else {
         panic!("the installer is offered");
     };
 
@@ -125,7 +128,10 @@ async fn without_node_the_skills_are_unavailable() {
     );
 
     let with_node = env.with_var("PATH", place_node(&home.path().join("node-bin")));
-    let SkillsSetup::Script { command, side_effects } = opencode_skills(&with_node).await else {
+    let SkillsSetup::Script {
+        command, side_effects, ..
+    } = opencode_skills(&with_node).await
+    else {
         panic!("the installer is offered once node is there");
     };
     assert_eq!(command, SKILLS_INSTALL_PS1);

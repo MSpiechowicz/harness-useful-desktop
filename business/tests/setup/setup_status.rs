@@ -13,7 +13,7 @@ use harness_business::harness::{Harness, HarnessRegistry};
 use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{
     Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpState, RecommendedSetup,
-    SkillsSetup, VersionSupport,
+    SkillsSetup, SkillsUnavailableCode, VersionSupport,
 };
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -227,11 +227,19 @@ async fn an_empty_machine_is_offered_everything() {
     assert_eq!(claude.memory_mcp, claude_missing);
     assert_eq!(claude.desktop_mcp, claude_missing);
 
-    // Codex: no Harness Skills adapter yet, and its config.toml through `codex mcp`.
+    // Codex: its skills offer depends on `node` and the install record (see setup_codex_skills.rs),
+    // and its config.toml is changed through `codex mcp`.
     let codex = harness(&setup, HarnessId::Codex);
     assert!(!codex.installed);
     assert!(
-        matches!(codex.skills, SkillsSetup::Unavailable { code: None, .. }),
+        matches!(
+            codex.skills,
+            SkillsSetup::Script { .. }
+                | SkillsSetup::Unavailable {
+                    code: Some(SkillsUnavailableCode::NodeMissing),
+                    ..
+                }
+        ),
         "{:?}",
         codex.skills
     );

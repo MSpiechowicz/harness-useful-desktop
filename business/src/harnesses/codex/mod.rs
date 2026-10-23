@@ -5,9 +5,10 @@
 //! detected, its settings are shown ([`config`], with the configured mode of [`modes`]) and its
 //! plugins, marketplaces, skills and MCP servers are listed ([`extensions`]). Plugin and
 //! marketplace actions run `codex plugin …` ([`cli`]). Recommended setup registers the Harness
-//! family MCP servers through `codex mcp` ([`McpTarget::CodexCli`]); Harness Skills have no Codex
-//! adapter yet. Share setup shares its marketplaces, plugins and MCP servers
-//! ([`Harness::share_support`], an imported server is added through `codex mcp add`). Sessions
+//! family MCP servers through `codex mcp` ([`McpTarget::CodexCli`]) and runs the Harness Skills'
+//! installer for Codex ([`SkillsStrategy::Installer`]). Share setup shares its marketplaces,
+//! plugins and MCP servers ([`Harness::share_support`], an imported server is added through
+//! `codex mcp add`). Sessions
 //! are read through `codex app-server` ([`sessions`]). Chat (a preview) runs `codex app-server`
 //! too ([`launch`], [`ChatProtocol::CodexAppServer`]) with the app's approval modes and trust
 //! once ([`trust`]); the catalog maps Codex's commands to the chat's actions and views and adds
@@ -206,13 +207,12 @@ impl Harness for Codex {
         )
     }
 
-    /// The MCP servers in the user's `config.toml` through `codex mcp`. Harness Skills has no
-    /// Codex adapter yet (plan Decision 6), so no skills row.
+    /// The MCP servers in the user's `config.toml` through `codex mcp`. The Harness Skills come
+    /// from their own installer script with `HARNESS_SKILLS_HOST=codex` (plan Decision 6), which
+    /// registers its `useful_skills` server itself.
     fn companion_setup(&self) -> CompanionSetup {
         CompanionSetup {
-            skills: SkillsStrategy::Unsupported {
-                reason: "Harness Skills for Codex are not available yet.",
-            },
+            skills: SkillsStrategy::Installer(SkillsHost::Codex),
             mcp: McpTarget::CodexCli,
         }
     }

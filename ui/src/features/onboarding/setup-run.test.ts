@@ -21,17 +21,24 @@ const setupData: RecommendedSetup = {
   memory: server,
   harnesses: [
     entry('omp', { type: 'installed', version: null }),
-    entry('opencode', { type: 'script', command: 'install.sh', sideEffects: [] }),
+    entry('opencode', { type: 'script', command: 'install.sh', sideEffects: [], outdatedFrom: null }),
+    entry('codex', { type: 'script', command: 'install.sh', sideEffects: [], outdatedFrom: null }),
   ],
 };
 
 const installResult = (ok: boolean): DashboardInstallResult => ({ ok, summary: ok ? null : 'could not download', exitCode: ok ? 0 : 1, timedOut: false, truncated: false, version: null, command: 'install.sh' });
 
-/** A transport whose OpenCode skills installer ends only when the test says so. */
-function fixture() {
+/** A transport whose OpenCode and Codex skills installers end only when the test says so. */
+function fixture(options: { holdCodex?: boolean } = {}) {
   const events: string[] = [];
   let finishSkills: (ok: boolean) => void = () => {};
   const skills = new Promise<boolean>((resolve) => (finishSkills = resolve));
+  let finishCodex: (ok: boolean) => void = () => {};
+  // Codex's installer ends at once unless the test holds it.
+  const codex = new Promise<boolean>((resolve) => (finishCodex = resolve));
+  if (!options.holdCodex) {
+    finishCodex(true);
+  }
 
   const transport: Transport = {
     invoke: (async (name: CommandName, args: unknown) => {
@@ -41,6 +48,9 @@ function fixture() {
         case 'setup_install_opencode_skills':
           events.push('skills:start');
           return installResult(await skills);
+        case 'setup_install_codex_skills':
+          events.push('codex-skills:start');
+          return installResult(await codex);
         case 'setup_register_mcp':
         case 'setup_register_memory':
         case 'setup_register_desktop_mcp':
@@ -54,10 +64,13 @@ function fixture() {
 
   const controller = new SetupController(transport, { busy: () => {}, chatsChanged: async () => 0, companionsChanged: async () => {}, memoryChanged: async () => {} });
 
-  return { controller, events, finishSkills: (ok: boolean) => finishSkills(ok) };
+  return { controller, events, finishSkills: (ok: boolean) => finishSkills(ok), finishCodex: (ok: boolean) => finishCodex(ok) };
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** A harness's MCP entries in the order they were registered. */
+const entriesOf = (events: string[], harness: HarnessId) => events.filter((event) => event.endsWith(`:${harness}`));
 
 describe('A setup run with OpenCode’s skills script', () => {
   it('registers OpenCode’s MCP entries only once the skills script has ended, while other harnesses do not wait', async () => {
@@ -93,5 +106,43 @@ describe('A setup run with OpenCode’s skills script', () => {
     expect(controller.phase('skills:opencode')).toBe('failed');
     expect(events.filter((event) => event.endsWith(':opencode'))).toEqual(['setup_register_mcp:opencode', 'setup_register_memory:opencode', 'setup_register_desktop_mcp:opencode']);
     expect(controller.phase('mcp:opencode')).toBe('done');
+  });
+
+  it('runs Codex’s skills through its own installer and registers its MCP entries once that has ended', async () => {
+    const { controller, events, finishSkills, finishCodex } = fixture({ holdCodex: true });
+    await controller.open();
+
+    const run = controller.run();
+    await flush();
+
+    expect(events).toContain('codex-skills:start');
+    expect(entriesOf(events, 'codex')).toEqual([]);
+
+    finishSkills(true);
+    await flush();
+    expect(entriesOf(events, 'codex')).toEqual([]);
+
+    finishCodex(true);
+    await run;
+
+    expect(controller.phase('skills:codex')).toBe('done');
+    expect(entriesOf(events, 'codex')).toEqual(['setup_register_mcp:codex', 'setup_register_memory:codex', 'setup_register_desktop_mcp:codex']);
+    expect(events.indexOf('setup_register_mcp:codex')).toBeGreaterThan(events.indexOf('codex-skills:start'));
+  });
+
+  it('still registers Codex’s MCP entries when its skills script fails, and says which one failed', async () => {
+    const { controller, events, finishSkills, finishCodex } = fixture({ holdCodex: true });
+    await controller.open();
+
+    const run = controller.run();
+    await flush();
+    finishSkills(true);
+    finishCodex(false);
+    await run;
+
+    expect(controller.phase('skills:codex')).toBe('failed');
+    expect(controller.phase('skills:opencode')).toBe('done');
+    expect(controller.skillsFailures()).toEqual([{ harness: 'codex', reason: 'could not download' }]);
+    expect(entriesOf(events, 'codex')).toEqual(['setup_register_mcp:codex', 'setup_register_memory:codex', 'setup_register_desktop_mcp:codex']);
   });
 });

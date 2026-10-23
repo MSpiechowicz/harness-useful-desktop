@@ -3,7 +3,7 @@
 //! (`harness-desktop mcp`) MCP servers.
 //!
 //! Everything here only reads: the dashboard's and the memory server's version probes, the OMP,
-//! Claude Code and Codex plugin and marketplace registries ([`registries`]), PI's user settings, the Harness Skills' OpenCode install record (see
+//! Claude Code and Codex plugin and marketplace registries ([`registries`]), PI's user settings, the Harness Skills' OpenCode and Codex install records (see
 //! [`super::skills_record`]), where `node` is (their installer needs it) and the user MCP files. The MCP files of a harness are those of
 //! its user agent directory ([`Harness::paths`] without a project), so with an OMP profile active
 //! only that profile's files count. OpenCode's is its global config file, Claude Code's the
@@ -12,18 +12,19 @@
 mod github;
 mod registries;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use self::github::same_repository;
 use self::registries::marketplace_registries;
-use super::catalog::{SKILLS_PLUGIN, supported_on};
+use super::catalog::{CODEX_SKILLS_MIN_VERSION, SKILLS_PLUGIN, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
 use super::installer::{Companion, Installed, installer};
 use super::mcp_merge::Shape;
 use super::mcp_register::{mcp_state, memory_mcp_state};
-use super::skills_record::opencode_skills_version;
+use super::releases::is_newer_release;
+use super::skills_record::skills_version;
 use crate::env::{Env, OsKind};
-use crate::harness::{Harness, HarnessRegistry, McpTarget, OpenCodeGeneration, SkillsStrategy};
+use crate::harness::{Harness, HarnessRegistry, McpTarget, OpenCodeGeneration, SkillsHost, SkillsStrategy};
 use crate::harnesses::pi::user_has_package;
 use crate::harnesses::{claude, codex, opencode};
 use crate::model::{
@@ -222,15 +223,16 @@ async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companio
     let found = companion.installed(env, runner).await;
 
     let (id, side_effects) = match companion {
-        Companion::Dashboard => (EcosystemId::Dashboard, dashboard_side_effects(env.os)),
-        Companion::Memory => (EcosystemId::Memory, memory_side_effects(env.os)),
-        Companion::OpenCodeSkills => (EcosystemId::Skills, skills_side_effects(env.os)),
+        Companion::Dashboard => (EcosystemId::Dashboard, lines(dashboard_side_effects(env.os))),
+        Companion::Memory => (EcosystemId::Memory, lines(memory_side_effects(env.os))),
+        Companion::OpenCodeSkills => (EcosystemId::Skills, lines(skills_side_effects(env.os))),
+        Companion::CodexSkills => (EcosystemId::Skills, codex_skills_side_effects(env)),
     };
 
     // A memory server without a version is never registered or run, so the installer is offered.
     let installed = match companion {
         Companion::Dashboard => found != Installed::Missing,
-        Companion::Memory | Companion::OpenCodeSkills => found.version().is_some(),
+        Companion::Memory | Companion::OpenCodeSkills | Companion::CodexSkills => found.version().is_some(),
     };
 
     DashboardSetup {
@@ -238,8 +240,13 @@ async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companio
         version: found.version().map(str::to_owned),
         supported_on_this_os: supported_on(id, env.os),
         command: installer(env, companion).command.to_owned(),
-        side_effects: side_effects.iter().map(|line| (*line).to_owned()).collect(),
+        side_effects,
     }
+}
+
+/// `lines` as owned strings.
+fn lines(lines: &[&str]) -> Vec<String> {
+    lines.iter().map(|line| (*line).to_owned()).collect()
 }
 
 /// What the memory server's installer of `os` changes, per its script (`install.sh`,
@@ -279,6 +286,25 @@ fn skills_side_effects(os: OsKind) -> &'static [&'static str] {
     }
 }
 
+/// What the Harness Skills' Codex installer changes, per its script (`install.sh`, `install.ps1`).
+/// The Codex folder is the absolute `CODEX_HOME`, else the default one below the home folder.
+fn codex_skills_side_effects(env: &Env) -> Vec<String> {
+    let folder = match env.var("CODEX_HOME").filter(|home| Path::new(home).is_absolute()) {
+        Some(home) => home.to_owned(),
+        None if env.os == OsKind::Windows => r"%USERPROFILE%\.codex".to_owned(),
+        None => "~/.codex".to_owned(),
+    };
+
+    vec![
+        "Adds the Harness Skills marketplace and plugin to Codex.".to_owned(),
+        format!("Writes the us-* agents and the memory runtime into the Codex folder ({folder})."),
+        "Registers the useful_skills MCP server with codex mcp add.".to_owned(),
+        "Needs Node.js 22 or newer and the codex command.".to_owned(),
+        "Restart Codex and running Codex chats to load the skills.".to_owned(),
+        "Updates come from running this installer again.".to_owned(),
+    ]
+}
+
 /// What the dashboard's installer of `os` changes, per its script (`install.sh`, `install.ps1`).
 fn dashboard_side_effects(os: OsKind) -> &'static [&'static str] {
     match os {
@@ -316,7 +342,7 @@ fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
                 }],
             }
         }
-        SkillsStrategy::Installer => opencode_skills(env),
+        SkillsStrategy::Installer(host) => installer_skills(env, host),
         SkillsStrategy::Manual { command, note } => {
             if user_has_package(&harness.paths(env, None), SKILLS_PLUGIN) {
                 return SkillsSetup::Installed { version: None };
@@ -334,10 +360,18 @@ fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
     }
 }
 
-/// Installed when the install record holds a version; otherwise the installer, which needs `node`.
-fn opencode_skills(env: &Env) -> SkillsSetup {
-    if let Some(version) = opencode_skills_version(env) {
-        return SkillsSetup::Installed { version: Some(version) };
+/// Installed when the install record holds a version that `host` supports (see
+/// [`unsupported_version`]). Otherwise the installer, which needs `node`, and for an older record
+/// the version it is updated from.
+fn installer_skills(env: &Env, host: SkillsHost) -> SkillsSetup {
+    let version = skills_version(env, host);
+
+    if let Some(version) = &version
+        && !unsupported_version(host, version)
+    {
+        return SkillsSetup::Installed {
+            version: Some(version.clone()),
+        };
     }
 
     if find_node(env).is_none() {
@@ -347,12 +381,24 @@ fn opencode_skills(env: &Env) -> SkillsSetup {
         };
     }
 
+    let (companion, side_effects) = match host {
+        SkillsHost::OpenCode => (Companion::OpenCodeSkills, lines(skills_side_effects(env.os))),
+        SkillsHost::Codex => (Companion::CodexSkills, codex_skills_side_effects(env)),
+    };
+
     SkillsSetup::Script {
-        command: installer(env, Companion::OpenCodeSkills).command.to_owned(),
-        side_effects: skills_side_effects(env.os)
-            .iter()
-            .map(|line| (*line).to_owned())
-            .collect(),
+        command: installer(env, companion).command.to_owned(),
+        side_effects,
+        outdated_from: version,
+    }
+}
+
+/// True for a record version older than the first Harness Skills release that supports `host`:
+/// OpenCode's installer has always been there, Codex's starts with [`CODEX_SKILLS_MIN_VERSION`].
+fn unsupported_version(host: SkillsHost, version: &str) -> bool {
+    match host {
+        SkillsHost::OpenCode => false,
+        SkillsHost::Codex => is_newer_release(CODEX_SKILLS_MIN_VERSION, version),
     }
 }
 

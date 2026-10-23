@@ -24,8 +24,21 @@ export type SetupKey = Companion | `skills:${HarnessId}` | `${McpKind}:${Harness
 /** The companion each MCP entry runs, which has to be installed before the entry can be added. The app's own entry runs the app itself, so it waits for nothing. */
 export const MCP_COMPANION: Record<McpKind, Companion | null> = { mcp: 'dashboard', memoryMcp: 'memory', desktopMcp: null };
 
-/** Everything the step runs an installer script for: the two companions, and the Harness Skills of OpenCode. */
-export type Installer = Companion | 'opencodeSkills';
+/** The Harness Skills' installer script, one run per harness it installs for. */
+export type SkillsInstaller = 'opencodeSkills' | 'codexSkills';
+
+/** Everything the step runs an installer script for: the two companions, and the Harness Skills of OpenCode and Codex. */
+export type Installer = Companion | SkillsInstaller;
+
+/** The installer script that gives each harness its skills, for the harnesses whose skills come from one (`skills.type` is `script`). */
+const SKILLS_INSTALLERS: Record<HarnessId, SkillsInstaller | null> = { omp: null, pi: null, claude: null, opencode: 'opencodeSkills', codex: 'codexSkills' };
+
+/** The harnesses the skills installer script runs for, in the order their output is listed. */
+export const SKILLS_INSTALLER_HARNESSES: HarnessId[] = ['opencode', 'codex'];
+
+export function skillsInstallerOf(harness: HarnessId): SkillsInstaller | null {
+  return SKILLS_INSTALLERS[harness];
+}
 
 /** One line of what the confirmation lists. */
 export interface PlannedCommand {
@@ -288,8 +301,10 @@ export function skillsChip(setup: HarnessSetup, phase: ItemPhase, waiting: boole
       case 'installed':
         return { tone: 'success', label: t('onboarding.setup.chip.installed') };
       case 'install':
-      case 'script':
         return { tone: 'warning', label: t('onboarding.setup.chip.missing') };
+      case 'script':
+        // An install too old for the harness is updated by the same installer.
+        return { tone: 'warning', label: skills.outdatedFrom === null ? t('onboarding.setup.chip.missing') : t('onboarding.setup.chip.outdated') };
       case 'manual':
         return { tone: 'neutral', label: t('onboarding.setup.chip.manual') };
       case 'unavailable':

@@ -91,6 +91,7 @@
     "allow-setup-install-dashboard",
     "allow-setup-install-memory",
     "allow-setup-install-opencode-skills",
+    "allow-setup-install-codex-skills",
     "allow-setup-register-mcp",
     "allow-setup-register-memory",
     "allow-setup-register-desktop-mcp",

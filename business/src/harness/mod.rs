@@ -41,7 +41,7 @@ pub use cli::{
     CLI_ACTION_TIMEOUT, CliInvocation, CliRun, HarnessCli, MAX_CLI_TARGET_CHARS, TargetKind, cli_target,
     marketplace_source, optional_cli_target, run_cli_action,
 };
-pub use companion::{CompanionSetup, McpTarget, SkillsStrategy};
+pub use companion::{CompanionSetup, McpTarget, SkillsHost, SkillsStrategy};
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
 pub use launch::{LaunchRequest, flag_with, rpc_exec_spec, utility_args};
 pub use opencode_generation::OpenCodeGeneration;
@@ -55,7 +55,7 @@ pub mod prelude {
 
     pub use super::{
         ChatProtocol, CliInvocation, CliSessionCtx, CliSessions, CommandCatalog, CompanionSetup, Harness, HarnessPaths,
-        LaunchRequest, McpTarget, OpenCodeGeneration, ShareSupport, SkillsStrategy,
+        LaunchRequest, McpTarget, OpenCodeGeneration, ShareSupport, SkillsHost, SkillsStrategy,
     };
     pub use crate::env::Env;
     pub use crate::error::Result;

@@ -130,9 +130,15 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
    "Remove queued" works the same everywhere.
 5. **`!command`:** `thread/shellCommand` (Codex's own `!`, output lands in the thread so the model sees it). It runs
    unsandboxed with full access, so it keeps the app's usual `!command` confirmation and is refused in Always ask.
-6. **Harness Skills:** Harness Skills has no Codex adapter yet (its README says so). Proposed: the Codex row in
-   Recommended setup installs the dashboard + memory MCP only and shows no skills row; a Codex adapter (skills into
-   `~/.codex/skills`, models.yml roles) is a separate issue in harness-useful-skills, added to the desktop afterwards.
+6. **Harness Skills:** installed through the Harness Skills bootstrap with `HARNESS_SKILLS_HOST=codex` since
+   harness-useful-skills v0.3.13 (the same `install.sh` / `install.ps1` the app runs for OpenCode, which needs
+   Node.js 22 or newer and `codex` on the `PATH`). The installer adds the marketplace and the `useful-skills` plugin,
+   writes the `us-*` agents to `$CODEX_HOME/agents`, copies the memory runtime, registers the `useful_skills` MCP
+   server itself with `codex mcp add` (so the MCP matrix never adds it) and writes
+   `$CODEX_HOME/useful-skills/install-record.json`, the installed marker (version 0.3.13 or newer, an older record is
+   offered the installer as an update). `SkillsStrategy::Installer(SkillsHost::Codex)`, `Companion::CodexSkills`,
+   `setup_install_codex_skills`. Uninstall and doctor stay with the skills' tool (`useful-skills uninstall --host
+   codex`), updates re-run the installer.
 7. **MCP registration:** new `McpTarget::CodexCli`: read `config.toml`, write only via `codex mcp add / remove`
    (keeps the user's TOML formatting and comments). Entries with literal secrets are never rewritten.
 8. **Spawn environment:** every spawn passes `-c check_for_update_on_startup=false` (S0: confirm the key) and
@@ -198,6 +204,7 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | S9 approvals + modes + trust | done (merged 21f2769). Mode sent on thread/start and thread/resume only (thread-level `sandbox` keeps the user's writable roots), a mode change resumes the thread. Yolo offered like OMP/OpenCode (`yolo_mode` capability), Auto refused. Trust once = `-c projects={"<abs>"={trust_level="trusted"}}`: real CLI check 2026-10-22, the project layer applies only with it (config/read). Open for S12: `TrustOnce.svelte` copy is PI-specific and shows without a `.codex/` folder; Windows `.cmd` launcher refuses the trust-once argument |
 | S10 ops + chat on | done (7f3eb12, merged with S9 in 30d562a). Chat on as Preview. New/switch/fork/clone stay in one process and carry the chat's mode. Real CLI check 2026-10-22: `thread/fork` honours approvalPolicy + sandbox, `thread/resume` of another thread in the same process works, a `/<skill>` text + `skill` input item runs the skill. Fork keeps the chosen message's whole turn (OpenCode/PI fork before it). Helper (naming) chat keeps Codex's tools: never-ask + read-only sandbox. `!command` is not a tool card (`Hint::Shell`). Desktop passes `attachments_dir` |
 | S13 docs | done (7dec72d, 6b2af82) |
+| Harness Skills for Codex | done (decision 6): Recommended setup and the setup matrix install and update them through the skills' bootstrap with `HARNESS_SKILLS_HOST=codex`. Unverified against a real `codex` and the real installer (tests use fakes) |
 | S11 hooks, routines | done (merged 81791b0). Hooks and routines need no Codex-specific source. **Notes guard off:** Codex starts stdio MCP servers with a cleared environment (HOME, PATH, … plus the server's `env_vars`/`env`), so `HARNESS_MEMORY_SESSION` never reaches harness-memory. Open decision for the user |
 | S12 UI polish | done (merged ff762b1). Trust once harness-aware (Codex: only with an untrusted `.codex/` layer), TOML source view, harness-named refusals, sessions helper update switches. Windows `.cmd` launcher still refuses the trust-once argument |
 | Reviews | pass 1 done (3 correctness + 2 security; 1/3 + 1/3). Repair round 1 (one agent, user's budget) merged 188fa24: decision 11 notes guard, trust = exact folder or repo root (real CLI), untrusted default read-only (real CLI), permission grants limited to what the dialog shows, `approvalsReviewer: user` + warning when Codex answers another mode, oversized frames answered, stale abort/counts, sessions per-call deadlines + 64 MiB read budget + page fingerprints, ownership check before resume, relative CODEX_HOME dropped, sqlite side files denied, switched-off Codex servers not shared (other harnesses still share them). Real CLI: naming helper thread `config` `{"web_search":"disabled","mcp_servers.<n>.enabled":false}` works. Pass 2 done (2 correctness + 1 security; 2/3 + 2/3). Repair round 2 merged 66d636d (packages E + U): notes-guard key now in each thread's `config` for the harness-memory servers Codex lists in `config/read` (real CLI 2026-10-23: the key reaches the server on thread/start, resume and fork), memory button only when it applies, approvals show the command as it runs and every path granted, Codex's own looser settings named once per chat, symlink-safe outside-path split, count fixes, MCP names starting with `-` refused + re-read before `codex mcp add`, physical-path trust (submodule: exact path only, real CLI), fake CLI ETXTBSY race fixed, cut-short transcripts flagged. Pass 3 done (1 correctness + 1 security; 3/3 + 3/3 used). Final repairs merged 92ccab6: move destinations and outside paths named (no Always allow then), system-shell-only unwrap, unredacted commands with hidden characters spelled out, dangling symlinks followed, resolved writable-root warning, memory button follows each new thread, late turns count once. Main merged in 01c78d0. Full suite green. **Implementation complete, waiting for the user's real-provider check** |
@@ -262,7 +269,6 @@ tool schemas dropped) into `business/tests/fixtures/codex/app_server/`. The scra
   the bindings, tested with synthetic frames only.
 - The naming helper cannot switch off MCP servers Codex does not list in `config/read` (plugin servers); it runs
   read-only with `untrusted` approvals, which it declines.
-- Harness Skills have no Codex adapter yet (decision 6): separate issue in harness-useful-skills.
 - Switched-off MCP servers are not shared from Codex (Codex cannot import one switched off); OMP/PI/OpenCode still
   share them.
 

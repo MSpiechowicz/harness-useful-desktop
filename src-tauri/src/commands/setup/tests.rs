@@ -42,7 +42,12 @@ fn an_unconfirmed_install_does_not_run_the_installer() {
     let dir = TempDir::new("setup-unconfirmed");
     let state = state(&dir);
 
-    for companion in [Companion::Dashboard, Companion::Memory, Companion::OpenCodeSkills] {
+    for companion in [
+        Companion::Dashboard,
+        Companion::Memory,
+        Companion::OpenCodeSkills,
+        Companion::CodexSkills,
+    ] {
         let spawner = RefusingSpawner::default();
         let (channel, _lines) = collecting_channel();
 
@@ -62,6 +67,7 @@ fn a_second_install_is_refused_while_one_runs() {
         (Companion::Dashboard, &state.dashboard_install),
         (Companion::Memory, &state.memory_install),
         (Companion::OpenCodeSkills, &state.opencode_skills_install),
+        (Companion::CodexSkills, &state.codex_skills_install),
     ] {
         let spawner = RefusingSpawner::default();
         let (channel, _lines) = collecting_channel();

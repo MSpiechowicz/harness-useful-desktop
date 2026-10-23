@@ -1,7 +1,7 @@
 //! The "Recommended setup" onboarding step: what is set up (`setup_status`), the official
 //! installers of the dashboard (`setup_install_dashboard`), of the memory server
 //! (`setup_install_memory`) and of the Harness Skills for OpenCode
-//! (`setup_install_opencode_skills`), and the dashboard's and the memory server's MCP servers in a
+//! and Codex (`setup_install_opencode_skills`, `setup_install_codex_skills`), and the dashboard's and the memory server's MCP servers in a
 //! harness's user MCP file (`setup_register_mcp`, `setup_register_memory`).
 //!
 //! The webview sends no command line and no path: the installer is fixed per OS and the MCP file
@@ -86,6 +86,18 @@ pub async fn setup_install_opencode_skills(
     install(&state, &TokioSpawner, Companion::OpenCodeSkills, confirmed, &on_log).await
 }
 
+/// Runs the Harness Skills' Codex installer like [`setup_install_opencode_skills`] (its own lock).
+/// `ok` once their install record holds a version; Codex and its running chats load them after a
+/// restart.
+#[tauri::command]
+pub async fn setup_install_codex_skills(
+    state: State<'_, AppState>,
+    confirmed: bool,
+    on_log: Channel<InstallLogLine>,
+) -> CommandResult<DashboardInstallResult> {
+    install(&state, &TokioSpawner, Companion::CodexSkills, confirmed, &on_log).await
+}
+
 async fn install(
     state: &AppState,
     spawner: &dyn ProcessSpawner,
@@ -101,6 +113,7 @@ async fn install(
         Companion::Dashboard => &state.dashboard_install,
         Companion::Memory => &state.memory_install,
         Companion::OpenCodeSkills => &state.opencode_skills_install,
+        Companion::CodexSkills => &state.codex_skills_install,
     };
     let Ok(_installing) = lock.try_lock() else {
         return Err(BusinessError::InvalidInput(format!("{} is already being installed", companion.name())).into());

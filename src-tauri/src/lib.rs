@@ -157,6 +157,7 @@ pub fn run() -> ExitCode {
             commands::setup::setup_install_dashboard,
             commands::setup::setup_install_memory,
             commands::setup::setup_install_opencode_skills,
+            commands::setup::setup_install_codex_skills,
             commands::setup::setup_register_mcp,
             commands::setup::setup_register_memory,
             commands::desktop_mcp::setup_register_desktop_mcp,

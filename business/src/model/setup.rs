@@ -87,12 +87,15 @@ pub enum SkillsSetup {
         note: String,
     },
     /// Installable by the Harness Skills' own installer, which the app runs once the user confirms
-    /// (`setup_install_opencode_skills`).
+    /// (`setup_install_opencode_skills`, `setup_install_codex_skills`).
     Script {
         /// The installer as a copyable command for this OS.
         command: String,
         /// What the installer changes on this machine, one line each.
         side_effects: Vec<String>,
+        /// The version of an install that is too old for the harness (the installer then updates
+        /// it), null when nothing is installed.
+        outdated_from: Option<String>,
     },
     /// The skills cannot be installed for this harness (they do not exist for it, or something
     /// they need is missing).
