@@ -62,18 +62,19 @@ impl Harness for Codex {
 
     /// What the views list, the extension actions the CLI runs and the chat (a preview), whose
     /// queued messages can be withdrawn and whose skills run as prompt text. Codex compacts with
-    /// its own prompt, so `/compact` takes no instructions. No session tree: Codex 0.154's
-    /// `thread/list` leaves `forkedFromId` out (only `thread/read` has it), so forks are not
-    /// counted. Its approval modes are Always ask, Write and Yolo, never Auto (see [`modes`]). A
-    /// chat may trust the project once ([`trust`]), but no folder is refused: Codex itself ignores
-    /// the own layer of a folder it does not trust, so nothing of the project applies unasked
-    /// (`project_trust_required` stays off). Its harness-memory servers get the chat's key through
-    /// a launch override ([`launch`]), so the chat has memory guards.
+    /// its own prompt, so `/compact` takes no instructions. Forks form a session tree: Codex
+    /// 0.154's `thread/list` leaves `forkedFromId` out, so each thread's parent is read once with
+    /// `thread/read` and kept ([`sessions`]). Its approval modes are Always ask, Write and Yolo,
+    /// never Auto (see [`modes`]). A chat may trust the project once ([`trust`]), but no folder is
+    /// refused: Codex itself ignores the own layer of a folder it does not trust, so nothing of the
+    /// project applies unasked (`project_trust_required` stays off). Its harness-memory servers get
+    /// the chat's key through a launch override ([`launch`]), so the chat has memory guards.
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             chat: true,
             chat_preview: true,
             slash_commands_via_prompt: true,
+            session_tree: true,
             remove_queued: true,
             approval_modes: true,
             yolo_mode: true,

@@ -1,7 +1,7 @@
 //! Codex sessions through a short-lived `codex app-server`, played by `fake_agent --dialect codex`
 //! behind a wrapper script that records each run (scenarios in
-//! `tests/fixtures/streams/codex_sessions_*.jsonl`, built from the S0 recordings): the list with
-//! forks under their parent, a transcript with its touched files, fork points and the export,
+//! `tests/fixtures/streams/codex_sessions_*.jsonl`, built from the S0 recordings): the list (its
+//! fork parents are in `sessions_codex_parents`), a transcript with its touched files, fork points and the export,
 //! deleting (refused while forks reference the thread), timeouts, Codex errors and lines that are
 //! no frames. The real `codex` binary never runs.
 #![cfg(unix)]
@@ -10,7 +10,7 @@ use crate::agent_support;
 use crate::fake_cli_support;
 use crate::session_support;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use agent_support::scenario;
@@ -24,16 +24,16 @@ use pretty_assertions::assert_eq;
 use session_support::{SessionHome, session, session_home};
 
 pub(crate) const PARENT: &str = "01a164a0-4c41-7613-9735-20de2a8016a8";
-const FORK: &str = "01a164a1-51b0-7192-935e-520ff4afa71d";
-const CLONE: &str = "01a164a1-5205-7fa2-a5bc-2a7b7e0bc633";
-const OLDER: &str = "01a1649c-d6df-73c3-a197-2c212fd07a54";
+pub(crate) const FORK: &str = "01a164a1-51b0-7192-935e-520ff4afa71d";
+pub(crate) const CLONE: &str = "01a164a1-5205-7fa2-a5bc-2a7b7e0bc633";
+pub(crate) const OLDER: &str = "01a1649c-d6df-73c3-a197-2c212fd07a54";
 const ELSEWHERE: &str = "01a164a2-6c00-7000-8000-0000000e15e0";
 const TURN1: &str = "01a164a0-4c86-7902-8de6-44d0f7bc8ac7";
 const TURN2: &str = "01a164a0-801f-7a51-80f7-8cd218126f7d";
 const TURN3: &str = "01a164a0-96a7-7243-8b57-70d95d87c471";
 const PROMPT: &str = "Create a file hello.txt containing the single word hi, then run the shell command `ls -1` and tell me the output. Be brief.";
 
-/// A Codex binary that plays one scenario on every run, recording its argv, `CODEX_HOME`, pid and
+/// A Codex binary that plays one scenario per run, recording its argv, `CODEX_HOME`, pid and
 /// the number of runs beside it.
 pub(crate) struct FakeCodex {
     pub(crate) cli: FakeCli,
@@ -41,13 +41,25 @@ pub(crate) struct FakeCodex {
 }
 
 impl FakeCodex {
+    /// Plays fixture `name` on every run.
     pub(crate) fn new(name: &str) -> Self {
+        Self::playing(&[scenario(name)])
+    }
+
+    /// Plays `scenarios[n]` on run n + 1, the last one on every later run.
+    pub(crate) fn playing(scenarios: &[PathBuf]) -> Self {
         let fake = env!("CARGO_BIN_EXE_fake_agent");
-        let scenario = scenario(name);
+        let (last, earlier) = scenarios.split_last().expect("a scenario");
+        let cases: String = earlier
+            .iter()
+            .enumerate()
+            .map(|(index, path)| format!("{}) s='{}';; ", index + 1, path.display()))
+            .collect();
         let body = format!(
             "echo run >> \"$d/runs\"\nprintf '%s\\n' \"$@\" > \"$d/args\"\nprintf '%s' \"$CODEX_HOME\" > \"$d/codex_home\"\n\
-             echo $$ > \"$d/pid\"\nexec '{fake}' --dialect codex --scenario '{}'\n",
-            scenario.display()
+             echo $$ > \"$d/pid\"\nn=$(( $(wc -l < \"$d/runs\") ))\ncase \"$n\" in {cases}*) s='{}';; esac\n\
+             exec '{fake}' --dialect codex --scenario \"$s\"\n",
+            last.display()
         );
 
         Self {
@@ -95,15 +107,16 @@ fn text(blocks: &[ChatBlock]) -> Vec<String> {
 }
 
 #[test]
-fn codex_reads_its_sessions_through_the_app_server_without_a_fork_count() {
+fn codex_reads_its_sessions_through_the_app_server_with_a_fork_count() {
     assert!(Codex.cli_sessions().is_some());
-    assert!(!Codex.capabilities().session_tree);
+    assert!(Codex.capabilities().session_tree);
 }
 
 #[test]
-fn the_project_threads_are_listed_newest_first_with_forks_under_their_parent() {
+fn the_project_threads_are_listed_newest_first() {
     let codex = FakeCodex::new("codex_sessions_list.jsonl");
-    let sessions = CodexSessions::new();
+    // The parents, read in the background, are the subject of `sessions_codex_parents`.
+    let sessions = CodexSessions::new().with_parent_batch(0);
 
     let listed = sessions.list(&codex.ctx()).unwrap();
 
@@ -121,8 +134,8 @@ fn the_project_threads_are_listed_newest_first_with_forks_under_their_parent() {
     assert_eq!(
         rows,
         [
-            (CLONE, Some("S0 recording"), Some(PARENT), "2026-10-22T17:20:57Z"),
-            (FORK, Some("S0 recording"), Some(PARENT), "2026-10-22T17:20:56Z"),
+            (CLONE, Some("S0 recording"), None, "2026-10-22T17:20:57Z"),
+            (FORK, Some("S0 recording"), None, "2026-10-22T17:20:56Z"),
             (PARENT, Some("S0 recording"), None, "2026-10-22T17:20:54Z"),
             (OLDER, None, None, "2026-10-22T17:16:07Z"),
         ]
@@ -366,7 +379,7 @@ fn a_codex_that_does_not_answer_is_killed_at_the_deadline() {
 fn lines_that_are_no_frames_are_skipped_and_requests_of_codex_refused() {
     let codex = FakeCodex::new("codex_sessions_malformed.jsonl");
 
-    let listed = CodexSessions::new().list(&codex.ctx()).unwrap();
+    let listed = CodexSessions::new().with_parent_batch(0).list(&codex.ctx()).unwrap();
 
     let ids: Vec<_> = listed.iter().map(|summary| summary.session.id.as_str()).collect();
     assert_eq!(ids, [OLDER]);

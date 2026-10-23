@@ -89,6 +89,7 @@ mod sessions_claude;
 mod sessions_claude_transcript;
 mod sessions_codex;
 mod sessions_codex_paging;
+mod sessions_codex_parents;
 mod sessions_copies;
 mod sessions_opencode;
 mod sessions_opencode2;

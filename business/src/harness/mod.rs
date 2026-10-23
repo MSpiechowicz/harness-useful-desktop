@@ -164,7 +164,8 @@ pub struct CliSessionCtx<'a> {
 
 /// Saved sessions of a harness that exposes them only through its CLI (list, export, delete
 /// commands) instead of session files the app reads. Every spawn carries
-/// [`Harness::spawn_env`]. Sessions are linear: there is no tree, resume or fork.
+/// [`Harness::spawn_env`]. A session may name its parent (`parent_session`), for a harness whose
+/// `session_tree` capability is on; resume and fork go through the harness's chat engine.
 pub trait CliSessions: Send + Sync {
     /// Saved sessions of the project, newest first.
     fn list(&self, ctx: &CliSessionCtx<'_>) -> Result<Vec<SessionSummary>>;

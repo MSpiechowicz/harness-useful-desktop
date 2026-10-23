@@ -5,36 +5,20 @@
 #![cfg(unix)]
 
 use crate::agent_support;
-use crate::fake_cli_support;
-use crate::session_support;
 use crate::sessions_codex;
 
 use std::time::Duration;
 
 use agent_support::scenario;
-use fake_cli_support::FakeCli;
 use harness_business::harness::CliSessions;
 use harness_business::harnesses::codex::sessions::CodexSessions;
 use harness_business::model::IpcErrorCode;
 use pretty_assertions::assert_eq;
-use session_support::session_home;
 use sessions_codex::{FakeCodex, PARENT, code, thread};
 
 /// A Codex binary that plays `first` on its first run and `then` on every later one.
 fn changing(first: &str, then: &str) -> FakeCodex {
-    let fake = env!("CARGO_BIN_EXE_fake_agent");
-    let (first, then) = (scenario(first), scenario(then));
-    let body = format!(
-        "echo run >> \"$d/runs\"\nif [ \"$(wc -l < \"$d/runs\")\" -gt 1 ]; then s='{}'; else s='{}'; fi\n\
-         exec '{fake}' --dialect codex --scenario \"$s\"\n",
-        then.display(),
-        first.display()
-    );
-
-    FakeCodex {
-        cli: FakeCli::script("codex", &body),
-        home: session_home(),
-    }
+    FakeCodex::playing(&[scenario(first), scenario(then)])
 }
 
 #[test]

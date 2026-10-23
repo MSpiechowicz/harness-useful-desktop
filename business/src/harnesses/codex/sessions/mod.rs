@@ -5,8 +5,9 @@
 //! - List: `thread/list` of the project folder (`cwd`, an exact match), paged, newest update
 //!   first, archived threads left out. Codex lists only interactive sources by default; the
 //!   app's own threads (forks too) are `vscode`, so every source but subagents is asked for. A
-//!   fork names the thread it came from (`parentSession`). The title is the thread's name, the
-//!   fallback its preview (the first prompt).
+//!   fork names the thread it came from (`parentSession`): Codex 0.154 lists no parent, so the
+//!   parents are read once per thread in the background and kept ([`parents`]). The title is the
+//!   thread's name, the fallback its preview (the first prompt).
 //! - Transcript and touched files: `thread/read` (the thread must be of the project or a folder
 //!   inside it), then every page of `thread/turns/list` and `thread/items/list`, oldest first
 //!   (never `includeTurns`, which Codex deprecates), as in [`transcript`]. Later pages and the
@@ -14,7 +15,8 @@
 //!   fingerprint of the messages before it: when a later read (the cached one expired) no longer
 //!   starts with them, the page is refused as `Changed` instead of repeating or skipping messages.
 //! - Delete: `thread/read` (same check), then `thread/delete`. Codex refuses a thread whose
-//!   forks still reference it: that is `Conflict`, the forks are never deleted for the user.
+//!   forks still reference it: that is `Conflict`, the forks are never deleted for the user. A
+//!   deleted thread leaves the kept parents.
 //! - The chat engine forks at a turn ([`CodexSessions::fork_point`]: a message's id is its
 //!   turn's) and resumes by the thread id; the export renders the saved messages with the shared
 //!   HTML exporter ([`CodexSessions::export_html`]).
@@ -30,25 +32,26 @@
 mod app_server;
 mod cache;
 mod paging;
+mod parents;
+mod summary;
 mod transcript;
 
-use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant, UNIX_EPOCH};
+use std::sync::{Arc, LazyLock, Mutex};
+use std::time::{Duration, Instant};
 
 use self::app_server::{AppServer, CallError, failure};
 use self::cache::{CacheKey, Cached, cached, lock, store};
 use self::paging::{Pages, page_cursor, page_offset, pages};
+pub use self::parents::PARENTS_FILE;
+use self::parents::{Batch, PARENT_BATCH, Shared, resolve_later};
+use self::summary::{prompt_of, summary_of, title_of};
 pub(crate) use self::transcript::{Origin, Transcript, transcript};
-use crate::agent::rfc3339;
 use crate::codex_rpc::wire::items::Turn;
 use crate::codex_rpc::wire::outbound::{Paged, Request, ThreadList};
 use crate::codex_rpc::wire::results::{ItemEntry, Thread, ThreadRead};
 use crate::error::{BusinessError, Result};
 use crate::harness::{CliSessionCtx, CliSessions};
-use crate::model::{
-    ChatMessage, HarnessId, MAX_FIRST_PROMPT_CHARS, SessionMessagesPage, SessionRef, SessionSummary, SessionTitleSource,
-};
+use crate::model::{ChatMessage, HarnessId, SessionMessagesPage, SessionRef, SessionSummary};
 use crate::opencode_server::export_html::{ExportPage, render};
 use crate::opencode_server::mapper::project_dir;
 use crate::pi_family::sessions::{is_safe_session_id, page_range};
@@ -91,10 +94,12 @@ const FORKS_FIRST: &str = "delete the forks of this session first";
 pub struct CodexSessions {
     timeout: Duration,
     budget: usize,
+    /// Thread parents read per background run.
+    parent_batch: usize,
     lists: Mutex<Vec<Cached<Vec<SessionSummary>>>>,
     reads: Mutex<Vec<Cached<Read>>>,
-    /// Held while an app-server runs.
-    runs: Mutex<()>,
+    /// The run lock and the thread parents, shared with the background reads.
+    shared: Arc<Shared>,
 }
 
 impl Default for CodexSessions {
@@ -103,7 +108,7 @@ impl Default for CodexSessions {
     }
 }
 
-static SESSIONS: CodexSessions = CodexSessions::new();
+static SESSIONS: LazyLock<CodexSessions> = LazyLock::new(CodexSessions::new);
 
 /// The sessions [`super::Codex`] returns from `cli_sessions`.
 pub fn cli_sessions() -> &'static CodexSessions {
@@ -112,25 +117,33 @@ pub fn cli_sessions() -> &'static CodexSessions {
 
 impl CodexSessions {
     /// Empty caches, each app-server call limited to 30 seconds and each run to 64 MiB read.
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self::with_limits(TIMEOUT, MAX_READ_BYTES)
     }
 
     /// Empty caches, each app-server call limited to `timeout` (then it is killed).
-    pub const fn with_timeout(timeout: Duration) -> Self {
+    pub fn with_timeout(timeout: Duration) -> Self {
         Self::with_limits(timeout, MAX_READ_BYTES)
     }
 
     /// Empty caches, each app-server call limited to `timeout` and each run to `budget` bytes
     /// read.
-    pub const fn with_limits(timeout: Duration, budget: usize) -> Self {
+    pub fn with_limits(timeout: Duration, budget: usize) -> Self {
         Self {
             timeout,
             budget,
+            parent_batch: PARENT_BATCH,
             lists: Mutex::new(Vec::new()),
             reads: Mutex::new(Vec::new()),
-            runs: Mutex::new(()),
+            shared: Arc::default(),
         }
+    }
+
+    /// At most `batch` thread parents read per background run (none at 0).
+    #[must_use]
+    pub fn with_parent_batch(mut self, batch: usize) -> Self {
+        self.parent_batch = batch;
+        self
     }
 
     /// The turn a fork from message `message_id` of `session` keeps (`thread/fork{lastTurnId}`):
@@ -176,7 +189,7 @@ impl CodexSessions {
             return Ok(sessions);
         }
 
-        let _run = lock(&self.runs);
+        let _run = lock(&self.shared.runs);
 
         // Listed meanwhile by the run this call waited for.
         if let Some(sessions) = cached(&self.lists, &key, since) {
@@ -233,7 +246,7 @@ impl CodexSessions {
             return Ok(read);
         }
 
-        let _run = lock(&self.runs);
+        let _run = lock(&self.shared.runs);
 
         if let Some(read) = cached(&self.reads, &key, since) {
             return Ok(read);
@@ -248,6 +261,7 @@ impl CodexSessions {
     fn read_now(&self, ctx: &CliSessionCtx<'_>, id: &str) -> Result<Read> {
         let mut server = AppServer::start(ctx, self.timeout)?;
         let thread = owned_thread(&mut server, ctx, id)?;
+        self.shared.learn(ctx.env, &thread);
 
         let turns: Pages<Turn> = pages(&mut server, MAX_TURNS, self.budget, |cursor| turns_page(id, cursor))
             .map_err(|error| thread_failure(error, "thread/turns/list", id))?;
@@ -279,8 +293,20 @@ impl CodexSessions {
 }
 
 impl CliSessions for CodexSessions {
+    /// The parents known are filled in at once, the others read in the background (see
+    /// [`parents`]).
     fn list(&self, ctx: &CliSessionCtx<'_>) -> Result<Vec<SessionSummary>> {
-        Ok(self.sessions(ctx)?.as_ref().clone())
+        let mut sessions = self.sessions(ctx)?.as_ref().clone();
+        let unknown = self.shared.fill(ctx.env, &mut sessions);
+
+        let batch = Batch {
+            size: self.parent_batch,
+            timeout: self.timeout,
+            budget: self.budget,
+        };
+        resolve_later(&self.shared, ctx, unknown, batch);
+
+        Ok(sessions)
     }
 
     /// The first page (no cursor) reads the thread again; later pages page the same read, or a
@@ -321,7 +347,7 @@ impl CliSessions for CodexSessions {
         let id = checked_id(session)?;
 
         let deleted = {
-            let _run = lock(&self.runs);
+            let _run = lock(&self.shared.runs);
             let mut server = AppServer::start(ctx, self.timeout)?;
             owned_thread(&mut server, ctx, id)?;
 
@@ -337,7 +363,10 @@ impl CliSessions for CodexSessions {
         self.forget(ctx, id);
 
         match deleted {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                self.shared.forget(ctx.env, id);
+                Ok(())
+            }
             Err(CallError::Rpc(error)) if error.message.to_lowercase().contains("fork") => {
                 Err(BusinessError::Conflict(FORKS_FIRST.to_owned()))
             }
@@ -425,57 +454,4 @@ fn checked_id(session: &SessionRef) -> Result<&str> {
 
 fn not_found(id: &str) -> BusinessError {
     BusinessError::NotFound(format!("session {id}"))
-}
-
-/// A listed thread as a session with its update time (seconds), when it is a saved thread of
-/// `project` (not ephemeral, not a subagent's).
-fn summary_of(thread: Thread, project: &Path) -> Option<(u64, SessionSummary)> {
-    if !is_safe_session_id(&thread.id) || thread.ephemeral || thread.parent_thread_id.is_some() {
-        return None;
-    }
-
-    project_dir(&thread.cwd, project)?;
-
-    let updated = thread.updated_at.or(thread.created_at).unwrap_or(0);
-    let created = thread.created_at.unwrap_or(updated);
-    let title = title_of(&thread);
-
-    let summary = SessionSummary {
-        title_source: title.as_ref().map(|_| SessionTitleSource::User),
-        title,
-        first_prompt: prompt_of(&thread),
-        created_at: time_text(created),
-        updated_at: time_text(updated),
-        size_bytes: 0,
-        model: thread.model,
-        parent_session: thread.forked_from_id.filter(|parent| is_safe_session_id(parent)),
-        empty_copy: false,
-        routine: None,
-        cwd: thread.cwd,
-        session: SessionRef {
-            harness: HarnessId::Codex,
-            id: thread.id,
-        },
-    };
-
-    Some((updated, summary))
-}
-
-/// The name the user gave the thread.
-fn title_of(thread: &Thread) -> Option<String> {
-    let name = thread.name.as_deref()?.trim();
-
-    (!name.is_empty()).then(|| name.to_owned())
-}
-
-/// The thread's preview (its first prompt), cut to [`MAX_FIRST_PROMPT_CHARS`].
-fn prompt_of(thread: &Thread) -> Option<String> {
-    let preview = thread.preview.trim();
-
-    (!preview.is_empty()).then(|| preview.chars().take(MAX_FIRST_PROMPT_CHARS).collect())
-}
-
-/// Seconds since the epoch as RFC 3339.
-fn time_text(seconds: u64) -> String {
-    rfc3339(UNIX_EPOCH + Duration::from_secs(seconds))
 }
