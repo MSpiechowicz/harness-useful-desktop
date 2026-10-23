@@ -1,4 +1,4 @@
-//! The chat engines (OMP/PI over RPC, OpenCode, Claude Code, MCP) against `fake_agent` and the
+//! The chat engines (OMP/PI over RPC, OpenCode, Claude Code, Codex, MCP) against `fake_agent` and the
 //! recorded servers, with their launch, wire and stream code.
 //!
 //! One test binary: each module is a test file, the shared helpers live in `tests/support`.
@@ -9,6 +9,10 @@ mod agent_support;
 mod claude_engine_support;
 #[path = "../support/claude_recorded/mod.rs"]
 mod claude_recorded;
+#[path = "../support/codex_engine_support/mod.rs"]
+mod codex_engine_support;
+#[path = "../support/codex_recorded/mod.rs"]
+mod codex_recorded;
 #[path = "../support/common/mod.rs"]
 mod common;
 #[path = "../support/fake_opencode2_support/mod.rs"]
@@ -31,6 +35,7 @@ mod agent_failures;
 mod agent_launch;
 mod agent_manager;
 mod agent_memory_session;
+mod agent_memory_session_codex;
 mod agent_session;
 mod agent_session_ids;
 mod claude_allow_list;
@@ -49,6 +54,23 @@ mod claude_engine_turns;
 mod claude_launch;
 mod claude_wire;
 mod claude_wire_encode;
+mod codex_engine;
+mod codex_engine_asks;
+mod codex_engine_history;
+mod codex_engine_memory;
+mod codex_engine_mode_warnings;
+mod codex_engine_models;
+mod codex_engine_modes;
+mod codex_engine_ops;
+mod codex_engine_ops_modes;
+mod codex_engine_queue;
+mod codex_mapper;
+mod codex_mapper_asks;
+mod codex_mapper_crafted;
+mod codex_naming;
+mod codex_trust;
+mod codex_wire;
+mod fake_codex;
 mod fake_opencode;
 mod fake_opencode2;
 mod mcp_client;

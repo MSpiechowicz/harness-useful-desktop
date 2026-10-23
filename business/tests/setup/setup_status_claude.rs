@@ -33,7 +33,7 @@ async fn claude(env: &Env) -> HarnessSetup {
 
 fn install() -> ExtensionAction {
     ExtensionAction::PluginInstall {
-        target: "useful-skills@useful-skills-local".to_owned(),
+        target: "harness-useful-skills@harness-useful-skills".to_owned(),
         scope: InstallScope::User,
     }
 }
@@ -41,7 +41,7 @@ fn install() -> ExtensionAction {
 fn installed_plugins(config: &Path, entries: serde_json::Value) {
     write_json(
         &config.join("plugins/installed_plugins.json"),
-        &json!({ "version": 2, "plugins": { "useful-skills@useful-skills-local": entries } }),
+        &json!({ "version": 2, "plugins": { "harness-useful-skills@harness-useful-skills": entries } }),
     );
 }
 
@@ -49,14 +49,14 @@ fn installed_plugins(config: &Path, entries: serde_json::Value) {
 fn switched_on(config: &Path) {
     write_json(
         &config.join("settings.json"),
-        &json!({ "enabledPlugins": { "useful-skills@useful-skills-local": true } }),
+        &json!({ "enabledPlugins": { "harness-useful-skills@harness-useful-skills": true } }),
     );
 }
 
 fn enable() -> SkillsSetup {
     SkillsSetup::Install {
         actions: vec![ExtensionAction::PluginEnable {
-            name: "useful-skills@useful-skills-local".to_owned(),
+            name: "harness-useful-skills@harness-useful-skills".to_owned(),
         }],
     }
 }
@@ -152,6 +152,81 @@ async fn a_marketplace_of_the_same_name_from_elsewhere_does_not_count() {
     }
 }
 
+/// Registers `entries` under the plugin ID `id` and switches it on.
+fn legacy_install(config: &Path, id: &str, enabled: bool) {
+    write_json(
+        &config.join("plugins/installed_plugins.json"),
+        &json!({ "version": 2, "plugins": { id: [{ "scope": "user", "installPath": "/x", "version": "0.3.1" }] } }),
+    );
+    write_json(
+        &config.join("settings.json"),
+        &json!({ "enabledPlugins": { id: enabled } }),
+    );
+}
+
+#[tokio::test]
+async fn the_plugin_under_its_old_name_still_counts_as_installed() {
+    let home = tempfile::tempdir().unwrap();
+    let config = home.path().join(".claude");
+    legacy_install(&config, "useful-skills@useful-skills-local", true);
+
+    let setup = claude(&Env::for_tests(home.path())).await;
+
+    assert_eq!(
+        setup.skills,
+        SkillsSetup::Installed {
+            version: Some("0.3.1".to_owned())
+        }
+    );
+}
+
+#[tokio::test]
+async fn a_switched_off_plugin_under_its_old_name_is_offered_its_enable() {
+    let home = tempfile::tempdir().unwrap();
+    let config = home.path().join(".claude");
+    legacy_install(&config, "useful-skills@useful-skills-local", false);
+
+    let setup = claude(&Env::for_tests(home.path())).await;
+
+    assert_eq!(
+        setup.skills,
+        SkillsSetup::Install {
+            actions: vec![ExtensionAction::PluginEnable {
+                name: "useful-skills@useful-skills-local".to_owned()
+            }]
+        }
+    );
+}
+
+#[tokio::test]
+async fn the_new_plugin_wins_over_a_leftover_old_one() {
+    let home = tempfile::tempdir().unwrap();
+    let config = home.path().join(".claude");
+    write_json(
+        &config.join("plugins/installed_plugins.json"),
+        &json!({ "version": 2, "plugins": {
+            "useful-skills@useful-skills-local": [{ "scope": "user", "version": "0.3.1" }],
+            "harness-useful-skills@harness-useful-skills": [{ "scope": "user", "version": "0.4.0" }],
+        } }),
+    );
+    write_json(
+        &config.join("settings.json"),
+        &json!({ "enabledPlugins": {
+            "useful-skills@useful-skills-local": false,
+            "harness-useful-skills@harness-useful-skills": true,
+        } }),
+    );
+
+    let setup = claude(&Env::for_tests(home.path())).await;
+
+    assert_eq!(
+        setup.skills,
+        SkillsSetup::Installed {
+            version: Some("0.4.0".to_owned())
+        }
+    );
+}
+
 #[tokio::test]
 async fn a_switched_off_plugin_is_offered_its_enable() {
     let home = tempfile::tempdir().unwrap();
@@ -159,7 +234,7 @@ async fn a_switched_off_plugin_is_offered_its_enable() {
     installed_plugins(&config, json!([{ "scope": "user", "version": "0.3.1" }]));
     write_json(
         &config.join("settings.json"),
-        &json!({ "enabledPlugins": { "useful-skills@useful-skills-local": false } }),
+        &json!({ "enabledPlugins": { "harness-useful-skills@harness-useful-skills": false } }),
     );
 
     let setup = claude(&Env::for_tests(home.path())).await;
@@ -183,7 +258,7 @@ async fn a_plugin_the_settings_do_not_switch_on_is_offered_its_enable() {
     let managed = home.path().join("Program Files/ClaudeCode");
     write_json(
         &managed.join("managed-settings.json"),
-        &json!({ "enabledPlugins": { "useful-skills@useful-skills-local": false } }),
+        &json!({ "enabledPlugins": { "harness-useful-skills@harness-useful-skills": false } }),
     );
     let env = env
         .with_os(harness_business::env::OsKind::Windows)

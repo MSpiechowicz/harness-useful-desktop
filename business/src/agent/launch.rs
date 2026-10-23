@@ -2,8 +2,9 @@
 //! project the harness trusts or trusts once, run through the harness's command line with its
 //! spawn environment and the launcher search path of its binary. A chat with a memory identity
 //! has its guards written first ([`prepare_memory_chat`]) and, once they are, its key passed as
-//! `HARNESS_MEMORY_SESSION`, which the harness's MCP servers inherit; any other launch has that
-//! variable removed, so a value the app itself inherited never names a chat.
+//! `HARNESS_MEMORY_SESSION`, which the harness's MCP servers inherit (Codex, which clears their
+//! environment, is told per thread to pass it on, see `codex/memory.rs`); any other launch has
+//! that variable removed, so a value the app itself inherited never names a chat.
 
 use std::path::Path;
 
@@ -126,8 +127,7 @@ pub(super) fn exec_spec(
 ) -> Result<ExecSpec> {
     let mut spec = deps
         .harness
-        .launch_spec(request)?
-        .envs(deps.harness.spawn_env().iter().copied())
+        .spawn_spec(deps.env, deps.harness.launch_spec(request)?)
         .search_dirs(launcher_search_dirs(deps.env, &deps.binary.path))
         .env_remove_prefix(SESSION_VAR);
 

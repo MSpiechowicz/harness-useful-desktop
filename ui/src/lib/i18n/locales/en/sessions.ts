@@ -6,7 +6,7 @@ export const sessions = {
   'sessions.resize.list': 'Resize session list',
 
   'sessions.empty.noHarness.title': 'Install a harness to browse sessions',
-  'sessions.empty.noHarness.body': 'Sessions are read from OMP, PI, OpenCode or Claude Code. Run the setup to detect the one you use.',
+  'sessions.empty.noHarness.body': 'Sessions are read from OMP, PI, OpenCode, Claude Code or Codex. Run the setup to detect the one you use.',
   'sessions.empty.noHarness.action': 'Set up a harness',
   'sessions.empty.noProject.title': 'Open a project to see its sessions',
   'sessions.empty.noProject.body': 'Sessions are saved per project folder. Pick the project whose history you want to browse.',
@@ -78,6 +78,7 @@ export const sessions = {
   'sessions.delete.openInChat': 'This session is open in a chat',
   'sessions.delete.openInChatBody': 'Close that chat first, then delete the session.',
   'sessions.delete.failed': 'Could not delete the session',
+  'sessions.delete.hasForks': 'Other sessions were forked from this one. Delete those forks first, then this session.',
 
   'sessions.cleanup.banner.one': '{count} empty copy',
   'sessions.cleanup.banner.other': '{count} empty copies',
@@ -102,6 +103,7 @@ export const sessions = {
   'sessions.transcript.progress.one': '{shown} of {count} message',
   'sessions.transcript.progress.other': '{shown} of {count} messages',
   'sessions.transcript.loadMore': 'Load more messages',
+  'sessions.transcript.truncated': 'This session is longer than the app reads. Its latest messages are not shown.',
 
   'sessions.folder.label': 'Folder',
   'sessions.folder.project': 'This project',

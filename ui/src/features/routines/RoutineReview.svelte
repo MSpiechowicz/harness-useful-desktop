@@ -46,6 +46,7 @@
     does: 'routines.field.does',
     harness: 'routines.field.harness',
     model: 'routines.field.model',
+    thinking: 'routines.field.thinking',
     approval: 'routines.field.approval',
     maxMinutes: 'routines.field.maxMinutes',
     timeout: 'routines.field.timeout',

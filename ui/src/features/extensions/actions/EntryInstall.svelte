@@ -8,6 +8,7 @@
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
 
+  import { userScopeOnly } from './action-model';
   import { actionRunner } from './action-runner.svelte';
   import { entryInstall } from './item-actions';
 
@@ -21,6 +22,8 @@
   let open = $state(false);
 
   const projectPath = $derived(project.active?.path ?? null);
+  /** Codex installs plugins for the user only, so there is no project to choose. */
+  const forProjects = $derived(!userScopeOnly(harness.active?.info.id));
 
   function choose(scope: InstallScope, close: () => void): void {
     const active = harness.active;
@@ -43,17 +46,19 @@
         {t('extensions.install.forMe')}
         <span class="block text-xs text-fg-3">{t('extensions.install.userScope')}</span>
       </button>
-      <button
-        type="button"
-        role="menuitem"
-        data-menu-item
-        disabled={projectPath === null}
-        class="rounded-sm px-2.5 py-2 text-left text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg focus-visible:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
-        onclick={() => choose('project', close)}
-      >
-        {t('extensions.install.inProject')}
-        <span class="block text-xs text-fg-3">{projectPath === null ? t('extensions.install.openFirst') : (project.active?.name ?? '')}</span>
-      </button>
+      {#if forProjects}
+        <button
+          type="button"
+          role="menuitem"
+          data-menu-item
+          disabled={projectPath === null}
+          class="rounded-sm px-2.5 py-2 text-left text-sm text-fg-2 transition-colors hover:bg-hover hover:text-fg focus-visible:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
+          onclick={() => choose('project', close)}
+        >
+          {t('extensions.install.inProject')}
+          <span class="block text-xs text-fg-3">{projectPath === null ? t('extensions.install.openFirst') : (project.active?.name ?? '')}</span>
+        </button>
+      {/if}
     </div>
   {/snippet}
 </Popover>

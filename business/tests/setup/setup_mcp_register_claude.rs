@@ -5,6 +5,7 @@
 //! failed run is not retried.
 
 use crate::claude_support;
+use crate::setup_support::dashboard_on_path;
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -113,24 +114,7 @@ fn the_target_is_the_user_scope_of_the_global_file_also_under_claude_config_dir(
 #[tokio::test]
 async fn the_dashboard_is_added_by_its_absolute_path_through_add_json() {
     let home = Home::new();
-    // Joined part by part and with `.exe` on Windows, as the PATH search names the program it finds.
-    let dashboard = home
-        .dir
-        .path()
-        .join(".local")
-        .join("bin")
-        .join(format!("harness-dashboard{}", std::env::consts::EXE_SUFFIX));
-    std::fs::create_dir_all(dashboard.parent().unwrap()).unwrap();
-    std::fs::write(&dashboard, "never run").unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&dashboard, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
-    let env = home
-        .env
-        .clone()
-        .with_var("PATH", path_text(dashboard.parent().unwrap()));
+    let (dashboard, env) = dashboard_on_path(home.dir.path(), &home.env);
 
     let fake = home.fake();
     let claude = binary(home.dir.path());

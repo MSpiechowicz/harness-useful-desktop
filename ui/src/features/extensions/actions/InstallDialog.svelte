@@ -10,7 +10,7 @@
   import { project } from '$lib/stores/project.svelte';
   import { uid } from '$lib/utils/ids';
 
-  import { actionRequest, installAndRemoveOnly, targetProblem, type ActionRequest, type ComposeKind } from './action-model';
+  import { actionRequest, npmPlugins, targetProblem, userScopeOnly, type ActionRequest, type ComposeKind } from './action-model';
 
   interface Props {
     kind: ComposeKind;
@@ -93,7 +93,9 @@
     },
   };
 
-  const copy = $derived(COPY[kind === 'plugin' && installAndRemoveOnly(harness.active?.info.id) ? 'opencodePlugin' : kind]);
+  const copy = $derived(COPY[kind === 'plugin' && npmPlugins(harness.active?.info.id) ? 'opencodePlugin' : kind]);
+  // Codex installs plugins for the user only, like OpenCode.
+  const scoped = $derived(copy.scoped && !userScopeOnly(harness.active?.info.id));
   const hintId = uid('install-hint');
   const projectPath = $derived(project.active?.path ?? null);
   const scopes = $derived<StripOption<InstallScope>[]>([
@@ -120,12 +122,12 @@
     const text = value.trim();
     const action =
       kind === 'plugin'
-        ? ({ type: 'pluginInstall', target: text, scope: copy.scoped ? scope : 'user' } as const)
+        ? ({ type: 'pluginInstall', target: text, scope: scoped ? scope : 'user' } as const)
         : kind === 'marketplace'
           ? ({ type: 'marketplaceAdd', source: text } as const)
           : ({ type: 'packageInstall', source: text } as const);
 
-    onsubmit(actionRequest(active.info.id, action, copy.scoped ? scope : 'user', projectPath));
+    onsubmit(actionRequest(active.info.id, action, scoped ? scope : 'user', projectPath));
   }
 </script>
 
@@ -153,7 +155,7 @@
       <span id={hintId} class="text-xs {shownProblem ? 'text-danger' : 'text-fg-3'}" role={shownProblem ? 'alert' : undefined}>{shownProblem ?? copy.hint}</span>
     </label>
 
-    {#if copy.scoped}
+    {#if scoped}
       <div class="flex flex-col gap-1.5 text-sm text-fg-2">
         <span>{t('extensions.compose.installFor')}</span>
         <SegmentedControl label={t('extensions.compose.installFor')} options={scopes} bind:value={() => scope, (next) => (scope = next)} />

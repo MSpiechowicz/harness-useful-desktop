@@ -1,0 +1,294 @@
+{
+  "harness": "codex",
+  "plugins": [
+    {
+      "id": "lint-tools@demo-market",
+      "name": "lint-tools",
+      "version": "1.0.0",
+      "description": "Linters and formatters for every project.",
+      "enabled": true,
+      "scope": "user",
+      "marketplace": "demo-market",
+      "features": [],
+      "path": "/home/demo/.codex/plugins/cache/demo-market/lint-tools/1.0.0",
+      "latestVersion": null,
+      "updateAvailable": false
+    },
+    {
+      "id": "pdf@openai-bundled",
+      "name": "pdf",
+      "version": "2.0.0",
+      "description": "Read and write PDF files.",
+      "enabled": false,
+      "scope": "user",
+      "marketplace": "openai-bundled",
+      "features": [],
+      "path": "/home/demo/.codex/plugins/cache/openai-bundled/pdf/2.0.0",
+      "latestVersion": null,
+      "updateAvailable": false
+    },
+    {
+      "id": "ghost@demo-market",
+      "name": "ghost",
+      "version": null,
+      "description": null,
+      "enabled": true,
+      "scope": "user",
+      "marketplace": "demo-market",
+      "features": [],
+      "path": null,
+      "latestVersion": null,
+      "updateAvailable": false
+    }
+  ],
+  "marketplaces": [
+    {
+      "name": "demo-market",
+      "sourceType": "git",
+      "source": "acme/demo-market",
+      "addedAt": null,
+      "updatedAt": "2026-10-20T10:00:00Z",
+      "entries": [
+        {
+          "name": "lint-tools",
+          "version": null,
+          "description": null,
+          "installed": true
+        },
+        {
+          "name": "format-tools",
+          "version": null,
+          "description": null,
+          "installed": false
+        }
+      ],
+      "error": null
+    },
+    {
+      "name": "openai-bundled",
+      "sourceType": "local",
+      "source": "~/.codex/.tmp/bundled-marketplaces/openai-bundled",
+      "addedAt": null,
+      "updatedAt": null,
+      "entries": [
+        {
+          "name": "pdf",
+          "version": null,
+          "description": null,
+          "installed": true
+        }
+      ],
+      "error": null
+    }
+  ],
+  "skills": [
+    {
+      "name": "explain",
+      "description": "Explain a piece of code step by step.",
+      "scope": "user",
+      "origin": "~/.codex/skills",
+      "path": "/home/demo/.codex/skills/explain/SKILL.md",
+      "package": null
+    },
+    {
+      "name": "shared-skill",
+      "description": "An Agent Skills project skill shared by harnesses.",
+      "scope": "project",
+      "origin": ".agents/skills",
+      "path": "/home/demo/Projects/demo/.agents/skills/shared-skill/SKILL.md",
+      "package": null
+    },
+    {
+      "name": "imagegen",
+      "description": "Generate images (bundled with Codex).",
+      "scope": "builtin",
+      "origin": "~/.codex/skills/.system",
+      "path": "/home/demo/.codex/skills/.system/imagegen/SKILL.md",
+      "package": null
+    },
+    {
+      "name": "lint-tools:lint",
+      "description": "Run the project's linters.",
+      "scope": "plugin",
+      "origin": "plugin lint-tools",
+      "path": "/home/demo/.codex/plugins/cache/demo-market/lint-tools/1.0.0/skills/lint/SKILL.md",
+      "package": null
+    }
+  ],
+  "promptTemplates": [],
+  "agents": [],
+  "mcpServers": [
+    {
+      "name": "github",
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        {
+          "kind": "text",
+          "value": "-y"
+        },
+        {
+          "kind": "text",
+          "value": "@modelcontextprotocol/server-github"
+        },
+        {
+          "kind": "text",
+          "value": "--token"
+        },
+        {
+          "kind": "secret",
+          "value": {
+            "type": "value"
+          }
+        }
+      ],
+      "url": null,
+      "enabled": true,
+      "source": {
+        "path": "/home/demo/.codex/config.toml",
+        "layer": "user",
+        "profile": null,
+        "format": "toml",
+        "exists": true
+      },
+      "details": [
+        {
+          "key": "env",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "docs",
+      "transport": "http",
+      "command": null,
+      "args": [],
+      "url": {
+        "kind": "text",
+        "value": "https://docs.example.com/mcp"
+      },
+      "enabled": true,
+      "source": {
+        "path": "/home/demo/.codex/config.toml",
+        "layer": "user",
+        "profile": null,
+        "format": "toml",
+        "exists": true
+      },
+      "details": [
+        {
+          "key": "bearer_token_env_var",
+          "value": {
+            "kind": "secret",
+            "value": {
+              "type": "envRef",
+              "name": "DOCS_TOKEN"
+            }
+          }
+        },
+        {
+          "key": "http_headers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "Authorization",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "paused",
+      "transport": "stdio",
+      "command": "paused-server",
+      "args": [],
+      "url": null,
+      "enabled": false,
+      "source": {
+        "path": "/home/demo/.codex/config.toml",
+        "layer": "user",
+        "profile": null,
+        "format": "toml",
+        "exists": true
+      },
+      "details": []
+    },
+    {
+      "name": "plugin:lint-tools:lint",
+      "transport": "stdio",
+      "command": "lint-server",
+      "args": [
+        {
+          "kind": "text",
+          "value": "--stdio"
+        }
+      ],
+      "url": null,
+      "enabled": true,
+      "source": {
+        "path": "/home/demo/.codex/plugins/cache/demo-market/lint-tools/1.0.0/.mcp.json",
+        "layer": "user",
+        "profile": null,
+        "format": "json",
+        "exists": true
+      },
+      "details": [
+        {
+          "key": "env",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "LINT_TOKEN",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "themes": [],
+  "packages": [],
+  "extensionModules": [],
+  "notices": [
+    {
+      "level": "info",
+      "message": "ghost@demo-market is listed in config.toml but not installed in Codex's plugin cache."
+    },
+    {
+      "level": "info",
+      "message": "Codex also applies the command rules in default.rules, which are shown read-only in Codex itself."
+    },
+    {
+      "level": "info",
+      "message": "Codex also loads these instruction files, whose text is not shown here: ~/.codex/AGENTS.md (user), AGENTS.md (project)."
+    }
+  ]
+}

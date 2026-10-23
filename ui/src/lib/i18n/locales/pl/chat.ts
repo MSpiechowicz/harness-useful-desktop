@@ -43,6 +43,7 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.approvalCard.label': 'Wymagane zatwierdzenie',
   'chat.approvalCard.denies': 'odrzuca',
+  'chat.approvalCard.readsAs.codex': 'Codex odczytuje to jako: {reading}',
 
   'chat.ask.compact.title': 'Skompaktuj rozmowę',
   'chat.ask.compact.description': 'Streszcza starsze wiadomości, aby zwolnić kontekst. Możesz wskazać agentowi, co zachować.',
@@ -313,8 +314,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.doneUntilQuit': 'Folder zaufany do zamknięcia aplikacji',
   'chat.trust.popover': 'Zaufaj temu projektowi',
   'chat.trust.trigger': 'Zaufaj projektowi jednorazowo',
-  'chat.trust.warning': 'PI pomija rozszerzenia, skille i szablony promptów tego projektu, dopóki mu nie zaufasz. Zaufanie pozwala uruchamiać kod z projektu z Twoimi uprawnieniami.',
-  'chat.trust.scope': 'Dotyczy tylko tej sesji. Aplikacja zapyta ponownie przy następnym uruchomieniu PI. Sesja uruchomi się ponownie i wznowi pracę od tego samego miejsca.',
+  'chat.trust.warning': '{harness} pomija rozszerzenia, skille i szablony promptów tego projektu, dopóki mu nie zaufasz. Zaufanie pozwala uruchamiać kod z projektu z Twoimi uprawnieniami.',
+  'chat.trust.warning.codex': 'Codex ignoruje ustawienia, hooki i reguły z .codex/ tego projektu, dopóki mu nie zaufasz. Potem obowiązują w tym czacie, także reguły poleceń bez pytania, dodatkowe foldery do zapisu i to, kto ocenia zgody. Zaufanie pozwala uruchamiać kod z projektu z Twoimi uprawnieniami.',
+  'chat.trust.scope': 'Dotyczy tylko tej sesji. Aplikacja zapyta ponownie przy następnym uruchomieniu {harness}. Sesja uruchomi się ponownie i wznowi pracę od tego samego miejsca.',
   'chat.trust.action': 'Uruchom ponownie i zaufaj temu projektowi',
 
   'chat.request.closes': 'Zamknie się sama po upływie czasu',

@@ -104,7 +104,7 @@ impl AgentManager {
         Self::default()
     }
 
-    /// A manager with custom options (tests, fixture export).
+    /// A manager with custom options (the desktop's folders, tests, fixture export).
     pub fn with_options(options: SessionOptions) -> Self {
         Self {
             slots: Mutex::default(),
@@ -237,13 +237,16 @@ impl AgentManager {
             config_dir: harness.paths(deps.env, Some(&project)).config_root,
             resume,
             approval_override,
+            trust_once,
             utility: request.utility,
+            memory_session: memory_session.is_some(),
             sink,
             options: &self.options,
             abort,
         })
         .await?;
 
+        let guards_offered = memory_session.is_some() && harness.capabilities().memory_chat_guards;
         let info = AgentSessionInfo {
             key: key.clone(),
             harness: harness.id(),
@@ -253,6 +256,8 @@ impl AgentManager {
             configured_approval_mode: harness.configured_approval_mode(deps.env, Some(&project)),
             native_approval_mode: harness.native_approval_mode(deps.env, Some(&project)),
             trusted_once: trust_once,
+            trust_offered: harness.trust_once_offered(deps.env, &project),
+            memory_guards: guards_offered && session.memory_passed_on(),
             protocol_version: session.protocol_version(),
         };
 
@@ -260,6 +265,7 @@ impl AgentManager {
             info: info.clone(),
             session: Arc::new(session),
             bound,
+            guards_offered,
         };
 
         if let Some(stopping) = self.register(key, entry, reservation.generation) {
@@ -398,7 +404,7 @@ impl AgentManager {
 
     /// The info of session `key`.
     pub fn info(&self, key: &str) -> Result<AgentSessionInfo> {
-        self.entry(key, |entry| entry.info.clone())
+        self.entry(key, Entry::info)
     }
 
     /// Moves session `key`, conversation included, to `project` (a canonical, authorized project
@@ -414,7 +420,7 @@ impl AgentManager {
             .ok_or_else(|| BusinessError::NotFound(format!("agent session {key}")))?;
         entry.info.project = project.to_string_lossy().into_owned();
 
-        Ok(entry.info.clone())
+        Ok(entry.info())
     }
 
     /// Takes session `key` out of the manager; its agent stops when the result is finished.
@@ -481,7 +487,7 @@ impl AgentManager {
         let mut slots = self.lock();
         slots.prune();
 
-        let mut infos: Vec<AgentSessionInfo> = slots.sessions.values().map(|entry| entry.info.clone()).collect();
+        let mut infos: Vec<AgentSessionInfo> = slots.sessions.values().map(Entry::info).collect();
         infos.sort_by(|left, right| left.started_at.cmp(&right.started_at).then(left.key.cmp(&right.key)));
         infos
     }

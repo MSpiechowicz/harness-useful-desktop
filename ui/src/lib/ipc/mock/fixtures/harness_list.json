@@ -210,5 +210,62 @@
       "error": null
     },
     "nativeApprovalMode": null
+  },
+  {
+    "info": {
+      "id": "codex",
+      "name": "Codex",
+      "shortName": "CX",
+      "binaryName": "codex",
+      "description": "OpenAI's terminal coding agent with skills, plugins, MCP servers and hooks, on your own ChatGPT or API login.",
+      "homepage": "https://developers.openai.com/codex"
+    },
+    "capabilities": {
+      "chat": true,
+      "plugins": true,
+      "marketplaces": true,
+      "packages": false,
+      "mcp": true,
+      "skills": true,
+      "promptTemplates": false,
+      "agents": false,
+      "extensionModules": false,
+      "themes": false,
+      "cliActions": true,
+      "profiles": false,
+      "approvalModes": true,
+      "yoloMode": true,
+      "autoMode": false,
+      "projectTrust": true,
+      "projectTrustRequired": false,
+      "slashCommandsViaPrompt": true,
+      "sessionTree": true,
+      "moveSession": false,
+      "removeQueued": true,
+      "agentPicker": false,
+      "chatPreview": true,
+      "compactInstructions": false,
+      "memoryChatGuards": true
+    },
+    "detection": {
+      "installed": false,
+      "binaryPath": null,
+      "isBatchScript": false,
+      "version": null,
+      "versionSupport": "unknown",
+      "configDir": "/home/demo/.codex",
+      "configDirExists": false,
+      "installHint": {
+        "commands": [
+          {
+            "label": null,
+            "command": "npm install -g @openai/codex"
+          }
+        ],
+        "docsUrl": "https://developers.openai.com/codex/cli"
+      },
+      "error": null
+    },
+    "nativeApprovalMode": null
   }
 ]

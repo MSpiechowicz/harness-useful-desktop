@@ -27,6 +27,8 @@ pub enum ConfigFormat {
     Json,
     /// JSON with comments and trailing commas (OpenCode `opencode.jsonc`).
     Jsonc,
+    /// TOML (Codex `config.toml`).
+    Toml,
     /// Markdown with optional frontmatter (`SKILL.md`, prompt templates).
     Markdown,
     /// Plain text.

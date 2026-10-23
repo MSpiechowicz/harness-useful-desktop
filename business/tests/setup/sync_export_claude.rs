@@ -14,7 +14,7 @@ use harness_business::sync::schema::{Bundle, Marketplace, McpServer, Plugin, Tra
 use harness_business::sync::{ExportCollection, build_bundle, collect_export, export_code, export_preview};
 use pretty_assertions::assert_eq;
 use serde_json::json;
-use sync_support::{BOTH, Home, ids, summaries};
+use sync_support::{BOTH, Home, assert_imports_again, ids, summaries};
 
 const CLAUDE: &[HarnessId] = &[HarnessId::Claude];
 
@@ -349,16 +349,8 @@ fn servers_with_substitutions_are_left_out_and_the_apps_own_are_skipped() {
 
 #[test]
 fn every_claude_export_imports_again_without_invalid_items() {
-    for collection in [collect(&Env::for_tests(fixture_home())), edge_home().collect(CLAUDE)] {
-        let bundle = everything(&collection);
-
-        for input in [export_code(&bundle).unwrap().code, to_json_pretty(&bundle).unwrap()] {
-            let decoded = decode_input(&input).unwrap();
-
-            assert_eq!(decoded.invalid_count(), 0);
-            assert!(decoded.unsupported.is_empty());
-        }
-    }
+    assert_imports_again(&collect(&Env::for_tests(fixture_home())));
+    assert_imports_again(&edge_home().collect(CLAUDE));
 }
 
 #[test]

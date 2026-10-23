@@ -17,11 +17,19 @@ pub enum HarnessId {
     OpenCode,
     /// Claude Code (`claude`).
     Claude,
+    /// Codex (`codex`).
+    Codex,
 }
 
 impl HarnessId {
     /// Every supported harness, in display order.
-    pub const ALL: [HarnessId; 4] = [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode, HarnessId::Claude];
+    pub const ALL: [HarnessId; 5] = [
+        HarnessId::Omp,
+        HarnessId::Pi,
+        HarnessId::OpenCode,
+        HarnessId::Claude,
+        HarnessId::Codex,
+    ];
 
     /// The default executable name of the harness CLI.
     pub fn binary_name(self) -> &'static str {
@@ -30,6 +38,7 @@ impl HarnessId {
             HarnessId::Pi => "pi",
             HarnessId::OpenCode => "opencode",
             HarnessId::Claude => "claude",
+            HarnessId::Codex => "codex",
         }
     }
 }
@@ -95,7 +104,7 @@ pub struct Capabilities {
     /// about the rest (Claude Code's auto mode). Without it an Auto override is refused.
     pub auto_mode: bool,
     /// Project trust gating of project-local resources (PI `.pi/`, Claude Code's `.claude/`
-    /// settings): a launch may trust the project once (`trustOnce`).
+    /// settings, Codex's `.codex/` layer): a launch may trust the project once (`trustOnce`).
     pub project_trust: bool,
     /// With `project_trust`: the harness starts only in a folder it trusts itself (Claude Code's
     /// trust dialog). Elsewhere a start is refused (`untrusted`) unless it trusts the project

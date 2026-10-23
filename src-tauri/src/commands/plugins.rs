@@ -35,7 +35,7 @@ pub async fn extension_action(
     run(&state, harness, action, dry_run, project).await
 }
 
-async fn run(
+pub(crate) async fn run(
     state: &AppState,
     harness: HarnessId,
     action: ExtensionAction,

@@ -7,5 +7,7 @@
   "configuredApprovalMode": "yolo",
   "nativeApprovalMode": null,
   "trustedOnce": false,
+  "trustOffered": true,
+  "memoryGuards": false,
   "protocolVersion": 1
 }

@@ -1,0 +1,4 @@
+// A routine run whose model takes no such thinking level.
+{"include":"omp_startup.jsonl"}
+{"expect":"set_model","match":{"provider":"openai","modelId":"gpt-5"},"reply":{"success":true,"data":{"id":"gpt-5","name":"GPT-5","api":"openai-responses","provider":"openai","reasoning":true,"input":["text"],"contextWindow":400000,"maxTokens":64000}}}
+{"expect":"set_thinking_level","reply":{"success":false,"error":"Unknown thinking level: ultra"}}

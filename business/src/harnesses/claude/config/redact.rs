@@ -7,7 +7,7 @@
 use serde_json::Value;
 
 use crate::model::{ConfigField, ConfigValue, SecretKind};
-use crate::pi_family::mcp_config::command_words;
+use crate::pi_family::mcp_config::mask_server_args;
 use crate::security::{RedactionContext, Redactor};
 
 /// Settings holding a command whose output is a credential or a set of headers.
@@ -37,7 +37,7 @@ pub(super) fn settings_fields(value: &Value) -> Result<Vec<ConfigField>, String>
         })
         .collect();
 
-    mask_mcp_args(&mut fields);
+    mask_server_args(&mut fields, "mcpServers");
     Ok(fields)
 }
 
@@ -54,30 +54,6 @@ fn redact_setting(key: &str, value: &Value) -> ConfigValue {
     }
 
     Redactor.redact_at(value, &mut RedactionContext::at([key]))
-}
-
-/// Applies [`command_words`] to the `args` list of every server under `mcpServers`.
-fn mask_mcp_args(fields: &mut [ConfigField]) {
-    let servers = fields
-        .iter_mut()
-        .filter(|field| field.key == "mcpServers")
-        .filter_map(|field| match &mut field.value {
-            ConfigValue::Map(servers) => Some(servers),
-            _ => None,
-        })
-        .flatten();
-
-    for server in servers {
-        let ConfigValue::Map(entries) = &mut server.value else {
-            continue;
-        };
-
-        for entry in entries.iter_mut().filter(|entry| entry.key == "args") {
-            if let ConfigValue::List(words) = &mut entry.value {
-                *words = command_words(std::mem::take(words));
-            }
-        }
-    }
 }
 
 #[cfg(test)]

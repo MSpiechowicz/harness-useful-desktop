@@ -88,7 +88,7 @@ describe('Meet the Harness family step', () => {
     expect(skills).toHaveTextContent('omp plugin marketplace add MSpiechowicz/harness-useful-skills');
     expect(skills).toHaveTextContent('omp plugin install harness-useful-skills@harness-useful-skills --scope user');
     expect(skills).toHaveTextContent('harness-useful-skills/main/install.sh');
-    expect(within(skills).getByText(/Adds the/)).toHaveTextContent('useful_skills MCP server to opencode.json');
+    expect(within(skills).getByText(/Adds the/)).toHaveTextContent('harness-useful-skills MCP server to opencode.json');
   });
 
   it('says why the skills cannot be installed for OpenCode when Node.js is missing, instead of leaving it out', async () => {

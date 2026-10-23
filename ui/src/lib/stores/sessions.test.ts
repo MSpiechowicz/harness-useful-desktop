@@ -156,7 +156,7 @@ describe('session detail', () => {
     let reply = totals;
     const transport = fakeTransport({
       session_files_touched: () => [],
-      session_messages: () => ({ messages: [], nextCursor: null, total: 0, stats: reply }),
+      session_messages: () => ({ messages: [], nextCursor: null, total: 0, stats: reply, truncated: false }),
     });
     const detail = new SessionDetail(transport);
     detail.open(REF, PROJECT);
@@ -209,7 +209,7 @@ describe('session detail', () => {
     const second = fixtures.sessions.list.omp[2].ref;
     const transport = fakeTransport({
       session_files_touched: () => [],
-      session_messages: ({ session }: { session: typeof REF }) => (session.id === REF.id ? slow : { messages: [], nextCursor: null, total: 0, stats: null }),
+      session_messages: ({ session }: { session: typeof REF }) => (session.id === REF.id ? slow : { messages: [], nextCursor: null, total: 0, stats: null, truncated: false }),
     });
     const detail = new SessionDetail(transport);
 
@@ -259,6 +259,65 @@ describe('session detail', () => {
 
     expect(detail.stats).toBeNull();
     expect(detail.touched).toEqual([]);
+  });
+
+  it('says when a session is longer than the app reads, and forgets it for the next session', async () => {
+    const backend = recordingTransport();
+    const cut: Transport = {
+      invoke: async (name, args) => {
+        const reply = await backend.transport.invoke(name, args);
+        const long = name === 'session_messages' && (args as { session: typeof REF }).session.id === REF.id;
+
+        return (long ? { ...(reply as SessionMessagesPage), truncated: true } : reply) as never;
+      },
+    };
+    const detail = new SessionDetail(cut, 5);
+
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
+    expect(detail.truncated).toBe(true);
+
+    detail.open(fixtures.sessions.list.omp[0].ref, PROJECT);
+    expect(detail.truncated).toBe(false);
+  });
+
+  it('reads a session that changed under its pages again from the start, with no error', async () => {
+    const backend = recordingTransport();
+    let changed = false;
+    const changing: Transport = {
+      invoke: (name, args) => {
+        const later = name === 'session_messages' && (args as { cursor: string | null }).cursor !== null;
+        if (changed && later) {
+          changed = false;
+          return Promise.reject(IpcFailure.from({ code: 'changed', message: 'the session changed while it was read: open it again' }));
+        }
+
+        return backend.transport.invoke(name, args);
+      },
+    };
+    const detail = new SessionDetail(changing, 5);
+    detail.open(REF, PROJECT);
+    await waitFor(() => expect(detail.transcriptStatus).toBe('ready'));
+    await detail.loadMore();
+    expect(detail.messages).toHaveLength(Math.min(10, TOTAL));
+
+    changed = true;
+    await detail.loadMore();
+
+    expect(backend.of('session_messages').map((request) => request.cursor === null)).toEqual([true, false, true]);
+    expect(detail.transcriptError).toBeNull();
+    expect(detail.transcriptStatus).toBe('ready');
+    expect(detail.messages).toHaveLength(Math.min(5, TOTAL));
+    expect(detail.loadingMore).toBe(false);
+
+    // Following the session does the same.
+    await detail.loadMore();
+    changed = true;
+    await detail.follow();
+
+    expect(backend.of('session_messages').at(-1)?.cursor).toBeNull();
+    expect(detail.messages).toHaveLength(Math.min(5, TOTAL));
+    expect(detail.transcriptError).toBeNull();
   });
 
   it('reports a transcript that cannot be read', async () => {

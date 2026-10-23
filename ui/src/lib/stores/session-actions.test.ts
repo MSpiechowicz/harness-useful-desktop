@@ -71,6 +71,28 @@ describe('deleting sessions', () => {
     expect(toasts.items.at(-1)?.title).toBe('This session is open in a chat');
   });
 
+  it('says to delete the forks first when Codex refuses a session others were forked from', async () => {
+    vi.spyOn(ipc, 'invoke').mockRejectedValue(IpcFailure.from({ code: 'conflict', message: 'delete the forks of this session first' }));
+    const { store } = storeWithMock();
+    const codex = { harness: 'codex', id: '01a164a0-4c41-7613-9735-20de2a8016a8' } as const;
+
+    expect(await deleteSession(store, codex, PROJECT, () => Promise.resolve(true))).toBe(false);
+
+    expect(toasts.items.at(-1)).toMatchObject({
+      title: 'Could not delete the session',
+      description: 'Other sessions were forked from this one. Delete those forks first, then this session.',
+    });
+  });
+
+  it('shows the reason of any other harness’s conflict as it is', async () => {
+    vi.spyOn(ipc, 'invoke').mockRejectedValue(IpcFailure.from({ code: 'conflict', message: 'The session is busy.' }));
+    const { store } = storeWithMock();
+
+    expect(await deleteSession(store, REF, PROJECT, () => Promise.resolve(true))).toBe(false);
+
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Could not delete the session', description: 'The session is busy.' });
+  });
+
   it('cleans up the empty copies one after the other, leaving out one an open chat runs', async () => {
     const invoke = vi.spyOn(ipc, 'invoke').mockResolvedValue(null as never);
     const { store } = storeWithMock();

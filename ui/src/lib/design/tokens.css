@@ -76,6 +76,9 @@
   /* The dashboard's orange family (dashboard/palette.ts). */
   --harness-claude: #f77745;
   --harness-claude-wash: rgb(247 119 69 / 0.12);
+  /* The dashboard's blue family (dashboard/palette.ts). */
+  --harness-codex: #5da3ff;
+  --harness-codex-wash: rgb(93 163 255 / 0.12);
 
   /* Elevation: quiet shadows; no coloured glow. */
   --elev-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 0 var(--highlight) inset;
@@ -152,6 +155,9 @@
      on its wash: the badge letters are decorative (the harness name is always beside them). */
   --harness-claude: #b84a00;
   --harness-claude-wash: rgb(253 186 116 / 0.4);
+  /* The dashboard's light blue (#3c8cf0) is under 3:1 on its wash, so a darker blue of the same family: about 4.5:1. */
+  --harness-codex: #1d64c8;
+  --harness-codex-wash: rgb(147 197 253 / 0.4);
 
   --elev-1: 0 1px 2px rgb(24 24 27 / 0.06), 0 0 0 1px var(--border);
   --elev-2: 0 6px 20px rgb(24 24 27 / 0.08), 0 0 0 1px var(--border);

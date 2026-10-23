@@ -109,7 +109,7 @@ fn wait_until(child: &mut Child, deadline: Instant) -> std::io::Result<(Option<i
 
 /// Kills the child and its whole process group (Unix) or process tree (Windows). Only called
 /// before the child was reaped, so its pid (and group id) cannot have been reused yet.
-fn kill_tree(child: &mut Child) {
+pub(super) fn kill_tree(child: &mut Child) {
     #[cfg(unix)]
     super::kill_group(child.id());
     #[cfg(windows)]
@@ -213,7 +213,21 @@ impl Readers {
 }
 
 /// Reads `reader` to EOF into `captured`, keeping at most `cap` bytes and discarding the rest.
-fn read_capped(mut reader: impl Read, cap: usize, captured: &Mutex<Captured>) {
+fn read_capped(reader: impl Read, cap: usize, captured: &Mutex<Captured>) {
+    read_chunks(reader, |chunk| {
+        let mut captured = captured.lock().unwrap_or_else(PoisonError::into_inner);
+        let room = cap.saturating_sub(captured.bytes.len());
+        let keep = chunk.len().min(room);
+        captured.bytes.extend_from_slice(&chunk[..keep]);
+
+        if keep < chunk.len() {
+            captured.truncated = true;
+        }
+    });
+}
+
+/// Reads `reader` until EOF or an error, handing each chunk read to `each`.
+pub(super) fn read_chunks(mut reader: impl Read, mut each: impl FnMut(&[u8])) {
     let mut chunk = vec![0_u8; CHUNK];
 
     loop {
@@ -224,13 +238,6 @@ fn read_capped(mut reader: impl Read, cap: usize, captured: &Mutex<Captured>) {
             Err(_) => break,
         };
 
-        let mut captured = captured.lock().unwrap_or_else(PoisonError::into_inner);
-        let room = cap.saturating_sub(captured.bytes.len());
-        let keep = read.min(room);
-        captured.bytes.extend_from_slice(&chunk[..keep]);
-
-        if keep < read {
-            captured.truncated = true;
-        }
+        each(&chunk[..read]);
     }
 }

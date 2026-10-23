@@ -8,7 +8,7 @@
   import SyncCommand from './SyncCommand.svelte';
   import SyncNotices from './SyncNotices.svelte';
   import SyncRow from './SyncRow.svelte';
-  import { addedByCli, commandLine, itemLabel, mcpEntryJson, showsVersion, statusChip, statusNote } from './sync-model';
+  import { cliAddCommand, commandLine, itemLabel, mcpEntryJson, showsVersion, statusChip, statusNote } from './sync-model';
   import type { ImportController } from './sync-import-state.svelte';
 
   interface Props {
@@ -25,6 +25,11 @@
   const note = $derived(statusNote(item.status, item.notes));
   const sub = $derived([showsVersion(harness, item) && item.status.type !== 'differentVersion' ? t('sync.versionShared', { version: item.version }) : null, note].filter((part) => part !== null).join(' · '));
   const unavailable = $derived(item.status.type === 'blocked' || item.status.type === 'invalid');
+  const viaCli = $derived.by(() => {
+    const command = cliAddCommand(item);
+
+    return command ? { command, harness: harnesses.get(harness)?.info.name ?? harness } : null;
+  });
 </script>
 
 <SyncRow kind={item.kind} {label} sub={sub || null} chip={statusChip(item.status)} dim={unavailable} reserve>
@@ -49,5 +54,5 @@
     {/if}
   {/each}
 
-  <SyncNotices runsProgram={item.runsProgram} envKeys={item.envKeys} headerKeys={item.headerKeys} notes={item.notes} viaCli={addedByCli(item)} />
+  <SyncNotices runsProgram={item.runsProgram} envKeys={item.envKeys} headerKeys={item.headerKeys} notes={item.notes} {viaCli} />
 </SyncRow>

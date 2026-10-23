@@ -1,9 +1,10 @@
 //! Scripted OMP/PI RPC peer for the agent-session integration tests, scripted MCP server for the
 //! MCP client tests, scripted `opencode serve` for the OpenCode chat tests ([`opencode`], OpenCode
-//! 2: [`opencode2`]), and scripted `claude` in stream-json mode for the Claude Code chat tests
-//! ([`claude`], its own step format).
+//! 2: [`opencode2`]), scripted `claude` in stream-json mode for the Claude Code chat tests
+//! ([`claude`], its own step format) and scripted `codex app-server` for the Codex chat tests
+//! ([`codex`], its own step format; both replay recordings with [`recorded`]).
 //!
-//! `fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude --scenario <file.jsonl>` plays a
+//! `fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude|codex --scenario <file.jsonl>` plays a
 //! scenario: one JSON step per line (blank lines and `//` comments are skipped). With `--dialect omp` the OMP `ready` frame is
 //! sent first. With `--dialect mcp` messages are JSON-RPC 2.0: an `expect` names a `method`
 //! instead of a `type`, and replies are `{"jsonrpc":"2.0","id":…, ...reply}` (so `reply` holds
@@ -50,6 +51,8 @@ use serde_json::{Map, Value, json};
 
 #[path = "fake_agent/claude.rs"]
 mod claude;
+#[path = "fake_agent/codex.rs"]
+mod codex;
 #[path = "fake_agent/memory.rs"]
 mod memory;
 #[path = "fake_agent/memory_cli.rs"]
@@ -76,6 +79,8 @@ mod opencode2_http;
 mod opencode_config;
 #[path = "fake_agent/opencode_http.rs"]
 mod opencode_http;
+#[path = "fake_agent/recorded.rs"]
+mod recorded;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -124,11 +129,11 @@ fn main() {
     let (Some(dialect), Some(scenario)) = (option("--dialect"), option("--scenario")) else {
         fail(
             2,
-            "usage: fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude --scenario <file.jsonl>",
+            "usage: fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude|codex --scenario <file.jsonl>",
         );
     };
 
-    if !["omp", "pi", "mcp", "opencode", "opencode2", "claude"].contains(&dialect.as_str()) {
+    if !["omp", "pi", "mcp", "opencode", "opencode2", "claude", "codex"].contains(&dialect.as_str()) {
         fail(2, &format!("unknown dialect: {dialect}"));
     }
 
@@ -144,6 +149,10 @@ fn main() {
 
     if dialect == "claude" {
         claude::serve(&steps, Path::new(&scenario));
+    }
+
+    if dialect == "codex" {
+        codex::serve(&steps, Path::new(&scenario));
     }
 
     let mut agent = Agent {
@@ -398,7 +407,7 @@ fn run_end_step(step: &Value) -> ! {
 }
 
 /// Exits 4 unless `frame` (of `kind`) carries every field of the step's `match`: keys starting with
-/// `/` are JSON pointers into the frame.
+/// `/` are JSON pointers into the frame. A `null` field matches a field that is null or absent.
 fn check_match(kind: &str, frame: &Value, step: &Value) {
     let Some(Value::Object(expected)) = step.get("match") else {
         return;
@@ -411,7 +420,9 @@ fn check_match(kind: &str, frame: &Value, step: &Value) {
             frame.get(key)
         };
 
-        if actual != Some(value) {
+        let absent = value.is_null() && actual.is_none_or(Value::is_null);
+
+        if !absent && actual != Some(value) {
             fail(4, &format!("{kind}.{key} was {actual:?}, expected {value}"));
         }
     }
@@ -442,9 +453,15 @@ fn run_output_step(step: &Value) -> bool {
 }
 
 /// Replaces every string `"$name"` in `value` for which `lookup(name)` has a value.
+/// The longest `"$pad:<bytes>"` string (a frame over the app's 4 MiB limit).
+const MAX_PAD_BYTES: usize = 8 * 1024 * 1024;
+
 fn substitute(value: &Value, lookup: &dyn Fn(&str) -> Option<Value>) -> Value {
     match value {
-        Value::String(text) => text.strip_prefix('$').and_then(lookup).unwrap_or_else(|| value.clone()),
+        Value::String(text) => match text.strip_prefix("$pad:").and_then(|bytes| bytes.parse::<usize>().ok()) {
+            Some(bytes) => Value::String("x".repeat(bytes.min(MAX_PAD_BYTES))),
+            None => text.strip_prefix('$').and_then(lookup).unwrap_or_else(|| value.clone()),
+        },
         Value::Array(items) => Value::Array(items.iter().map(|item| substitute(item, lookup)).collect()),
         Value::Object(map) => Value::Object(
             map.iter()

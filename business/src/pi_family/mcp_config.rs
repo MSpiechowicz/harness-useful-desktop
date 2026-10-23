@@ -112,6 +112,31 @@ fn enabled_flag(value: Option<&Value>) -> Option<bool> {
     }
 }
 
+/// Applies [`command_words`] to the `args` list of every server of the top-level field
+/// `servers_key` (`mcpServers`, Codex's `mcp_servers`) of a redacted settings file.
+pub fn mask_server_args(fields: &mut [ConfigField], servers_key: &str) {
+    let servers = fields
+        .iter_mut()
+        .filter(|field| field.key == servers_key)
+        .filter_map(|field| match &mut field.value {
+            ConfigValue::Map(servers) => Some(servers),
+            _ => None,
+        })
+        .flatten();
+
+    for server in servers {
+        let ConfigValue::Map(entries) = &mut server.value else {
+            continue;
+        };
+
+        for entry in entries.iter_mut().filter(|entry| entry.key == "args") {
+            if let ConfigValue::List(words) = &mut entry.value {
+                *words = command_words(std::mem::take(words));
+            }
+        }
+    }
+}
+
 /// Masks secrets in the already redacted words of an MCP command line: credentials and
 /// `--token=...` assignments inside a word, and the whole word after a flag whose name looks
 /// secret (`--api-key <value>`).

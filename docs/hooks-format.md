@@ -127,6 +127,19 @@ Claude Code reports its native tool ids, which are capitalized (the matcher igno
 
 Hooks run in a Claude Code chat like in any other (its chat is a preview, `capabilities.chat` and `capabilities.chatPreview` are `true`). The tool ids above are the ones `toolEnd` carries.
 
+Codex reports four tool names, which the app gives its tool cards (`business/src/codex_rpc/mapper/tools.rs`). They are lowercase and are not Codex's own item types:
+
+| Tool | What it does | Touched paths |
+| --- | --- | --- |
+| `shell` | runs a command (Codex's `commandExecution` item) | none |
+| `apply_patch` | adds, edits, deletes or moves files (Codex's `fileChange` item) | every file of the change, and the target of a move |
+| `mcp__<server>__<tool>` | tool `<tool>` of MCP server `<server>` | none |
+| `web_search` | searches the web | none |
+
+`apply_patch` is the only file change, so the matcher `apply_patch` matches every one of them, and `shell` matches the shell tool. A tool of another kind is not a card and fires no `toolEnd`. Only paths inside the project count, and a change that was declined or failed adds none. Codex names the files with absolute paths. Codex's approval for a change carries only the item, so the files come from the item when it started (and from its later patch updates). Items of a subagent are not shown by the app, so they fire no `toolEnd` and add no touched paths. Codex's own hooks (`hooks.json` in its home, and the `hooks` key of `config.toml`) are not these hooks and run in Codex as they do in a terminal.
+
+Hooks run in a Codex chat like in any other (its chat is a preview, `capabilities.chat` and `capabilities.chatPreview` are `true`). The tool ids above are the ones `toolEnd` carries, so `mcp__harness-memory__note_save` matches a note Harness Memory saved.
+
 ## Events
 
 - `sessionStart`: the first eligible prompt of a new desktop chat (fresh or after a new session, including `/new`). Eligible means a user prompt that is not a steer or follow-up and does not start with `/` or `!`. When its context does not fit in the prompt (see Prompt text), it fires again on the next eligible prompt. A `sessionStart` whose hooks produced nothing (a command without output) does not.

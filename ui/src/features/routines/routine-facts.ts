@@ -53,11 +53,15 @@ function approvalFacts(action: Extract<RoutineAction, { type: 'agent' }>): FactR
   return rows;
 }
 
-/** What an agent routine does besides its prompt: the harness, the model, how it asks for approval and how long it may work. */
+/** What an agent routine does besides its prompt: the harness, the model and its thinking level, how it asks for approval and how long it may work. */
 function agentFacts(action: Extract<RoutineAction, { type: 'agent' }>): FactRow[] {
+  const thinking = action.model?.thinking;
+
   return [
     { label: t('routines.field.harness'), value: HARNESS_NAMES[action.harness] },
     { label: t('routines.field.model'), value: action.model ? `${action.model.provider}/${action.model.id}` : t('routines.value.defaultModel'), mono: action.model !== null },
+    // Only a routine that sets a level says so: the others leave it to the model.
+    ...(thinking ? [{ label: t('routines.field.thinking'), value: thinking }] : []),
     ...approvalFacts(action),
     { label: t('routines.field.maxMinutes'), value: t('routines.value.minutes', { count: action.maxMinutes ?? DEFAULT_MAX_MINUTES }) },
   ];

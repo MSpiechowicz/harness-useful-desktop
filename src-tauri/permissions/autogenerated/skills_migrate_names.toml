@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-skills-migrate-names"
+description = "Enables the skills_migrate_names command without any pre-configured scope."
+commands.allow = ["skills_migrate_names"]
+
+[[permission]]
+identifier = "deny-skills-migrate-names"
+description = "Denies the skills_migrate_names command without any pre-configured scope."
+commands.deny = ["skills_migrate_names"]

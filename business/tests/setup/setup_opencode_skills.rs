@@ -28,6 +28,11 @@ fn write(path: &Path, text: &str) {
 
 /// The Harness Skills' OpenCode install record below `home`.
 fn skills_record(home: &Path) -> PathBuf {
+    home.join(".config/opencode/plugins/harness-useful-skills/install-record.json")
+}
+
+/// The record Harness Skills before 0.4.0 wrote.
+fn legacy_record(home: &Path) -> PathBuf {
     home.join(".config/opencode/plugins/useful-skills/install-record.json")
 }
 
@@ -88,7 +93,10 @@ async fn without_a_record_the_installer_is_offered_with_what_it_changes() {
     let home = tempfile::tempdir().unwrap();
     let env = env_with_node(home.path()).with_os(OsKind::Linux);
 
-    let SkillsSetup::Script { command, side_effects } = opencode_skills(&env).await else {
+    let SkillsSetup::Script {
+        command, side_effects, ..
+    } = opencode_skills(&env).await
+    else {
         panic!("the installer is offered");
     };
 
@@ -97,7 +105,7 @@ async fn without_a_record_the_installer_is_offered_with_what_it_changes() {
     assert!(
         side_effects
             .iter()
-            .any(|line| line.contains("useful_skills MCP server"))
+            .any(|line| line.contains("harness-useful-skills MCP server"))
     );
     assert!(side_effects.iter().any(|line| line.contains("Node.js 22 or newer")));
     assert!(side_effects.iter().any(|line| line.contains("/useful-skills update")));
@@ -125,7 +133,10 @@ async fn without_node_the_skills_are_unavailable() {
     );
 
     let with_node = env.with_var("PATH", place_node(&home.path().join("node-bin")));
-    let SkillsSetup::Script { command, side_effects } = opencode_skills(&with_node).await else {
+    let SkillsSetup::Script {
+        command, side_effects, ..
+    } = opencode_skills(&with_node).await
+    else {
         panic!("the installer is offered once node is there");
     };
     assert_eq!(command, SKILLS_INSTALL_PS1);
@@ -154,12 +165,42 @@ async fn a_record_with_a_version_counts_as_installed() {
 }
 
 #[tokio::test]
+async fn an_install_under_the_old_names_counts_but_is_updated_by_the_installer() {
+    let home = tempfile::tempdir().unwrap();
+    let env = env_with_node(home.path()).with_os(OsKind::Linux);
+    write(&legacy_record(home.path()), r#"{"version":"0.3.14"}"#);
+
+    let SkillsSetup::Script {
+        command,
+        side_effects,
+        outdated_from,
+    } = opencode_skills(&env).await
+    else {
+        panic!("the installer is offered to migrate the install");
+    };
+
+    assert_eq!(command, SKILLS_INSTALL_SH);
+    assert_eq!(outdated_from.as_deref(), Some("0.3.14"));
+    assert!(side_effects.iter().any(|line| line.contains("Renames the existing")));
+    assert!(side_effects.iter().all(|line| !line.contains(';')), "{side_effects:?}");
+
+    // Once the installer wrote the new record, it decides alone.
+    write(&skills_record(home.path()), r#"{"version":"0.4.0"}"#);
+    assert_eq!(
+        opencode_skills(&env).await,
+        SkillsSetup::Installed {
+            version: Some("0.4.0".to_owned())
+        }
+    );
+}
+
+#[tokio::test]
 async fn the_record_follows_xdg_config_home() {
     let home = tempfile::tempdir().unwrap();
     let config = home.path().join("xdg");
     let env = Env::for_tests(home.path()).with_var("XDG_CONFIG_HOME", config.to_string_lossy());
     write(
-        &config.join("opencode/plugins/useful-skills/install-record.json"),
+        &config.join("opencode/plugins/harness-useful-skills/install-record.json"),
         r#"{"version":"1.0.0"}"#,
     );
 

@@ -1,7 +1,8 @@
 //! The Harness Skills workflow switches, read the way the plugin reads them (harness-useful-skills
 //! `workflow-settings.js`, `claude/settings.js` and `opencode/settings.js`). Below the harness's
 //! settings root (Claude Code's config directory, OpenCode's XDG config directory),
-//! `useful-skills/workflow-settings/` holds the repository master
+//! `harness-useful-skills/workflow-settings/` (`useful-skills/…` before Harness Skills 0.4.0, used when
+//! only it exists) holds the repository master
 //! `repositories/<sha256 of the scope root>/workflow.json` and the six profile-wide stage files
 //! `<stage>.json`. The scope root is the nearest enclosing Git checkout of the project (a `.git`
 //! folder, or a `.git` file naming its `gitdir:`), else the canonical project.
@@ -20,6 +21,7 @@ use std::path::{Component, Path, PathBuf};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::ecosystem::skills_paths::skills_data_path;
 use crate::security::SafeReader;
 
 /// The profile-wide stages, in the plugin's order.
@@ -73,9 +75,10 @@ pub(in crate::harnesses) enum MissingRoot {
     Defaults,
 }
 
-/// The settings folder below `root`: `useful-skills/workflow-settings`.
+/// The settings folder below `root`: `harness-useful-skills/workflow-settings`, or the old
+/// `useful-skills/workflow-settings` when only that exists.
 pub(super) fn settings_dir(root: &Path) -> PathBuf {
-    root.join("useful-skills").join("workflow-settings")
+    skills_data_path(root, &["workflow-settings"])
 }
 
 /// Every switch, the master first (see the module docs).

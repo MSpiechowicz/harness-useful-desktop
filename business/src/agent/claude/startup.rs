@@ -30,7 +30,7 @@ use tokio::sync::{oneshot, watch};
 use super::io::read_stdout;
 use super::ops::blocking;
 use super::relay::{Port, Relay};
-use super::reports::{counts, saved_messages};
+use super::reports::saved_messages;
 use super::roles::{Selection, default_selection};
 use super::settings::{DEFAULT_MODEL, catalog, thinking_offered};
 use super::{Chat, ClaudeSession, Live, Origin, Run};
@@ -38,6 +38,7 @@ use crate::agent::SessionOptions;
 use crate::agent::engine::SessionLaunch;
 use crate::agent::process::{AgentProcess, ProcessTraits, StartAbort, run_startup};
 use crate::claude_stream::permissions::ask_all_hooks;
+use crate::claude_stream::stats::MessageCounts;
 use crate::claude_stream::wire::control::InitializeReply;
 use crate::claude_stream::wire::outbound::{HostRequest, new_message_uuid};
 use crate::error::{BusinessError, Result};
@@ -243,7 +244,7 @@ impl Launcher {
 
         if let Some(origin) = start.origin() {
             let saved = saved_messages(&self.sessions_dir, &self.project, &origin.session, origin.cut).await;
-            chat.lock().counts = counts(&saved.unwrap_or_default());
+            chat.lock().counts = MessageCounts::of(&saved.unwrap_or_default());
         }
 
         Ok((Arc::new(Run { process, chat, port }), reply))

@@ -1,0 +1,8 @@
+// A prompt with an image: the text, then the image as a file Codex reads.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "match": {"/params/input/0/text": "What is this?", "/params/input/1/type": "localImage"}, "reply": {"turn": {"id": "turn-image", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-image", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"emit": {"method": "item/started", "params": {"item": {"type": "agentMessage", "id": "msg-image", "text": "", "phase": "final_answer"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-image"}, "emittedAtMs": 1}}
+{"emit": {"method": "item/agentMessage/delta", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-image", "itemId": "msg-image", "delta": "A pixel."}, "emittedAtMs": 1}}
+{"emit": {"method": "item/completed", "params": {"item": {"type": "agentMessage", "id": "msg-image", "text": "A pixel.", "phase": "final_answer"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-image"}, "emittedAtMs": 1}}
+{"emit": {"method": "turn/completed", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-image", "items": [], "status": "completed", "error": null}}, "emittedAtMs": 1}}

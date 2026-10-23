@@ -39,9 +39,9 @@ pub use catalog::{
 pub(crate) use cli::clean;
 pub use cli::{
     CLI_ACTION_TIMEOUT, CliInvocation, CliRun, HarnessCli, MAX_CLI_TARGET_CHARS, TargetKind, cli_target,
-    optional_cli_target, run_cli_action,
+    marketplace_source, optional_cli_target, run_cli_action,
 };
-pub use companion::{CompanionSetup, McpTarget, SkillsStrategy};
+pub use companion::{CompanionSetup, McpTarget, SkillsHost, SkillsStrategy};
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
 pub use launch::{LaunchRequest, flag_with, rpc_exec_spec, utility_args};
 pub use opencode_generation::OpenCodeGeneration;
@@ -55,16 +55,16 @@ pub mod prelude {
 
     pub use super::{
         ChatProtocol, CliInvocation, CliSessionCtx, CliSessions, CommandCatalog, CompanionSetup, Harness, HarnessPaths,
-        LaunchRequest, McpTarget, OpenCodeGeneration, ShareSupport, SkillsStrategy,
+        LaunchRequest, McpTarget, OpenCodeGeneration, ShareSupport, SkillsHost, SkillsStrategy,
     };
     pub use crate::env::Env;
     pub use crate::error::Result;
     pub use crate::model::{
         ApprovalMode, Capabilities, CliResult, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
-        InstallHint, NativeApprovalMode, SessionFolder,
+        InstallHint, NativeApprovalMode, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree,
     };
     pub use crate::pi_family::rpc::RpcDialect;
-    pub use crate::pi_family::sessions::SessionStore;
+    pub use crate::pi_family::sessions::{SessionCache, SessionStore};
     pub use crate::process::ExecSpec;
 }
 
@@ -92,6 +92,8 @@ pub enum ChatProtocol {
     OpenCodeServerV2,
     /// Claude Code's stream-json mode with its control protocol on stdin/stdout.
     ClaudeStream,
+    /// `codex app-server`: JSON-RPC on stdin/stdout.
+    CodexAppServer,
 }
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).
@@ -112,8 +114,8 @@ pub struct HarnessPaths {
 
 /// Which kinds of items "Share setup" exports from a harness and imports into it (see
 /// [`crate::sync`]). The default shares nothing, so a new harness opts in kind by kind; MCP servers
-/// also need a [`McpTarget::UserMcpJson`] or [`McpTarget::OpenCodeConfig`] in
-/// [`Harness::companion_setup`].
+/// also need an MCP target other than [`McpTarget::Unsupported`] in [`Harness::companion_setup`]
+/// (and an export reader in [`crate::sync`]).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ShareSupport {
     /// Plugin marketplaces (OMP's marketplace registry).
@@ -162,7 +164,8 @@ pub struct CliSessionCtx<'a> {
 
 /// Saved sessions of a harness that exposes them only through its CLI (list, export, delete
 /// commands) instead of session files the app reads. Every spawn carries
-/// [`Harness::spawn_env`]. Sessions are linear: there is no tree, resume or fork.
+/// [`Harness::spawn_env`]. A session may name its parent (`parent_session`), for a harness whose
+/// `session_tree` capability is on; resume and fork go through the harness's chat engine.
 pub trait CliSessions: Send + Sync {
     /// Saved sessions of the project, newest first.
     fn list(&self, ctx: &CliSessionCtx<'_>) -> Result<Vec<SessionSummary>>;
@@ -311,12 +314,26 @@ pub trait Harness: Send + Sync {
         &[]
     }
 
+    /// `spec` with [`Harness::spawn_env`] and what else every spawn of the harness binary needs
+    /// in `env`, e.g. without a variable the harness would resolve differently from the app.
+    /// Default: only [`Harness::spawn_env`].
+    fn spawn_spec(&self, _env: &Env, spec: ExecSpec) -> ExecSpec {
+        spec.envs(self.spawn_env().iter().copied())
+    }
+
     /// Refuses a chat launch in `project` the harness itself does not trust yet
     /// ([`BusinessError::Untrusted`](crate::error::BusinessError::Untrusted)), for harnesses with
     /// `capabilities.projectTrustRequired`. Not asked for a launch that trusts the project once.
     /// Default: every project is fine.
     fn check_project_trust(&self, _env: &Env, _project: &Path) -> Result<()> {
         Ok(())
+    }
+
+    /// Whether trusting `project` once changes anything for a chat of the harness with
+    /// `capabilities.projectTrust`: false when the harness has nothing of the project to leave out
+    /// (the chat then offers no trust button). Default: true.
+    fn trust_once_offered(&self, _env: &Env, _project: &Path) -> bool {
+        true
     }
 
     /// Refuses resuming `session` in `project` when it is not one of the project's saved sessions,

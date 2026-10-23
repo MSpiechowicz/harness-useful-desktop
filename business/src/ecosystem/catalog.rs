@@ -35,9 +35,41 @@ pub const MEMORY_BINARY: &str = "harness-memory";
 /// The name the app gives the memory server in a harness's `mcpServers`.
 pub const MEMORY_MCP_SERVER: &str = "harness-memory";
 
-/// The name the skills' OpenCode installer gives their MCP server in OpenCode's `mcp` (a `local`
-/// server running the installed `mcp-server.js` by absolute path).
-pub const SKILLS_MCP_SERVER: &str = "useful_skills";
+/// The name the skills' installers give their MCP server (Harness Skills 0.4.0 and newer): in
+/// OpenCode's `mcp` (a `local` server running the installed `mcp-server.js` by absolute path), in
+/// Codex's `mcp_servers`, and the one the Claude Code and OMP plugins declare.
+pub const SKILLS_MCP_SERVER: &str = "harness-useful-skills";
+
+/// The same server before Harness Skills 0.4.0 unified the names. Installs older than that still
+/// use it until the user runs the installer again, so it stays recognised (and reserved).
+pub const LEGACY_SKILLS_MCP_SERVER: &str = "useful_skills";
+
+/// The folder Harness Skills 0.4.0 and newer keep their data in, below Claude Code's config
+/// directory (`models.yml`, `workflow-settings`), below OpenCode's `plugins` and config directory,
+/// and below the Codex home (`install-record.json`, `models.yml`).
+pub const SKILLS_DIR: &str = "harness-useful-skills";
+
+/// The folder of the same data before Harness Skills 0.4.0.
+pub const LEGACY_SKILLS_DIR: &str = "useful-skills";
+
+/// The plugin name before Harness Skills 0.4.0, as OpenCode's and Codex's folders and Claude Code's
+/// plugin registry spell it. OMP's plugin ID never changed, so OMP has no legacy plugin.
+pub const LEGACY_SKILLS_PLUGIN: &str = "useful-skills";
+
+/// The Claude Code marketplace of Harness Skills before 0.4.0.
+pub const LEGACY_CLAUDE_MARKETPLACE: &str = "useful-skills-local";
+
+/// The Claude Code plugin ID of Harness Skills before 0.4.0. Claude Code keeps it and
+/// [`CLAUDE_SKILLS_PLUGIN`] as two separate plugins, so the new one does not replace it.
+pub const LEGACY_CLAUDE_SKILLS_PLUGIN: &str = "useful-skills@useful-skills-local";
+
+/// The name a harness's user MCP file may hold the dashboard's server under, from the setup
+/// before the app registered it as [`DASHBOARD_MCP_SERVER`].
+pub const LEGACY_DASHBOARD_MCP_SERVER: &str = "harness";
+
+/// The first Harness Skills release with the unified names ([`SKILLS_DIR`], [`SKILLS_MCP_SERVER`],
+/// [`SKILLS_TARGET`]) and, for Codex, model roles.
+pub const SKILLS_UNIFIED_VERSION: &str = "0.4.0";
 
 /// The skills' marketplace source (`omp plugin marketplace add …`, `claude plugin marketplace add
 /// …`).
@@ -47,8 +79,9 @@ pub const SKILLS_MARKETPLACE: &str = "MSpiechowicz/harness-useful-skills";
 pub const SKILLS_TARGET: &str = "harness-useful-skills@harness-useful-skills";
 
 /// The skills' Claude Code plugin (`claude plugin install … --scope user`): the marketplace of
-/// [`SKILLS_MARKETPLACE`] names itself `useful-skills-local` (harness-useful-skills README).
-pub const CLAUDE_SKILLS_PLUGIN: &str = "useful-skills@useful-skills-local";
+/// [`SKILLS_MARKETPLACE`] names itself `harness-useful-skills` since Harness Skills 0.4.0 (it was
+/// `useful-skills-local`), so the ID is the OMP one.
+pub const CLAUDE_SKILLS_PLUGIN: &str = SKILLS_TARGET;
 
 /// The skills as a PI package source (`pi install …`).
 pub const PI_SKILLS_SOURCE: &str = "git:github.com/MSpiechowicz/harness-useful-skills";
@@ -75,7 +108,7 @@ pub const MEMORY_INSTALL_PS1_SCRIPT: &str =
 /// The memory server's Windows installer, as a copyable command.
 pub const MEMORY_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.ps1 | iex\"";
 
-/// The Harness Skills' Unix installer for OpenCode, as a copyable shell command (also the script
+/// The Harness Skills' Unix installer for OpenCode (the script's default host), as a copyable shell command (also the script
 /// the setup step runs on Linux and macOS). `curl` is held to HTTPS and TLS 1.2 or newer, redirects
 /// included.
 pub const SKILLS_INSTALL_SH: &str = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | sh";
@@ -87,6 +120,19 @@ pub const SKILLS_INSTALL_PS1_SCRIPT: &str =
 
 /// The Harness Skills' Windows installer for OpenCode, as a copyable command.
 pub const SKILLS_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.ps1 | iex\"";
+
+/// The Harness Skills' Unix installer for Codex (the same script with `HARNESS_SKILLS_HOST=codex`,
+/// Harness Skills 0.3.13 and newer), as a copyable shell command (also the script the setup step
+/// runs on Linux and macOS).
+pub const CODEX_SKILLS_INSTALL_SH: &str = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | HARNESS_SKILLS_HOST=codex sh";
+
+/// The PowerShell script of the Harness Skills' Windows installer for Codex (what the setup step
+/// runs there), also its copyable command: it is meant to be pasted into a PowerShell prompt.
+pub const CODEX_SKILLS_INSTALL_PS1: &str = "$env:HARNESS_SKILLS_HOST = 'codex'; irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.ps1 | iex";
+
+/// The first Harness Skills release with a Codex adapter: the installer refuses older ones, and
+/// an older install record counts as needing an update.
+pub const CODEX_SKILLS_MIN_VERSION: &str = "0.3.13";
 
 /// True when `id` runs on `os` (the sidebar needs tmux or a native pane: Linux and macOS only).
 pub fn supported_on(id: EcosystemId, os: OsKind) -> bool {

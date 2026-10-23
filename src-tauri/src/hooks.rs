@@ -35,6 +35,10 @@ mod tests;
 #[cfg(test)]
 mod tests_claude;
 #[cfg(test)]
+mod tests_cli;
+#[cfg(test)]
+mod tests_codex;
+#[cfg(test)]
 mod tests_opencode;
 #[cfg(test)]
 mod tests_opencode2;
@@ -463,7 +467,7 @@ pub async fn after_member_install(runtime: &HookRuntime, companion: Companion) {
     let member = match companion {
         Companion::Memory => HookRequirement::HarnessMemory,
         Companion::Dashboard => HookRequirement::HarnessDashboard,
-        Companion::OpenCodeSkills => return,
+        Companion::OpenCodeSkills | Companion::CodexSkills => return,
     };
 
     runtime.refresh_members();

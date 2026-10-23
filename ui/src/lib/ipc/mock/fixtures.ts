@@ -26,14 +26,17 @@ import streamCrash from './fixtures/agent/stream_crash.json';
 import streamError from './fixtures/agent/stream_error.json';
 import streamUiRequests from './fixtures/agent/stream_ui_requests.json';
 import commandsClaude from './fixtures/commands_catalog.claude.json';
+import commandsCodex from './fixtures/commands_catalog.codex.json';
 import commandsOmp from './fixtures/commands_catalog.omp.json';
 import commandsOpenCode from './fixtures/commands_catalog.opencode.json';
 import commandsPi from './fixtures/commands_catalog.pi.json';
 import configClaude from './fixtures/config_view.claude.json';
+import configCodex from './fixtures/config_view.codex.json';
 import configOmp from './fixtures/config_view.omp.json';
 import configOpenCode from './fixtures/config_view.opencode.json';
 import configPi from './fixtures/config_view.pi.json';
 import extensionsClaude from './fixtures/extensions_view.claude.json';
+import extensionsCodex from './fixtures/extensions_view.codex.json';
 import extensionsOmp from './fixtures/extensions_view.omp.json';
 import extensionsOpenCode from './fixtures/extensions_view.opencode.json';
 import extensionsPi from './fixtures/extensions_view.pi.json';
@@ -56,9 +59,9 @@ import sessionTree from './fixtures/sessions/session_tree.omp.json';
 export const fixtures = {
   harnesses: harnessList as unknown as HarnessSummary[],
   recentProjects: projectRecent as unknown as ProjectInfo[],
-  config: { omp: configOmp, pi: configPi, opencode: configOpenCode, claude: configClaude } as unknown as Record<HarnessId, ConfigView>,
-  extensions: { omp: extensionsOmp, pi: extensionsPi, opencode: extensionsOpenCode, claude: extensionsClaude } as unknown as Record<HarnessId, ExtensionsView>,
-  commands: { omp: commandsOmp, pi: commandsPi, opencode: commandsOpenCode, claude: commandsClaude } as unknown as Record<HarnessId, CommandSpec[]>,
+  config: { omp: configOmp, pi: configPi, opencode: configOpenCode, claude: configClaude, codex: configCodex } as unknown as Record<HarnessId, ConfigView>,
+  extensions: { omp: extensionsOmp, pi: extensionsPi, opencode: extensionsOpenCode, claude: extensionsClaude, codex: extensionsCodex } as unknown as Record<HarnessId, ExtensionsView>,
+  commands: { omp: commandsOmp, pi: commandsPi, opencode: commandsOpenCode, claude: commandsClaude, codex: commandsCodex } as unknown as Record<HarnessId, CommandSpec[]>,
   agent: {
     sessionInfo: { omp: sessionInfoOmp, pi: sessionInfoPi } as unknown as Record<HarnessId, AgentSessionInfo>,
     /** Recorded event streams, one per scenario; `approvalDenied` replays `approval` from the Deny on. */

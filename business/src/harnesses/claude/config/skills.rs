@@ -2,25 +2,28 @@
 //! "Claude Code" and "Claude Code model roles"), shown read-only in the user layer through
 //! [`crate::harnesses::skills_config`]:
 //!
-//! - Model roles: `useful-skills/models.yml`, YAML with a `modelRoles` map of role to selector
+//! - Model roles: `harness-useful-skills/models.yml` (`useful-skills/models.yml` before Harness
+//!   Skills 0.4.0, used when only it exists), YAML with a `modelRoles` map of role to selector
 //!   (`<model>[:<effort>]`). Listed only when the file exists.
 //! - Workflow: the repository master and the six stage switches. Listed when the Harness Skills
-//!   plugin (`useful-skills@<marketplace>`) is in `installed_plugins.json` or the settings folder
-//!   exists. The plugin's `/plugin` options reach only Claude Code's hooks, so a notice says they
+//!   plugin (`harness-useful-skills@<marketplace>`, or `useful-skills@<marketplace>` before 0.4.0) is in
+//!   `installed_plugins.json` or the settings folder exists. The plugin's `/plugin` options reach only Claude Code's hooks, so a notice says they
 //!   apply where no saved file exists and are not shown.
 
 use std::path::Path;
 
 use super::super::paths::config_dir;
 use super::super::setup::plugin_records;
+use crate::ecosystem::catalog::{LEGACY_SKILLS_PLUGIN, SKILLS_PLUGIN};
 use crate::env::Env;
 use crate::harnesses::plugin_registry::split_id;
 use crate::harnesses::skills_config::{MissingRoot, models_path, models_section, settings_present, workflow_section};
 use crate::model::{ConfigLayer, ConfigSection, Notice, NoticeLevel};
 use crate::pi_family::SectionText;
 
-/// The plugin's name in Claude Code's registry, whatever marketplace it came from.
-const PLUGIN_NAME: &str = "useful-skills";
+/// The plugin's names in Claude Code's registry (new, then before 0.4.0), whatever marketplace it
+/// came from.
+const PLUGIN_NAMES: [&str; 2] = [SKILLS_PLUGIN, LEGACY_SKILLS_PLUGIN];
 
 const MODELS_TEXT: SectionText<'static> = SectionText {
     id: "user.harnessSkillsModels",
@@ -64,5 +67,5 @@ pub(super) fn sections(env: &Env, project: Option<&Path>) -> (Vec<ConfigSection>
 fn is_installed(env: &Env) -> bool {
     plugin_records(env)
         .iter()
-        .any(|plugin| split_id(&plugin.id).0 == PLUGIN_NAME)
+        .any(|plugin| PLUGIN_NAMES.contains(&split_id(&plugin.id).0))
 }

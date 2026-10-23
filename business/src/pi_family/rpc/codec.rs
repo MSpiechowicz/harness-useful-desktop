@@ -25,6 +25,21 @@ static TYPE_FIELD: LazyLock<Regex> =
 static ID_FIELD: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#""id"\s*:\s*"([A-Za-z0-9_:.-]{1,128})""#).expect("static regex is valid"));
 
+/// A JSON-RPC frame's own `id`, a number or a string, only as a whole value (followed by `,` or
+/// `}`), so a longer number is never read as its first digits.
+static RPC_ID_FIELD: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#""id"\s*:\s*(-?[0-9]{1,32}|"[A-Za-z0-9_:.-]{1,128}")\s*[,}]"#).expect("static regex is valid")
+});
+
+static METHOD_FIELD: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#""method"\s*:\s*"([A-Za-z0-9_/:.-]{1,128})""#).expect("static regex is valid"));
+
+/// The `id` of the `item` a notification is about (`{"params": {"item": {"type": …, "id": …`).
+static ITEM_ID_FIELD: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#""item"\s*:\s*\{[^{}\[\]]{0,256}?"id"\s*:\s*"([A-Za-z0-9_:.-]{1,128})""#)
+        .expect("static regex is valid")
+});
+
 /// One decoded frame.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Frame {
@@ -41,6 +56,13 @@ pub struct FrameFault {
     pub original_type: Option<String>,
     /// The `id` of a dropped `response` frame, so its request can fail at once.
     pub response_id: Option<String>,
+    /// A JSON-RPC frame's own `id` as written (`7`, `"req-7"`), read before its `params`, `result`
+    /// or `error`.
+    pub rpc_id: Option<String>,
+    /// A JSON-RPC frame's `method`, read the same way.
+    pub method: Option<String>,
+    /// The `id` of the `item` a notification is about, when its first bytes name it.
+    pub item_id: Option<String>,
     /// What went wrong.
     pub error: String,
 }
@@ -197,11 +219,35 @@ fn fault(bytes: &[u8], error: &str) -> FrameFault {
         _ => None,
     };
 
+    let head = rpc_head(prefix);
+
     FrameFault {
         original_type,
         response_id,
+        rpc_id: capture(&RPC_ID_FIELD, head),
+        method: capture(&METHOD_FIELD, head),
+        item_id: capture(&ITEM_ID_FIELD, prefix),
         error: error.to_owned(),
     }
+}
+
+/// The top level of a JSON-RPC frame's first bytes, where its own `id` and `method` are (Codex's
+/// frames have no `type`): up to its `params`, `result` or `error`, or the first nested value.
+fn rpc_head(prefix: &[u8]) -> &[u8] {
+    let body = prefix.trim_ascii_start();
+    let body = body.strip_prefix(b"{").unwrap_or(body);
+
+    let nested = body
+        .iter()
+        .position(|byte| matches!(byte, b'{' | b'['))
+        .unwrap_or(body.len());
+    let payload = [&b"\"params\""[..], b"\"result\"", b"\"error\""]
+        .iter()
+        .filter_map(|key| body.windows(key.len()).position(|window| window == *key))
+        .min()
+        .unwrap_or(body.len());
+
+    &body[..nested.min(payload)]
 }
 
 fn capture(pattern: &Regex, haystack: &[u8]) -> Option<String> {

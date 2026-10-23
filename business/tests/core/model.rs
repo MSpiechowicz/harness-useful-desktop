@@ -124,11 +124,12 @@ fn config_value_is_an_adjacently_tagged_union() {
 fn harness_ids_are_lowercase() {
     assert_eq!(
         serde_json::to_value(HarnessId::ALL).unwrap(),
-        json!(["omp", "pi", "opencode", "claude"])
+        json!(["omp", "pi", "opencode", "claude", "codex"])
     );
     assert_eq!(HarnessId::Omp.binary_name(), "omp");
     assert_eq!(HarnessId::OpenCode.binary_name(), "opencode");
     assert_eq!(HarnessId::Claude.binary_name(), "claude");
+    assert_eq!(HarnessId::Codex.binary_name(), "codex");
 }
 
 #[test]

@@ -27,7 +27,10 @@
   let open = $state(false);
 
   const memory = $derived(memoryChat.get(session.key));
-  const capable = $derived(harness.get(session.info.harness)?.capabilities.memoryChatGuards === true);
+  // The chat's own guards apply only when its harness passed the chat's key on to Harness Memory (a Codex chat may have no server to pass it to).
+  // A Codex chat learns it again for every new thread and says so in its state, which then counts over what it said at the start.
+  const passedOn = $derived(session.chat.session?.memoryGuards ?? session.info.memoryGuards);
+  const capable = $derived(harness.get(session.info.harness)?.capabilities.memoryChatGuards === true && passedOn);
   // Nothing about saving can be said while it is not known that Harness Memory applies guards, so the button is not shown.
   const shown = $derived(capable && memoryRemote.value?.saveGuardsSupported === true && memory !== null);
 

@@ -41,9 +41,9 @@ export const sync: AreaMessages<typeof enSync> = {
   'sync.note.needsSharedMarketplace': 'Precisa do marketplace dele desta configuração.',
   'sync.note.opencodeMergedCheck': 'Verificado na configuração mesclada do OpenCode quando você importa. A verificação inicia o OpenCode uma vez.',
   'sync.note.configUnreadable': 'Não foi possível ler um arquivo de configuração, então o app não sabe se este servidor já existe. Nada é gravado.',
-  'sync.note.addedByCli': 'Adicionado com “claude mcp add-json”.',
+  'sync.note.addedByCli': 'Adicionado com “{command}”.',
   'sync.needsKeys': 'Precisa de {keys}. Defina depois de importar.',
-  'sync.needsKeysCli': 'Precisa de {keys}. Defina os valores no Claude Code depois de importar.',
+  'sync.needsKeysCli': 'Precisa de {keys}. Defina os valores no {harness} depois de importar.',
   'sync.runs.title': 'Executa um programa neste computador',
   'sync.runs.chip': 'Executa um programa',
   'sync.runs.body': 'O seu harness o inicia com as suas permissões. Importe-o somente se você confiar na origem desta configuração.',
@@ -78,6 +78,7 @@ export const sync: AreaMessages<typeof enSync> = {
   'sync.excluded.unsupported': 'Sem suporte',
   'sync.excluded.invalid': 'Inválido',
   'sync.excluded.tooMany': 'Itens demais',
+  'sync.excluded.switchedOff': 'Desativado',
 
   // Import dialog: the input.
   'sync.importDialog.title': 'Importar configuração',
@@ -143,7 +144,7 @@ export const sync: AreaMessages<typeof enSync> = {
   'sync.outcome.conflict': 'Conflito',
   'sync.outcome.skipped': 'Ignorado',
   'sync.outcome.failed': 'Falhou',
-  'sync.outcome.cliFailed': 'O comando “claude mcp” falhou.',
+  'sync.outcome.cliFailed': 'O comando “{command}” falhou.',
   'sync.skip.dependencyFailed': 'O marketplace dele falhou.',
   'sync.skip.harnessNotInstalled': 'O harness não está instalado.',
   'sync.skip.mcpFileRefused': 'O arquivo MCP foi deixado em paz. {reason}',

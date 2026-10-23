@@ -43,6 +43,7 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.approvalCard.label': 'Approbation requise',
   'chat.approvalCard.denies': 'refuse',
+  'chat.approvalCard.readsAs.codex': 'Codex le comprend comme : {reading}',
 
   'chat.ask.compact.title': 'Compacter la conversation',
   'chat.ask.compact.description': 'Résume les anciens messages pour libérer du contexte. Vous pouvez indiquer à l’agent ce qu’il doit garder.',
@@ -306,8 +307,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.doneUntilQuit': 'Dossier approuvé jusqu’à ce que vous quittiez l’app',
   'chat.trust.popover': 'Faire confiance à ce projet',
   'chat.trust.trigger': 'Approuver le projet une fois',
-  'chat.trust.warning': 'PI ignore les extensions, skills et modèles de prompt de ce projet tant que vous ne lui faites pas confiance. Lui faire confiance permet au code du projet de s’exécuter avec vos autorisations.',
-  'chat.trust.scope': 'Valable pour cette session uniquement. L’app redemande au prochain démarrage de PI. La session redémarre et reprend là où elle s’était arrêtée.',
+  'chat.trust.warning': '{harness} ignore les extensions, skills et modèles de prompt de ce projet tant que vous ne lui faites pas confiance. Lui faire confiance permet au code du projet de s’exécuter avec vos autorisations.',
+  'chat.trust.warning.codex': 'Codex ignore les réglages, hooks et règles de .codex/ de ce projet tant que vous ne lui faites pas confiance. Ensuite ils s’appliquent à cette discussion, y compris les règles de commandes sans demande, les dossiers supplémentaires en écriture et qui examine les approbations. Lui faire confiance permet au code du projet de s’exécuter avec vos autorisations.',
+  'chat.trust.scope': 'Valable pour cette session uniquement. L’app redemande au prochain démarrage de {harness}. La session redémarre et reprend là où elle s’était arrêtée.',
   'chat.trust.action': 'Redémarrer et approuver ce projet',
 
   'chat.request.closes': 'Se ferme tout seul à la fin du délai',

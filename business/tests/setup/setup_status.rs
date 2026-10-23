@@ -13,7 +13,7 @@ use harness_business::harness::{Harness, HarnessRegistry};
 use harness_business::harnesses::{Omp, OpenCode, Pi};
 use harness_business::model::{
     Detection, ExtensionAction, HarnessId, HarnessSetup, HarnessSummary, InstallScope, McpState, RecommendedSetup,
-    SkillsSetup, VersionSupport,
+    SkillsSetup, SkillsUnavailableCode, VersionSupport,
 };
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -96,13 +96,6 @@ fn register_skills_marketplace(home: &Path) {
         })
         .to_string(),
     );
-}
-
-fn claude_plugin_install() -> ExtensionAction {
-    ExtensionAction::PluginInstall {
-        target: "useful-skills@useful-skills-local".to_owned(),
-        scope: InstallScope::User,
-    }
 }
 
 fn plugin_install() -> ExtensionAction {
@@ -215,7 +208,7 @@ async fn an_empty_machine_is_offered_everything() {
                 ExtensionAction::MarketplaceAdd {
                     source: "MSpiechowicz/harness-useful-skills".to_owned()
                 },
-                claude_plugin_install(),
+                plugin_install(),
             ]
         }
     );
@@ -226,6 +219,30 @@ async fn an_empty_machine_is_offered_everything() {
     assert_eq!(claude.mcp, claude_missing);
     assert_eq!(claude.memory_mcp, claude_missing);
     assert_eq!(claude.desktop_mcp, claude_missing);
+
+    // Codex: its skills offer depends on `node` and the install record (see setup_codex_skills.rs),
+    // and its config.toml is changed through `codex mcp`.
+    let codex = harness(&setup, HarnessId::Codex);
+    assert!(!codex.installed);
+    assert!(
+        matches!(
+            codex.skills,
+            SkillsSetup::Script { .. }
+                | SkillsSetup::Unavailable {
+                    code: Some(SkillsUnavailableCode::NodeMissing),
+                    ..
+                }
+        ),
+        "{:?}",
+        codex.skills
+    );
+    let codex_missing = McpState::Missing {
+        file: "~/.codex/config.toml".to_owned(),
+        exists: false,
+    };
+    assert_eq!(codex.mcp, codex_missing);
+    assert_eq!(codex.memory_mcp, codex_missing);
+    assert_eq!(codex.desktop_mcp, codex_missing);
 }
 
 #[tokio::test]

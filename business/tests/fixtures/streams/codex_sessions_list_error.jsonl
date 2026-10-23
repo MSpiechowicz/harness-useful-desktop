@@ -1,0 +1,3 @@
+// Codex refuses thread/list.
+{"include": "codex_sessions_handshake.jsonl"}
+{"expect": "thread/list", "error": "the state database is unavailable"}

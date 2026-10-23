@@ -30,6 +30,7 @@ const ACK: AgentReply = { type: 'ack' };
 function infoFor(request: AgentStartRequest): AgentSessionInfo {
   const base = baseSessionInfo(request.harness);
   const capabilities = capabilitiesOf(request.harness);
+  const trustedOnce = Boolean(capabilities?.projectTrust) && request.trustOnce;
 
   return {
     ...base,
@@ -38,7 +39,11 @@ function infoFor(request: AgentStartRequest): AgentSessionInfo {
     project: request.project,
     startedAt: new Date().toISOString(),
     approvalOverride: capabilities?.approvalModes ? request.approvalOverride : null,
-    trustedOnce: Boolean(capabilities?.projectTrust) && request.trustOnce,
+    trustedOnce,
+    // A project trusted once had something to trust.
+    trustOffered: base.trustOffered || trustedOnce,
+    // Every mock harness that takes a chat's key passes it on.
+    memoryGuards: request.memoryChat !== null && capabilities?.memoryChatGuards === true,
   };
 }
 

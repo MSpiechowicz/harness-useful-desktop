@@ -27,8 +27,8 @@ use crate::env::Env;
 use crate::harnesses::plugin_registry::mark_updates;
 use crate::model::{ExtensionScope, ExtensionsView, HarnessId, Notice, NoticeLevel, SkillInfo};
 use crate::pi_family::{
-    Document, MAX_WALK_ENTRIES, PerLayer, ScanBudget, SkillRoot, Truncation, WalkBudget, dedupe_skills,
-    project_ancestors, scan_roots, scan_skills_budgeted,
+    Document, PerLayer, ScanBudget, SkillRoot, Truncation, dedupe_skills, project_ancestors, scan_plugin_skills,
+    scan_project_skills, scan_roots,
 };
 
 /// Claude reads `<dir>/<skill>/SKILL.md` one level deep.
@@ -119,32 +119,11 @@ fn skills(env: &Env, project: Option<&Path>, plugins: &[EnabledPlugin], truncati
     let user = SkillRoot::labeled(env, project, config_dir(env).join("skills"), ExtensionScope::User);
     let mut skills = scan_roots(&[user], SKILL_DEPTH, truncation);
 
-    for dir in project_dirs(env, project) {
-        let root = SkillRoot::labeled(
-            env,
-            project,
-            dir.join(PROJECT_DIR_NAME).join("skills"),
-            ExtensionScope::Project,
-        );
-        let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
-        skills.extend(scan_skills_budgeted(&root, SKILL_DEPTH, Some(&dir), &mut walk));
-        truncation.note(ExtensionScope::Project, walk.truncated());
-    }
+    let relative = Path::new(PROJECT_DIR_NAME).join("skills");
+    skills.extend(scan_project_skills(env, project, &relative, SKILL_DEPTH, truncation));
 
     for plugin in plugins {
-        let root = SkillRoot {
-            dir: plugin.dir.join("skills"),
-            scope: ExtensionScope::Plugin,
-            origin: format!("plugin {}", plugin.name),
-        };
-        let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
-        let found = scan_skills_budgeted(&root, SKILL_DEPTH, Some(&plugin.dir), &mut walk);
-        truncation.note(ExtensionScope::Plugin, walk.truncated());
-
-        skills.extend(found.into_iter().map(|skill| SkillInfo {
-            name: format!("{}:{}", plugin.name, skill.name),
-            ..skill
-        }));
+        skills.extend(scan_plugin_skills(&plugin.name, &plugin.dir, SKILL_DEPTH, truncation));
     }
 
     dedupe_skills(skills)

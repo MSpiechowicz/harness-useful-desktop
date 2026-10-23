@@ -4,10 +4,10 @@ import type { McpState } from '../bindings/McpState';
 import type { SkillsSetup } from '../bindings/SkillsSetup';
 
 /**
- * The harnesses the recommended setup is meant to scale to: the preview's `?setup=many` shows five of them, and
- * `?setup=manyLong` adds a sixth with a very long name. Ids the backend does not have (`codex`) exist only in the
- * browser preview, the real `HarnessId` is the backend's. They are chosen to cover every state a row can be in.
- * `?setup=opencodeOnly` is a machine with OpenCode alone, whose config file has comments.
+ * The harnesses the recommended setup is meant to scale to: the preview's `?setup=many` shows the five the backend has,
+ * and `?setup=manyLong` adds a sixth with a very long name, whose id (`long`) exists only in the browser preview. Their
+ * states are chosen to cover every state a row can be in. `?setup=opencodeOnly` is a machine with OpenCode alone, whose
+ * config file has comments.
  */
 export interface RosterEntry {
   id: HarnessId;
@@ -37,17 +37,31 @@ const SKILLS_ACTIONS: SkillsSetup = {
 export const OPENCODE_SKILLS_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | sh";
 export const OPENCODE_SKILLS_SIDE_EFFECTS = [
   'Installs the Harness Skills plugin, skills, agents and commands into the OpenCode config folder (~/.config/opencode).',
-  'Adds the useful_skills MCP server to opencode.json in that folder.',
+  'Adds the harness-useful-skills MCP server to opencode.json in that folder.',
   'Needs Node.js 22 or newer.',
   'Restart OpenCode and running OpenCode chats to load the skills.',
   'Updates come from /useful-skills update in OpenCode.',
 ];
 
+/** The same installer for Codex (`HARNESS_SKILLS_HOST=codex`) and what it changes, as the backend words them. */
+export const CODEX_SKILLS_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/install.sh | HARNESS_SKILLS_HOST=codex sh";
+export const CODEX_SKILLS_SIDE_EFFECTS = [
+  'Adds the Harness Skills marketplace and plugin to Codex.',
+  'Writes the us-* agents and the memory runtime into the Codex folder (~/.codex).',
+  'Registers the harness-useful-skills MCP server with codex mcp add.',
+  'Needs Node.js 22 or newer and the codex command.',
+  'Restart Codex and running Codex chats to load the skills.',
+  'Updates come from running this installer again.',
+];
+
 /** What `setup_status` reports for OpenCode's skills when Node.js is found. */
-export const OPENCODE_SKILLS: SkillsSetup = { type: 'script', command: OPENCODE_SKILLS_COMMAND, sideEffects: OPENCODE_SKILLS_SIDE_EFFECTS };
+export const OPENCODE_SKILLS: SkillsSetup = { type: 'script', command: OPENCODE_SKILLS_COMMAND, sideEffects: OPENCODE_SKILLS_SIDE_EFFECTS, outdatedFrom: null };
+
+/** What it reports for Codex's skills when Node.js is found. */
+export const CODEX_SKILLS: SkillsSetup = { type: 'script', command: CODEX_SKILLS_COMMAND, sideEffects: CODEX_SKILLS_SIDE_EFFECTS, outdatedFrom: null };
 
 /** What it reports when Node.js is missing. */
-export const OPENCODE_SKILLS_NO_NODE: SkillsSetup = { type: 'unavailable', reason: 'Needs Node.js 22 or newer.', code: 'nodeMissing' };
+export const SKILLS_NO_NODE: SkillsSetup = { type: 'unavailable', reason: 'Needs Node.js 22 or newer.', code: 'nodeMissing' };
 
 const FIVE: RosterEntry[] = [
   {
@@ -77,16 +91,16 @@ const FIVE: RosterEntry[] = [
     installed: true,
     skills: { type: 'installed', version: '0.2.36' },
     mcp: { type: 'configured', file: '~/.claude.json', name: 'harness-dashboard' },
-    memoryMcp: { type: 'configured', file: '~/.claude.json', name: 'harness-memory' },
+    memoryMcp: { type: 'disabled', file: '~/.claude.json', name: 'harness-memory' },
     desktopMcp: { type: 'configured', file: '~/.claude.json', name: 'harness-desktop' },
   },
   {
     id: asId('codex'),
     name: 'Codex',
-    shortName: 'CDX',
+    shortName: 'CX',
     installed: true,
-    skills: { type: 'unavailable', reason: 'Not supported yet.', code: null },
-    mcp: { type: 'disabled', file: '~/.codex/config.toml', name: 'harness-dashboard' },
+    skills: CODEX_SKILLS,
+    mcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },
     memoryMcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },
     desktopMcp: { type: 'missing', file: '~/.codex/config.toml', exists: true },
   },

@@ -211,24 +211,6 @@ describe('The New routine dialog', () => {
     harness.summaries = listed;
   });
 
-  it('sends the model only when both parts are given', async () => {
-    const { invoke } = fakeRoutines();
-    const dialog = await openEditor();
-
-    await fireEvent.input(within(dialog).getByLabelText('Name'), { target: { value: 'Pick a model' } });
-    await fireEvent.input(within(dialog).getByLabelText('Prompt'), { target: { value: 'Say hello.' } });
-    await fireEvent.input(within(dialog).getByLabelText('Provider'), { target: { value: 'anthropic' } });
-
-    expect(within(dialog).getByText('Fill in both the provider and the model id, or neither.')).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Add routine' })).toBeDisabled();
-
-    await fireEvent.input(within(dialog).getByLabelText('Model id'), { target: { value: 'claude-sonnet-4-5' } });
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Add routine' }));
-
-    await waitFor(() => expect(calls(invoke, 'routine_save')).toHaveLength(1));
-    expect(calls(invoke, 'routine_save')[0]).toMatchObject({ draft: { action: { type: 'agent', harness: 'omp', model: { provider: 'anthropic', id: 'claude-sonnet-4-5' }, prompt: 'Say hello.', approvalMode: null, trustOnce: false } } });
-  });
-
   it('offers the scripts saved in Harness Memory, and runs the one the user picks', async () => {
     const { invoke } = fakeRoutines();
     const dialog = await openEditor();

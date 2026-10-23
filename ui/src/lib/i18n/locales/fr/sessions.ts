@@ -9,7 +9,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.resize.list': 'Redimensionner la liste des sessions',
 
   'sessions.empty.noHarness.title': 'Installer un harness pour parcourir les sessions',
-  'sessions.empty.noHarness.body': 'Les sessions sont lues depuis OMP, PI, OpenCode ou Claude Code. Lancez la configuration pour détecter celui que vous utilisez.',
+  'sessions.empty.noHarness.body': 'Les sessions sont lues depuis OMP, PI, OpenCode, Claude Code ou Codex. Lancez la configuration pour détecter celui que vous utilisez.',
   'sessions.empty.noHarness.action': 'Configurer un harness',
   'sessions.empty.noProject.title': 'Ouvrir un projet pour voir ses sessions',
   'sessions.empty.noProject.body': 'Les sessions sont enregistrées par dossier de projet. Choisissez le projet dont vous voulez parcourir l’historique.',
@@ -81,6 +81,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.delete.openInChat': 'Cette session est ouverte dans un chat',
   'sessions.delete.openInChatBody': 'Fermez d’abord ce chat, puis supprimez la session.',
   'sessions.delete.failed': 'Impossible de supprimer la session',
+  'sessions.delete.hasForks': 'D’autres sessions ont été bifurquées depuis celle-ci. Supprimez d’abord ces bifurcations, puis cette session.',
 
   'sessions.cleanup.banner.one': '{count} copie vide',
   'sessions.cleanup.banner.other': '{count} copies vides',
@@ -105,6 +106,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.progress.one': '{shown} sur {count} message',
   'sessions.transcript.progress.other': '{shown} sur {count} messages',
   'sessions.transcript.loadMore': 'Charger plus de messages',
+  'sessions.transcript.truncated': 'Cette session est plus longue que ce que l’app lit. Ses messages les plus récents ne sont pas affichés.',
 
   'sessions.folder.label': 'Dossier',
   'sessions.folder.project': 'Ce projet',

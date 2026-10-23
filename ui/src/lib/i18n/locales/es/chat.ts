@@ -43,6 +43,7 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.approvalCard.label': 'Se necesita aprobación',
   'chat.approvalCard.denies': 'deniega',
+  'chat.approvalCard.readsAs.codex': 'Codex lo interpreta como: {reading}',
 
   'chat.ask.compact.title': 'Compactar la conversación',
   'chat.ask.compact.description': 'Resume los mensajes antiguos para liberar contexto. Puedes decirle al agente qué conservar.',
@@ -301,8 +302,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.doneUntilQuit': 'Carpeta de confianza hasta que cierres la app',
   'chat.trust.popover': 'Confiar en este proyecto',
   'chat.trust.trigger': 'Confiar en el proyecto una vez',
-  'chat.trust.warning': 'PI omite las extensiones, skills y plantillas de prompt de este proyecto hasta que confíes en él. Al confiar, el código del proyecto puede ejecutarse con tus permisos.',
-  'chat.trust.scope': 'Solo vale para esta sesión. La app volverá a preguntar la próxima vez que se inicie PI. La sesión se reinicia y continúa donde se quedó.',
+  'chat.trust.warning': '{harness} omite las extensiones, skills y plantillas de prompt de este proyecto hasta que confíes en él. Al confiar, el código del proyecto puede ejecutarse con tus permisos.',
+  'chat.trust.warning.codex': 'Codex ignora los ajustes, hooks y reglas de .codex/ de este proyecto hasta que confíes en él. Después se aplican a este chat, también las reglas de comandos que no preguntan, las carpetas extra con escritura y quién revisa las aprobaciones. Al confiar, el código del proyecto puede ejecutarse con tus permisos.',
+  'chat.trust.scope': 'Solo vale para esta sesión. La app volverá a preguntar la próxima vez que se inicie {harness}. La sesión se reinicia y continúa donde se quedó.',
   'chat.trust.action': 'Reiniciar y confiar en este proyecto',
 
   'chat.request.closes': 'Se cierra sola cuando se acaba el tiempo',

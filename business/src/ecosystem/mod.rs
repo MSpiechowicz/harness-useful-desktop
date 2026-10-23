@@ -2,12 +2,12 @@
 //! shown in the app.
 //!
 //! - [`catalog`]: names, links and copyable install steps (not run, except the dashboard's, the
-//!   memory server's and the Harness Skills' OpenCode installers).
+//!   memory server's and the Harness Skills' OpenCode and Codex installers).
 //! - [`detect`]: which tools are installed (`ecosystem_status`).
 //! - [`setup`]: what the "Recommended setup" step offers (`setup_status`).
-//! - [`installer`]: runs the dashboard's, the memory server's or the Harness Skills' OpenCode
-//!   installer, once the user confirms, and [`skills_record`]: the install record that tells
-//!   whether the Harness Skills for OpenCode are installed.
+//! - [`installer`]: runs the dashboard's, the memory server's or the Harness Skills' OpenCode or
+//!   Codex installer, once the user confirms, and [`skills_record`]: the install record that tells
+//!   whether the Harness Skills for OpenCode or Codex are installed.
 //! - [`mcp_merge`]: adds server entries to a harness's user MCP file without overwriting any, and
 //!   [`mcp_cli`]: the companion servers in a file only the harness's CLI changes (Claude Code).
 //! - [`mcp_register`]: the dashboard's MCP server in a harness's user MCP file, and the state of
@@ -65,6 +65,7 @@ pub mod mcp_client;
 pub mod mcp_merge;
 pub mod mcp_pool;
 pub mod mcp_register;
+pub mod mcp_rename;
 pub mod memory_binary;
 pub mod memory_cli;
 mod memory_copy_answer;
@@ -96,6 +97,8 @@ pub mod memory_trust;
 pub mod memory_user_save;
 pub mod releases;
 pub mod setup;
+pub mod skills_migration;
+pub mod skills_paths;
 pub mod skills_record;
 
 pub use catalog::{ECOSYSTEM, catalog_item, supported_on};
@@ -114,6 +117,7 @@ pub use mcp_client::{McpClient, McpOptions, McpTool, ToolOutput};
 pub use mcp_merge::{Blocked, MergeOutcome, MergeResult, MergedServer, Shape, existing_server, merge_servers};
 pub use mcp_pool::{McpPool, PoolOptions};
 pub use mcp_register::{mcp_state, memory_mcp_state, register_dashboard_mcp};
+pub use mcp_rename::rename_dashboard_mcp_file;
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
 pub use memory_cli::Repos;
@@ -151,5 +155,12 @@ pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::{script_sha256, trust_scripts};
 pub use memory_user_save::SaveRoute;
 pub use releases::{CompanionReleases, release_endpoint};
-pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status, share_mcp_target};
-pub use skills_record::{opencode_skills_record, opencode_skills_version};
+pub use setup::{
+    LegacySkillsStep, McpFile, legacy_skills_step, mcp_target, mcp_target_paths, memory_server_setup, setup_status,
+    share_mcp_target,
+};
+pub use skills_migration::{MIGRATION_RECORD_FILE, MigrationExecutor, MigrationRecord, migrate_skills_names};
+pub use skills_paths::skills_data_path;
+pub use skills_record::{
+    SkillsRecord, legacy_skills_record, skills_install, skills_installed, skills_record, skills_version,
+};

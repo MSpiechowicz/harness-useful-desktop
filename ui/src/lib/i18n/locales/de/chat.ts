@@ -43,6 +43,7 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.approvalCard.label': 'Freigabe erforderlich',
   'chat.approvalCard.denies': 'lehnt ab',
+  'chat.approvalCard.readsAs.codex': 'Codex liest das als: {reading}',
 
   'chat.ask.compact.title': 'Unterhaltung verdichten',
   'chat.ask.compact.description': 'Fasst ältere Nachrichten zusammen, um Kontext freizugeben. Du kannst dem Agenten sagen, was er behalten soll.',
@@ -301,8 +302,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.doneUntilQuit': 'Ordner vertraut, bis du die App beendest',
   'chat.trust.popover': 'Diesem Projekt vertrauen',
   'chat.trust.trigger': 'Projekt einmalig vertrauen',
-  'chat.trust.warning': 'PI überspringt die Erweiterungen, Skills und Prompt-Vorlagen dieses Projekts, bis du ihm vertraust. Mit deinem Vertrauen darf Code aus dem Projekt mit deinen Berechtigungen laufen.',
-  'chat.trust.scope': 'Gilt nur für diese Sitzung. Beim nächsten Start von PI fragt die App erneut. Die Sitzung startet neu und macht dort weiter, wo sie war.',
+  'chat.trust.warning': '{harness} überspringt die Erweiterungen, Skills und Prompt-Vorlagen dieses Projekts, bis du ihm vertraust. Mit deinem Vertrauen darf Code aus dem Projekt mit deinen Berechtigungen laufen.',
+  'chat.trust.warning.codex': 'Codex ignoriert die .codex/-Einstellungen, Hooks und Regeln dieses Projekts, bis du ihm vertraust. Danach gelten sie für diesen Chat, auch Befehlsregeln ohne Nachfrage, zusätzliche beschreibbare Ordner und wer Freigaben prüft. Mit deinem Vertrauen darf Code aus dem Projekt mit deinen Berechtigungen laufen.',
+  'chat.trust.scope': 'Gilt nur für diese Sitzung. Beim nächsten Start von {harness} fragt die App erneut. Die Sitzung startet neu und macht dort weiter, wo sie war.',
   'chat.trust.action': 'Neu starten und diesem Projekt vertrauen',
 
   'chat.request.closes': 'Schließt sich von selbst, wenn die Zeit abläuft',

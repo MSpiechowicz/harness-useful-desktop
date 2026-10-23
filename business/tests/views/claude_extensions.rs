@@ -226,6 +226,22 @@ fn user_skills_and_commands_outrank_the_projects_and_project_agents_outrank_the_
 }
 
 #[test]
+fn the_agents_harness_skills_generates_are_listed_under_the_new_and_the_old_file_names() {
+    let scratch = Scratch::new();
+    let agents = scratch.home.join(".claude/agents");
+    let agent = |name: &str| format!("---\nname: {name}\ndescription: generated\n---\n");
+
+    write_file(&agents.join("harness-useful-skills-planner.md"), &agent("us-planner"));
+    write_file(&agents.join("useful-skills-reviewer.md"), &agent("us-reviewer"));
+
+    let view = extensions(&scratch.env(), None);
+    let mut listed = names(&view.agents, |agent| &agent.name);
+    listed.sort_unstable();
+
+    assert_eq!(listed, ["us-planner", "us-reviewer"]);
+}
+
+#[test]
 fn mcp_servers_follow_claudes_precedence_and_mcp_json_answers() {
     let scratch = Scratch::new();
     let project = scratch.project.to_string_lossy();

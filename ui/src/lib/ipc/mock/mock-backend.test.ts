@@ -84,6 +84,8 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   setup_install_dashboard: { confirmed: true, onLog: () => {} },
   setup_install_memory: { confirmed: true, onLog: () => {} },
   setup_install_opencode_skills: { confirmed: true, onLog: () => {} },
+  setup_install_codex_skills: { confirmed: true, onLog: () => {} },
+  skills_migrate_names: undefined,
   setup_register_mcp: { harness: 'omp' },
   setup_register_memory: { harness: 'omp' },
   setup_register_desktop_mcp: { harness: 'omp' },

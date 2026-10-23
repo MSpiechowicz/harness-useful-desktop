@@ -9,7 +9,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.resize.list': 'Zmień szerokość listy sesji',
 
   'sessions.empty.noHarness.title': 'Zainstaluj harness, aby przeglądać sesje',
-  'sessions.empty.noHarness.body': 'Sesje są odczytywane z OMP, PI, OpenCode lub Claude Code. Uruchom konfigurację, aby wykryć ten, którego używasz.',
+  'sessions.empty.noHarness.body': 'Sesje są odczytywane z OMP, PI, OpenCode, Claude Code lub Codex. Uruchom konfigurację, aby wykryć ten, którego używasz.',
   'sessions.empty.noHarness.action': 'Skonfiguruj harness',
   'sessions.empty.noProject.title': 'Otwórz projekt, aby zobaczyć jego sesje',
   'sessions.empty.noProject.body': 'Sesje są zapisywane osobno dla każdego folderu projektu. Wybierz projekt, którego historię chcesz przejrzeć.',
@@ -85,6 +85,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.delete.openInChat': 'Ta sesja jest otwarta w czacie',
   'sessions.delete.openInChatBody': 'Najpierw zamknij ten czat, potem usuń sesję.',
   'sessions.delete.failed': 'Nie udało się usunąć sesji',
+  'sessions.delete.hasForks': 'Z tej sesji rozgałęziono inne sesje. Najpierw usuń te rozgałęzienia, potem tę sesję.',
 
   'sessions.cleanup.banner.one': '{count} pusta kopia',
   'sessions.cleanup.banner.few': '{count} puste kopie',
@@ -121,6 +122,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.progress.many': '{shown} z {count} wiadomości',
   'sessions.transcript.progress.other': '{shown} z {count} wiadomości',
   'sessions.transcript.loadMore': 'Wczytaj więcej wiadomości',
+  'sessions.transcript.truncated': 'Ta sesja jest dłuższa, niż aplikacja odczytuje. Jej najnowsze wiadomości nie są widoczne.',
 
   'sessions.folder.label': 'Folder',
   'sessions.folder.project': 'Ten projekt',

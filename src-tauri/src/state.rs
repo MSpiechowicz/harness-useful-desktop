@@ -83,6 +83,8 @@ pub struct AppState {
     pub memory_install: async_runtime::Mutex<()>,
     /// Held while the Harness Skills' OpenCode installer runs, so only one runs at a time.
     pub opencode_skills_install: async_runtime::Mutex<()>,
+    /// Held while the Harness Skills' Codex installer runs, so only one runs at a time.
+    pub codex_skills_install: async_runtime::Mutex<()>,
     /// The latest "Share setup" import review, kept until it is applied or replaced by a newer one.
     pub sync_plan: Mutex<Option<StoredPlan>>,
     /// Held while a "Share setup" import is applied, so only one runs at a time.
@@ -114,11 +116,12 @@ impl AppState {
     pub fn from_app<R: Runtime>(app: &AppHandle<R>) -> Result<Self, Box<dyn Error>> {
         let config_dir = app.path().app_config_dir()?;
         let env = Env::from_process()?;
-        let agents = Agents::tracked(child_processes_dir(&env));
+        let attachments_dir = app.path().app_cache_dir()?.join("attachments");
+        let agents = Agents::tracked(child_processes_dir(&env), attachments_dir.clone());
 
         Ok(Self {
             updates: Updates::from_config(app.config()),
-            attachments_dir: app.path().app_cache_dir()?.join("attachments"),
+            attachments_dir,
             agents: Arc::new(agents),
             ..Self::new(config_dir, env)
         })
@@ -161,6 +164,7 @@ impl AppState {
             dashboard_install: async_runtime::Mutex::new(()),
             memory_install: async_runtime::Mutex::new(()),
             opencode_skills_install: async_runtime::Mutex::new(()),
+            codex_skills_install: async_runtime::Mutex::new(()),
             sync_plan: Mutex::new(None),
             sync_apply: async_runtime::Mutex::new(()),
             notes_import: Mutex::new(None),

@@ -1,6 +1,6 @@
 //! Export of "Share setup" leaves out the entries the app and Recommended setup write themselves
-//! (the dashboard's, the memory server's and the Harness Skills' OpenCode server), without a row,
-//! in any case.
+//! (the dashboard's, the memory server's and the Harness Skills' server under its name since 0.4.0
+//! and the one before), without a row, in any case.
 
 use crate::sync_support;
 
@@ -33,12 +33,15 @@ fn the_skills_server_the_opencode_installer_writes_is_skipped_without_a_row() {
     let home = Home::empty();
     // As the installer writes it: `node` running the script by absolute path (a local path any
     // other server would be excluded for).
-    let script = "/home/someone/.config/opencode/plugins/useful-skills/opencode/mcp-server.js";
+    let script = "/home/someone/.config/opencode/plugins/harness-useful-skills/opencode/mcp-server.js";
+    let old_script = "/home/someone/.config/opencode/plugins/useful-skills/opencode/mcp-server.js";
     home.write_text(
         ".config/opencode/opencode.json",
         &format!(
             r#"{{ "mcp": {{
-  "useful_skills": {{ "type": "local", "command": ["node", "{script}"], "enabled": true }},
+  "harness-useful-skills": {{ "type": "local", "command": ["node", "{script}"], "enabled": true }},
+  "Harness-Useful-Skills": {{ "type": "remote", "url": "https://skills.example.com/mcp" }},
+  "useful_skills": {{ "type": "local", "command": ["node", "{old_script}"], "enabled": true }},
   "Useful_Skills": {{ "type": "remote", "url": "https://skills.example.com/mcp" }},
   "docs": {{ "type": "remote", "url": "https://docs.example.com/mcp" }}
 }} }}"#

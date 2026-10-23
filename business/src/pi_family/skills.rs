@@ -129,6 +129,52 @@ pub fn load_skill(root: &SkillRoot, dir_name: &str, skill_file: &Path) -> Option
     })
 }
 
+/// The skills of `<dir>/<relative>` (`.claude/skills`, `.agents/skills`) for each folder from
+/// `project` up to its repository root, closest first ([`project_ancestors`]), each confined to
+/// its folder and labeled relative to the project. Walks cut short are noted in `truncation`.
+pub fn scan_project_skills(
+    env: &Env,
+    project: Option<&Path>,
+    relative: &Path,
+    max_depth: usize,
+    truncation: &mut Truncation,
+) -> Vec<SkillInfo> {
+    let dirs = project
+        .map(|project| project_ancestors(env, project))
+        .unwrap_or_default();
+    let mut skills = Vec::new();
+
+    for dir in dirs {
+        let root = SkillRoot::labeled(env, project, dir.join(relative), ExtensionScope::Project);
+        let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
+        skills.extend(scan_skills_budgeted(&root, max_depth, Some(&dir), &mut walk));
+        truncation.note(ExtensionScope::Project, walk.truncated());
+    }
+
+    skills
+}
+
+/// The skills of a plugin's `skills/` folder (`dir` is the plugin's verified folder, which they
+/// must resolve inside), named `<plugin>:<skill>`. A walk cut short is noted in `truncation`.
+pub fn scan_plugin_skills(name: &str, dir: &Path, max_depth: usize, truncation: &mut Truncation) -> Vec<SkillInfo> {
+    let root = SkillRoot {
+        dir: dir.join("skills"),
+        scope: ExtensionScope::Plugin,
+        origin: format!("plugin {name}"),
+    };
+    let mut walk = WalkBudget::new(MAX_WALK_ENTRIES);
+    let found = scan_skills_budgeted(&root, max_depth, Some(dir), &mut walk);
+    truncation.note(ExtensionScope::Plugin, walk.truncated());
+
+    found
+        .into_iter()
+        .map(|skill| SkillInfo {
+            name: format!("{name}:{}", skill.name),
+            ..skill
+        })
+        .collect()
+}
+
 /// Keeps the first skill of each name (callers pass roots in precedence order).
 pub fn dedupe_skills(skills: Vec<SkillInfo>) -> Vec<SkillInfo> {
     let mut seen = HashSet::new();

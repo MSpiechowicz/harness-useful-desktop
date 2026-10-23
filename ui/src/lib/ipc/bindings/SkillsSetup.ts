@@ -29,7 +29,12 @@ command: string,
 /**
  * What the installer changes on this machine, one line each.
  */
-sideEffects: Array<string>, } | { "type": "unavailable", 
+sideEffects: Array<string>, 
+/**
+ * The version of an install that is too old for the harness (the installer then updates
+ * it), null when nothing is installed.
+ */
+outdatedFrom: string | null, } | { "type": "unavailable", 
 /**
  * Why, in English: the fallback when `code` is null or unknown to the UI.
  */

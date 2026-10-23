@@ -1,0 +1,10 @@
+// The interrupted turn of 05_interrupt.jsonl with a crafted approval open when the user stops it:
+// the approval is cancelled, then the turn interrupted.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "reply": {"turn": {"id": "01a164a0-cb10-7c53-8db1-eb2cb396fb41", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"replay": "../codex/app_server/05_interrupt.jsonl", "from": 4, "to": 19}
+{"emit": {"method": "item/started", "params": {"item": {"type": "commandExecution", "id": "exec-sleep", "command": "sleep 30 && echo late", "cwd": "/work/project", "processId": null, "source": "agent", "status": "inProgress", "commandActions": [{"type": "unknown", "command": "sleep 30 && echo late"}], "aggregatedOutput": null, "exitCode": null, "durationMs": null}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "01a164a0-cb10-7c53-8db1-eb2cb396fb41"}, "emittedAtMs": 1}}
+{"emit": {"id": 9, "method": "item/commandExecution/requestApproval", "params": {"kind": "command", "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "01a164a0-cb10-7c53-8db1-eb2cb396fb41", "itemId": "exec-sleep", "command": "sleep 30 && echo late", "cwd": "/work/project", "commandActions": [], "availableDecisions": ["accept", "cancel"]}}}
+{"expect": "answer", "match": {"/id": 9, "/result/decision": "cancel"}}
+{"expect": "turn/interrupt", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "/params/turnId": "01a164a0-cb10-7c53-8db1-eb2cb396fb41"}, "reply": {}}
+{"replay": "../codex/app_server/05_interrupt.jsonl", "from": 20, "to": 24, "except": ["response"]}

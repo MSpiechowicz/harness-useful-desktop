@@ -15,7 +15,8 @@ use regex::Regex;
 use super::schema::{MAX_TEXT_CHARS, Marketplace, Package, Plugin};
 use super::secrets::exportable;
 pub use super::validate_mcp::{
-    claude_mcp_server, is_shell, key_names, mcp_args, mcp_command, mcp_name, mcp_server, mcp_url, opencode_mcp_server,
+    claude_mcp_server, codex_mcp_server, is_shell, key_names, mcp_args, mcp_command, mcp_name, mcp_server, mcp_url,
+    opencode_mcp_server,
 };
 use super::validate_source::{is_npm_registry_spec, split_npm_spec};
 pub use super::validate_source::{marketplace_source, package_source};
@@ -311,6 +312,12 @@ pub fn claude_plugin(item: &Plugin) -> Check {
     }
 
     Ok(())
+}
+
+/// A whole shared Codex plugin: [`claude_plugin`]'s rules, since `codex plugin add` also takes a
+/// `name@marketplace` (a bare name would need the marketplace named separately).
+pub fn codex_plugin(item: &Plugin) -> Check {
+    claude_plugin(item)
 }
 
 /// A whole shared OpenCode plugin: an npm package name (`name` or `@scope/name`, never

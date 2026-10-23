@@ -138,3 +138,38 @@ describe('the approval notice of Claude Code', () => {
     expect(controller(['omp']).approvalNotice).toBe('omp');
   });
 });
+
+describe('the approval notice of Codex', () => {
+  const NEVER = { name: 'never / workspace-write', unattended: true };
+  const FULL_ACCESS = { name: 'on-request / danger-full-access', unattended: true };
+  const ON_REQUEST = { name: 'on-request / workspace-write', unattended: false };
+
+  /** A controller whose daily driver is Codex, in `mode`. */
+  function codexDriver(mode: NativeApprovalMode | null) {
+    const summaries = machine(['codex']).map((summary) => (summary.info.id === 'codex' ? { ...summary, nativeApprovalMode: mode } : summary));
+    const harnesses = {
+      summaries,
+      installed: summaries.filter((summary) => summary.detection.installed),
+      get: (id: HarnessId) => summaries.find((summary) => summary.info.id === id),
+    };
+    const preferences = {
+      value: samplePrefs({ defaultHarness: null, approvalNoticeSeen: false }),
+      update: async (patch: Partial<AppPrefs>) => {
+        preferences.value = { ...preferences.value, ...patch };
+      },
+    };
+
+    return new OnboardingController(preferences, harnesses, () => true);
+  }
+
+  it('is shown when its settings never ask or give commands full access', () => {
+    expect(codexDriver(NEVER).approvalNotice).toBe('codex');
+    expect(codexDriver(FULL_ACCESS).approvalNotice).toBe('codex');
+    expect(codexDriver(NEVER).steps).toContain('approval');
+  });
+
+  it('is not shown for Codex’s default of asking on request', () => {
+    expect(codexDriver(ON_REQUEST).approvalNotice).toBeNull();
+    expect(codexDriver(null).approvalNotice).toBeNull();
+  });
+});

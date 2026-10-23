@@ -66,18 +66,26 @@ export class OnboardingController {
   /**
    * Which harness's "tools run without asking" notice to show, once: the one of the daily driver, since that is the
    * harness the user works with. OMP and OpenCode both run tools without asking by default, so either driver gets
-   * its notice. Claude Code asks by default, so its driver gets one only when its own settings choose a mode that
-   * runs tools unattended. Anything else gets none. Each notice is shown once: seeing one does not hide the other.
+   * its notice. Claude Code and Codex ask by default, so their driver gets one only when its own settings choose a
+   * mode that runs tools unattended (Codex: an approval policy of "never" or a full-access sandbox). PI gets none.
+   * Each notice is shown once: seeing one does not hide the other.
    */
   get approvalNotice(): ApprovalNotice | null {
     const driver = this.driver;
 
-    if (driver !== 'omp' && driver !== 'opencode' && driver !== 'claude') {
-      return null;
-    }
-
-    if (driver === 'claude' && !this.harnesses.get('claude')?.nativeApprovalMode?.unattended) {
-      return null;
+    switch (driver) {
+      case 'omp':
+      case 'opencode':
+        break;
+      case 'claude':
+      case 'codex':
+        if (!this.harnesses.get(driver)?.nativeApprovalMode?.unattended) {
+          return null;
+        }
+        break;
+      case 'pi':
+      case null:
+        return null;
     }
 
     // Reading the counter makes a notice remembered by `finish` take effect here.

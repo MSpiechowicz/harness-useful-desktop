@@ -423,6 +423,7 @@ fn page(transcript: &Transcript, cursor: Option<&str>, limit: u32) -> Result<Ses
         next_cursor: (end < total).then(|| end.to_string()),
         total: u32::try_from(total).unwrap_or(u32::MAX),
         stats: cursor.is_none().then(|| transcript.stats.clone()),
+        truncated: false,
     })
 }
 

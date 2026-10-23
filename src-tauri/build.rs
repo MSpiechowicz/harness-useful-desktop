@@ -95,6 +95,8 @@ const COMMANDS: &[&str] = &[
     "setup_install_dashboard",
     "setup_install_memory",
     "setup_install_opencode_skills",
+    "setup_install_codex_skills",
+    "skills_migrate_names",
     "setup_register_mcp",
     "setup_register_memory",
     "setup_register_desktop_mcp",

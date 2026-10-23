@@ -42,6 +42,8 @@ export class SessionDetail {
   transcriptStatus = $state<ViewStatus>('idle');
   transcriptError = $state.raw<IpcFailure | null>(null);
   loadingMore = $state(false);
+  /** The session is longer than the app reads: the transcript ends before its latest messages. */
+  truncated = $state(false);
 
   /** Totals of the whole active path; they arrive with the first page. */
   stats = $state.raw<TranscriptStats | null>(null);
@@ -89,6 +91,7 @@ export class SessionDetail {
       setTimeout(() => this.showLoading(generation), STALE_MS);
       this.nextCursor = null;
       this.loadingMore = false;
+      this.truncated = false;
 
       // The totals and touched files belong to the previous session; they must never show under the new one.
       this.stats = null;
@@ -125,10 +128,16 @@ export class SessionDetail {
         this.messages = [...this.messages, ...page.messages];
         this.nextCursor = page.nextCursor;
         this.total = page.total;
+        this.truncated = page.truncated;
       }
     } catch (error) {
-      if (mine === this.generation) {
-        this.transcriptError = IpcFailure.from(error);
+      const failure = IpcFailure.from(error);
+
+      if (mine === this.generation && failure.code === 'changed') {
+        // The session changed under the pages already shown: it is read again from its start.
+        await this.reload();
+      } else if (mine === this.generation) {
+        this.transcriptError = failure;
       }
     } finally {
       if (mine === this.generation) {
@@ -189,6 +198,8 @@ export class SessionDetail {
         this.total = page.total;
       }
 
+      this.truncated = page.truncated;
+
       if (!same(touched, this.touched)) {
         this.touched = touched;
       }
@@ -197,8 +208,12 @@ export class SessionDetail {
       if (tail.cursor === null && !same(page.stats, this.stats)) {
         this.stats = page.stats;
       }
-    } catch {
-      // The next activity tries again.
+    } catch (error) {
+      // A session that changed under the pages shown is read again from its start. Anything else: the next activity
+      // tries again.
+      if (IpcFailure.from(error).code === 'changed' && mine === this.generation && this.tail === tail) {
+        await this.reload();
+      }
     }
   }
 
@@ -209,6 +224,7 @@ export class SessionDetail {
     this.transcriptStatus = this.target ? 'loading' : 'idle';
     this.transcriptError = null;
     this.loadingMore = false;
+    this.truncated = false;
     this.stats = null;
     this.touched = [];
     this.tail = { cursor: null, offset: 0 };
@@ -228,6 +244,7 @@ export class SessionDetail {
         this.stats = page.stats;
         this.nextCursor = page.nextCursor;
         this.total = page.total;
+        this.truncated = page.truncated;
         this.transcriptError = null;
         this.transcriptStatus = 'ready';
       }

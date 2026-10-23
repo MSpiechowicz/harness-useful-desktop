@@ -20,9 +20,9 @@ use crate::samples;
 use std::fs;
 use std::path::PathBuf;
 
-use common::{CANARY, claude_home, demo_project, env_at, exported, omp_home, opencode_home, pi_home};
+use common::{CANARY, claude_home, codex_home, demo_project, env_at, exported, omp_home, opencode_home, pi_home};
 use harness_business::harness::Harness;
-use harness_business::harnesses::{Claude, Omp, OpenCode, Pi};
+use harness_business::harnesses::{Claude, Codex, Omp, OpenCode, Pi};
 use harness_business::model::{
     CliResult, DashboardResult, DashboardTool, EcosystemId, EcosystemStatus, UpdateInfo, UpdatePhase, UpdateProgress,
 };
@@ -40,6 +40,8 @@ fn fixtures() -> Vec<(&'static str, Value)> {
     let opencode_env = env_at(&opencode);
     let claude = claude_home();
     let claude_env = env_at(&claude);
+    let codex = codex_home();
+    let codex_env = env_at(&codex);
 
     let mut fixtures = vec![
         ("harness_list.json", to_json(mock_support::harness_list())),
@@ -68,6 +70,10 @@ fn fixtures() -> Vec<(&'static str, Value)> {
             ),
         ),
         (
+            "config_view.codex.json",
+            exported(Codex.config_view(&codex_env, Some(&project)).unwrap(), &codex, &project),
+        ),
+        (
             "extensions_view.omp.json",
             exported(Omp.extensions_view(&omp_env, Some(&project)).unwrap(), &omp, &project),
         ),
@@ -93,6 +99,14 @@ fn fixtures() -> Vec<(&'static str, Value)> {
                 &project,
             ),
         ),
+        (
+            "extensions_view.codex.json",
+            exported(
+                Codex.extensions_view(&codex_env, Some(&project)).unwrap(),
+                &codex,
+                &project,
+            ),
+        ),
         ("commands_catalog.omp.json", to_json(Omp.catalog().merged(&[]))),
         ("commands_catalog.pi.json", to_json(Pi.catalog().merged(&[]))),
         (
@@ -100,6 +114,7 @@ fn fixtures() -> Vec<(&'static str, Value)> {
             to_json(OpenCode::default().catalog().merged(&[])),
         ),
         ("commands_catalog.claude.json", to_json(Claude.catalog().merged(&[]))),
+        ("commands_catalog.codex.json", to_json(Codex.catalog().merged(&[]))),
         ("project_recent.json", to_json(mock_support::project_recent())),
     ];
 

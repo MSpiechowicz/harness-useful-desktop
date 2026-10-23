@@ -1,0 +1,6 @@
+// The skills of 01_handshake.jsonl (one enabled, one disabled) offered as slash commands, then a
+// message that calls one goes with a skill item.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "skills/list", "reply": {"data": [{"cwd": "/work/project", "skills": [{"name": "brandkit", "description": "Brand-kit boards.", "path": "/home/user/.agents/skills/brandkit/SKILL.md", "scope": "user", "enabled": true, "pluginId": null}, {"name": "sleepy", "description": "A disabled skill.", "path": "/home/user/.agents/skills/sleepy/SKILL.md", "scope": "user", "enabled": false, "pluginId": null}]}]}}
+{"expect": "turn/start", "match": {"/params/input/0/type": "text", "/params/input/0/text": "/brandkit a tea shop", "/params/input/1/type": "skill", "/params/input/1/name": "brandkit", "/params/input/1/path": "/home/user/.agents/skills/brandkit/SKILL.md"}, "reply": {"turn": {"id": "01a164a1-64a5-7b70-9920-b4110aad2502", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"replay": "../codex/app_server/09_user_input.jsonl", "from": 3, "to": 33, "except": ["response"]}

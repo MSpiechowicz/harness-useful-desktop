@@ -1,0 +1,162 @@
+[
+  {
+    "name": "init",
+    "description": "Create an AGENTS.md for this project",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Codex terminal app."
+    }
+  },
+  {
+    "name": "review",
+    "description": "Review the current changes",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Codex terminal app."
+    }
+  },
+  {
+    "name": "new",
+    "description": "Start a new conversation",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "newSession"
+    }
+  },
+  {
+    "name": "resume",
+    "description": "Resume a saved conversation",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "resumePicker"
+    }
+  },
+  {
+    "name": "fork",
+    "description": "Fork the conversation",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "clone"
+    }
+  },
+  {
+    "name": "compact",
+    "description": "Compact the conversation",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "compact"
+    }
+  },
+  {
+    "name": "diff",
+    "description": "Show the git diff",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Codex terminal app. The chat's tool cards show each change."
+    }
+  },
+  {
+    "name": "mention",
+    "description": "Mention a file",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Codex terminal app."
+    }
+  },
+  {
+    "name": "model",
+    "description": "Choose the model and reasoning effort",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "modelPicker"
+    }
+  },
+  {
+    "name": "permissions",
+    "description": "Choose what Codex may do without asking",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Codex terminal app."
+    }
+  },
+  {
+    "name": "skills",
+    "description": "Use a skill",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Type / and the skill's name to use it."
+    }
+  },
+  {
+    "name": "mcp",
+    "description": "List the MCP tools",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "See the MCP servers in the Extensions view."
+    }
+  },
+  {
+    "name": "status",
+    "description": "Show the session status",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "getSessionStats"
+    }
+  },
+  {
+    "name": "thinking",
+    "description": "Choose the thinking level",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "gui",
+      "target": "thinkingPicker"
+    }
+  },
+  {
+    "name": "name",
+    "description": "Rename this session",
+    "argumentHint": "<name>",
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "setSessionName"
+    }
+  },
+  {
+    "name": "abort",
+    "description": "Stop the running turn",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "abort"
+    }
+  }
+]

@@ -160,6 +160,26 @@ fn harness_rules_and_value_types_are_checked() {
             true,
         ),
         (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "approvalMode": "alwaysAsk"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "approvalMode": "write"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "approvalMode": "yolo"}),
+            true,
+        ),
+        (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "approvalMode": "auto"}),
+            false,
+        ),
+        (
+            json!({"type": "agent", "harness": "codex", "prompt": "x", "trustOnce": true}),
+            true,
+        ),
+        (
             json!({"type": "agent", "harness": "omp", "prompt": "x", "approvalMode": "auto"}),
             false,
         ),
@@ -201,6 +221,45 @@ fn harness_rules_and_value_types_are_checked() {
     for (action, valid) in cases {
         let bytes = routine_with(json!({"action": action}));
         assert_eq!(parse_routine_file(&"1".repeat(32), &bytes).is_ok(), valid, "{action}");
+    }
+}
+
+/// An OMP agent routine file whose model is `model`.
+fn routine_with_model(model: Value) -> Vec<u8> {
+    routine_with(json!({"action": {"type": "agent", "harness": "omp", "prompt": "x", "model": model}}))
+}
+
+#[test]
+fn a_model_may_name_a_thinking_level_which_is_written_back_and_checked() {
+    let named = routine_with_model(json!({"provider": "openai", "id": "gpt-5", "thinking": "high"}));
+    let routine = parse_routine_file(&"1".repeat(32), &named).unwrap();
+
+    let RoutineAction::Agent { model, .. } = &routine.action else {
+        panic!("an agent action");
+    };
+    assert_eq!(model.as_ref().and_then(|model| model.thinking.as_deref()), Some("high"));
+
+    // The level survives a rewrite, and a model without one writes no key.
+    let written: Value = serde_json::from_slice(&routine_bytes(&routine, serde_json::Map::new())).unwrap();
+    assert_eq!(
+        written["action"]["model"],
+        json!({"provider": "openai", "id": "gpt-5", "thinking": "high"})
+    );
+
+    let plain = routine_with_model(json!({"provider": "openai", "id": "gpt-5", "thinking": null}));
+    let plain = parse_routine_file(&"1".repeat(32), &plain).unwrap();
+    let written: Value = serde_json::from_slice(&routine_bytes(&plain, serde_json::Map::new())).unwrap();
+    assert_eq!(written["action"]["model"], json!({"provider": "openai", "id": "gpt-5"}));
+
+    for bad in [
+        json!(5),
+        json!(""),
+        json!("a".repeat(201)),
+        json!("hi\u{7}"),
+        json!("hi\u{200b}"),
+    ] {
+        let bytes = routine_with_model(json!({"provider": "openai", "id": "gpt-5", "thinking": bad}));
+        assert!(parse_routine_file(&"1".repeat(32), &bytes).is_err(), "{bad}");
     }
 }
 

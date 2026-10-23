@@ -2,12 +2,15 @@
 //! and OpenCode config views (harness-useful-skills README, "Claude Code model roles" and
 //! "OpenCode model roles"). Each harness picks the settings root, the paths and the text:
 //!
-//! - Model roles: `useful-skills/models.yml` below an install scope, YAML with a `modelRoles` map
+//! - Model roles: `harness-useful-skills/models.yml` below an install scope, YAML with a `modelRoles` map
 //!   of role to selector. Listed only when the file exists. A project file that resolves outside
 //!   the project is listed with an error and not read.
 //! - Workflow: the repository master and the six stage switches of
-//!   `useful-skills/workflow-settings/` below the settings root ([`workflow`]), as
+//!   `harness-useful-skills/workflow-settings/` below the settings root ([`workflow`]), as
 //!   `key: "<value> (<source>)"` rows.
+//!
+//! Harness Skills before 0.4.0 used `useful-skills` for the folder. Both are read through
+//! [`skills_data_path`]: the new path, else the old one when only it exists.
 
 mod workflow;
 
@@ -15,15 +18,17 @@ use std::path::{Path, PathBuf};
 
 pub(super) use self::workflow::MissingRoot;
 use self::workflow::{read_settings, settings_dir};
+use crate::ecosystem::skills_paths::skills_data_path;
 use crate::model::{ConfigField, ConfigFormat, ConfigLayer, ConfigSection, ConfigSource, ConfigValue};
 use crate::pi_family::{Document, SectionText, read_document, section_from, source};
 use crate::security::canonical_within;
 
 const OUTSIDE_PROJECT: &str = "The file resolves outside the project, so it is not read";
 
-/// `useful-skills/models.yml` below the install scope folder `scope`.
+/// `harness-useful-skills/models.yml` below the install scope folder `scope`, or the old
+/// `useful-skills/models.yml` when only that exists.
 pub(super) fn models_path(scope: &Path) -> PathBuf {
-    scope.join("useful-skills").join("models.yml")
+    skills_data_path(scope, &["models.yml"])
 }
 
 /// The model roles file at `path`, or `None` when it does not exist. With `within`, a file that

@@ -1,6 +1,5 @@
 import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
-import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
 import type { SyncBlockReason } from '$lib/ipc/bindings/SyncBlockReason';
 import type { SyncExcludedReason } from '$lib/ipc/bindings/SyncExcludedReason';
 import type { SyncInvalidReason } from '$lib/ipc/bindings/SyncInvalidReason';
@@ -14,6 +13,8 @@ import type { SyncOutcome } from '$lib/ipc/bindings/SyncOutcome';
 import type { SyncSkipReason } from '$lib/ipc/bindings/SyncSkipReason';
 import type { SyncStep } from '$lib/ipc/bindings/SyncStep';
 import type { OpenCodeGeneration } from '$lib/ipc/harness-ids';
+
+import { refusalText } from '../onboarding/setup-model';
 
 export type Tone = 'neutral' | 'accent' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -51,6 +52,7 @@ const EXCLUDED_KEYS: Record<SyncExcludedReason, MessageKey> = {
   localPath: 'sync.excluded.localPath',
   projectScope: 'sync.excluded.projectScope',
   unsupported: 'sync.excluded.unsupported',
+  switchedOff: 'sync.excluded.switchedOff',
   invalid: 'sync.excluded.invalid',
   tooMany: 'sync.excluded.tooMany',
 };
@@ -75,20 +77,6 @@ const INVALID_KEYS: Record<SyncInvalidReason, MessageKey> = {
   badName: 'sync.invalid.badName',
   badKeyName: 'sync.invalid.badKeyName',
   missingField: 'sync.invalid.missingField',
-};
-
-const REFUSAL_KEYS: Record<McpRefusal, MessageKey> = {
-  unparsable: 'onboarding.setup.refused.unparsable',
-  notAnObject: 'onboarding.setup.refused.notAnObject',
-  serversNotAnObject: 'onboarding.setup.refused.serversNotAnObject',
-  symlink: 'onboarding.setup.refused.symlink',
-  notRegularFile: 'onboarding.setup.refused.notRegularFile',
-  tooLarge: 'onboarding.setup.refused.tooLarge',
-  unreadable: 'onboarding.setup.refused.unreadable',
-  writeFailed: 'onboarding.setup.refused.writeFailed',
-  cliFailed: 'onboarding.setup.refused.cliFailed',
-  cliRemovedEntry: 'onboarding.setup.refused.cliRemovedEntry',
-  cliBatchShim: 'onboarding.setup.refused.cliBatchShim',
 };
 
 export function noteText(note: SyncNote): string {
@@ -151,14 +139,14 @@ export function outcomeChip(outcome: SyncOutcome): Chip {
   }
 }
 
-function skipText(reason: SyncSkipReason): string {
+function skipText(reason: SyncSkipReason, harness: HarnessId): string {
   switch (reason.type) {
     case 'dependencyFailed':
       return t('sync.skip.dependencyFailed');
     case 'harnessNotInstalled':
       return t('sync.skip.harnessNotInstalled');
     case 'mcpFileRefused':
-      return t('sync.skip.mcpFileRefused', { reason: t(REFUSAL_KEYS[reason.refusal]) });
+      return t('sync.skip.mcpFileRefused', { reason: refusalText(reason.refusal, harness) });
     case 'manualEdit':
       return t('sync.skip.manualEdit', { file: reason.file });
   }
@@ -186,10 +174,10 @@ function conflictNote(notes: SyncNote[]): string | null {
 }
 
 /** The sentence under a finished item: why it was skipped, or null when the chip says it all. */
-export function outcomeNote(outcome: SyncOutcome, notes: SyncNote[] = []): string | null {
+export function outcomeNote(outcome: SyncOutcome, harness: HarnessId, notes: SyncNote[] = []): string | null {
   switch (outcome.type) {
     case 'skipped':
-      return skipText(outcome.reason);
+      return skipText(outcome.reason, harness);
     case 'conflict':
       return conflictNote(notes);
     default:
@@ -197,28 +185,45 @@ export function outcomeNote(outcome: SyncOutcome, notes: SyncNote[] = []): strin
   }
 }
 
-/** The sentence under an MCP server that the harness's own CLI failed to add (Claude Code's `claude mcp add-json`), or null for any other item. The CLI's summary and command line are shown under it. */
+/**
+ * The sentence under an MCP server that the harness's own CLI failed to add (Claude Code's `claude mcp add-json`,
+ * Codex's `codex mcp add`), or null for any other item. The CLI's summary and command line are shown under it.
+ */
 export function failedCliNote(item: Pick<SyncItemOutcome, 'kind' | 'outcome' | 'argv'>): string | null {
-  return item.kind === 'mcpServer' && item.outcome.type === 'failed' && item.argv[1] === 'mcp' ? t('sync.outcome.cliFailed') : null;
+  return item.kind === 'mcpServer' && item.outcome.type === 'failed' && item.argv[1] === 'mcp' ? t('sync.outcome.cliFailed', { command: `${item.argv[0]} mcp` }) : null;
 }
 
-/** True for an MCP server the import adds by running the harness's CLI (Claude Code's `claude mcp add-json`) instead of writing a file. */
+/**
+ * The command that adds an MCP server through the harness's CLI instead of writing a file (Claude Code's `claude mcp
+ * add-json`, Codex's `codex mcp add`), or null for any other item.
+ */
+export function cliAddCommand(item: { kind: SyncItemKind; steps: SyncStep[] }): string | null {
+  if (item.kind !== 'mcpServer') {
+    return null;
+  }
+
+  const step = item.steps.find((candidate) => candidate.type === 'cli');
+
+  return step?.type === 'cli' ? step.command.slice(0, 3).join(' ') : null;
+}
+
+/** True for an MCP server the import adds by running the harness's CLI instead of writing a file. */
 export function addedByCli(item: { kind: SyncItemKind; steps: SyncStep[] }): boolean {
-  return item.kind === 'mcpServer' && item.steps.some((step) => step.type === 'cli');
+  return cliAddCommand(item) !== null;
 }
 
 /**
  * The names of the variables and headers a server needs, for "Needs …", or null when it needs none. A server added through the CLI
- * has no file the person can edit, so the line says where its values go.
+ * of `cliHarness` (its name) has no file the person can edit, so the line says where its values go.
  */
-export function keysLine(envKeys: string[], headerKeys: string[], viaCli = false): string | null {
+export function keysLine(envKeys: string[], headerKeys: string[], cliHarness: string | null = null): string | null {
   const keys = [...envKeys, ...headerKeys];
 
   if (keys.length === 0) {
     return null;
   }
 
-  return t(viaCli ? 'sync.needsKeysCli' : 'sync.needsKeys', { keys: keys.join(', ') });
+  return cliHarness ? t('sync.needsKeysCli', { keys: keys.join(', '), harness: cliHarness }) : t('sync.needsKeys', { keys: keys.join(', ') });
 }
 
 /** The MCP entry an import writes, as it lands in the harness's servers object: exactly the fields the backend writes, arguments on one line. OpenCode's file has its own shape, and OpenCode 2's differs from OpenCode 1's. */

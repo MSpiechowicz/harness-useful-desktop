@@ -4,10 +4,19 @@
 #![allow(dead_code)]
 
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use harness_business::process::ResolvedBinary;
 use tempfile::TempDir;
+
+/// Copies `from` to `to` in a `cp` process, so this process never holds `to` open for writing.
+/// A child another test thread forks meanwhile inherits such a descriptor until it execs, and
+/// running `to` then fails with "Text file busy" (ETXTBSY).
+fn written_by_a_child(from: &Path, to: &Path) {
+    let copied = Command::new("cp").arg(from).arg(to).status().expect("run cp");
+    assert!(copied.success(), "cp {} failed", from.display());
+}
 
 /// An executable `<dir>/bin/<name>`, with a home directory at `<dir>/home`.
 pub struct FakeCli {
@@ -24,7 +33,9 @@ impl FakeCli {
 
         let shebang = "#!/bin/sh"; // guard-allow: installer-shell
         let path = bin.join(name);
-        std::fs::write(&path, format!("{shebang}\nd=$(dirname \"$0\")\n{body}")).expect("write script");
+        let draft = dir.path().join(format!("{name}.draft"));
+        std::fs::write(&draft, format!("{shebang}\nd=$(dirname \"$0\")\n{body}")).expect("write script");
+        written_by_a_child(&draft, &path);
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).expect("chmod");
 
         Self {

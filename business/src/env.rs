@@ -44,6 +44,8 @@ pub const CAPTURED_VARS: &[&str] = &[
     "CLAUDE_CODE_USE_BEDROCK",
     "CLAUDE_CODE_USE_VERTEX",
     "CLAUDE_CODE_USE_FOUNDRY",
+    // Codex's home directory (`~/.codex` by default).
+    "CODEX_HOME",
     // Harness Memory's data folder, where the app meets the server for script run requests.
     "HARNESS_MEMORY_DIR",
     // Harness Memory's config file, when not the default one (the team database settings).
@@ -56,7 +58,7 @@ pub const CAPTURED_VARS: &[&str] = &[
 
 /// Variables whose presence [`Env::from_process`] records without their value: they may hold
 /// secrets (inline OpenCode config and permissions, Claude Code's API keys, tokens and custom
-/// headers), and the app only reports that they are set.
+/// headers, Codex's API keys), and the app only reports that they are set.
 pub const PRESENCE_VARS: &[&str] = &[
     "OPENCODE_PERMISSION",
     "OPENCODE_CONFIG_CONTENT",
@@ -68,6 +70,8 @@ pub const PRESENCE_VARS: &[&str] = &[
     "AWS_BEARER_TOKEN_BEDROCK",
     "ANTHROPIC_FOUNDRY_API_KEY",
     "ANTHROPIC_FOUNDRY_AUTH_TOKEN",
+    "OPENAI_API_KEY",
+    "CODEX_API_KEY",
 ];
 
 /// Operating-system family, used for platform-specific paths.
@@ -165,8 +169,9 @@ impl Env {
     }
 
     /// Adds the config directory an absolute `CLAUDE_CONFIG_DIR` names to the deny-list's Claude
-    /// roots (see [`crate::security::deny::add_claude_root`]), so its private files stay unread
-    /// whatever the directory is called.
+    /// roots (see [`crate::security::deny::add_claude_root`]) and the home an absolute `CODEX_HOME`
+    /// names to its Codex roots ([`crate::security::deny::add_codex_root`]), so their private files
+    /// stay unread whatever the directories are called.
     fn guard_private_roots(&self) {
         let claude_root = self
             .var("CLAUDE_CONFIG_DIR")
@@ -179,6 +184,14 @@ impl Env {
 
         // The default folder too, which may be a symlink into a repository opened as a project.
         crate::security::deny::add_claude_root(&self.home.join(".claude"));
+
+        let codex_root = self.var("CODEX_HOME").map(Path::new).filter(|dir| dir.is_absolute());
+
+        if let Some(root) = codex_root {
+            crate::security::deny::add_codex_root(root);
+        }
+
+        crate::security::deny::add_codex_root(&self.home.join(".codex"));
     }
 
     /// Returns a copy that reports `os` (for platform-specific path tests).

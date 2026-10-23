@@ -56,6 +56,23 @@ describe('StructuredView', () => {
     expect(within(rows[2]).getByText('anthropic/')).toHaveClass('text-fg-3');
   });
 
+  it('shows Codex selectors in the same table, inherit as the harness default', () => {
+    const roles = map([field('plan', text('gpt-5.5:xhigh')), field('default', text('inherit')), field('review', text('inherit:minimal')), field('backend', text('o3'))]);
+    mount({ fields: [field('modelRoles', roles)] });
+    const rows = within(screen.getByRole('table', { name: 'Model roles' })).getAllByRole('row').slice(1);
+
+    expect(rows.map((row) => within(row).getAllByRole('rowheader')[0].textContent?.trim())).toEqual(['default', 'plan', 'review', 'backend']);
+    expect(within(rows[0]).getByText('inherit')).toHaveClass('text-success');
+    expect(within(rows[0]).getByText('—')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('gpt-5.5')).toHaveClass('text-success');
+    expect(within(rows[1]).getByText('xhigh')).toBeInTheDocument();
+    expect(rows[1].querySelectorAll('i.bg-accent')).toHaveLength(4);
+    expect(within(rows[2]).getByText('inherit')).toBeInTheDocument();
+    expect(within(rows[2]).getByText('minimal')).toBeInTheDocument();
+    expect(rows[2].querySelectorAll('i.bg-accent')).toHaveLength(0);
+    expect(within(rows[3]).getByText('—')).toBeInTheDocument();
+  });
+
   it('falls back to the tree when a role is not a model reference', () => {
     mount({ fields: [field('modelRoles', map([field('plan', text('openai/gpt:high')), field('weird', text('not a model'))]))] });
 

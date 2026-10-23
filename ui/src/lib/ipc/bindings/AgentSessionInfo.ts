@@ -43,6 +43,18 @@ nativeApprovalMode: NativeApprovalMode | null,
  */
 trustedOnce: boolean, 
 /**
+ * Whether trusting the project once would change anything for this harness: false when it
+ * has nothing of the project to leave out (Codex without an untrusted `.codex/` layer), so
+ * the chat offers no trust button.
+ */
+trustOffered: boolean, 
+/**
+ * True when Harness Memory gets the chat's memory identity, so the chat's own guards (and
+ * "Ask before saving") apply: the chat has one and its harness passes it on. False for a
+ * Codex chat with no harness-memory server Codex could be told to pass it to.
+ */
+memoryGuards: boolean, 
+/**
  * RPC protocol version reported by the agent, once known.
  */
 protocolVersion: number | null, };

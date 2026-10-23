@@ -72,6 +72,12 @@ pub fn demo_project() -> PathBuf {
     project
 }
 
+/// `tests/fixtures/codex-home` (canonical): `.codex` and a second home `codex-work` (for
+/// `CODEX_HOME`), each with a login store (`auth.json`) holding the canary.
+pub fn codex_home() -> PathBuf {
+    fixtures_dir().join("codex-home")
+}
+
 /// An environment rooted at `home` with no variables (no profile, no XDG, no PATH).
 pub fn env_at(home: &Path) -> Env {
     Env::for_tests(home)

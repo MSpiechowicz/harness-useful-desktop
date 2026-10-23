@@ -12,6 +12,7 @@ fn omp_only(dir: &TempDir) -> AppState {
     cache_detection(&state, HarnessId::Pi, None);
     cache_detection(&state, HarnessId::OpenCode, None);
     cache_detection(&state, HarnessId::Claude, None);
+    cache_detection(&state, HarnessId::Codex, None);
 
     state
 }

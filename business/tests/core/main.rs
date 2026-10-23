@@ -28,6 +28,7 @@ mod team_support;
 mod blocking_runner;
 mod catalog;
 mod detection;
+mod detection_codex;
 mod env_capture;
 mod git_claude_private;
 mod git_diff_parse;

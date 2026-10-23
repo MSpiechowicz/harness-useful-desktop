@@ -8,7 +8,9 @@
 //! in its config file, which would put this machine's variables or file contents into the command
 //! line or the URL, so its servers may hold neither ([`opencode_mcp_server`]). Claude Code expands
 //! `${NAME}` and `${NAME:-default}` in the command, the arguments and the URL, and has no switch to
-//! write a server disabled, so its servers may hold no `${` at all ([`claude_mcp_server`]).
+//! write a server disabled, so its servers may hold no `${` at all ([`claude_mcp_server`]). Codex
+//! talks to servers over stdio and streamable HTTP only and cannot write one disabled through its
+//! CLI either ([`codex_mcp_server`]).
 
 use std::sync::LazyLock;
 
@@ -20,7 +22,8 @@ use super::schema::{
 use super::secrets::{args_exportable, exportable};
 use super::validate::{Check, compile, has_credentials, is_local_path, name, text};
 use crate::ecosystem::catalog::{
-    DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER,
+    DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, LEGACY_SKILLS_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER,
+    SKILLS_MCP_SERVER,
 };
 use crate::model::SyncInvalidReason;
 
@@ -52,12 +55,18 @@ pub fn mcp_name(value: &str) -> Check {
 
 /// True for the names of the servers Recommended setup and the app write themselves, in any case:
 /// the dashboard's own entry ([`DASHBOARD_MCP_SERVER`]), the app's memory server
-/// ([`MEMORY_MCP_SERVER`]) and the skills' OpenCode server ([`SKILLS_MCP_SERVER`]). Export skips
-/// them without a row and import refuses them.
+/// ([`MEMORY_MCP_SERVER`]) and the Harness Skills server, under its name since 0.4.0
+/// ([`SKILLS_MCP_SERVER`]) and the one before ([`LEGACY_SKILLS_MCP_SERVER`]). Export skips them
+/// without a row and import refuses them.
 pub(super) fn is_reserved_server(name: &str) -> bool {
-    [DASHBOARD_MCP_SERVER, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER]
-        .iter()
-        .any(|reserved| name.eq_ignore_ascii_case(reserved))
+    [
+        DASHBOARD_MCP_SERVER,
+        MEMORY_MCP_SERVER,
+        SKILLS_MCP_SERVER,
+        LEGACY_SKILLS_MCP_SERVER,
+    ]
+    .iter()
+    .any(|reserved| name.eq_ignore_ascii_case(reserved))
 }
 
 /// True when `command` is a shell interpreter (`sh`, `bash`, `zsh`, `dash`, `fish`, `cmd`, `pwsh`,
@@ -261,6 +270,19 @@ pub fn claude_mcp_server(item: &McpServer) -> Check {
     let mut fields = item.command.iter().chain(&item.args).chain(&item.url);
     if fields.any(|value| value.contains("${")) {
         return Err(SyncInvalidReason::UnsafeValue);
+    }
+
+    Ok(())
+}
+
+/// A whole shared Codex server: [`claude_mcp_server`]'s rules (a server cannot be written switched
+/// off, so it may hold no `${`), and no SSE transport (`unsupportedSource`): Codex speaks stdio and
+/// streamable HTTP only.
+pub fn codex_mcp_server(item: &McpServer) -> Check {
+    claude_mcp_server(item)?;
+
+    if item.transport == Transport::Sse {
+        return Err(SyncInvalidReason::UnsupportedSource);
     }
 
     Ok(())

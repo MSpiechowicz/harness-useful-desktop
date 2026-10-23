@@ -22,4 +22,9 @@ total: number,
 /**
  * Totals of the active path; only on the first page (no cursor).
  */
-stats: TranscriptStats | null, };
+stats: TranscriptStats | null, 
+/**
+ * True when the session is longer than the app reads: the transcript (and its totals) end
+ * early, its latest messages are left out.
+ */
+truncated: boolean, };

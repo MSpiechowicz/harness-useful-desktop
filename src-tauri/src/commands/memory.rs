@@ -88,6 +88,7 @@ mod tests {
         cache_detection(&state, HarnessId::Pi, None);
         cache_detection(&state, HarnessId::OpenCode, None);
         cache_detection(&state, HarnessId::Claude, None);
+        cache_detection(&state, HarnessId::Codex, None);
 
         state
     }
@@ -145,6 +146,7 @@ mod tests {
         cache_detection(&state, HarnessId::Pi, None);
         cache_detection(&state, HarnessId::OpenCode, Some(&dir.path().join("missing-opencode")));
         cache_detection(&state, HarnessId::Claude, None);
+        cache_detection(&state, HarnessId::Codex, None);
 
         let file = dir.path().join("home/.config/opencode/opencode.jsonc");
         std::fs::create_dir_all(file.parent().expect("config dir")).expect("config dir");

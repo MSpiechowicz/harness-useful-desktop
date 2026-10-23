@@ -5,12 +5,14 @@
 //! every symlink hop, refuses non-regular files and caps the size, so a credential store can never
 //! be opened by mistake — not even through a symlink.
 
+mod codex;
 mod reader;
 
 use std::fmt;
 use std::path::{Component, Path};
 use std::sync::RwLock;
 
+pub use self::codex::add_codex_root;
 pub use self::reader::SafeReader;
 pub(crate) use self::reader::add_claude_global_file;
 
@@ -21,7 +23,13 @@ const DENIED_EXTENSIONS: &[&str] = &[
     "db-shm",
     "db-journal",
     "sqlite",
+    "sqlite-wal",
+    "sqlite-shm",
+    "sqlite-journal",
     "sqlite3",
+    "sqlite3-wal",
+    "sqlite3-shm",
+    "sqlite3-journal",
     "log",
     "pem",
     "key",
@@ -203,6 +211,10 @@ pub fn is_denied(path: &Path) -> Option<DenyReason> {
         return Some(DenyReason::FileName(file_name.clone()));
     }
 
+    if let Some(reason) = codex::denied(path) {
+        return Some(reason);
+    }
+
     for (index, dir) in parents.iter().enumerate() {
         if DENIED_DIRS.contains(&dir.as_str()) {
             return Some(DenyReason::Directory(dir.clone()));
@@ -263,6 +275,14 @@ pub(crate) fn is_denied_under_claude_root(path: &Path) -> Option<DenyReason> {
     }
 
     None
+}
+
+/// Checks `path` (as given) only against the private names of a harness's own home: a Claude Code
+/// config directory ([`is_denied_under_claude_root`]) or a Codex home (`.codex` or `CODEX_HOME`).
+/// Like [`is_denied_under_claude_root`] it ignores the rules that match a name anywhere among the
+/// ancestors, for paths inside a project.
+pub(crate) fn is_denied_under_private_root(path: &Path) -> Option<DenyReason> {
+    is_denied_under_claude_root(path).or_else(|| codex::denied(path))
 }
 
 /// True for Claude Code's private folders: a [`DENIED_CLAUDE_DIRS`] or `feedback*` folder directly in

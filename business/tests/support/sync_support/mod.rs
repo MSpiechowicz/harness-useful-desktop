@@ -1,8 +1,10 @@
 //! A temporary home for the "Share setup" export tests, and harness summaries.
 
+mod checks;
 mod harnesses;
 pub mod servers;
 
+pub use checks::{assert_imports_again, assert_nothing_shows, bundle_of_everything, excluded_of_kind};
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
 use harness_business::model::{HarnessId, SyncExportPreview};

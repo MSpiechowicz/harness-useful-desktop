@@ -104,6 +104,11 @@ pub struct RoutineModel {
     pub provider: String,
     /// 1 to 200 characters.
     pub id: String,
+    /// The thinking level to set after the model (a level the harness lists for it), 1 to 200
+    /// characters; `None` keeps the model's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub thinking: Option<String>,
 }
 
 /// What a routine does.

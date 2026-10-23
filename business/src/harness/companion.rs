@@ -22,15 +22,19 @@ pub enum SkillsStrategy {
         source: &'static str,
         /// The plugin to install, `name@marketplace`.
         plugin: &'static str,
+        /// The plugin ID of Harness Skills before 0.4.0 when the harness renamed it (Claude Code
+        /// keeps the old and the new plugin as two plugins). `None` when the ID never changed (OMP).
+        legacy: Option<&'static str>,
     },
     /// A package of the harness's own package manager (PI's `pi install`): the app installs it for the user.
     Package {
         /// The package source, as the harness CLI takes it (for example `git:github.com/owner/repo`).
         source: &'static str,
     },
-    /// The Harness Skills' own installer script (OpenCode's `install.sh` / `install.ps1`): the app
-    /// runs it for the user once they confirm, and its install record tells whether it is there.
-    Installer,
+    /// The Harness Skills' own installer script (`install.sh` / `install.ps1`, OpenCode and Codex):
+    /// the app runs it for the user once they confirm, and its install record tells whether it is
+    /// there.
+    Installer(SkillsHost),
     /// A command the user runs themselves.
     Manual {
         /// The command to copy.
@@ -43,6 +47,15 @@ pub enum SkillsStrategy {
         /// Why, for display.
         reason: &'static str,
     },
+}
+
+/// The harness an installer script of the Harness Skills installs for (its `HARNESS_SKILLS_HOST`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SkillsHost {
+    /// OpenCode, the script's default.
+    OpenCode,
+    /// Codex (`HARNESS_SKILLS_HOST=codex`, Harness Skills 0.3.13 and newer).
+    Codex,
 }
 
 /// Where a harness reads user MCP servers from.
@@ -62,6 +75,10 @@ pub enum McpTarget {
     /// which the app only reads. Servers are added and removed through `claude mcp add-json
     /// --scope user` and `claude mcp remove --scope user` (see [`crate::ecosystem::mcp_cli`]).
     ClaudeCli,
+    /// Codex's user settings: the `mcp_servers` table of its `config.toml`, which the app only
+    /// reads. Servers are added and removed through `codex mcp add` and `codex mcp remove`, which
+    /// keep the file's formatting and comments (see [`crate::ecosystem::mcp_cli`]).
+    CodexCli,
     /// The harness has no user MCP file the app can register a server in.
     Unsupported,
 }
