@@ -11,12 +11,15 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ApprovalMode } from '$lib/ipc/bindings/ApprovalMode';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+  import { ipc } from '$lib/ipc/client';
   import { harness as harnesses } from '$lib/stores/harness.svelte';
   import { uid } from '$lib/utils/ids';
 
   import { DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS, type FieldKey, LIMITS, length, type Problem, type RoutineForm, runsUnattended, withHarness } from './routine-form';
   import { abilitiesOf, offers, routineHarnesses } from './routine-abilities';
   import { ACTION_ICONS, ACTION_KINDS, ACTION_LABELS, type ActionKind, HARNESS_NAMES } from './routine-format';
+  import { HarnessModels } from './harness-models.svelte';
+  import ModelFields from './ModelFields.svelte';
   import ScriptPicker from './ScriptPicker.svelte';
   import UnattendedChip from './UnattendedChip.svelte';
 
@@ -28,7 +31,10 @@
 
   let { form = $bindable(), problemOf, touch }: Props = $props();
 
-  const ids = { kind: uid('routine-kind'), prompt: uid('routine-prompt'), harness: uid('routine-harness'), model: uid('routine-model'), modelId: uid('routine-model-id'), mode: uid('routine-mode'), max: uid('routine-max'), command: uid('routine-command'), timeout: uid('routine-timeout') };
+  // The models and thinking levels asked of a harness, kept while the editor is open.
+  const catalog = new HarnessModels(ipc);
+
+  const ids = { kind: uid('routine-kind'), prompt: uid('routine-prompt'), harness: uid('routine-harness'), mode: uid('routine-mode'), max: uid('routine-max'), command: uid('routine-command'), timeout: uid('routine-timeout') };
 
   /** The approval modes a routine can ask for; `harness` leaves the choice to the harness's own setting. */
   const MODES: readonly (ApprovalMode | 'harness')[] = ['harness', 'alwaysAsk', 'write', 'auto', 'yolo'];
@@ -88,12 +94,7 @@
     <div class="flex"><SegmentedControl label={t('routines.field.harness')} options={harnessOptions} bind:value={() => form.harness, (next) => (form = withHarness(form, next))} /></div>
   </DocField>
 
-  <DocField label={t('routines.field.model')} labelId={ids.model} aside={t('routines.editor.optional')} error={message(model)} help={t('routines.editor.model.hint')}>
-    <div class="grid grid-cols-2 gap-2">
-      <input bind:value={form.provider} aria-label={t('routines.editor.model.provider')} placeholder={t('routines.editor.model.provider')} autocomplete="off" spellcheck="false" aria-invalid={model ? 'true' : undefined} class={fieldClass(model !== undefined, 'h-control px-3', 'font-mono')} />
-      <input id={ids.modelId} bind:value={form.modelId} aria-label={t('routines.editor.model.id')} placeholder={t('routines.editor.model.id')} autocomplete="off" spellcheck="false" aria-invalid={model ? 'true' : undefined} class={fieldClass(model !== undefined, 'h-control px-3', 'font-mono')} />
-    </div>
-  </DocField>
+  <ModelFields bind:form error={message(model)} {catalog} />
 
   <!-- What the harness lets a run do unattended: one slot, so a switch of harness swaps it in place instead of sliding one out and another in. -->
   <div class="grid">

@@ -100,6 +100,7 @@ fn an_unattended_claude_run_in_approval_mode_write_takes_its_turn_and_finishes()
     let model = RoutineModel {
         provider: "anthropic".to_owned(),
         id: "sonnet".to_owned(),
+        thinking: None,
     };
 
     // The CLI refuses a start with the Always ask hook and a prompt before the model.

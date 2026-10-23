@@ -37,6 +37,7 @@ fn an_unattended_opencode_run_in_approval_mode_write_takes_its_turn_and_finishes
     let model = RoutineModel {
         provider: "opencode".to_owned(),
         id: "longcat-2.5-preview-free".to_owned(),
+        thinking: None,
     };
 
     // The server refuses a start without the write rules and a prompt without the model.
