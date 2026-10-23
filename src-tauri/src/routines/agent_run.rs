@@ -337,6 +337,11 @@ async fn run(
 
     outcome.excerpt = watch.said.as_deref().and_then(excerpt);
 
+    // Without it a failed run only said "The agent run failed" (a provider down, a model refused).
+    if watch.failed {
+        outcome.error_excerpt = watch.error.as_deref().and_then(excerpt);
+    }
+
     chat.end(&host, may_stay, signals);
 
     outcome

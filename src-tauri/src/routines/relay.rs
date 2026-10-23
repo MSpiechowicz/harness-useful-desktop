@@ -57,6 +57,8 @@ pub enum Signal {
         failed: bool,
         /// The harness handled the prompt itself (a `/command`): no run and no settle follow.
         handled: bool,
+        /// The harness's error text, when it failed.
+        error: Option<String>,
     },
     /// The text of an assistant message.
     Said(String),
@@ -75,9 +77,10 @@ fn signal_of(event: &AgentEvent) -> Option<Signal> {
     match event {
         AgentEvent::State { state } => Some(Signal::Session(state.session_id.clone())),
         AgentEvent::Settled { .. } => Some(Signal::Settled),
-        AgentEvent::PromptResult { status, .. } => Some(Signal::PromptDone {
+        AgentEvent::PromptResult { status, error, .. } => Some(Signal::PromptDone {
             failed: *status == PromptStatus::Error,
             handled: *status == PromptStatus::Handled,
+            error: error.clone().filter(|_| *status == PromptStatus::Error),
         }),
         AgentEvent::MessageEnd { message, .. } if message.role == MessageRole::Assistant => {
             let text: Vec<&str> = message

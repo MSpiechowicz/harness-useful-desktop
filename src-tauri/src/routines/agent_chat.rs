@@ -155,6 +155,8 @@ pub(super) struct Watch {
     handled: bool,
     /// The last prompt ended with an error.
     pub(super) failed: bool,
+    /// The harness's text for that error (a provider's refusal, for example).
+    pub(super) error: Option<String>,
     /// The last assistant text.
     pub(super) said: Option<String>,
 }
@@ -172,6 +174,7 @@ impl Watch {
             settled: false,
             handled: false,
             failed: false,
+            error: None,
             said: None,
         }
     }
@@ -232,9 +235,11 @@ impl Watch {
                 self.taken = true;
                 self.settled = false;
                 self.failed = false;
+                self.error = None;
             }
-            Signal::PromptDone { failed, handled } => {
+            Signal::PromptDone { failed, handled, error } => {
                 self.failed = failed;
+                self.error = error;
                 self.handled |= handled;
             }
             Signal::Said(text) => self.said = Some(text),
