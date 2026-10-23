@@ -114,8 +114,14 @@ describe('The thinking level of an agent routine', () => {
     expect(within(dialog).getByRole('button', { name: 'Thinking' })).toHaveTextContent('high');
 
     // The helper that listed the levels switched to the model first, and was stopped.
-    const sent = calls(invoke, 'agent_send').map((call) => (call as { action: { type: string } }).action.type);
-    expect(sent).toEqual(['getAvailableModels', 'setModel', 'getAvailableThinkingLevels']);
+    // Each helper's own order is fixed; the two helpers may interleave.
+    const byHelper = new Map<string, string[]>();
+    for (const call of calls(invoke, 'agent_send') as { key: string; action: { type: string } }[]) {
+      byHelper.set(call.key, [...(byHelper.get(call.key) ?? []), call.action.type]);
+    }
+    expect([...byHelper.values()]).toEqual(
+      expect.arrayContaining([['getAvailableModels'], ['setModel', 'getAvailableThinkingLevels']]),
+    );
     await waitFor(() => expect(helpers(invoke)).toEqual({ started: 2, allStopped: true }));
 
     await open(dialog, 'Model');
