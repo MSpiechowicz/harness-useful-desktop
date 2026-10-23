@@ -13,7 +13,8 @@ use std::time::Duration;
 use codex_support::{FakeCodex, add_stdio, binary, cli, read_toml, remove, stdio, write_config, write_toml};
 use harness_business::ecosystem::mcp_cli::{add_args, remove_args};
 use harness_business::ecosystem::{
-    Blocked, DesktopRegistration, McpFile, MemoryRegistration, Shape, mcp_state, mcp_target,
+    Blocked, DesktopRegistration, McpFile, MemoryRegistration, Shape, desktop_mcp_state, mcp_state, mcp_target,
+    memory_mcp_state,
     register_dashboard_mcp_cli, register_desktop_mcp_cli, register_memory_mcp_cli, unregister_memory_mcp_cli,
 };
 use harness_business::env::Env;
@@ -280,6 +281,22 @@ fn a_disabled_dashboard_server_is_reported_as_disabled() {
     let state = mcp_state(&home.env, &home.file());
 
     assert!(matches!(state, McpState::Disabled { .. }), "{state:?}");
+}
+
+#[test]
+fn servers_missing_from_an_existing_config_can_be_added_through_the_cli() {
+    // The app never rewrites config.toml, but `codex mcp add` can: a missing entry is Missing
+    // (an Install button), never a manual step.
+    let home = Home::new();
+    home.write("model = \"gpt-5.6-terra\"\n\n[mcp_servers.context7]\nurl = \"https://example.invalid/mcp\"\n");
+    let missing = McpState::Missing {
+        file: "~/.codex/config.toml".to_owned(),
+        exists: true,
+    };
+
+    assert_eq!(mcp_state(&home.env, &home.file()), missing);
+    assert_eq!(memory_mcp_state(&home.env, &home.file()), missing);
+    assert_eq!(desktop_mcp_state(&home.env, &home.file(), None), missing);
 }
 
 #[test]

@@ -350,8 +350,10 @@ fn parse(text: &str, shape: Shape) -> Result<(Map<String, Value>, bool), McpRefu
         let value = jsonc::parse(text).map_err(|_| McpRefusal::Unparsable)?;
         (value, !jsonc::has_comments(text))
     } else if shape == Shape::CodexCli {
+        // `codex mcp` changes it (the app never writes it, see `Shape::app_writes`), so an entry
+        // it lacks can still be added: not a manual step.
         let value = parse_text(text, ConfigFormat::Toml).map_err(|_| McpRefusal::Unparsable)?;
-        (value, false)
+        (value, true)
     } else {
         let value = serde_json::from_str(text).map_err(|_| McpRefusal::Unparsable)?;
         (value, true)
