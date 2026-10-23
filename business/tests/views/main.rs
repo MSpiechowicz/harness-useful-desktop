@@ -57,6 +57,7 @@ mod claude_tools;
 mod claude_views;
 mod cli_actions;
 mod codex_cli_actions;
+mod codex_trust_views;
 mod codex_views;
 mod dashboard_query;
 mod deny_claude;

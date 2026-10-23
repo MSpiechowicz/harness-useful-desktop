@@ -173,8 +173,6 @@ impl Harness for Codex {
         Some(ConfiguredMode::load(env, project).native())
     }
 
-    /// Only for a project with an own layer (`.codex/` settings, hooks or rules) the user's
-    /// `config.toml` does not trust: Codex ignores that layer until it is trusted.
     /// Without a relative `CODEX_HOME`, which the app ignores ([`paths`]) but Codex would resolve
     /// against its working directory (a project could then pick the Codex home).
     fn spawn_spec(&self, env: &Env, spec: ExecSpec) -> ExecSpec {
@@ -189,6 +187,8 @@ impl Harness for Codex {
         }
     }
 
+    /// Only for a project with an own layer (`.codex/` settings, hooks or rules) the user's
+    /// `config.toml` does not trust: Codex ignores that layer until it is trusted.
     fn trust_once_offered(&self, env: &Env, project: &Path) -> bool {
         project_trust(&codex_home(env), project) == ProjectTrust::Untrusted
     }

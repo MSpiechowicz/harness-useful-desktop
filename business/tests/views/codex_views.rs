@@ -1,8 +1,9 @@
 //! The Codex config and extensions views over the fixture home (`tests/fixtures/codex-home`) and
 //! small homes of their own: `config.toml` in source order with its secrets hidden, the project
-//! layer, the configured mode, and the plugins, marketplaces, skills, MCP servers, rules and
-//! instruction files Codex uses.
+//! layer, and the plugins, marketplaces, skills, MCP servers, rules and instruction files Codex
+//! uses. The configured mode and the trust lookup are in `codex_trust_views`.
 
+use crate::codex_trust_views::real;
 use crate::common;
 
 use std::path::Path;
@@ -11,12 +12,10 @@ use common::{CANARY, codex_home, demo_project, env_at, json_text};
 use harness_business::env::Env;
 use harness_business::harness::Harness;
 use harness_business::harnesses::Codex;
-use harness_business::model::{
-    ApprovalMode, ConfigFormat, ConfigLayer, ConfigValue, ExtensionScope, McpTransport, NativeApprovalMode, SecretKind,
-};
+use harness_business::model::{ConfigFormat, ConfigLayer, ConfigValue, ExtensionScope, McpTransport, SecretKind};
 use pretty_assertions::assert_eq;
 
-fn write(path: &Path, text: &str) {
+pub(crate) fn write(path: &Path, text: &str) {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(path, text).unwrap();
 }
@@ -114,135 +113,6 @@ fn a_broken_config_reports_a_location_only() {
     let error = view.sections[0].error.clone().unwrap();
     assert!(error.starts_with("Invalid TOML at line 2"), "{error}");
     assert!(!json_text(&view).contains(CANARY));
-}
-
-#[test]
-fn the_configured_mode_follows_the_layers_and_the_profile() {
-    let home = tempfile::tempdir().unwrap();
-    let project = home.path().join("work/app");
-    std::fs::create_dir_all(project.join(".git")).unwrap();
-    let env = Env::for_tests(home.path());
-
-    assert_eq!(
-        Codex.native_approval_mode(&env, None),
-        Some(NativeApprovalMode {
-            name: "on-request / workspace-write".to_owned(),
-            unattended: false
-        })
-    );
-    assert_eq!(Codex.configured_approval_mode(&env, None), Some(ApprovalMode::Write));
-
-    write(
-        &home.path().join(".codex/config.toml"),
-        &format!(
-            "approval_policy = \"untrusted\"\nsandbox_mode = \"workspace-write\"\n\n[projects.\"{}\"]\ntrust_level = \"trusted\"\n",
-            project.display()
-        ),
-    );
-    assert_eq!(
-        Codex.configured_approval_mode(&env, None),
-        Some(ApprovalMode::AlwaysAsk)
-    );
-
-    // A trusted project's settings apply, and a profile they select wins.
-    write(
-        &project.join(".codex/config.toml"),
-        "profile = \"fast\"\n\n[profiles.fast]\napproval_policy = \"never\"\nsandbox_mode = \"danger-full-access\"\n",
-    );
-    assert_eq!(
-        Codex.native_approval_mode(&env, Some(&project)),
-        Some(NativeApprovalMode {
-            name: "never / danger-full-access".to_owned(),
-            unattended: true
-        })
-    );
-    assert_eq!(
-        Codex.configured_approval_mode(&env, Some(&project)),
-        Some(ApprovalMode::Yolo)
-    );
-
-    // The user's file alone is still the user's mode.
-    assert_eq!(
-        Codex.configured_approval_mode(&env, None),
-        Some(ApprovalMode::AlwaysAsk)
-    );
-}
-
-#[test]
-fn an_untrusted_project_cannot_change_the_mode() {
-    let home = tempfile::tempdir().unwrap();
-    let project = home.path().join("work/app");
-    std::fs::create_dir_all(project.join(".git")).unwrap();
-    write(&project.join(".codex/config.toml"), "approval_policy = \"never\"\n");
-    let env = Env::for_tests(home.path());
-
-    let native = Codex.native_approval_mode(&env, Some(&project)).unwrap();
-    assert!(!native.unattended, "{native:?}");
-}
-
-#[test]
-fn an_unset_mode_is_read_only_in_an_untrusted_folder() {
-    let home = tempfile::tempdir().unwrap();
-    let project = home.path().join("work/app");
-    std::fs::create_dir_all(&project).unwrap();
-    let env = Env::for_tests(home.path());
-
-    let native = Codex.native_approval_mode(&env, Some(&project)).unwrap();
-    assert_eq!(native.name, "on-request / read-only");
-    assert_eq!(Codex.configured_approval_mode(&env, Some(&project)), None);
-
-    write(
-        &home.path().join(".codex/config.toml"),
-        &format!("[projects.\"{}\"]\ntrust_level = \"trusted\"\n", project.display()),
-    );
-    assert_eq!(
-        Codex.configured_approval_mode(&env, Some(&project)),
-        Some(ApprovalMode::Write)
-    );
-}
-
-/// The user's `config.toml` under `home` trusting `folder`.
-fn trust(home: &Path, folder: &Path) {
-    write(
-        &home.join(".codex/config.toml"),
-        &format!("[projects.\"{}\"]\ntrust_level = \"trusted\"\n", folder.display()),
-    );
-}
-
-/// Whether the project's own `approval_policy = "never"` applies (only in a trusted folder).
-fn project_layer_applies(env: &Env, project: &Path) -> bool {
-    write(&project.join(".codex/config.toml"), "approval_policy = \"never\"\n");
-
-    Codex.native_approval_mode(env, Some(project)).unwrap().unattended
-}
-
-#[test]
-fn trust_covers_the_folder_and_its_repository_root_only() {
-    let home = tempfile::tempdir().unwrap();
-    let env = Env::for_tests(home.path());
-
-    // A subfolder of a trusted folder that is not a repository is not trusted.
-    let plain = home.path().join("plain");
-    trust(home.path(), &plain);
-    assert!(!project_layer_applies(&env, &plain.join("sub")));
-    assert!(project_layer_applies(&env, &plain));
-
-    // A subfolder of a trusted repository root is.
-    let repo = home.path().join("repo");
-    std::fs::create_dir_all(repo.join(".git/worktrees/wt")).unwrap();
-    trust(home.path(), &repo);
-    assert!(project_layer_applies(&env, &repo.join("crates/app")));
-
-    // So is a worktree of it, through the repository's common git folder.
-    let worktree = home.path().join("wt");
-    write(&repo.join(".git/worktrees/wt/commondir"), "../..\n");
-    write(
-        &worktree.join(".git"),
-        &format!("gitdir: {}\n", repo.join(".git/worktrees/wt").display()),
-    );
-    let canonical_repo = std::fs::canonicalize(&repo).unwrap();
-    trust(home.path(), &canonical_repo);
-    assert!(project_layer_applies(&env, &worktree));
 }
 
 #[test]
@@ -379,7 +249,7 @@ fn the_extensions_view_lists_plugins_marketplaces_skills_and_servers() {
 #[test]
 fn a_trusted_projects_servers_come_first_and_win() {
     let home = tempfile::tempdir().unwrap();
-    let project = home.path().join("work/app");
+    let project = real(home.path()).join("work/app");
     std::fs::create_dir_all(project.join(".git")).unwrap();
     write(
         &home.path().join(".codex/config.toml"),

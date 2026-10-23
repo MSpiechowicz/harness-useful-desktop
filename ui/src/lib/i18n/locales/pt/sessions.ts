@@ -106,6 +106,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.transcript.progress.one': '{shown} de {count} mensagem',
   'sessions.transcript.progress.other': '{shown} de {count} mensagens',
   'sessions.transcript.loadMore': 'Carregar mais mensagens',
+  'sessions.transcript.truncated': 'Esta sessão é mais longa do que o app lê. As mensagens mais recentes não são mostradas.',
 
   'sessions.folder.label': 'Pasta',
   'sessions.folder.project': 'Este projeto',

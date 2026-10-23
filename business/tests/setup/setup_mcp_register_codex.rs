@@ -10,15 +10,17 @@ use crate::setup_support::dashboard_on_path;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use codex_support::{FakeCodex, add_stdio, binary, cli, read_toml, remove, stdio, write_config};
+use codex_support::{FakeCodex, add_stdio, binary, cli, read_toml, remove, stdio, write_config, write_toml};
+use harness_business::ecosystem::mcp_cli::{add_args, remove_args};
 use harness_business::ecosystem::{
     Blocked, DesktopRegistration, McpFile, MemoryRegistration, Shape, mcp_state, mcp_target,
     register_dashboard_mcp_cli, register_desktop_mcp_cli, register_memory_mcp_cli, unregister_memory_mcp_cli,
 };
 use harness_business::env::Env;
+use harness_business::harness::{Harness, HarnessCli};
 use harness_business::harnesses::Codex;
 use harness_business::model::{McpRefusal, McpState};
-use harness_business::process::ResolvedBinary;
+use harness_business::process::{BoxFuture, ExecOutput, ExecSpec, ProcessRunner, ResolvedBinary};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
@@ -292,4 +294,76 @@ fn an_unparsable_config_is_refused() {
             reason: McpRefusal::Unparsable
         }
     );
+}
+
+#[test]
+fn a_server_named_like_an_option_gets_no_cli_command() {
+    let entry = stdio("/usr/local/bin/harness-memory");
+
+    for shape in [Shape::CodexCli, Shape::ClaudeCli] {
+        for name in ["-h", "--help", ""] {
+            assert_eq!(add_args(shape, name, &entry), None, "{shape:?} add {name:?}");
+            assert_eq!(remove_args(shape, name), None, "{shape:?} remove {name:?}");
+        }
+
+        assert!(add_args(shape, "my-server", &entry).is_some());
+        assert_eq!(remove_args(shape, "a-b").unwrap().last().unwrap(), "a-b");
+    }
+}
+
+/// [`FakeCodex`], and after its first `mcp remove` the user writes their own `harness-memory`
+/// server into the file (between two runs of one change).
+struct UserWritesMeanwhile<'a> {
+    fake: &'a FakeCodex,
+    config: PathBuf,
+    entry: Value,
+}
+
+impl ProcessRunner for UserWritesMeanwhile<'_> {
+    fn run<'a>(&'a self, spec: &'a ExecSpec) -> BoxFuture<'a, harness_business::Result<ExecOutput>> {
+        Box::pin(async move {
+            let output = self.fake.run(spec).await;
+            let removed = spec.args.get(1).is_some_and(|verb| verb == "remove");
+
+            if removed {
+                let mut document = read_toml(&self.config);
+                document.insert("mcp_servers".to_owned(), json!({ "harness-memory": self.entry }));
+                write_toml(&self.config, &document);
+            }
+
+            output
+        })
+    }
+}
+
+#[tokio::test]
+async fn a_server_that_appeared_before_an_add_is_never_replaced() {
+    let home = Home::new();
+    write_config(
+        &home.config(),
+        &json!({ "mcp_servers": { "harness-memory": stdio("/old/place/harness-memory") } }),
+    );
+    let users = json!({ "command": "/opt/tools/memory-proxy", "args": ["serve"] });
+    let runner = UserWritesMeanwhile {
+        fake: &home.fake,
+        config: home.config(),
+        entry: users.clone(),
+    };
+    let cli = HarnessCli {
+        harness: &Codex as &dyn Harness,
+        env: &home.env,
+        runner: &runner,
+        binary: &home.codex,
+    };
+    let memory = PathBuf::from(home.memory());
+
+    let registered = register_memory_mcp_cli(cli, &home.file(), &memory, true).await;
+
+    assert_eq!(registered, MemoryRegistration::Present, "the user's server is found");
+    assert_eq!(
+        home.ran(),
+        [remove("harness-memory")],
+        "`codex mcp add` would replace it"
+    );
+    assert_eq!(home.servers(), json!({ "harness-memory": users }));
 }

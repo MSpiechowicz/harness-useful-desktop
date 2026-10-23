@@ -60,6 +60,7 @@ pub(in crate::harnesses::claude) fn session_messages(
         next_cursor: (end < total).then(|| end.to_string()),
         total: u32::try_from(total).unwrap_or(u32::MAX),
         stats,
+        truncated: false,
     })
 }
 

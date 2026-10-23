@@ -20,7 +20,8 @@
 //!   HTML exporter ([`CodexSessions::export_html`]).
 //!
 //! Each call to the app-server has [`TIMEOUT`], and one run reads at most [`MAX_READ_BYTES`]: past
-//! that the paging stops and what was read is kept (as past [`MAX_TURNS`] or [`MAX_ITEMS`]).
+//! that the paging stops and what was read is kept (as past [`MAX_TURNS`] or [`MAX_ITEMS`]). Such a
+//! transcript ends early, and its pages say so (`truncated`).
 //!
 //! Lists are cached for [`LIST_TTL`] and reads for [`READ_TTL`], per binary and project. One
 //! app-server runs at a time; a caller that waited for another finds its result in the cache.
@@ -37,7 +38,7 @@ use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use self::app_server::{AppServer, CallError, failure};
 use self::cache::{CacheKey, Cached, cached, lock, store};
-use self::paging::{page_cursor, page_offset, pages};
+use self::paging::{Pages, page_cursor, page_offset, pages};
 pub(crate) use self::transcript::{Origin, Transcript, transcript};
 use crate::agent::rfc3339;
 use crate::codex_rpc::wire::items::Turn;
@@ -192,7 +193,7 @@ impl CodexSessions {
         let mut server = AppServer::start(ctx, self.timeout)?;
         let cwd = ctx.project.to_string_lossy().into_owned();
 
-        let threads: Vec<Thread> = pages(&mut server, MAX_THREADS, self.budget, |cursor| {
+        let threads: Pages<Thread> = pages(&mut server, MAX_THREADS, self.budget, |cursor| {
             Request::ThreadList(ThreadList {
                 cwd: Some(cwd.clone()),
                 cursor,
@@ -208,6 +209,7 @@ impl CodexSessions {
         server.finish();
 
         let mut sessions: Vec<(u64, SessionSummary)> = threads
+            .entries
             .into_iter()
             .filter_map(|thread| summary_of(thread, ctx.project))
             .collect();
@@ -247,10 +249,10 @@ impl CodexSessions {
         let mut server = AppServer::start(ctx, self.timeout)?;
         let thread = owned_thread(&mut server, ctx, id)?;
 
-        let turns: Vec<Turn> = pages(&mut server, MAX_TURNS, self.budget, |cursor| turns_page(id, cursor))
+        let turns: Pages<Turn> = pages(&mut server, MAX_TURNS, self.budget, |cursor| turns_page(id, cursor))
             .map_err(|error| thread_failure(error, "thread/turns/list", id))?;
 
-        let items: Vec<ItemEntry> = pages(&mut server, MAX_ITEMS, self.budget, |cursor| items_page(id, cursor))
+        let items: Pages<ItemEntry> = pages(&mut server, MAX_ITEMS, self.budget, |cursor| items_page(id, cursor))
             .map_err(|error| thread_failure(error, "thread/items/list", id))?;
 
         server.finish();
@@ -261,8 +263,9 @@ impl CodexSessions {
         };
 
         Ok(Read {
-            transcript: transcript(&turns, &items, origin, ctx.project),
+            transcript: transcript(&turns.entries, &items.entries, origin, ctx.project),
             title: title_of(&thread).or_else(|| prompt_of(&thread)),
+            truncated: turns.cut || items.cut,
         })
     }
 
@@ -304,6 +307,7 @@ impl CliSessions for CodexSessions {
             next_cursor: (range.end < messages.len()).then(|| page_cursor(messages, range.end)),
             total: u32::try_from(messages.len()).unwrap_or(u32::MAX),
             stats: cursor.is_none().then(|| read.transcript.stats.clone()),
+            truncated: read.truncated,
         })
     }
 
@@ -347,6 +351,8 @@ impl CliSessions for CodexSessions {
 struct Read {
     transcript: Transcript,
     title: Option<String>,
+    /// Paging stopped before the end: the latest turns are missing.
+    truncated: bool,
 }
 
 /// The page of thread `id`'s turns at `cursor`, oldest first, without their items.
