@@ -98,6 +98,9 @@ fn an_unset_mode_is_read_only_in_an_untrusted_folder() {
 /// The `config.toml` table trusting `folder`. The key is a literal string: a Windows path has
 /// backslashes, which a basic string would read as escapes.
 pub(crate) fn trust_entry(folder: &Path) -> String {
+    // The physical folder, as Codex keys trust: Windows temp folders are 8.3 short names
+    // (C:\Users\RUNNER~1\…) and macOS ones sit behind /var.
+    let folder = dunce::canonicalize(folder).unwrap_or_else(|_| folder.to_path_buf());
     format!("[projects.'{}']\ntrust_level = \"trusted\"\n", folder.display())
 }
 
