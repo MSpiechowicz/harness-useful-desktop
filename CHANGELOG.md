@@ -1,3 +1,48 @@
+# [0.38.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.2...v0.38.0) (2026-10-22)
+
+
+### Bug Fixes
+
+* **agent:** keep a session's events when its process exits before it opens ([ed70616](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ed706167e7190ad837997557387c423a93e06d55))
+* **chat:** even gaps between composer controls, a gauge for thinking ([7dd2262](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7dd2262409c6ef8746fd363539fabfebecba3188))
+* **chat:** thinking uses a sparkles icon, the brain stays for memory ([2850a27](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2850a275d8f19475490448a69f62aebec7f694b9))
+* **claude:** a plugin install in an untrusted folder says how to trust it ([7026ab5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7026ab57829d76350fe1aece2c27442c472b2135))
+* **claude:** chat-side fixes from review round 2 ([0385bda](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0385bdad9f43bc889057ab73c930f2eda40f6405))
+* **claude:** engine and mapper robustness from review round 1 ([5089033](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5089033c1b5d5ed30cd9c68f37eeaff93ffb9527))
+* **claude:** files-side fixes from review round 2 ([5a0a0c2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5a0a0c27c6adc34ae8bd43749306437e8f405424))
+* **claude:** files, CLI and setup hardening from review round 1 ([baa5bad](https://github.com/MSpiechowicz/harness-useful-desktop/commit/baa5badd8a53c446825b950828bf724accb9d842))
+* **claude:** project-files approvals only for paths the CLI reads the same way ([5f40728](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5f40728056fa425985a7c11792c1a2901fcce32d))
+* **claude:** remember a folder trusted once for the app run ([6f8622c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6f8622ccbd6f63bcd215d98a14961d8744ced3c2))
+* **claude:** safer always-allow, MCP-free helper chat and a folder trust gate ([24ca04d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/24ca04d274dbe104781a119b2a3aeedf6fc702f9))
+* **ui:** Claude Code is a real orange in the light theme ([fa59388](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fa59388e0f166b190174844180eee730e6d8c7cc)), closes [#b84a00](https://github.com/MSpiechowicz/harness-useful-desktop/issues/b84a00)
+* **ui:** Claude Code's light badge reads orange, not OpenCode's red ([104224f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/104224f29ec55574073424d23bf6244bf615f85e)), closes [#9f4200](https://github.com/MSpiechowicz/harness-useful-desktop/issues/9f4200)
+
+
+### Features
+
+* **chat:** the harness picker shows a breathing dot and the harness's full name ([3330c61](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3330c615bbc86fe64920ad49893194f04c1d61ea))
+* **claude:** approval prompts, questions and approval modes in the Claude chat ([8e897cd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8e897cd9c62a171d226134c3295a4fe7398eb492))
+* **claude:** approval UI for Claude Code and chat preview copy ([df52120](https://github.com/MSpiechowicz/harness-useful-desktop/commit/df521203f3aa88043d2029bfa2d1a9c8d896293c))
+* **claude:** Auto approval mode for Claude Code chats and routines ([c4fbaef](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c4fbaefbfdeb1fb34f4360e3156fef5686e3f055))
+* **claude:** chat engine core over Claude Code's stream-json mode ([7fa2713](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7fa2713036d69f9e438f41cfc6ffc47629292b75))
+* **claude:** Claude Code sessions in the Sessions view ([237fc06](https://github.com/MSpiechowicz/harness-useful-desktop/commit/237fc066ab574c2ee55ae3a9b8493ce95a426290))
+* **claude:** fork, clone and switch keep the Harness Skills default model ([0730477](https://github.com/MSpiechowicz/harness-useful-desktop/commit/07304772f825327ef2a4af6e145508ebe37d56d0))
+* **claude:** Harness Skills model roles and workflow switches in the Claude config view ([4e07e34](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4e07e34b046e0c8c0497586915f67880af43f913))
+* **claude:** name Claude Code in the app copy, readable badge on light themes ([a0aa63c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a0aa63caf547fb3f5aff7501d5a34e740a20bca9)), closes [#ac3708](https://github.com/MSpiechowicz/harness-useful-desktop/issues/ac3708)
+* **claude:** new chats start on the Harness Skills default model, no thinking picker without a model ([c73eddb](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c73eddb674d66547a96cb87867f4b8e315b66d3c))
+* **claude:** plugin actions, Harness Skills and MCP registration through the CLI ([9f00105](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9f00105e7eec67860bd542b45e8221277b4b028c))
+* **claude:** read-only extensions view for Claude Code ([ec478cf](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ec478cf97f8cb907b243803801767a4085858c20))
+* **claude:** redacted config view and deny rules under CLAUDE_CONFIG_DIR ([307e262](https://github.com/MSpiechowicz/harness-useful-desktop/commit/307e2626566740c76be6e68b6f9656cd59db0a00))
+* **claude:** register Claude Code as a detected harness with chat off ([e4470fd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e4470fd5f79a519097adda3607bd3519454d475d))
+* **claude:** session operations and Claude Code chat as a preview ([4e79d04](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4e79d0449fa4cda5ac4caa79599157e251da6372))
+* **claude:** setup and share copy for CLI-run MCP changes ([19536d1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/19536d1f8c44440d967097371ceab399994aa381))
+* **claude:** Share setup for Claude Code marketplaces, plugins and MCP servers ([f7d2d53](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f7d2d538394af4fb42ce745b7a752e42ded84893))
+* **claude:** stream-json wire types, event mapper and session stats ([93743b5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/93743b51bce016c837940566f80e83cc3db44d11))
+* **claude:** tool ids and the files a Claude Code tool call touched ([f4f0ed7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f4f0ed70c9200f55ec8663113cfc6863c37ee4b4))
+* **i18n:** Brazilian Portuguese as a sixth language ([d9a4de0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d9a4de0041b79f9e3045bc9bef9e848597992cc6))
+* **opencode:** Harness Skills model roles and workflow switches in the OpenCode config view ([eec667b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/eec667be90c551c34fdfab8193a2366a009a96e4))
+* **routines:** agent routines name any registered harness ([608632c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/608632c6e85272a156ea29c0c850ff0e54087f97))
+
 ## [0.37.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.1...v0.37.2) (2026-10-22)
 
 
