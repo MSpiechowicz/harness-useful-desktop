@@ -6,7 +6,10 @@
 //!
 //! - Claude Code: the marketplace plugin install of the new plugin, then the removal of the old
 //!   plugin (Claude Code keeps the two as separate plugins, and both would load) and of the old
-//!   marketplace when nothing else is installed from it;
+//!   marketplace when nothing else is installed from it. When the old marketplace is the same
+//!   repository (Claude Code registers a source once, so the new marketplace could not be added),
+//!   it is removed first with the old plugin, and left alone with its plugin when another plugin
+//!   is installed from it;
 //! - OpenCode and Codex: the Harness Skills installer, which migrates the old plugin, MCP entry
 //!   and data itself;
 //! - OMP: nothing, its plugin ID did not change and the plugin moves its own data.
@@ -229,7 +232,11 @@ async fn migrate_skills(
     }
 
     let outcome = match step {
-        LegacySkillsStep::Actions { install, cleanup } => replace_plugin(executor, id, &install, &cleanup).await,
+        LegacySkillsStep::Actions {
+            remove_first,
+            install,
+            cleanup,
+        } => replace_plugin(executor, id, &remove_first, &install, &cleanup).await,
         LegacySkillsStep::Installer(companion) => executor.run_installer(companion).await,
     };
 
@@ -242,22 +249,56 @@ async fn migrate_skills(
     }
 }
 
-/// Installs the new plugin (when `install` is not empty), then runs `cleanup`. A failed cleanup
-/// says the new plugin is in, so the user knows only the old one is left.
+/// Runs `remove_first`, installs the new plugin (when `install` is not empty), then runs `cleanup`.
+/// A failed install after the removal says the old plugin is gone and how to install the new one.
+/// A failed cleanup says the new plugin is in, so the user knows only the old one is left.
 async fn replace_plugin(
     executor: &dyn MigrationExecutor,
     harness: HarnessId,
+    remove_first: &[ExtensionAction],
     install: &[ExtensionAction],
     cleanup: &[ExtensionAction],
 ) -> std::result::Result<(), String> {
+    if !remove_first.is_empty() {
+        executor.run_actions(harness, remove_first).await?;
+    }
+
     if !install.is_empty() {
-        executor.run_actions(harness, install).await?;
+        executor.run_actions(harness, install).await.map_err(|reason| {
+            if remove_first.is_empty() {
+                return reason;
+            }
+
+            format!(
+                "The old plugin was removed, but the new one could not be installed: {reason}. \
+                 Install it with `{}`.",
+                install_commands(install)
+            )
+        })?;
+    }
+
+    if cleanup.is_empty() {
+        return Ok(());
     }
 
     executor
         .run_actions(harness, cleanup)
         .await
         .map_err(|reason| format!("The new plugin is installed, but the old one could not be removed: {reason}"))
+}
+
+/// The Claude Code commands that run `install`, for a message to the user.
+fn install_commands(install: &[ExtensionAction]) -> String {
+    let commands: Vec<String> = install
+        .iter()
+        .filter_map(|action| match action {
+            ExtensionAction::MarketplaceAdd { source } => Some(format!("claude plugin marketplace add {source}")),
+            ExtensionAction::PluginInstall { target, .. } => Some(format!("claude plugin install {target}")),
+            _ => None,
+        })
+        .collect();
+
+    commands.join("` and `")
 }
 
 /// The MCP step of one harness: renames the dashboard's server from `harness` to

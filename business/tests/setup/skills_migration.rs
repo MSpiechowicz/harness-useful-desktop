@@ -11,9 +11,7 @@ use claude_support::write_json;
 use harness_business::ecosystem::{Companion, MigrationExecutor, migrate_skills_names};
 use harness_business::env::Env;
 use harness_business::harness::{Harness, HarnessRegistry};
-use harness_business::model::{
-    ExtensionAction, HarnessId, InstallScope, SkillsMigrationFailure, SkillsMigrationReport,
-};
+use harness_business::model::{ExtensionAction, HarnessId, SkillsMigrationFailure, SkillsMigrationReport};
 use harness_business::process::BoxFuture;
 use pretty_assertions::assert_eq;
 use serde_json::json;
@@ -130,9 +128,29 @@ impl Machine {
     }
 
     fn claude_marketplace(&self, name: &str) {
+        self.claude_marketplace_from(name, "MSpiechowicz/harness-useful-skills");
+    }
+
+    fn claude_marketplace_from(&self, name: &str, repo: &str) {
         write_json(
             &self.home.path().join(".claude/plugins/known_marketplaces.json"),
-            &json!({ name: { "source": { "source": "github", "repo": "MSpiechowicz/harness-useful-skills" }, "installLocation": "/x" } }),
+            &json!({ name: { "source": { "source": "github", "repo": repo }, "installLocation": "/x" } }),
+        );
+    }
+
+    /// The old plugin and `other@useful-skills-local` (a project plugin) installed.
+    fn claude_old_plugin_with_another(&self) {
+        let config = self.home.path().join(".claude");
+        write_json(
+            &config.join("plugins/installed_plugins.json"),
+            &json!({ "version": 2, "plugins": {
+                OLD_PLUGIN: [{ "scope": "user", "installPath": "/x", "version": "0.3.14" }],
+                "other@useful-skills-local": [{ "scope": "project", "installPath": "/y", "version": "1.0.0" }],
+            } }),
+        );
+        write_json(
+            &config.join("settings.json"),
+            &json!({ "enabledPlugins": { OLD_PLUGIN: true } }),
         );
     }
 
@@ -320,151 +338,6 @@ async fn the_opencode_installer_migrates_an_old_record() {
 const NEW_PLUGIN: &str = "harness-useful-skills@harness-useful-skills";
 const OLD_PLUGIN: &str = "useful-skills@useful-skills-local";
 
-fn install_new_plugin(with_marketplace: bool) -> Vec<ExtensionAction> {
-    let install = ExtensionAction::PluginInstall {
-        target: NEW_PLUGIN.to_owned(),
-        scope: InstallScope::User,
-    };
-
-    if with_marketplace {
-        return vec![
-            ExtensionAction::MarketplaceAdd {
-                source: "MSpiechowicz/harness-useful-skills".to_owned(),
-            },
-            install,
-        ];
-    }
-
-    vec![install]
-}
-
-fn remove_old_plugin(with_marketplace: bool) -> Vec<ExtensionAction> {
-    let uninstall = ExtensionAction::PluginUninstall {
-        name: OLD_PLUGIN.to_owned(),
-    };
-
-    if with_marketplace {
-        return vec![
-            uninstall,
-            ExtensionAction::MarketplaceRemove {
-                name: "useful-skills-local".to_owned(),
-            },
-        ];
-    }
-
-    vec![uninstall]
-}
-
-fn claude_calls(steps: &[Vec<ExtensionAction>]) -> Vec<String> {
-    steps.iter().map(|actions| format!("Claude: {actions:?}")).collect()
-}
-
-/// Migrates `machine` and checks that only Claude Code was, through exactly `steps`.
-async fn assert_claude_migrated_through(machine: &Machine, steps: &[Vec<ExtensionAction>]) {
-    let executor = Executor::default();
-
-    let report = machine.migrate(&ALL, Some("0.4.0"), &executor).await;
-
-    assert_eq!(report, migrated(&[HarnessId::Claude]));
-    assert_eq!(executor.calls(), claude_calls(steps));
-}
-
-#[tokio::test]
-async fn a_claude_plugin_under_the_old_name_gets_the_new_plugin_and_loses_the_old_one() {
-    let machine = Machine::new();
-    machine.claude_plugin(OLD_PLUGIN, true);
-    // The old marketplace is registered from the same repository, but under the old name.
-    machine.claude_marketplace("useful-skills-local");
-
-    assert_claude_migrated_through(&machine, &[install_new_plugin(true), remove_old_plugin(true)]).await;
-}
-
-#[tokio::test]
-async fn the_marketplace_is_not_added_again_when_the_new_one_is_registered() {
-    let machine = Machine::new();
-    machine.claude_plugin(OLD_PLUGIN, true);
-    machine.claude_marketplace("harness-useful-skills");
-    let executor = Executor::default();
-
-    machine.migrate(&ALL, Some("0.4.0"), &executor).await;
-
-    // The old marketplace is not registered, so there is nothing to remove with the old plugin.
-    assert_eq!(
-        executor.calls(),
-        claude_calls(&[install_new_plugin(false), remove_old_plugin(false)])
-    );
-}
-
-#[tokio::test]
-async fn the_old_marketplace_stays_while_another_plugin_is_installed_from_it() {
-    let machine = Machine::new();
-    let config = machine.home.path().join(".claude");
-    write_json(
-        &config.join("plugins/installed_plugins.json"),
-        &json!({ "version": 2, "plugins": {
-            OLD_PLUGIN: [{ "scope": "user", "installPath": "/x", "version": "0.3.14" }],
-            "other@useful-skills-local": [{ "scope": "project", "installPath": "/y", "version": "1.0.0" }],
-        } }),
-    );
-    write_json(
-        &config.join("settings.json"),
-        &json!({ "enabledPlugins": { OLD_PLUGIN: true } }),
-    );
-    machine.claude_marketplace("useful-skills-local");
-    let executor = Executor::default();
-
-    machine.migrate(&ALL, Some("0.4.0"), &executor).await;
-
-    assert_eq!(
-        executor.calls(),
-        claude_calls(&[install_new_plugin(true), remove_old_plugin(false)])
-    );
-}
-
-#[tokio::test]
-async fn a_failed_removal_of_the_old_plugin_is_reported_and_retried_alone() {
-    let machine = Machine::new();
-    machine.claude_plugin(OLD_PLUGIN, true);
-    machine.claude_marketplace("useful-skills-local");
-    // The install works, the uninstall does not.
-    let executor = Executor::scripted(&[None, Some("claude plugin uninstall failed")]);
-
-    let report = machine.migrate(&ALL, Some("0.4.0"), &executor).await;
-
-    assert_eq!(report.migrated, []);
-    assert_eq!(
-        report.failed,
-        [SkillsMigrationFailure {
-            harness: HarnessId::Claude,
-            reason: "The new plugin is installed, but the old one could not be removed: claude plugin uninstall failed"
-                .to_owned()
-        }]
-    );
-
-    // The new plugin is in now (the install registered it), the old one is still there.
-    machine.claude_both_plugins();
-    let retry = machine.migrate(&ALL, Some("0.4.0"), &executor).await;
-
-    assert_eq!(retry, migrated(&[HarnessId::Claude]));
-    assert_eq!(
-        executor.calls(),
-        claude_calls(&[
-            install_new_plugin(true),
-            remove_old_plugin(true),
-            // Nothing is installed again: the new plugin is there.
-            remove_old_plugin(true),
-        ])
-    );
-}
-
-#[tokio::test]
-async fn the_old_claude_plugin_alone_is_removed_when_the_new_one_is_already_installed() {
-    let machine = Machine::new();
-    machine.claude_both_plugins();
-
-    assert_claude_migrated_through(&machine, &[remove_old_plugin(false)]).await;
-}
-
 #[tokio::test]
 async fn omp_is_never_migrated_because_its_plugin_id_did_not_change() {
     let machine = Machine::new();
@@ -489,4 +362,5 @@ async fn omp_is_never_migrated_because_its_plugin_id_did_not_change() {
     assert_eq!(executor.calls(), Vec::<String>::new());
 }
 
+mod claude;
 mod mcp;

@@ -82,8 +82,8 @@ async fn the_skills_plugin_of_the_user_scope_counts_with_its_version() {
 }
 
 #[tokio::test]
-async fn a_project_install_does_not_count_and_a_registered_marketplace_is_not_added_again() {
-    // Registered from the skills' repository, under any name.
+async fn a_project_install_does_not_count_and_the_marketplace_under_another_name_is_replaced() {
+    // Registered from the skills' repository, under a name other than the plugin's marketplace.
     let registries = [
         json!({ "useful-skills-local": {
             "source": { "source": "github", "repo": "MSpiechowicz/harness-useful-skills" },
@@ -107,15 +107,73 @@ async fn a_project_install_does_not_count_and_a_registered_marketplace_is_not_ad
         write_json(&config.join("plugins/known_marketplaces.json"), &registry);
 
         let setup = claude(&Env::for_tests(home.path())).await;
+        let name = registry.as_object().unwrap().keys().next().unwrap().clone();
 
+        // Adding the source again under another name registers nothing: the old one goes first.
         assert_eq!(
             setup.skills,
             SkillsSetup::Install {
-                actions: vec![install()]
+                actions: vec![
+                    ExtensionAction::MarketplaceRemove { name },
+                    ExtensionAction::MarketplaceAdd {
+                        source: "MSpiechowicz/harness-useful-skills".to_owned()
+                    },
+                    install()
+                ]
             },
             "{registry}"
         );
     }
+}
+
+#[tokio::test]
+async fn the_marketplace_under_the_expected_name_is_not_added_again() {
+    let home = tempfile::tempdir().unwrap();
+    write_json(
+        &home.path().join(".claude/plugins/known_marketplaces.json"),
+        &json!({ "harness-useful-skills": {
+            "source": { "source": "github", "repo": "MSpiechowicz/harness-useful-skills" },
+            "installLocation": "/x"
+        } }),
+    );
+
+    let setup = claude(&Env::for_tests(home.path())).await;
+
+    assert_eq!(
+        setup.skills,
+        SkillsSetup::Install {
+            actions: vec![install()]
+        }
+    );
+}
+
+#[tokio::test]
+async fn a_marketplace_under_another_name_stays_while_a_plugin_is_installed_from_it() {
+    let home = tempfile::tempdir().unwrap();
+    let config = home.path().join(".claude");
+    write_json(
+        &config.join("plugins/known_marketplaces.json"),
+        &json!({ "useful-skills-local": {
+            "source": { "source": "github", "repo": "MSpiechowicz/harness-useful-skills" },
+            "installLocation": "/x"
+        } }),
+    );
+    write_json(
+        &config.join("plugins/installed_plugins.json"),
+        &json!({ "version": 2, "plugins": {
+            "other@useful-skills-local": [{ "scope": "project", "projectPath": "/w/demo", "version": "1.0.0" }]
+        } }),
+    );
+
+    let setup = claude(&Env::for_tests(home.path())).await;
+
+    // Removing it would break the other plugin: nothing is removed, and the install is offered as before.
+    assert_eq!(
+        setup.skills,
+        SkillsSetup::Install {
+            actions: vec![install()]
+        }
+    );
 }
 
 /// A marketplace that only takes the skills' marketplace name, or whose source merely contains the
