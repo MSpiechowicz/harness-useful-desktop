@@ -1,7 +1,8 @@
 //! What Harness Skills keeps for OpenCode in the OpenCode config view, on OpenCode 1 and 2: the
-//! model roles of each install scope's `useful-skills/models.yml` and the workflow switches of the
-//! user scope's `useful-skills/workflow-settings/`, over the fixture home (`opencode-home`) and
-//! synthetic homes.
+//! model roles of each install scope's `harness-useful-skills/models.yml` and the workflow switches
+//! of the user scope's `harness-useful-skills/workflow-settings/`, over the fixture home
+//! (`opencode-home`, an install from before Harness Skills 0.4.0 with the folder `useful-skills`,
+//! which is still read when only it exists) and synthetic homes.
 
 use crate::common;
 
@@ -261,4 +262,115 @@ fn a_project_roles_file_that_resolves_outside_the_project_is_not_read() {
         Some("The file resolves outside the project, so it is not read")
     );
     assert!(section.entries.is_empty());
+}
+
+#[test]
+fn the_roles_come_from_the_new_folder_the_old_one_or_the_new_one_when_both_exist() {
+    let (_dir, home, project) = machine();
+    let env = env_at(&home);
+    let scopes = [home.join(".config/opencode"), project.join(".opencode")];
+
+    for generation in [V1, V2] {
+        for scope in &scopes {
+            let old = scope.join("useful-skills/models.yml");
+            let new = scope.join("harness-useful-skills/models.yml");
+            let _ = std::fs::remove_dir_all(scope);
+
+            write_file(&old, "modelRoles:\n  plan: old/model\n");
+            let view = config(generation, &env, Some(&project));
+            let section = find(
+                &view,
+                if scope == &scopes[0] {
+                    USER_MODELS
+                } else {
+                    PROJECT_MODELS
+                },
+            )
+            .unwrap();
+            assert_eq!(Path::new(&section.source.path), old, "old only");
+            assert_eq!(role(section, "plan"), &text("old/model"));
+
+            write_file(&new, "modelRoles:\n  plan: new/model\n");
+            let view = config(generation, &env, Some(&project));
+            let section = find(
+                &view,
+                if scope == &scopes[0] {
+                    USER_MODELS
+                } else {
+                    PROJECT_MODELS
+                },
+            )
+            .unwrap();
+            assert_eq!(Path::new(&section.source.path), new, "both");
+            assert_eq!(role(section, "plan"), &text("new/model"));
+
+            std::fs::remove_file(&old).unwrap();
+            let view = config(generation, &env, Some(&project));
+            let section = find(
+                &view,
+                if scope == &scopes[0] {
+                    USER_MODELS
+                } else {
+                    PROJECT_MODELS
+                },
+            )
+            .unwrap();
+            assert_eq!(Path::new(&section.source.path), new, "new only");
+            let _ = std::fs::remove_dir_all(scope);
+        }
+    }
+}
+
+#[test]
+fn an_install_record_under_either_name_lists_the_workflow() {
+    for folder in ["harness-useful-skills", "useful-skills"] {
+        let (_dir, home, project) = machine();
+        let env = env_at(&home);
+
+        write_file(
+            &project
+                .join(".opencode/plugins")
+                .join(folder)
+                .join("install-record.json"),
+            r#"{"version":"0.4.0"}"#,
+        );
+        assert_eq!(
+            skills_ids(&config(V2, &env, Some(&project))),
+            [WORKFLOW],
+            "{folder}: project scope"
+        );
+        std::fs::remove_dir_all(project.join(".opencode")).unwrap();
+
+        write_file(
+            &home
+                .join(".config/opencode/plugins")
+                .join(folder)
+                .join("install-record.json"),
+            r#"{"version":"0.4.0"}"#,
+        );
+        assert_eq!(skills_ids(&config(V2, &env, None)), [WORKFLOW], "{folder}: user scope");
+    }
+}
+
+#[test]
+fn a_saved_master_in_either_folder_is_read() {
+    use sha2::{Digest, Sha256};
+
+    for folder in ["harness-useful-skills", "useful-skills"] {
+        let (_dir, home, project) = machine();
+        std::fs::create_dir(project.join(".git")).unwrap();
+
+        let skills = home.join(".config/opencode").join(folder);
+        let repositories = skills.join("workflow-settings/repositories");
+        let root = dunce::canonicalize(&project).unwrap();
+        let local = repositories.join(format!("{:x}", Sha256::digest(root.to_string_lossy().as_bytes())));
+        write_file(&local.join("workflow.json"), "false");
+
+        for dir in [&skills, &skills.join("workflow-settings"), &repositories, &local] {
+            set_mode(dir, 0o700);
+        }
+
+        let shown = switches(&config(V1, &env_at(&home), Some(&project)));
+        assert_eq!(label(&shown, "workflow"), "disabled (saved file)", "{folder}");
+    }
 }

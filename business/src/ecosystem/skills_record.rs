@@ -1,8 +1,13 @@
 //! The Harness Skills for OpenCode and for Codex on this machine. They have no binary to ask for a
 //! version: their installer (`install.sh`, `install.ps1`) writes an install record, and that record
 //! is what counts as installed. OpenCode's is
-//! `<OpenCode config dir>/plugins/useful-skills/install-record.json`, Codex's
-//! `<Codex home>/useful-skills/install-record.json`.
+//! `<OpenCode config dir>/plugins/harness-useful-skills/install-record.json`, Codex's
+//! `<Codex home>/harness-useful-skills/install-record.json`.
+//!
+//! Before Harness Skills 0.4.0 the folder was `useful-skills`. A record there counts as installed
+//! too, but only while no record exists under the new name: it is then reported as legacy
+//! ([`SkillsRecord::legacy`]) so the setup offers the update, and running the installer again
+//! migrates it. A record under the new name decides alone, whatever the old folder holds.
 //!
 //! The record counts only when it is a regular file (a symlink does not count) of at most
 //! [`MAX_RECORD_BYTES`] holding a JSON object whose `version` is a version string: at most
@@ -11,11 +16,13 @@
 
 use std::fs;
 use std::io::ErrorKind;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
+use super::catalog::{LEGACY_SKILLS_DIR, SKILLS_DIR};
 use super::installer::Installed;
+use super::skills_paths::exists;
 use crate::env::Env;
 use crate::harness::SkillsHost;
 use crate::harnesses::{codex, opencode};
@@ -27,24 +34,90 @@ pub const MAX_RECORD_BYTES: u64 = 256 * 1024;
 /// Longest version accepted from the record.
 pub const MAX_VERSION_CHARS: usize = 64;
 
-/// Where the installer of `host` writes the record: `plugins/useful-skills/install-record.json` in
-/// OpenCode's global config directory, `useful-skills/install-record.json` in the Codex home.
-pub fn skills_record(env: &Env, host: SkillsHost) -> PathBuf {
+/// The record's file name.
+pub const RECORD_FILE: &str = "install-record.json";
+
+/// The Harness Skills install of one host as found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SkillsRecord {
+    /// What the record says.
+    pub installed: Installed,
+    /// True when it is the record of Harness Skills before 0.4.0 (folder `useful-skills`) and none
+    /// exists under the new name.
+    pub legacy: bool,
+}
+
+/// The folder the record folders are in: OpenCode's `plugins` folder in its global config
+/// directory, the Codex home.
+fn record_root(env: &Env, host: SkillsHost) -> PathBuf {
     match host {
-        SkillsHost::OpenCode => opencode::config_dir(env)
-            .join("plugins")
-            .join("useful-skills")
-            .join("install-record.json"),
-        SkillsHost::Codex => codex::codex_home(env).join("useful-skills").join("install-record.json"),
+        SkillsHost::OpenCode => opencode::config_dir(env).join("plugins"),
+        SkillsHost::Codex => codex::codex_home(env),
     }
 }
 
-/// The installed version of the Harness Skills for `host`, from the install record; `None` when
-/// there is no usable record (see the module docs).
-pub fn skills_version(env: &Env, host: SkillsHost) -> Option<String> {
-    let path = skills_record(env, host);
+/// Where the installer of `host` writes the record: `plugins/harness-useful-skills/install-record.json`
+/// in OpenCode's global config directory, `harness-useful-skills/install-record.json` in the Codex
+/// home.
+pub fn skills_record(env: &Env, host: SkillsHost) -> PathBuf {
+    record_root(env, host).join(SKILLS_DIR).join(RECORD_FILE)
+}
 
-    let metadata = match fs::symlink_metadata(&path) {
+/// Where the installer of Harness Skills before 0.4.0 wrote the record (same places, folder
+/// `useful-skills`).
+pub fn legacy_skills_record(env: &Env, host: SkillsHost) -> PathBuf {
+    record_root(env, host).join(LEGACY_SKILLS_DIR).join(RECORD_FILE)
+}
+
+/// The Harness Skills for `host` as found, under the new name first and the old one otherwise.
+pub fn skills_install(env: &Env, host: SkillsHost) -> SkillsRecord {
+    let current = skills_record(env, host);
+
+    if exists(&current) {
+        return SkillsRecord {
+            installed: installed_at(&current),
+            legacy: false,
+        };
+    }
+
+    let legacy = legacy_skills_record(env, host);
+
+    if exists(&legacy) {
+        return SkillsRecord {
+            installed: installed_at(&legacy),
+            legacy: true,
+        };
+    }
+
+    SkillsRecord {
+        installed: Installed::Missing,
+        legacy: false,
+    }
+}
+
+/// The installed version of the Harness Skills for `host`, from the install record (the new one,
+/// else the old one); `None` when there is no usable record (see the module docs).
+pub fn skills_version(env: &Env, host: SkillsHost) -> Option<String> {
+    skills_install(env, host).installed.version().map(str::to_owned)
+}
+
+/// The Harness Skills for `host` as found: the record's version, found without one when the record
+/// is there but unusable, missing when there is none.
+pub fn skills_installed(env: &Env, host: SkillsHost) -> Installed {
+    skills_install(env, host).installed
+}
+
+/// The record at `path`, which exists: found with its version, or without one when unusable.
+fn installed_at(path: &Path) -> Installed {
+    match record_at(path) {
+        Some(version) => Installed::Version(version),
+        None => Installed::NoVersion,
+    }
+}
+
+/// The version of the record at `path`; `None` when there is no usable record.
+fn record_at(path: &Path) -> Option<String> {
+    let metadata = match fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == ErrorKind::NotFound => return None,
         Err(error) => {
@@ -58,7 +131,7 @@ pub fn skills_version(env: &Env, host: SkillsHost) -> Option<String> {
         return None;
     }
 
-    let text = match SafeReader::read_to_string(&path, MAX_RECORD_BYTES) {
+    let text = match SafeReader::read_to_string(path, MAX_RECORD_BYTES) {
         Ok(text) => text,
         Err(error) => {
             tracing::warn!(%error, "unreadable Harness Skills install record");
@@ -72,20 +145,6 @@ pub fn skills_version(env: &Env, host: SkillsHost) -> Option<String> {
     }
 
     version
-}
-
-/// The Harness Skills for `host` as found: the record's version, found without one when the record
-/// is there but unusable, missing when there is none.
-pub fn skills_installed(env: &Env, host: SkillsHost) -> Installed {
-    if let Some(version) = skills_version(env, host) {
-        return Installed::Version(version);
-    }
-
-    if fs::symlink_metadata(skills_record(env, host)).is_ok() {
-        return Installed::NoVersion;
-    }
-
-    Installed::Missing
 }
 
 /// The `version` of a record's text, when it is a JSON object with a valid one.

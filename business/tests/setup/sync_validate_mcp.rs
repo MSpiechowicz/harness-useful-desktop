@@ -142,14 +142,27 @@ fn the_memory_entry_name_is_reserved() {
 }
 
 #[test]
-fn the_skills_server_name_is_reserved() {
-    assert_eq!(validate::mcp_name("useful_skills"), Err(SyncInvalidReason::BadName));
-    assert_eq!(validate::mcp_name("Useful_Skills"), Err(SyncInvalidReason::BadName));
-    assert_eq!(
-        validate::mcp_server(&http("useful_skills", "https://skills.example.com/mcp")),
-        Err(SyncInvalidReason::BadName)
-    );
+fn the_skills_server_name_is_reserved_under_the_new_and_the_old_name() {
+    for reserved in [
+        "harness-useful-skills",
+        "Harness-Useful-Skills",
+        "useful_skills",
+        "Useful_Skills",
+    ] {
+        assert_eq!(
+            validate::mcp_name(reserved),
+            Err(SyncInvalidReason::BadName),
+            "{reserved}"
+        );
+        assert_eq!(
+            validate::mcp_server(&http(reserved, "https://skills.example.com/mcp")),
+            Err(SyncInvalidReason::BadName),
+            "{reserved}"
+        );
+    }
+
     assert_eq!(validate::mcp_name("useful_skills_2"), Ok(()));
+    assert_eq!(validate::mcp_name("harness-useful-skills-docs"), Ok(()));
 }
 
 #[test]

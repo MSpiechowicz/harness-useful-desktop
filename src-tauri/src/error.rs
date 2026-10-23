@@ -28,6 +28,11 @@ impl CommandError {
         })
     }
 
+    /// The message, which carries no secret values or file contents.
+    pub fn message(&self) -> &str {
+        &self.0.message
+    }
+
     /// The error category (what the UI branches on).
     pub fn code(&self) -> IpcErrorCode {
         self.0.code

@@ -540,11 +540,19 @@ fn companion_setup(&self) -> CompanionSetup {
   need Node.js 22 or newer), one run per host (`HARNESS_SKILLS_HOST`: OpenCode by default, `codex`). The app runs it
   through a `Companion` (`OpenCodeSkills`, `CodexSkills`, in `business/src/ecosystem/installer.rs`) after the user
   confirms, with no CLI action. The step reports the skills as installed when the host's install record holds a version
-  (`business/src/ecosystem/skills_record.rs`: a regular file, not a symlink, `plugins/useful-skills/install-record.json`
-  in OpenCode's config directory, `useful-skills/install-record.json` in the Codex home). A record older than the first
+  (`business/src/ecosystem/skills_record.rs`: a regular file, not a symlink,
+  `plugins/harness-useful-skills/install-record.json` in OpenCode's config directory,
+  `harness-useful-skills/install-record.json` in the Codex home). A record older than the first
   release with the host's adapter (`CODEX_SKILLS_MIN_VERSION`, 0.3.13) is offered the installer again, with
-  `outdatedFrom` set so the UI says "Update available". The installer registers the `useful_skills` MCP server itself,
-  so the MCP matrix does not. A new script host needs its own `SkillsHost` and `Companion`, a fixed command per OS in
+  `outdatedFrom` set so the UI says "Update available". So is a record still under the names from before Harness
+  Skills 0.4.0 (folder `useful-skills`, found only while no record exists under the new name): it counts as installed,
+  and re-running the installer migrates it. The installer registers the `harness-useful-skills` MCP server itself
+  (`useful_skills` before 0.4.0), so the MCP matrix does not. Both server names are reserved for Share setup
+  (`LEGACY_SKILLS_MCP_SERVER` in `catalog.rs`). The data files (`models.yml`, `workflow-settings/`) are read through
+  `skills_data_path` (`business/src/ecosystem/skills_paths.rs`): the new folder wins, the old one is used when only it
+  exists. The app never writes them, so any editor added later must write the new path when the install is new (its
+  record is under the new name) and the old path when only the old record exists. On each launch the app migrates such an install by itself (`business/src/ecosystem/skills_migration.rs`, the `skills_migrate_names` command, gated by the update switches and a Harness Skills release of 0.4.0 or newer): `legacy_skills_step` in `setup.rs` says what to run per harness (the plugin install with its marketplace, or the host's installer), and a new harness with a `Marketplace` or `Installer` strategy gets it for free. A host whose adapter writes model
+  roles (Codex from Harness Skills 0.4.0) lists them in its config view only for such an install. A new script host needs its own `SkillsHost` and `Companion`, a fixed command per OS in
   `catalog.rs`, and a Tauri command.
 - `Manual { command, note }`: the user copies a command, the app never runs it. Use it when you have not verified an
   install command against the CLI yet, and say so in `note`. The step reports the skills as installed

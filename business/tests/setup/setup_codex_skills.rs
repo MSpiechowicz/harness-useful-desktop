@@ -28,7 +28,12 @@ fn write(path: &Path, text: &str) {
 }
 
 /// The Harness Skills' Codex install record below `home`.
-fn skills_record(home: &Path) -> PathBuf {
+pub(crate) fn skills_record(home: &Path) -> PathBuf {
+    home.join(".codex/harness-useful-skills/install-record.json")
+}
+
+/// The record Harness Skills before 0.4.0 wrote.
+pub(crate) fn legacy_record(home: &Path) -> PathBuf {
     home.join(".codex/useful-skills/install-record.json")
 }
 
@@ -47,7 +52,7 @@ fn place_node(dir: &Path) -> String {
 }
 
 /// A home with `node` on `PATH`.
-fn env_with_node(home: &Path) -> Env {
+pub(crate) fn env_with_node(home: &Path) -> Env {
     Env::for_tests(home).with_var("PATH", place_node(&home.join("node-bin")))
 }
 
@@ -97,12 +102,12 @@ async fn codex_skills_with(env: &Env, installed: bool) -> SkillsSetup {
 }
 
 /// The Codex skills offer of `env`, with Codex detected.
-async fn codex_skills(env: &Env) -> SkillsSetup {
+pub(crate) async fn codex_skills(env: &Env) -> SkillsSetup {
     codex_skills_with(env, true).await
 }
 
 /// The installer offer for an install or update, with the version it updates from.
-fn script_of(setup: SkillsSetup) -> (String, Vec<String>, Option<String>) {
+pub(crate) fn script_of(setup: SkillsSetup) -> (String, Vec<String>, Option<String>) {
     let SkillsSetup::Script {
         command,
         side_effects,
@@ -128,7 +133,7 @@ async fn without_a_record_the_installer_is_offered_with_what_it_changes() {
     assert!(
         side_effects
             .iter()
-            .any(|line| line.contains("useful_skills MCP server with codex mcp add"))
+            .any(|line| line.contains("harness-useful-skills MCP server with codex mcp add"))
     );
     assert!(side_effects.iter().any(|line| line.contains("Node.js 22 or newer")));
     assert!(side_effects.iter().any(|line| line.contains("this installer again")));
@@ -245,7 +250,7 @@ async fn the_record_follows_codex_home() {
     let codex_home = home.path().join("custom-codex");
     let env = env_with_node(home.path()).with_var("CODEX_HOME", codex_home.to_string_lossy());
     write(
-        &codex_home.join("useful-skills/install-record.json"),
+        &codex_home.join("harness-useful-skills/install-record.json"),
         r#"{"version":"0.3.14"}"#,
     );
     // The default folder's record is not the one that counts.

@@ -92,7 +92,7 @@ describe('Harness Skills for Codex in the recommended setup', () => {
 
     expect(within(confirmation).getByText(CODEX_SKILLS_COMMAND)).toBeInTheDocument();
     const effects = within(confirmation).getByRole('region', { name: 'The Harness Skills installer for Codex also' });
-    expect(within(effects).getByText('Registers the useful_skills MCP server with codex mcp add.')).toBeInTheDocument();
+    expect(within(effects).getByText('Registers the harness-useful-skills MCP server with codex mcp add.')).toBeInTheDocument();
     expect(within(effects).getByText('Needs Node.js 22 or newer and the codex command.')).toBeInTheDocument();
     expect(sent()).not.toContain('setup_install_codex_skills');
 

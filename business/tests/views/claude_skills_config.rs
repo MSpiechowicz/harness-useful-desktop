@@ -1,6 +1,8 @@
 //! What Harness Skills keeps for Claude Code in the Claude Code config view: the model roles of
-//! `useful-skills/models.yml` and the workflow switches of `useful-skills/workflow-settings/`, over
-//! the fixture home (`claude-home`) and synthetic homes and checkouts.
+//! `harness-useful-skills/models.yml` and the workflow switches of
+//! `harness-useful-skills/workflow-settings/`, over the fixture home (`claude-home`, an install
+//! from before Harness Skills 0.4.0 with the folder `useful-skills`, which is still read when only
+//! it exists) and synthetic homes and checkouts.
 
 use crate::common;
 
@@ -265,7 +267,7 @@ fn the_workflow_is_listed_only_when_harness_skills_is_installed_or_saved() {
 
     write_file(
         &registry,
-        r#"{ "version": 2, "plugins": { "useful-skills@useful-skills-local": [{ "scope": "user" }] } }"#,
+        r#"{ "version": 2, "plugins": { "harness-useful-skills@harness-useful-skills": [{ "scope": "user" }] } }"#,
     );
     let view = config(home.path(), None);
     assert!(find(&view, MODELS).is_none());
@@ -276,7 +278,106 @@ fn the_workflow_is_listed_only_when_harness_skills_is_installed_or_saved() {
             .all(|(_, label)| label == "default (enabled)")
     );
     assert!(
-        !home.path().join(".claude/useful-skills").exists(),
+        !home.path().join(".claude/useful-skills").exists()
+            && !home.path().join(".claude/harness-useful-skills").exists(),
         "nothing is created"
     );
+}
+
+const NEW_ROLES: &str = "modelRoles:\n  default: claude-opus-5-5:high\n";
+const OLD_ROLES: &str = "modelRoles:\n  default: claude-sonnet-5-5:low\n";
+
+fn default_role(view: &ConfigView) -> Option<String> {
+    let models = find(view, MODELS)?;
+
+    let ConfigValue::Map(roles) = &models.entries.first()?.value else {
+        panic!("modelRoles is a map");
+    };
+
+    match &roles.first()?.value {
+        ConfigValue::Text(selector) => Some(selector.clone()),
+        other => panic!("expected a selector, got {other:?}"),
+    }
+}
+
+#[test]
+fn the_models_file_is_read_from_the_new_folder_the_old_one_or_the_new_one_when_both_exist() {
+    let home = tempfile::tempdir().unwrap();
+    let new = home.path().join(".claude/harness-useful-skills/models.yml");
+    let old = home.path().join(".claude/useful-skills/models.yml");
+
+    // Old only: an install from before 0.4.0.
+    write_file(&old, OLD_ROLES);
+    let view = config(home.path(), None);
+    assert_eq!(default_role(&view).as_deref(), Some("claude-sonnet-5-5:low"));
+    assert!(
+        find(&view, MODELS)
+            .unwrap()
+            .source
+            .path
+            .ends_with("useful-skills/models.yml")
+    );
+    assert!(
+        !find(&view, MODELS)
+            .unwrap()
+            .source
+            .path
+            .contains("harness-useful-skills")
+    );
+
+    // Both: the migrated file wins.
+    write_file(&new, NEW_ROLES);
+    let view = config(home.path(), None);
+    assert_eq!(default_role(&view).as_deref(), Some("claude-opus-5-5:high"));
+    assert!(
+        find(&view, MODELS)
+            .unwrap()
+            .source
+            .path
+            .contains("harness-useful-skills")
+    );
+
+    // New only.
+    std::fs::remove_file(&old).unwrap();
+    assert_eq!(
+        default_role(&config(home.path(), None)).as_deref(),
+        Some("claude-opus-5-5:high")
+    );
+}
+
+#[test]
+fn the_workflow_settings_follow_the_same_folder_rule() {
+    for (folder, name) in [("harness-useful-skills", "new"), ("useful-skills", "old")] {
+        let home = tempfile::tempdir().unwrap();
+        let dir = home.path().join(".claude").join(folder).join("workflow-settings");
+        std::fs::create_dir_all(&dir).unwrap();
+        set_mode(dir.parent().unwrap(), 0o700);
+        set_mode(&dir, 0o700);
+        write_file(&dir.join("plan.json"), "false");
+
+        let view = config(home.path(), None);
+        let shown = switches(&view);
+
+        assert_eq!(label(&shown, "plan"), "disabled (saved file)", "{name} folder");
+        assert!(
+            find(&view, WORKFLOW).unwrap().source.path.contains(folder),
+            "{name} folder"
+        );
+    }
+}
+
+#[test]
+fn the_plugin_under_either_name_lists_the_workflow() {
+    for id in [
+        "harness-useful-skills@harness-useful-skills",
+        "useful-skills@useful-skills-local",
+    ] {
+        let home = tempfile::tempdir().unwrap();
+        write_file(
+            &home.path().join(".claude/plugins/installed_plugins.json"),
+            &format!(r#"{{ "version": 2, "plugins": {{ "{id}": [{{ "scope": "user" }}] }} }}"#),
+        );
+
+        assert!(find(&config(home.path(), None), WORKFLOW).is_some(), "{id}");
+    }
 }

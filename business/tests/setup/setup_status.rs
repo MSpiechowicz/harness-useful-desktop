@@ -98,13 +98,6 @@ fn register_skills_marketplace(home: &Path) {
     );
 }
 
-fn claude_plugin_install() -> ExtensionAction {
-    ExtensionAction::PluginInstall {
-        target: "useful-skills@useful-skills-local".to_owned(),
-        scope: InstallScope::User,
-    }
-}
-
 fn plugin_install() -> ExtensionAction {
     ExtensionAction::PluginInstall {
         target: "harness-useful-skills@harness-useful-skills".to_owned(),
@@ -215,7 +208,7 @@ async fn an_empty_machine_is_offered_everything() {
                 ExtensionAction::MarketplaceAdd {
                     source: "MSpiechowicz/harness-useful-skills".to_owned()
                 },
-                claude_plugin_install(),
+                plugin_install(),
             ]
         }
     );

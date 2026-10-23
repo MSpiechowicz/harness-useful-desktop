@@ -7,6 +7,11 @@
 //! commands) and `query_params` are hidden containers, a `*_env_var` or `env_key` is shown as the
 //! variable it names, and the secret-looking words of MCP `args` are masked.
 //!
+//! Harness Skills (0.4.0 and newer, which write model roles for Codex) add a user layer section
+//! with `harness-useful-skills/models.yml` of the Codex home: role to `<model>[:<effort>]`. It is
+//! listed only when that install is there and the file exists, never for an older install, which
+//! has no roles.
+//!
 //! Notices: API key variables set in the environment (by name only), the configured mode (model,
 //! reasoning effort, approval policy, sandbox), an untrusted project layer and what is never read.
 
@@ -15,8 +20,14 @@ use std::path::Path;
 use serde_json::{Map, Value};
 
 use super::modes::ConfiguredMode;
+use super::paths::codex_home;
 use super::settings::{CONFIG_FILE, is_trusted, project_config, project_config_path, user_config, user_config_path};
+use crate::ecosystem::catalog::SKILLS_UNIFIED_VERSION;
+use crate::ecosystem::releases::is_newer_release;
+use crate::ecosystem::skills_record::skills_install;
 use crate::env::Env;
+use crate::harness::SkillsHost;
+use crate::harnesses::skills_config::{models_path, models_section};
 use crate::model::{
     ConfigField, ConfigFormat, ConfigLayer, ConfigSection, ConfigValue, ConfigView, HarnessId, Notice, NoticeLevel,
 };
@@ -34,6 +45,13 @@ const PROJECT_TEXT: SectionText<'static> = SectionText {
     id: "project.config",
     title: "Project settings",
     description: "Settings for this project. Codex applies them only in a folder you trust.",
+};
+
+const SKILLS_MODELS_TEXT: SectionText<'static> = SectionText {
+    id: "user.harnessSkillsModels",
+    title: "Harness Skills model roles",
+    description: "The model and reasoning effort of each Harness Skills role. Run the Harness Skills installer again \
+                  to apply a change to the role agents Codex uses.",
 };
 
 /// Presence-only variables (see [`crate::env::PRESENCE_VARS`]) and what each does to Codex.
@@ -60,6 +78,8 @@ pub(super) fn config_view(env: &Env, project: Option<&Path>) -> ConfigView {
     if user_path.is_file() {
         sections.push(section(USER_TEXT, &user_path, ConfigLayer::User, &user));
     }
+
+    sections.extend(skills_models(env));
 
     let mut notices: Vec<Notice> = SECRET_VARS
         .iter()
@@ -96,6 +116,25 @@ pub(super) fn config_view(env: &Env, project: Option<&Path>) -> ConfigView {
         sections,
         notices,
     }
+}
+
+/// The Harness Skills model roles of the Codex home: when the installed Harness Skills are
+/// [`SKILLS_UNIFIED_VERSION`] or newer under the new name (an older install, or one still under
+/// the old name, has no Codex roles) and the file exists.
+fn skills_models(env: &Env) -> Option<ConfigSection> {
+    let record = skills_install(env, SkillsHost::Codex);
+    let version = record.installed.version()?;
+
+    if record.legacy || is_newer_release(SKILLS_UNIFIED_VERSION, version) {
+        return None;
+    }
+
+    models_section(
+        SKILLS_MODELS_TEXT,
+        &models_path(&codex_home(env)),
+        ConfigLayer::User,
+        None,
+    )
 }
 
 fn section(text: SectionText<'_>, path: &Path, layer: ConfigLayer, document: &Document) -> ConfigSection {

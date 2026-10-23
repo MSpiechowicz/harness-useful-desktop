@@ -35,9 +35,31 @@ pub const MEMORY_BINARY: &str = "harness-memory";
 /// The name the app gives the memory server in a harness's `mcpServers`.
 pub const MEMORY_MCP_SERVER: &str = "harness-memory";
 
-/// The name the skills' OpenCode installer gives their MCP server in OpenCode's `mcp` (a `local`
-/// server running the installed `mcp-server.js` by absolute path).
-pub const SKILLS_MCP_SERVER: &str = "useful_skills";
+/// The name the skills' installers give their MCP server (Harness Skills 0.4.0 and newer): in
+/// OpenCode's `mcp` (a `local` server running the installed `mcp-server.js` by absolute path), in
+/// Codex's `mcp_servers`, and the one the Claude Code and OMP plugins declare.
+pub const SKILLS_MCP_SERVER: &str = "harness-useful-skills";
+
+/// The same server before Harness Skills 0.4.0 unified the names. Installs older than that still
+/// use it until the user runs the installer again, so it stays recognised (and reserved).
+pub const LEGACY_SKILLS_MCP_SERVER: &str = "useful_skills";
+
+/// The folder Harness Skills 0.4.0 and newer keep their data in, below Claude Code's config
+/// directory (`models.yml`, `workflow-settings`), below OpenCode's `plugins` and config directory,
+/// and below the Codex home (`install-record.json`, `models.yml`).
+pub const SKILLS_DIR: &str = "harness-useful-skills";
+
+/// The folder of the same data before Harness Skills 0.4.0.
+pub const LEGACY_SKILLS_DIR: &str = "useful-skills";
+
+/// The plugin name before Harness Skills 0.4.0 (`useful-skills@useful-skills-local` in Claude
+/// Code, `useful-skills@harness-useful-skills` in OMP). An install under it is recognised and
+/// offered the update that renames it.
+pub const LEGACY_SKILLS_PLUGIN: &str = "useful-skills";
+
+/// The first Harness Skills release with the unified names ([`SKILLS_DIR`], [`SKILLS_MCP_SERVER`],
+/// [`SKILLS_TARGET`]) and, for Codex, model roles.
+pub const SKILLS_UNIFIED_VERSION: &str = "0.4.0";
 
 /// The skills' marketplace source (`omp plugin marketplace add …`, `claude plugin marketplace add
 /// …`).
@@ -47,8 +69,9 @@ pub const SKILLS_MARKETPLACE: &str = "MSpiechowicz/harness-useful-skills";
 pub const SKILLS_TARGET: &str = "harness-useful-skills@harness-useful-skills";
 
 /// The skills' Claude Code plugin (`claude plugin install … --scope user`): the marketplace of
-/// [`SKILLS_MARKETPLACE`] names itself `useful-skills-local` (harness-useful-skills README).
-pub const CLAUDE_SKILLS_PLUGIN: &str = "useful-skills@useful-skills-local";
+/// [`SKILLS_MARKETPLACE`] names itself `harness-useful-skills` since Harness Skills 0.4.0 (it was
+/// `useful-skills-local`), so the ID is the OMP one.
+pub const CLAUDE_SKILLS_PLUGIN: &str = SKILLS_TARGET;
 
 /// The skills as a PI package source (`pi install …`).
 pub const PI_SKILLS_SOURCE: &str = "git:github.com/MSpiechowicz/harness-useful-skills";

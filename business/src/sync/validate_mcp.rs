@@ -22,7 +22,8 @@ use super::schema::{
 use super::secrets::{args_exportable, exportable};
 use super::validate::{Check, compile, has_credentials, is_local_path, name, text};
 use crate::ecosystem::catalog::{
-    DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER,
+    DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, LEGACY_SKILLS_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER,
+    SKILLS_MCP_SERVER,
 };
 use crate::model::SyncInvalidReason;
 
@@ -54,12 +55,18 @@ pub fn mcp_name(value: &str) -> Check {
 
 /// True for the names of the servers Recommended setup and the app write themselves, in any case:
 /// the dashboard's own entry ([`DASHBOARD_MCP_SERVER`]), the app's memory server
-/// ([`MEMORY_MCP_SERVER`]) and the skills' OpenCode server ([`SKILLS_MCP_SERVER`]). Export skips
-/// them without a row and import refuses them.
+/// ([`MEMORY_MCP_SERVER`]) and the Harness Skills server, under its name since 0.4.0
+/// ([`SKILLS_MCP_SERVER`]) and the one before ([`LEGACY_SKILLS_MCP_SERVER`]). Export skips them
+/// without a row and import refuses them.
 pub(super) fn is_reserved_server(name: &str) -> bool {
-    [DASHBOARD_MCP_SERVER, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER]
-        .iter()
-        .any(|reserved| name.eq_ignore_ascii_case(reserved))
+    [
+        DASHBOARD_MCP_SERVER,
+        MEMORY_MCP_SERVER,
+        SKILLS_MCP_SERVER,
+        LEGACY_SKILLS_MCP_SERVER,
+    ]
+    .iter()
+    .any(|reserved| name.eq_ignore_ascii_case(reserved))
 }
 
 /// True when `command` is a shell interpreter (`sh`, `bash`, `zsh`, `dash`, `fish`, `cmd`, `pwsh`,

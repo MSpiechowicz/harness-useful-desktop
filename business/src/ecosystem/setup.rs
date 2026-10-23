@@ -10,11 +10,14 @@
 //! `mcpServers` of its global file, Codex's the `mcp_servers` of its `config.toml` ([`mcp_target`]).
 
 mod github;
+mod legacy;
 mod registries;
 
 use std::path::{Path, PathBuf};
 
 use self::github::same_repository;
+pub use self::legacy::{LegacySkillsStep, legacy_skills_step};
+use self::legacy::{install_actions, is_plugin_named, legacy_plugin_name};
 use self::registries::marketplace_registries;
 use super::catalog::{CODEX_SKILLS_MIN_VERSION, SKILLS_PLUGIN, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
@@ -22,14 +25,14 @@ use super::installer::{Companion, Installed, installer};
 use super::mcp_merge::Shape;
 use super::mcp_register::{mcp_state, memory_mcp_state};
 use super::releases::is_newer_release;
-use super::skills_record::skills_version;
+use super::skills_record::skills_install;
 use crate::env::{Env, OsKind};
 use crate::harness::{Harness, HarnessRegistry, McpTarget, OpenCodeGeneration, SkillsHost, SkillsStrategy};
 use crate::harnesses::pi::user_has_package;
 use crate::harnesses::{claude, codex, opencode};
 use crate::model::{
-    DashboardSetup, EcosystemId, ExtensionAction, HarnessSetup, HarnessSummary, InstallScope, McpRefusal, McpState,
-    RecommendedSetup, SkillsSetup, SkillsUnavailableCode,
+    DashboardSetup, EcosystemId, ExtensionAction, HarnessSetup, HarnessSummary, McpRefusal, McpState, RecommendedSetup,
+    SkillsSetup, SkillsUnavailableCode,
 };
 use crate::process::{ProcessRunner, ResolvedBinary, resolve_binary};
 
@@ -265,20 +268,23 @@ fn memory_side_effects(os: OsKind) -> &'static [&'static str] {
     }
 }
 
+/// What the installer does on top when it finds an install from before Harness Skills 0.4.0.
+const MIGRATION_SIDE_EFFECT: &str = "Renames the existing useful-skills install to harness-useful-skills and moves your model roles and settings along.";
+
 /// What the Harness Skills' OpenCode installer of `os` changes, per its script (`install.sh`,
 /// `install.ps1`). OpenCode keeps its config folder below the home folder on Windows too.
 fn skills_side_effects(os: OsKind) -> &'static [&'static str] {
     match os {
         OsKind::Linux | OsKind::MacOs => &[
             "Installs the Harness Skills plugin, skills, agents and commands into the OpenCode config folder (~/.config/opencode).",
-            "Adds the useful_skills MCP server to opencode.json in that folder.",
+            "Adds the harness-useful-skills MCP server to opencode.json in that folder.",
             "Needs Node.js 22 or newer.",
             "Restart OpenCode and running OpenCode chats to load the skills.",
             "Updates come from /useful-skills update in OpenCode.",
         ],
         OsKind::Windows => &[
             r"Installs the Harness Skills plugin, skills, agents and commands into the OpenCode config folder (%USERPROFILE%\.config\opencode).",
-            "Adds the useful_skills MCP server to opencode.json in that folder.",
+            "Adds the harness-useful-skills MCP server to opencode.json in that folder.",
             "Needs Node.js 22 or newer.",
             "Restart OpenCode and running OpenCode chats to load the skills.",
             "Updates come from /useful-skills update in OpenCode.",
@@ -298,7 +304,7 @@ fn codex_skills_side_effects(env: &Env) -> Vec<String> {
     vec![
         "Adds the Harness Skills marketplace and plugin to Codex.".to_owned(),
         format!("Writes the us-* agents and the memory runtime into the Codex folder ({folder})."),
-        "Registers the useful_skills MCP server with codex mcp add.".to_owned(),
+        "Registers the harness-useful-skills MCP server with codex mcp add.".to_owned(),
         "Needs Node.js 22 or newer and the codex command.".to_owned(),
         "Restart Codex and running Codex chats to load the skills.".to_owned(),
         "Updates come from running this installer again.".to_owned(),
@@ -364,9 +370,12 @@ fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
 /// [`unsupported_version`]). Otherwise the installer, which needs `node`, and for an older record
 /// the version it is updated from.
 fn installer_skills(env: &Env, host: SkillsHost) -> SkillsSetup {
-    let version = skills_version(env, host);
+    let record = skills_install(env, host);
+    let version = record.installed.version().map(str::to_owned);
 
+    // An install under the names before 0.4.0 works, but only the installer renames it.
     if let Some(version) = &version
+        && !record.legacy
         && !unsupported_version(host, version)
     {
         return SkillsSetup::Installed {
@@ -381,10 +390,14 @@ fn installer_skills(env: &Env, host: SkillsHost) -> SkillsSetup {
         };
     }
 
-    let (companion, side_effects) = match host {
+    let (companion, mut side_effects) = match host {
         SkillsHost::OpenCode => (Companion::OpenCodeSkills, lines(skills_side_effects(env.os))),
         SkillsHost::Codex => (Companion::CodexSkills, codex_skills_side_effects(env)),
     };
+
+    if record.legacy {
+        side_effects.push(MIGRATION_SIDE_EFFECT.to_owned());
+    }
 
     SkillsSetup::Script {
         command: installer(env, companion).command.to_owned(),
@@ -415,12 +428,20 @@ fn find_node(env: &Env) -> Option<ResolvedBinary> {
 fn marketplace_skills(env: &Env, harness: &dyn Harness, source: &str, plugin: &str) -> SkillsSetup {
     let name = plugin.split_once('@').map_or(plugin, |(name, _)| name);
     let registries = marketplace_registries(env, harness);
-    let prefix = format!("{name}@");
 
+    // The skills plugin under its name before 0.4.0 still counts, the new name first.
     let installed = registries
         .plugins
         .iter()
-        .find(|found| found.id == name || found.id.starts_with(&prefix));
+        .find(|found| is_plugin_named(&found.id, name))
+        .or_else(|| {
+            let legacy = legacy_plugin_name(name)?;
+
+            registries
+                .plugins
+                .iter()
+                .find(|found| is_plugin_named(&found.id, legacy))
+        });
 
     match installed {
         Some(found) if found.enabled => {
@@ -441,20 +462,9 @@ fn marketplace_skills(env: &Env, harness: &dyn Harness, source: &str, plugin: &s
         .iter()
         .any(|(_, from)| same_repository(from, source));
 
-    let mut actions = Vec::new();
-
-    if !registered {
-        actions.push(ExtensionAction::MarketplaceAdd {
-            source: source.to_owned(),
-        });
+    SkillsSetup::Install {
+        actions: install_actions(registered, source, plugin),
     }
-
-    actions.push(ExtensionAction::PluginInstall {
-        target: plugin.to_owned(),
-        scope: InstallScope::User,
-    });
-
-    SkillsSetup::Install { actions }
 }
 
 /// The app's own server in `file`; a manual edit names this app's program.

@@ -14,7 +14,7 @@ import { IpcFailure } from '../transport';
 import { CODEX_SKILLS, CODEX_SKILLS_COMMAND, OPENCODE_SKILLS, OPENCODE_SKILLS_COMMAND, opencodeSnippet, rosterFor, SKILLS_NO_NODE, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
-type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_opencode_skills' | 'setup_install_codex_skills' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
+type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_opencode_skills' | 'setup_install_codex_skills' | 'skills_migrate_names' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
 
 /**
  * What the mock recommended setup starts from. The browser preview picks one with `?setup=<name>`:
@@ -68,7 +68,7 @@ const OPENCODE_SKILLS_VERSION = '0.2.40';
 const OPENCODE_SKILLS_OUTPUT_OK: InstallLogLine[] = [
   { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
   { stream: 'stdout', line: '==> Installing the Harness Skills into ~/.config/opencode' },
-  { stream: 'stdout', line: '==> Adding the useful_skills MCP server to opencode.json' },
+  { stream: 'stdout', line: '==> Adding the harness-useful-skills MCP server to opencode.json' },
   { stream: 'stdout', line: `==> Harness Skills ${OPENCODE_SKILLS_VERSION} installed. Restart OpenCode to load them.` },
 ];
 
@@ -77,7 +77,7 @@ const CODEX_SKILLS_VERSION = '0.3.13';
 const CODEX_SKILLS_OUTPUT_OK: InstallLogLine[] = [
   { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
   { stream: 'stdout', line: '==> Adding the Harness Skills marketplace and plugin to Codex' },
-  { stream: 'stdout', line: '==> Registering the useful_skills MCP server' },
+  { stream: 'stdout', line: '==> Registering the harness-useful-skills MCP server' },
   { stream: 'stdout', line: `==> Harness Skills ${CODEX_SKILLS_VERSION} installed. Restart Codex to load them.` },
 ];
 
@@ -102,8 +102,8 @@ const MCP_FILE: Record<HarnessId, string> = {
 /** OpenCode's config when it has comments: the app never rewrites it. */
 const OPENCODE_COMMENTED_FILE = '~/.config/opencode/opencode.jsonc';
 const SKILLS_TARGET = 'harness-useful-skills@harness-useful-skills';
-/** The Harness Skills plugin of Claude Code (its marketplace names itself `useful-skills-local`). */
-const CLAUDE_SKILLS_TARGET = 'useful-skills@useful-skills-local';
+/** The Harness Skills plugin of Claude Code: since Harness Skills 0.4.0 its marketplace and plugin carry the OMP names. */
+const CLAUDE_SKILLS_TARGET = SKILLS_TARGET;
 
 const OUTPUT_OK: InstallLogLine[] = [
   { stream: 'stdout', line: 'Downloading harness-dashboard 0.9.4 for linux-x86_64' },
@@ -413,6 +413,9 @@ export function setupHandlers(
 
         return result;
       },
+
+      // The browser preview has no install under the old names.
+      skills_migrate_names: async () => ({ migrated: [], failed: [] }),
 
       setup_register_mcp: async ({ harness }): Promise<McpState> => {
         start();

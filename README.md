@@ -53,7 +53,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   and PI, in the `mcp` object of the global `opencode.json` or `opencode.jsonc` for OpenCode. An OpenCode config file
   with comments is never rewritten, so the app shows the entry to paste instead. The same step can register the app's own
   `harness-desktop` MCP server (for hooks) in each harness. Claude Code and Codex get their entries through their own CLI
-  (`claude mcp`, `codex mcp`). Codex gets the Harness Skills from the same installer as OpenCode, run for Codex.
+  (`claude mcp`, `codex mcp`). Codex gets the Harness Skills from the same installer as OpenCode, run for Codex. Installs from before Harness Skills 0.4.0 (the plugin and folders named `useful-skills`) still show as installed, and the app renames them by itself once per launch while automatic updates are on. For Codex 0.4.0 and newer the config view lists the Harness Skills model roles.
 - **Project memory.** Your harnesses share a local memory of what was done, problems and fixes, and where things are,
   per project. See [Project memory](#project-memory).
 - **Hooks.** Small rules that add context to a prompt, send a follow-up after the agent finishes or run a command when

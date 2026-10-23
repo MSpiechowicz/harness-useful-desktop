@@ -24,6 +24,7 @@ pub mod review;
 pub mod routines;
 pub mod sessions;
 pub mod setup;
+pub mod skills_migration;
 pub mod sound;
 pub mod sync;
 pub mod system;

@@ -28,6 +28,7 @@
   import { onboarding } from '../onboarding/onboarding-state.svelte';
   import ScriptRequestDialog from '../memory/ScriptRequestDialog.svelte';
   import { familyUpdater } from '../ecosystem/family-updater';
+  import { skillsNamesMigration } from '../ecosystem/skills-migration';
   import { hooks } from '../hooks/hooks-data.svelte';
   import { openRequestedRun } from '../routines/routine-request';
   import { routines } from '../routines/routines-data.svelte';
@@ -201,6 +202,14 @@
   $effect(() => {
     if (intro.phase === 'done' && prefs.value?.autoUpdateExtensions && !onboarding.visible && ecosystem.status) {
       void familyUpdater.check();
+    }
+  });
+
+  // Harness Skills installed under their names before 0.4.0 move to the new ones once per launch, after the first-run
+  // setup is out of the way (it is the onboarding). The backend holds every condition and answers with what it did.
+  $effect(() => {
+    if (intro.phase === 'done' && !onboarding.visible && prefs.value) {
+      void skillsNamesMigration.run();
     }
   });
 

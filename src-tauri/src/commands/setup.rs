@@ -109,6 +109,23 @@ async fn install(
         return Err(BusinessError::InvalidInput("the user has not confirmed the install".to_owned()).into());
     }
 
+    // A closed channel only means the page went away; the install goes on.
+    install_streaming(state, spawner, companion, |line| {
+        on_log.send(line).ok();
+    })
+    .await
+}
+
+/// Runs the installer of `companion` under its lock (`invalidInput` while it is already running),
+/// handing each output line to `on_line`. The caller has the user's consent: the command's
+/// `confirmed`, or for the launch migration of the Harness Skills names the install that already
+/// exists.
+pub(crate) async fn install_streaming(
+    state: &AppState,
+    spawner: &dyn ProcessSpawner,
+    companion: Companion,
+    mut on_line: impl FnMut(InstallLogLine),
+) -> CommandResult<DashboardInstallResult> {
     let lock = match companion {
         Companion::Dashboard => &state.dashboard_install,
         Companion::Memory => &state.memory_install,
@@ -124,8 +141,7 @@ async fn install(
     let mut lines = 0_usize;
     let result = run_installer(&state.env, companion, spawner, |line| {
         lines += 1;
-        // A closed channel only means the page went away; the install goes on.
-        on_log.send(line).ok();
+        on_line(line);
     })
     .await?;
 

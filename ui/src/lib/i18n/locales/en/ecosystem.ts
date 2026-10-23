@@ -23,6 +23,11 @@ export const ecosystem = {
   'ecosystem.autoUpdate.failed': '{name} update failed',
   'ecosystem.autoUpdate.noReason': 'The installer did not say why.',
 
+  'ecosystem.skillsMigration.done': 'Harness Skills renamed in {harnesses}',
+  'ecosystem.skillsMigration.failed': 'Harness Skills could not be renamed in {harnesses}',
+  'ecosystem.skillsMigration.reason': '{harness}: {reason}',
+  'ecosystem.skillsMigration.noReason': 'The installer did not say why.',
+
   'ecosystem.orbit.description': '{summary}: {items}',
   'ecosystem.orbit.installed': '{name} installed',
   'ecosystem.orbit.updating': '{name} installed, update available',

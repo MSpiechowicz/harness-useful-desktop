@@ -209,7 +209,7 @@ impl Harness for Codex {
 
     /// The MCP servers in the user's `config.toml` through `codex mcp`. The Harness Skills come
     /// from their own installer script with `HARNESS_SKILLS_HOST=codex` (plan Decision 6), which
-    /// registers its `useful_skills` server itself.
+    /// registers its `harness-useful-skills` server itself.
     fn companion_setup(&self) -> CompanionSetup {
         CompanionSetup {
             skills: SkillsStrategy::Installer(SkillsHost::Codex),

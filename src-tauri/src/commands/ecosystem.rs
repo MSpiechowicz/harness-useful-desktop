@@ -7,7 +7,8 @@ use std::sync::OnceLock;
 
 use harness_business::ecosystem;
 use harness_business::model::{
-    DashboardAvailability, DashboardQuery, DashboardResult, EcosystemInstalled, EcosystemRelease, EcosystemStatus,
+    AppPrefs, DashboardAvailability, DashboardQuery, DashboardResult, EcosystemId, EcosystemInstalled,
+    EcosystemRelease, EcosystemStatus,
 };
 use harness_business::prefs::PrefsOrigin;
 use tauri::async_runtime::block_on;
@@ -39,9 +40,30 @@ pub async fn ecosystem_releases(
     state: State<'_, AppState>,
     installed: Vec<EcosystemInstalled>,
 ) -> CommandResult<Vec<EcosystemRelease>> {
+    Ok(lookup(&app, &state, &installed).await)
+}
+
+/// The version of the latest Harness Skills release, `None` while the release check is off or the
+/// lookup failed (the same cache and switch as [`ecosystem_releases`]).
+pub(crate) async fn latest_skills_release(app: &AppHandle, state: &AppState) -> Option<String> {
+    // Only the release is wanted: the installed version given here is compared with nothing.
+    let installed = [EcosystemInstalled {
+        id: EcosystemId::Skills,
+        version: "0.0.0".to_owned(),
+    }];
+
+    lookup(app, state, &installed)
+        .await
+        .into_iter()
+        .find(|release| release.id == EcosystemId::Skills)
+        .map(|release| release.latest_version)
+}
+
+/// [`releases`] over HTTPS, with the client of app `app` built on the first request only, so a
+/// lookup answered from the cache sets nothing up.
+async fn lookup(app: &AppHandle, state: &AppState, installed: &[EcosystemInstalled]) -> Vec<EcosystemRelease> {
     let version = app.package_info().version.to_string();
 
-    // Built on the first request only, so a lookup answered from the cache sets nothing up.
     let client = OnceLock::new();
     let fetch = |url| {
         let client = &client;
@@ -53,11 +75,15 @@ pub async fn ecosystem_releases(
         }
     };
 
-    Ok(releases(&state, &installed, fetch).await)
+    releases(state, installed, fetch).await
 }
 
 /// [`ecosystem_releases`] with the requests made by `fetch`.
-async fn releases<F, Fut>(state: &AppState, installed: &[EcosystemInstalled], fetch: F) -> Vec<EcosystemRelease>
+pub(crate) async fn releases<F, Fut>(
+    state: &AppState,
+    installed: &[EcosystemInstalled],
+    fetch: F,
+) -> Vec<EcosystemRelease>
 where
     F: Fn(&'static str) -> Fut,
     Fut: Future<Output = Option<Vec<u8>>>,
@@ -73,13 +99,21 @@ where
 /// moved aside as corrupt) but cannot be used, since the user may have turned the check off in
 /// it; on (the default) only when nothing was ever stored.
 async fn companion_checks_on(prefs: &SharedPrefs) -> bool {
+    stored_prefs(prefs)
+        .await
+        .is_some_and(|prefs| prefs.check_companion_updates)
+}
+
+/// The stored preferences (the defaults when nothing was ever stored); `None` when the prefs file
+/// exists but cannot be used, so a caller that needs a switch to be on fails closed.
+pub(crate) async fn stored_prefs(prefs: &SharedPrefs) -> Option<AppPrefs> {
     let prefs = prefs.clone();
 
     let loaded = blocking(move || Ok(prefs.with(|store| store.load_checked()))).await;
 
     match loaded {
-        Ok((prefs, PrefsOrigin::Stored | PrefsOrigin::Missing)) => prefs.check_companion_updates,
-        Ok((_, PrefsOrigin::Unusable)) | Err(_) => false,
+        Ok((prefs, PrefsOrigin::Stored | PrefsOrigin::Missing)) => Some(prefs),
+        Ok((_, PrefsOrigin::Unusable)) | Err(_) => None,
     }
 }
 

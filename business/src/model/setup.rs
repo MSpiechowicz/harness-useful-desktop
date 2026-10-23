@@ -116,6 +116,30 @@ pub enum SkillsUnavailableCode {
     NodeMissing,
 }
 
+/// What the launch migration of the Harness Skills names did (`skills_migrate_names`): the
+/// harnesses whose install moved from the names before Harness Skills 0.4.0, and the ones that
+/// failed with the reason (tried again at a later launch).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SkillsMigrationReport {
+    /// Migrated harnesses.
+    pub migrated: Vec<HarnessId>,
+    /// Harnesses whose migration failed.
+    pub failed: Vec<SkillsMigrationFailure>,
+}
+
+/// A harness whose Harness Skills could not be migrated.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SkillsMigrationFailure {
+    /// The harness.
+    pub harness: HarnessId,
+    /// Why, in English, redacted: a short line from the installer or the CLI.
+    pub reason: String,
+}
+
 /// A companion's MCP server (`harness-dashboard`, `harness-memory` or the app's own
 /// `harness-desktop`) in a harness's user MCP file.
 /// `file` is the file's home-relative display path (e.g. `"~/.omp/agent/mcp.json"`); contents are

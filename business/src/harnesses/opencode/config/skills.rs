@@ -2,22 +2,25 @@
 //! model roles", `opencode/models.js` and `opencode/settings.js`), shown read-only through
 //! [`crate::harnesses::skills_config`] on OpenCode 1 and 2 alike:
 //!
-//! - Model roles: `useful-skills/models.yml` in each install scope, YAML with a `modelRoles` map of
+//! - Model roles: `harness-useful-skills/models.yml` in each install scope, YAML with a `modelRoles` map of
 //!   role to selector (`<provider>/<model>[:<variant>]` or `inherit`). The user scope is
 //!   `$XDG_CONFIG_HOME/opencode` (else `~/.config/opencode`), never `OPENCODE_CONFIG_DIR`, which is
 //!   no install target. The project scope is `<project>/.opencode`, left out when OpenCode ignores
 //!   the project's settings. Each is listed in its layer, only when the file exists.
 //! - Workflow: the repository master and the six stage switches in
-//!   `useful-skills/workflow-settings/` of the user scope, for both install scopes. Listed when
+//!   `harness-useful-skills/workflow-settings/` of the user scope, for both install scopes. Listed when
 //!   an install record of either scope or the settings folder exists. A user scope folder that does
 //!   not exist yet holds no saved settings. The plugin has no option tier, so there is no notice.
+//!
+//! Harness Skills before 0.4.0 used `useful-skills` for these folders and the install record's;
+//! each is read from there when only the old one exists.
 
-use std::fs;
 use std::path::Path;
 
 use super::layers::project_config_enabled;
 use crate::ecosystem::installer::Installed;
-use crate::ecosystem::skills_record::skills_installed;
+use crate::ecosystem::skills_paths::{exists, skills_data_path};
+use crate::ecosystem::skills_record::{RECORD_FILE, skills_installed};
 use crate::env::Env;
 use crate::harness::{OpenCodeGeneration, SkillsHost};
 use crate::harnesses::opencode::{PROJECT_DIR_NAME, config_dir};
@@ -82,7 +85,5 @@ pub(super) fn sections(env: &Env, project: Option<&Path>, generation: OpenCodeGe
 /// Whether the install scope folder `scope` holds an install record, usable or not (the user
 /// scope's is [`skills_installed`]).
 fn has_record(scope: &Path) -> bool {
-    let record = scope.join("plugins").join("useful-skills").join("install-record.json");
-
-    fs::symlink_metadata(record).is_ok()
+    exists(&skills_data_path(&scope.join("plugins"), &[RECORD_FILE]))
 }

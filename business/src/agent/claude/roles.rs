@@ -1,5 +1,6 @@
 //! The model a new Claude Code chat starts on from Harness Skills' model roles:
-//! `<config dir>/useful-skills/models.yml`, `modelRoles: {default: "<model>[:<effort>]", …}`
+//! `<config dir>/harness-useful-skills/models.yml` (`useful-skills/models.yml` before Harness Skills
+//! 0.4.0, read when only it exists), `modelRoles: {default: "<model>[:<effort>]", …}`
 //! (Harness Skills' `claude/models.js`).
 //!
 //! - **File:** read through [`SafeReader`], at most [`MAX_BYTES`], as YAML. It must hold
@@ -15,6 +16,7 @@ use std::path::Path;
 
 use serde_json::Value;
 
+use crate::ecosystem::skills_paths::skills_data_path;
 use crate::error::BusinessError;
 use crate::model::ConfigFormat;
 use crate::pi_family::config_files::parse_text;
@@ -66,7 +68,7 @@ pub(super) struct Selection {
 
 /// The default role of the models file in `config_dir`, when it names a model (see the module docs).
 pub(super) fn default_selection(config_dir: &Path) -> Option<Selection> {
-    let path = config_dir.join("useful-skills").join("models.yml");
+    let path = skills_data_path(config_dir, &["models.yml"]);
 
     let text = match SafeReader::read_to_string(&path, MAX_BYTES) {
         Ok(text) => text,
@@ -224,5 +226,47 @@ mod tests {
 
         let long = format!("claude-{}", "a".repeat(MAX_MODEL_ID_LEN + 1));
         assert_eq!(selector(&long), None);
+    }
+
+    fn write(config: &std::path::Path, folder: &str, text: &str) {
+        let path = config.join(folder).join("models.yml");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+
+    #[test]
+    fn the_models_file_is_read_from_the_new_folder_else_the_old_one() {
+        let config = tempfile::tempdir().unwrap();
+        assert_eq!(default_selection(config.path()), None, "no file");
+
+        write(config.path(), "useful-skills", "modelRoles:\n  default: sonnet:low\n");
+        assert_eq!(
+            default_selection(config.path()),
+            selection("sonnet", Some("low")),
+            "only the folder before Harness Skills 0.4.0"
+        );
+
+        write(
+            config.path(),
+            "harness-useful-skills",
+            "modelRoles:\n  default: opus:high\n",
+        );
+        assert_eq!(
+            default_selection(config.path()),
+            selection("opus", Some("high")),
+            "the new folder wins"
+        );
+
+        std::fs::remove_dir_all(config.path().join("useful-skills")).unwrap();
+        assert_eq!(default_selection(config.path()), selection("opus", Some("high")));
+    }
+
+    #[test]
+    fn an_invalid_new_file_is_not_replaced_by_the_old_one() {
+        let config = tempfile::tempdir().unwrap();
+        write(config.path(), "useful-skills", "modelRoles:\n  default: sonnet\n");
+        write(config.path(), "harness-useful-skills", "modelRoles: nope\n");
+
+        assert_eq!(default_selection(config.path()), None);
     }
 }

@@ -57,6 +57,7 @@ import type { SessionRef } from './bindings/SessionRef';
 import type { SessionSummary } from './bindings/SessionSummary';
 import type { SessionTotals } from './bindings/SessionTotals';
 import type { SessionTree } from './bindings/SessionTree';
+import type { SkillsMigrationReport } from './bindings/SkillsMigrationReport';
 import type { SyncExported } from './bindings/SyncExported';
 import type { SyncExportPreview } from './bindings/SyncExportPreview';
 import type { SyncImportPlan } from './bindings/SyncImportPlan';
@@ -138,6 +139,8 @@ export const commands = {
   setup_install_opencode_skills: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   /** Runs the same Harness Skills installer for Codex (`HARNESS_SKILLS_HOST=codex`, needs Node.js 22 and the `codex` command). `ok` once their install record holds a version. */
   setup_install_codex_skills: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
+  /** Moves Harness Skills installed under their names before 0.4.0 to the new names (the install path of Recommended setup), once per launch and only while automatic updates are on. */
+  skills_migrate_names: cmd<undefined, SkillsMigrationReport>(),
   setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the installed Harness Memory server in one harness (turning Project memory on); `invalidInput` while it is not installed. */
   setup_register_memory: cmd<{ harness: HarnessId }, McpState>(),

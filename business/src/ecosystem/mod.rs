@@ -96,6 +96,8 @@ pub mod memory_trust;
 pub mod memory_user_save;
 pub mod releases;
 pub mod setup;
+pub mod skills_migration;
+pub mod skills_paths;
 pub mod skills_record;
 
 pub use catalog::{ECOSYSTEM, catalog_item, supported_on};
@@ -151,5 +153,12 @@ pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::{script_sha256, trust_scripts};
 pub use memory_user_save::SaveRoute;
 pub use releases::{CompanionReleases, release_endpoint};
-pub use setup::{McpFile, mcp_target, mcp_target_paths, memory_server_setup, setup_status, share_mcp_target};
-pub use skills_record::{skills_installed, skills_record, skills_version};
+pub use setup::{
+    LegacySkillsStep, McpFile, legacy_skills_step, mcp_target, mcp_target_paths, memory_server_setup, setup_status,
+    share_mcp_target,
+};
+pub use skills_migration::{MIGRATION_RECORD_FILE, MigrationExecutor, MigrationRecord, migrate_skills_names};
+pub use skills_paths::skills_data_path;
+pub use skills_record::{
+    SkillsRecord, legacy_skills_record, skills_install, skills_installed, skills_record, skills_version,
+};
