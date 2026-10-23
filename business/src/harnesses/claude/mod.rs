@@ -35,7 +35,7 @@ pub use setup::{
 };
 
 use self::config::ProjectTrust;
-use crate::ecosystem::catalog::{CLAUDE_SKILLS_PLUGIN, SKILLS_MARKETPLACE};
+use crate::ecosystem::catalog::{CLAUDE_SKILLS_PLUGIN, LEGACY_CLAUDE_SKILLS_PLUGIN, SKILLS_MARKETPLACE};
 use crate::error::BusinessError;
 use crate::harness::prelude::*;
 use crate::harnesses::pi::PiDialect;
@@ -236,6 +236,7 @@ impl Harness for Claude {
             skills: SkillsStrategy::Marketplace {
                 source: SKILLS_MARKETPLACE,
                 plugin: CLAUDE_SKILLS_PLUGIN,
+                legacy: Some(LEGACY_CLAUDE_SKILLS_PLUGIN),
             },
             mcp: McpTarget::ClaudeCli,
         }

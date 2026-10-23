@@ -197,40 +197,32 @@ async fn a_disabled_plugin_still_counts_and_says_so() {
 }
 
 #[tokio::test]
-async fn the_skills_plugin_under_its_old_name_counts_with_an_update_available() {
-    let home = tempfile::tempdir().unwrap();
-    install_plugins(home.path(), &[("useful-skills@harness-useful-skills", "0.3.14", true)]);
-
-    let status = status(&home, OsKind::Linux, &ScriptedRunner::new(prints_version)).await;
-
-    let skills = item(&status, EcosystemId::Skills);
-    assert!(skills.installed);
-    assert!(skills.update_available, "re-installing renames the plugin");
-    assert_eq!(skills.version.as_deref(), Some("0.3.14"));
-    assert_eq!(skills.via, ["OMP plugin useful-skills@harness-useful-skills v0.3.14"]);
-}
-
-#[tokio::test]
-async fn the_new_skills_plugin_wins_over_a_leftover_old_one() {
+async fn the_omp_skills_plugin_keeps_its_id_across_the_new_names() {
     let home = tempfile::tempdir().unwrap();
     install_plugins(
         home.path(),
-        &[
-            ("useful-skills@harness-useful-skills", "0.3.14", true),
-            ("harness-useful-skills@harness-useful-skills", "0.4.0", true),
-        ],
+        &[("harness-useful-skills@harness-useful-skills", "0.3.14", true)],
     );
 
     let status = status(&home, OsKind::Linux, &ScriptedRunner::new(prints_version)).await;
 
     let skills = item(&status, EcosystemId::Skills);
     assert!(skills.installed);
-    assert!(!skills.update_available);
-    assert_eq!(skills.version.as_deref(), Some("0.4.0"));
-    assert_eq!(
-        skills.via,
-        ["OMP plugin harness-useful-skills@harness-useful-skills v0.4.0"]
+    assert!(
+        !skills.update_available,
+        "the plugin ID did not change, so there is nothing to rename"
     );
+    assert_eq!(skills.version.as_deref(), Some("0.3.14"));
+}
+
+#[tokio::test]
+async fn a_plugin_named_useful_skills_is_not_the_omp_skills() {
+    let home = tempfile::tempdir().unwrap();
+    install_plugins(home.path(), &[("useful-skills@omp-useful-skills", "0.2.0", true)]);
+
+    let status = status(&home, OsKind::Linux, &ScriptedRunner::new(prints_version)).await;
+
+    assert!(!item(&status, EcosystemId::Skills).installed);
 }
 
 #[tokio::test]

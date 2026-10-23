@@ -22,6 +22,9 @@ pub enum SkillsStrategy {
         source: &'static str,
         /// The plugin to install, `name@marketplace`.
         plugin: &'static str,
+        /// The plugin ID of Harness Skills before 0.4.0 when the harness renamed it (Claude Code
+        /// keeps the old and the new plugin as two plugins). `None` when the ID never changed (OMP).
+        legacy: Option<&'static str>,
     },
     /// A package of the harness's own package manager (PI's `pi install`): the app installs it for the user.
     Package {

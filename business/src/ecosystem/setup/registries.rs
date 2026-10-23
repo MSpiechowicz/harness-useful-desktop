@@ -10,6 +10,9 @@ use crate::model::HarnessId;
 /// What a marketplace harness has installed and registered for its user.
 pub(super) struct MarketplaceRegistries {
     pub plugins: Vec<FoundPlugin>,
+    /// The ID of every plugin the registry lists, whatever scope it is installed in (a project
+    /// plugin included), which decides whether a marketplace is still in use.
+    pub all_plugin_ids: Vec<String>,
     /// Name and source of each registered marketplace.
     pub marketplaces: Vec<(String, String)>,
 }
@@ -36,33 +39,42 @@ pub(super) fn marketplace_registries(env: &Env, harness: &dyn Harness) -> Market
                     enabled: plugin.enabled,
                 })
                 .collect(),
+            all_plugin_ids: claude::plugin_records(env)
+                .into_iter()
+                .map(|plugin| plugin.id)
+                .collect(),
             marketplaces: claude::known_marketplaces(env)
                 .into_iter()
                 .map(|known| (known.name, known.source))
                 .collect(),
         },
-        HarnessId::Codex => MarketplaceRegistries {
-            plugins: codex::plugin_records(env)
+        HarnessId::Codex => {
+            let plugins: Vec<FoundPlugin> = codex::plugin_records(env)
                 .into_iter()
                 .map(|plugin| FoundPlugin {
                     id: plugin.id,
                     version: plugin.version,
                     enabled: plugin.enabled,
                 })
-                .collect(),
-            marketplaces: codex::marketplace_records(env)
-                .into_iter()
-                .map(|record| (record.name, record.source))
-                .collect(),
-        },
+                .collect();
+
+            MarketplaceRegistries {
+                all_plugin_ids: plugins.iter().map(|plugin| plugin.id.clone()).collect(),
+                plugins,
+                marketplaces: codex::marketplace_records(env)
+                    .into_iter()
+                    .map(|record| (record.name, record.source))
+                    .collect(),
+            }
+        }
         HarnessId::Omp => omp_registries(env, harness),
         HarnessId::Pi | HarnessId::OpenCode => MarketplaceRegistries {
             plugins: Vec::new(),
+            all_plugin_ids: Vec::new(),
             marketplaces: Vec::new(),
         },
     }
 }
-
 /// OMP's registries (see [`marketplace_registries`]).
 fn omp_registries(env: &Env, harness: &dyn Harness) -> MarketplaceRegistries {
     let paths = harness.paths(env, None);
@@ -70,6 +82,7 @@ fn omp_registries(env: &Env, harness: &dyn Harness) -> MarketplaceRegistries {
     let (catalogs, _) = marketplaces(env, &paths, &plugins);
 
     MarketplaceRegistries {
+        all_plugin_ids: plugins.iter().map(|plugin| plugin.id.clone()).collect(),
         plugins: plugins
             .into_iter()
             .map(|plugin| FoundPlugin {

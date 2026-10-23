@@ -18,25 +18,32 @@ use harness_business::process::BoxFuture;
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
-/// Records what it was asked to run and answers from a script (success once the script is empty).
+/// Records what it was asked to run and answers from a script, one answer per call (success once
+/// the script is empty).
 #[derive(Default)]
 struct Executor {
     calls: Mutex<Vec<String>>,
-    failures: Mutex<Vec<String>>,
+    answers: Mutex<Vec<Option<String>>>,
 }
 
 impl Executor {
+    /// Fails the first calls, one reason each.
     fn failing(reasons: &[&str]) -> Self {
+        Self::scripted(&reasons.iter().map(|reason| Some(*reason)).collect::<Vec<_>>())
+    }
+
+    /// Answers the first calls from `script`: `None` succeeds, `Some(reason)` fails.
+    fn scripted(script: &[Option<&str>]) -> Self {
         Self {
             calls: Mutex::default(),
-            failures: Mutex::new(reasons.iter().rev().map(|reason| (*reason).to_owned()).collect()),
+            answers: Mutex::new(script.iter().rev().map(|answer| answer.map(str::to_owned)).collect()),
         }
     }
 
     fn answer(&self, call: String) -> Result<(), String> {
         self.calls.lock().unwrap().push(call);
 
-        match self.failures.lock().unwrap().pop() {
+        match self.answers.lock().unwrap().pop().flatten() {
             Some(reason) => Err(reason),
             None => Ok(()),
         }
@@ -58,6 +65,10 @@ impl MigrationExecutor for Executor {
 
     fn run_installer(&self, companion: Companion) -> BoxFuture<'_, Result<(), String>> {
         Box::pin(async move { self.answer(format!("{companion:?}")) })
+    }
+
+    fn run_cli(&self, harness: HarnessId, args: Vec<String>) -> BoxFuture<'_, Result<(), String>> {
+        Box::pin(async move { self.answer(format!("{harness:?} cli: {}", args.join(" "))) })
     }
 }
 
@@ -101,6 +112,20 @@ impl Machine {
         write_json(
             &config.join("settings.json"),
             &json!({ "enabledPlugins": { id: enabled } }),
+        );
+    }
+
+    /// The new plugin installed beside the old one.
+    fn claude_both_plugins(&self) {
+        let config = self.home.path().join(".claude");
+        let record = json!([{ "scope": "user", "installPath": "/x", "version": "0.4.0" }]);
+        write_json(
+            &config.join("plugins/installed_plugins.json"),
+            &json!({ "version": 2, "plugins": { NEW_PLUGIN: record.clone(), OLD_PLUGIN: record } }),
+        );
+        write_json(
+            &config.join("settings.json"),
+            &json!({ "enabledPlugins": { NEW_PLUGIN: true, OLD_PLUGIN: true } }),
         );
     }
 
@@ -172,10 +197,13 @@ async fn nothing_old_means_nothing_runs() {
     );
 
     assert_eq!(executor.calls(), Vec::<String>::new());
-    assert!(
-        !machine.config.path().join("skills-names-migration.json").exists(),
-        "nothing changed, nothing is written"
-    );
+
+    // The MCP files were looked at, the skills were not migrated.
+    let record: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(machine.config.path().join("skills-names-migration.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(record["migrated"], json!([]));
 }
 
 #[tokio::test]
@@ -289,9 +317,12 @@ async fn the_opencode_installer_migrates_an_old_record() {
     assert_eq!(executor.calls(), ["OpenCodeSkills"]);
 }
 
+const NEW_PLUGIN: &str = "harness-useful-skills@harness-useful-skills";
+const OLD_PLUGIN: &str = "useful-skills@useful-skills-local";
+
 fn install_new_plugin(with_marketplace: bool) -> Vec<ExtensionAction> {
     let install = ExtensionAction::PluginInstall {
-        target: "harness-useful-skills@harness-useful-skills".to_owned(),
+        target: NEW_PLUGIN.to_owned(),
         scope: InstallScope::User,
     };
 
@@ -307,55 +338,155 @@ fn install_new_plugin(with_marketplace: bool) -> Vec<ExtensionAction> {
     vec![install]
 }
 
-#[tokio::test]
-async fn a_claude_plugin_under_the_old_name_gets_the_new_plugin_with_its_marketplace() {
-    let machine = Machine::new();
-    machine.claude_plugin("useful-skills@useful-skills-local", true);
-    // The old marketplace is registered from the same repository, but under the old name.
-    machine.claude_marketplace("useful-skills-local");
+fn remove_old_plugin(with_marketplace: bool) -> Vec<ExtensionAction> {
+    let uninstall = ExtensionAction::PluginUninstall {
+        name: OLD_PLUGIN.to_owned(),
+    };
+
+    if with_marketplace {
+        return vec![
+            uninstall,
+            ExtensionAction::MarketplaceRemove {
+                name: "useful-skills-local".to_owned(),
+            },
+        ];
+    }
+
+    vec![uninstall]
+}
+
+fn claude_calls(steps: &[Vec<ExtensionAction>]) -> Vec<String> {
+    steps.iter().map(|actions| format!("Claude: {actions:?}")).collect()
+}
+
+/// Migrates `machine` and checks that only Claude Code was, through exactly `steps`.
+async fn assert_claude_migrated_through(machine: &Machine, steps: &[Vec<ExtensionAction>]) {
     let executor = Executor::default();
 
     let report = machine.migrate(&ALL, Some("0.4.0"), &executor).await;
 
     assert_eq!(report, migrated(&[HarnessId::Claude]));
-    assert_eq!(executor.calls(), [format!("Claude: {:?}", install_new_plugin(true))]);
+    assert_eq!(executor.calls(), claude_calls(steps));
+}
+
+#[tokio::test]
+async fn a_claude_plugin_under_the_old_name_gets_the_new_plugin_and_loses_the_old_one() {
+    let machine = Machine::new();
+    machine.claude_plugin(OLD_PLUGIN, true);
+    // The old marketplace is registered from the same repository, but under the old name.
+    machine.claude_marketplace("useful-skills-local");
+
+    assert_claude_migrated_through(&machine, &[install_new_plugin(true), remove_old_plugin(true)]).await;
 }
 
 #[tokio::test]
 async fn the_marketplace_is_not_added_again_when_the_new_one_is_registered() {
     let machine = Machine::new();
-    machine.claude_plugin("useful-skills@useful-skills-local", true);
+    machine.claude_plugin(OLD_PLUGIN, true);
     machine.claude_marketplace("harness-useful-skills");
     let executor = Executor::default();
 
     machine.migrate(&ALL, Some("0.4.0"), &executor).await;
 
-    assert_eq!(executor.calls(), [format!("Claude: {:?}", install_new_plugin(false))]);
+    // The old marketplace is not registered, so there is nothing to remove with the old plugin.
+    assert_eq!(
+        executor.calls(),
+        claude_calls(&[install_new_plugin(false), remove_old_plugin(false)])
+    );
 }
 
 #[tokio::test]
-async fn an_omp_plugin_under_the_old_name_is_migrated_too() {
+async fn the_old_marketplace_stays_while_another_plugin_is_installed_from_it() {
+    let machine = Machine::new();
+    let config = machine.home.path().join(".claude");
+    write_json(
+        &config.join("plugins/installed_plugins.json"),
+        &json!({ "version": 2, "plugins": {
+            OLD_PLUGIN: [{ "scope": "user", "installPath": "/x", "version": "0.3.14" }],
+            "other@useful-skills-local": [{ "scope": "project", "installPath": "/y", "version": "1.0.0" }],
+        } }),
+    );
+    write_json(
+        &config.join("settings.json"),
+        &json!({ "enabledPlugins": { OLD_PLUGIN: true } }),
+    );
+    machine.claude_marketplace("useful-skills-local");
+    let executor = Executor::default();
+
+    machine.migrate(&ALL, Some("0.4.0"), &executor).await;
+
+    assert_eq!(
+        executor.calls(),
+        claude_calls(&[install_new_plugin(true), remove_old_plugin(false)])
+    );
+}
+
+#[tokio::test]
+async fn a_failed_removal_of_the_old_plugin_is_reported_and_retried_alone() {
+    let machine = Machine::new();
+    machine.claude_plugin(OLD_PLUGIN, true);
+    machine.claude_marketplace("useful-skills-local");
+    // The install works, the uninstall does not.
+    let executor = Executor::scripted(&[None, Some("claude plugin uninstall failed")]);
+
+    let report = machine.migrate(&ALL, Some("0.4.0"), &executor).await;
+
+    assert_eq!(report.migrated, []);
+    assert_eq!(
+        report.failed,
+        [SkillsMigrationFailure {
+            harness: HarnessId::Claude,
+            reason: "The new plugin is installed, but the old one could not be removed: claude plugin uninstall failed"
+                .to_owned()
+        }]
+    );
+
+    // The new plugin is in now (the install registered it), the old one is still there.
+    machine.claude_both_plugins();
+    let retry = machine.migrate(&ALL, Some("0.4.0"), &executor).await;
+
+    assert_eq!(retry, migrated(&[HarnessId::Claude]));
+    assert_eq!(
+        executor.calls(),
+        claude_calls(&[
+            install_new_plugin(true),
+            remove_old_plugin(true),
+            // Nothing is installed again: the new plugin is there.
+            remove_old_plugin(true),
+        ])
+    );
+}
+
+#[tokio::test]
+async fn the_old_claude_plugin_alone_is_removed_when_the_new_one_is_already_installed() {
+    let machine = Machine::new();
+    machine.claude_both_plugins();
+
+    assert_claude_migrated_through(&machine, &[remove_old_plugin(false)]).await;
+}
+
+#[tokio::test]
+async fn omp_is_never_migrated_because_its_plugin_id_did_not_change() {
     let machine = Machine::new();
     let home = machine.home.path();
     write(
-        &home.join(".omp/plugins/cache/plugins/useful-skills/package.json"),
-        &json!({ "name": "useful-skills", "version": "0.3.14" }).to_string(),
-    );
-    write(
         &home.join(".omp/plugins/installed_plugins.json"),
-        &json!({ "version": 2, "plugins": { "useful-skills@harness-useful-skills": [{
-            "scope": "user", "installPath": "~/.omp/plugins/cache/plugins/useful-skills", "version": "0.3.14"
-        }] } })
+        &json!({ "version": 2, "plugins": {
+            "harness-useful-skills@harness-useful-skills": [{
+                "scope": "user", "installPath": "~/.omp/plugins/cache/plugins/harness-useful-skills", "version": "0.3.14"
+            }],
+            "useful-skills@omp-useful-skills": [{
+                "scope": "user", "installPath": "~/.omp/plugins/cache/plugins/useful-skills", "version": "0.2.0"
+            }],
+        } })
         .to_string(),
-    );
-    write(
-        &home.join(".omp/plugins/omp-plugins.lock.json"),
-        &json!({ "plugins": { "useful-skills": { "version": "0.3.14", "enabled": true } } }).to_string(),
     );
     let executor = Executor::default();
 
     let report = machine.migrate(&ALL, Some("0.4.0"), &executor).await;
 
-    assert_eq!(report, migrated(&[HarnessId::Omp]));
-    assert!(executor.calls()[0].starts_with("Omp: "), "{:?}", executor.calls());
+    assert_eq!(report, SkillsMigrationReport::default());
+    assert_eq!(executor.calls(), Vec::<String>::new());
 }
+
+mod mcp;

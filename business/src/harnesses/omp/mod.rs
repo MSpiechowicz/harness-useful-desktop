@@ -133,6 +133,8 @@ impl Harness for Omp {
             skills: SkillsStrategy::Marketplace {
                 source: SKILLS_MARKETPLACE,
                 plugin: SKILLS_TARGET,
+                // The plugin ID did not change with the 0.4.0 names.
+                legacy: None,
             },
             mcp: McpTarget::UserMcpJson {
                 also_read: &[".mcp.json"],

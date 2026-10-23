@@ -16,10 +16,11 @@ interface Dependencies {
 }
 
 /**
- * Asks the backend, once per launch, to move Harness Skills installed under their names before 0.4.0 to the new ones.
- * The backend decides everything (automatic updates on, the install found only under the old names, a release that has
- * the new names, once per change) and answers what it did. One quiet notice names the harnesses, and the failures with
- * their reasons. Nothing is shown when there was nothing to do.
+ * Asks the backend, once per launch, to move Harness Skills installed under their names before 0.4.0 to the new ones
+ * and the dashboard's MCP server from `harness` to `harness-dashboard`. It is automatic: no consent step, and it does
+ * not depend on the update switches. The backend decides everything (the install found only under the old names, a
+ * release that has the new names, once per change) and answers what it did. One quiet notice names the harnesses, and
+ * the failures with their reasons. Nothing is shown when there was nothing to do.
  */
 export class SkillsNamesMigration {
   private asked = false;

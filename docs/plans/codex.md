@@ -142,13 +142,18 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
    **Unified names (Harness Skills 0.4.0, 2026-10-23):** one name everywhere (plugin, marketplace, MCP server,
    data folder), so the plugin and server above were `useful-skills` and `useful_skills` and the folder
    `$CODEX_HOME/useful-skills` before. The app recognises both: an install found only under the old names counts as
-   installed and is offered the installer as an update (it migrates the install), the MCP server names are both
-   reserved for Share setup. **Model roles:** 0.4.0 adds `$CODEX_HOME/harness-useful-skills/models.yml`, the same
-   `modelRoles` schema as Claude Code and OpenCode (`<model>[:<effort>]` or `inherit`), which the installer writes into
+   installed and is offered the installer as an update, and a launch migration (`skills_migrate_names`, automatic: no
+   consent step and no dependency on the update switches, only for a release of 0.4.0 or newer) reruns the installer,
+   which migrates the old plugin, MCP entry and data by itself. The MCP server names are both reserved for Share setup.
+   OMP's plugin ID did not change (still `harness-useful-skills@harness-useful-skills`), so OMP is not migrated, and for
+   Claude Code the launch migration installs the new plugin and uninstalls the old `useful-skills@useful-skills-local`,
+   which Claude keeps as a separate plugin. **Model roles:** 0.4.0 adds `$CODEX_HOME/harness-useful-skills/models.yml`, the same
+   `modelRoles` schema as Claude Code and OpenCode (`<model>[:<effort>]`, `inherit` or `inherit:<effort>`, efforts none, minimal, low, medium, high or xhigh), which the installer writes into
    the generated `$CODEX_HOME/agents/us-<role>.toml` as `model` and `model_reasoning_effort` (omitted for
    `inherit`, real CLI check 2026-10-23: codex 0.154 loads and spawns such an agent file). The Codex config view lists
    the file as "Harness Skills model roles" (read-only, like Claude Code and OpenCode) only for an install of 0.4.0 or
-   newer under the new names and only when the file exists. Editing the roles from the app (pickers fed by
+   newer under the new names and only when the file exists. The roles table shows these selectors like Claude Code's:
+   model column, thinking column, `inherit` as written (`ui/src/features/config/structured.ts`). Editing the roles from the app (pickers fed by
    `model/list`) and an apply step are not built.
 7. **MCP registration:** new `McpTarget::CodexCli`: read `config.toml`, write only via `codex mcp add / remove`
    (keeps the user's TOML formatting and comments). Entries with literal secrets are never rewritten.

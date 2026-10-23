@@ -11,9 +11,7 @@
 
 use std::path::PathBuf;
 
-use super::catalog::{
-    DASHBOARD_BINARY, ECOSYSTEM, LEGACY_SKILLS_PLUGIN, MEMORY_BINARY, SIDEBAR_PLUGIN, SKILLS_PLUGIN, catalog_item,
-};
+use super::catalog::{DASHBOARD_BINARY, ECOSYSTEM, MEMORY_BINARY, SIDEBAR_PLUGIN, SKILLS_PLUGIN, catalog_item};
 use super::dashboard::resolve_dashboard;
 use super::memory_binary::{memory_version, resolve_memory};
 use crate::env::{Env, OsKind};
@@ -43,7 +41,7 @@ pub async fn ecosystem_status(env: &Env, runner: &dyn ProcessRunner) -> Ecosyste
         match id {
             EcosystemId::Dashboard => detect_dashboard(env, runner, &mut item).await,
             EcosystemId::Memory => detect_memory(env, runner, &mut item).await,
-            EcosystemId::Skills => detect_skills(&plugins, &mut item),
+            EcosystemId::Skills => detect_plugin(&plugins, SKILLS_PLUGIN, &mut item),
             EcosystemId::Sidebar => detect_plugin(&plugins, SIDEBAR_PLUGIN, &mut item),
         }
 
@@ -130,19 +128,6 @@ pub(crate) async fn version_output(
     let output = runner.run(&spec).await.ok()?;
 
     output.success().then_some(output.stdout)
-}
-
-/// The skills: the plugin under its name, else the one under its name before Harness Skills 0.4.0
-/// (`useful-skills@…`), which counts as installed with an update available (the update renames it).
-fn detect_skills(plugins: &[PluginInfo], item: &mut EcosystemItem) {
-    detect_plugin(plugins, SKILLS_PLUGIN, item);
-
-    if item.installed {
-        return;
-    }
-
-    detect_plugin(plugins, LEGACY_SKILLS_PLUGIN, item);
-    item.update_available = item.installed;
 }
 
 /// Marks `item` installed for every OMP plugin named `name` (`name@<marketplace>` or the npm

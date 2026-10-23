@@ -52,10 +52,20 @@ pub const SKILLS_DIR: &str = "harness-useful-skills";
 /// The folder of the same data before Harness Skills 0.4.0.
 pub const LEGACY_SKILLS_DIR: &str = "useful-skills";
 
-/// The plugin name before Harness Skills 0.4.0 (`useful-skills@useful-skills-local` in Claude
-/// Code, `useful-skills@harness-useful-skills` in OMP). An install under it is recognised and
-/// offered the update that renames it.
+/// The plugin name before Harness Skills 0.4.0, as OpenCode's and Codex's folders and Claude Code's
+/// plugin registry spell it. OMP's plugin ID never changed, so OMP has no legacy plugin.
 pub const LEGACY_SKILLS_PLUGIN: &str = "useful-skills";
+
+/// The Claude Code marketplace of Harness Skills before 0.4.0.
+pub const LEGACY_CLAUDE_MARKETPLACE: &str = "useful-skills-local";
+
+/// The Claude Code plugin ID of Harness Skills before 0.4.0. Claude Code keeps it and
+/// [`CLAUDE_SKILLS_PLUGIN`] as two separate plugins, so the new one does not replace it.
+pub const LEGACY_CLAUDE_SKILLS_PLUGIN: &str = "useful-skills@useful-skills-local";
+
+/// The name a harness's user MCP file may hold the dashboard's server under, from the setup
+/// before the app registered it as [`DASHBOARD_MCP_SERVER`].
+pub const LEGACY_DASHBOARD_MCP_SERVER: &str = "harness";
 
 /// The first Harness Skills release with the unified names ([`SKILLS_DIR`], [`SKILLS_MCP_SERVER`],
 /// [`SKILLS_TARGET`]) and, for Codex, model roles.

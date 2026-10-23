@@ -1,41 +1,40 @@
 //! The launch migration of the Harness Skills names (`skills_migrate_names`, see
-//! `harness_business::ecosystem::skills_migration`). The shell calls it once per launch, and it
-//! runs only while the user keeps automatic updates on (`autoUpdateExtensions`) and the release
-//! check on (`checkCompanionUpdates`). The user already consented to the install being moved: they
-//! set the skills up through Recommended setup or an extension action, and both switches are theirs.
-//! It does nothing for a harness that is not installed.
+//! `harness_business::ecosystem::skills_migration`). The shell calls it once per launch. It runs
+//! automatically: no consent step and no dependency on the update switches. The install exists
+//! because the user set it up, and the migration only moves it to the names it now has. It does
+//! nothing for a harness that is not installed.
 
 use std::future::Future;
 
-use harness_business::ecosystem::{Companion, MigrationExecutor, migrate_skills_names};
+use harness_business::ecosystem::{Companion, MCP_CLI_TIMEOUT, MigrationExecutor, migrate_skills_names};
+use harness_business::harness::HarnessCli;
 use harness_business::model::{ExtensionAction, HarnessId, SkillsMigrationReport};
 use harness_business::process::{BoxFuture, TokioSpawner};
+use harness_business::security::redact_text;
 use tauri::{AppHandle, State};
 
-use super::ecosystem::{latest_skills_release, stored_prefs};
+use super::ecosystem::latest_skills_release;
 use super::harness::summaries;
 use super::plugins;
 use super::setup::install_streaming;
 use crate::error::CommandResult;
-use crate::state::{AppState, SharedPrefs};
+use crate::mcp_cli::cached_binary;
+use crate::state::AppState;
 
 /// Moves the Harness Skills of the installed harnesses from the names before Harness Skills 0.4.0
-/// to the new ones. Never fails the caller for a failed migration: that is in the report.
+/// to the new ones, and the dashboard's MCP server from `harness` to `harness-dashboard`. Never
+/// fails the caller for a failed migration: that is in the report.
 #[tauri::command]
 pub async fn skills_migrate_names(app: AppHandle, state: State<'_, AppState>) -> CommandResult<SkillsMigrationReport> {
     migrate(&state, latest_skills_release(&app, &state)).await
 }
 
-/// [`skills_migrate_names`] with the lookup of the latest release given, which runs only after the
-/// switches and the installed harnesses allow the migration.
+/// [`skills_migrate_names`] with the lookup of the latest release given, which runs only when a
+/// harness is installed. Without a known release only the MCP rename runs.
 async fn migrate(
     state: &AppState,
     latest: impl Future<Output = Option<String>>,
 ) -> CommandResult<SkillsMigrationReport> {
-    if !automatic_updates_on(&state.prefs).await {
-        return Ok(SkillsMigrationReport::default());
-    }
-
     let installed: Vec<HarnessId> = summaries(state)
         .await?
         .into_iter()
@@ -47,9 +46,7 @@ async fn migrate(
         return Ok(SkillsMigrationReport::default());
     }
 
-    let Some(latest) = latest.await else {
-        return Ok(SkillsMigrationReport::default());
-    };
+    let latest = latest.await;
 
     let harnesses: Vec<&dyn harness_business::harness::Harness> =
         installed.iter().filter_map(|id| state.registry.get(*id)).collect();
@@ -58,7 +55,7 @@ async fn migrate(
         &state.env,
         &state.config_dir,
         &harnesses,
-        Some(&latest),
+        latest.as_deref(),
         &AppExecutor { state },
     )
     .await;
@@ -70,13 +67,6 @@ async fn migrate(
     );
 
     Ok(report)
-}
-
-/// `autoUpdateExtensions` and `checkCompanionUpdates`, both on (off when the prefs file is unusable).
-async fn automatic_updates_on(prefs: &SharedPrefs) -> bool {
-    stored_prefs(prefs)
-        .await
-        .is_some_and(|prefs| prefs.auto_update_extensions && prefs.check_companion_updates)
 }
 
 /// Runs the steps with the harness CLIs (the same path as `extension_action`) and the installer
@@ -119,48 +109,101 @@ impl MigrationExecutor for AppExecutor<'_> {
             Err(result.summary.unwrap_or_else(|| "the installer failed".to_owned()))
         })
     }
+
+    fn run_cli(&self, harness: HarnessId, args: Vec<String>) -> BoxFuture<'_, Result<(), String>> {
+        Box::pin(async move {
+            let binary = cached_binary(self.state, harness)
+                .await
+                .ok_or_else(|| "the harness command was not found".to_owned())?;
+            let found = self
+                .state
+                .registry
+                .get(harness)
+                .ok_or_else(|| "the harness is not known".to_owned())?;
+
+            let cli = HarnessCli {
+                harness: found,
+                env: &self.state.env,
+                runner: &self.state.runner,
+                binary: &binary,
+            };
+
+            let result = cli
+                .run_args(args, MCP_CLI_TIMEOUT)
+                .await
+                .map_err(|error| redact_text(&error.to_string()))?;
+
+            if result.ok {
+                return Ok(());
+            }
+
+            Err(result.summary.unwrap_or_else(|| "the command failed".to_owned()))
+        })
+    }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::path::Path;
 
-    use harness_business::model::AppPrefs;
+    use harness_business::model::{AppPrefs, HarnessId};
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::test_support::{TempDir, home_state};
+    use crate::test_support::{TempDir, cache_detection, home_state};
 
-    /// Migrates over a home whose prefs are `prefs`; true when the release lookup ran.
-    fn lookup_ran(prefs: AppPrefs) -> (SkillsMigrationReport, bool) {
-        let dir = TempDir::new("skills-migration");
-        let state = home_state(&dir);
-        state.prefs.with(|store| store.save(&prefs)).expect("save the prefs");
+    /// A state whose only detected harness is Claude Code at `claude`, with the dashboard's server
+    /// in its global file under the old name `harness`.
+    fn state_with_old_server(dir: &TempDir, claude: &Path) -> AppState {
+        let state = home_state(dir);
 
-        let looked_up = AtomicBool::new(false);
-        let report = block_on(migrate(&state, async {
-            looked_up.store(true, Ordering::SeqCst);
-            Some("0.4.0".to_owned())
-        }))
-        .expect("the migration answers");
+        for harness in state.registry.all().map(|harness| harness.id()).collect::<Vec<_>>() {
+            cache_detection(&state, harness, (harness == HarnessId::Claude).then_some(claude));
+        }
 
-        (report, looked_up.load(Ordering::SeqCst))
+        std::fs::write(
+            dir.path().join("home/.claude.json"),
+            r#"{"mcpServers":{"harness":{"type":"stdio","command":"harness-dashboard","args":["mcp"]}}}"#,
+        )
+        .expect("write the Claude global file");
+
+        state
     }
 
     #[test]
-    fn nothing_is_asked_or_run_while_automatic_updates_are_off() {
-        for (extensions, releases) in [(false, true), (true, false), (false, false)] {
-            let prefs = AppPrefs {
-                auto_update_extensions: extensions,
-                check_companion_updates: releases,
-                ..AppPrefs::default()
-            };
+    fn it_runs_with_the_update_switches_off_and_renames_the_dashboard_server_through_the_cli() {
+        let dir = TempDir::new("skills-migration");
 
-            assert_eq!(
-                lookup_ran(prefs),
-                (SkillsMigrationReport::default(), false),
-                "extensions {extensions}, releases {releases}"
-            );
-        }
+        // A `claude` that succeeds and prints nothing: the arguments it gets are the business crate's to test.
+        let claude = dir.path().join("claude");
+        let succeeds = ["/usr/bin/true", "/bin/true"]
+            .into_iter()
+            .find(|path| Path::new(path).exists());
+        std::os::unix::fs::symlink(succeeds.expect("a `true` command"), &claude).expect("link the command");
+
+        let state = state_with_old_server(&dir, &claude);
+        let prefs = AppPrefs {
+            auto_update_extensions: false,
+            check_companion_updates: false,
+            ..AppPrefs::default()
+        };
+        state.prefs.with(|store| store.save(&prefs)).expect("save the prefs");
+
+        let report = block_on(migrate(&state, async { None })).expect("the migration answers");
+
+        assert_eq!(report.migrated, [HarnessId::Claude]);
+        assert!(report.failed.is_empty(), "{:?}", report.failed);
+    }
+
+    #[test]
+    fn a_harness_whose_command_cannot_be_found_is_reported_not_skipped() {
+        let dir = TempDir::new("skills-migration");
+        let state = state_with_old_server(&dir, &dir.path().join("no-claude"));
+
+        let report = block_on(migrate(&state, async { None })).expect("the migration answers");
+
+        assert_eq!(report.migrated, []);
+        assert_eq!(report.failed.len(), 1);
+        assert_eq!(report.failed[0].harness, HarnessId::Claude);
     }
 }

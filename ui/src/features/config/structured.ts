@@ -27,7 +27,7 @@ export function groupOf(key: string): GroupId {
   return Object.hasOwn(KEY_GROUPS, key) ? KEY_GROUPS[key] : 'other';
 }
 
-const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+const THINKING_LEVELS = ['off', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
 
 /** Filled bars of the thinking meter; levels below "low" show an empty meter, and Claude Code's "max" fills it like "xhigh". */
 const METER_BARS: Readonly<Record<string, number>> = { low: 1, medium: 2, high: 3, xhigh: 4, max: 4 };
@@ -39,6 +39,14 @@ const CLAUDE_MODEL = /^(inherit|opus|sonnet|haiku|fable|claude-[a-z0-9][a-z0-9.-
 
 const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
+/**
+ * A Codex model ID, as Harness Skills accepts it in Codex's `models.yml`: any ID of word characters and `. : / @ + -`. A
+ * `:suffix` that is not one of {@link CODEX_EFFORTS} is part of the ID.
+ */
+const CODEX_MODEL = /^[A-Za-z0-9](?:[A-Za-z0-9._:/@+-]{0,198}[A-Za-z0-9._@+-])?$/;
+
+const CODEX_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+
 export interface ModelRef {
   /** The provider, or null for a Claude Code selector, which names none. */
   provider: string | null;
@@ -47,10 +55,10 @@ export interface ModelRef {
   level: string | null;
 }
 
-/** Parses `provider/model[:level]`, or without a slash a Claude Code selector `model[:effort]`; null when the text has neither shape. */
+/** Parses `provider/model[:level]`, or without a slash a Claude Code or Codex selector `model[:effort]`; null when the text has none of these shapes. */
 export function parseModelRef(text: string): ModelRef | null {
   if (!text.includes('/')) {
-    return parseClaudeSelector(text);
+    return parseClaudeSelector(text) ?? parseCodexSelector(text);
   }
 
   const slash = text.indexOf('/');
@@ -85,6 +93,28 @@ function parseClaudeSelector(text: string): ModelRef | null {
   }
 
   return { provider: null, model, level: effort ?? null };
+}
+
+/**
+ * `model[:effort]` with a Codex model ID (`gpt-5.5:high`), `inherit` (the Codex setting) or `inherit:effort`; null for
+ * anything else. Claude's own models and efforts are read by {@link parseClaudeSelector} first, so a Claude alias with an
+ * effort Claude Code does not know (`opus:extreme`) stays unparsed rather than turning into a Codex model ID.
+ */
+function parseCodexSelector(text: string): ModelRef | null {
+  const colon = text.lastIndexOf(':');
+  const suffix = colon > 0 ? text.slice(colon + 1) : '';
+  const level = (CODEX_EFFORTS as readonly string[]).includes(suffix) ? suffix : null;
+  const model = level === null ? text : text.slice(0, colon);
+
+  if (model === 'inherit') {
+    return { provider: null, model, level };
+  }
+
+  if (!CODEX_MODEL.test(model) || CLAUDE_MODEL.test(model.split(':')[0])) {
+    return null;
+  }
+
+  return { provider: null, model, level };
 }
 
 /** How many of the four bars a thinking level fills. */

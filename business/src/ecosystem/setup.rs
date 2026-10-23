@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use self::github::same_repository;
 pub use self::legacy::{LegacySkillsStep, legacy_skills_step};
-use self::legacy::{install_actions, is_plugin_named, legacy_plugin_name};
+use self::legacy::{install_actions, is_plugin_named};
 use self::registries::marketplace_registries;
 use super::catalog::{CODEX_SKILLS_MIN_VERSION, SKILLS_PLUGIN, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
@@ -335,7 +335,9 @@ fn dashboard_side_effects(os: OsKind) -> &'static [&'static str] {
 
 fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
     match harness.companion_setup().skills {
-        SkillsStrategy::Marketplace { source, plugin } => marketplace_skills(env, harness, source, plugin),
+        SkillsStrategy::Marketplace { source, plugin, legacy } => {
+            marketplace_skills(env, harness, source, plugin, legacy)
+        }
         // PI-family settings: a package whose source names the skills' repository.
         SkillsStrategy::Package { source } => {
             if user_has_package(&harness.paths(env, None), SKILLS_PLUGIN) {
@@ -424,23 +426,27 @@ fn find_node(env: &Env) -> Option<ResolvedBinary> {
 /// Installed when the user has the skills plugin (`plugin`, or another `name@…` of its name; on OMP
 /// also an npm install) and it is switched on; otherwise the marketplace add (unless a marketplace
 /// from `source` is registered, see [`same_repository`]) and the user-scope plugin install, or for
-/// a plugin that is off its enable.
-fn marketplace_skills(env: &Env, harness: &dyn Harness, source: &str, plugin: &str) -> SkillsSetup {
+/// a plugin that is off its enable. The plugin `legacy` (its ID before Harness Skills 0.4.0) still
+/// counts, the new one first.
+fn marketplace_skills(
+    env: &Env,
+    harness: &dyn Harness,
+    source: &str,
+    plugin: &str,
+    legacy: Option<&str>,
+) -> SkillsSetup {
     let name = plugin.split_once('@').map_or(plugin, |(name, _)| name);
     let registries = marketplace_registries(env, harness);
 
-    // The skills plugin under its name before 0.4.0 still counts, the new name first.
     let installed = registries
         .plugins
         .iter()
         .find(|found| is_plugin_named(&found.id, name))
         .or_else(|| {
-            let legacy = legacy_plugin_name(name)?;
-
             registries
                 .plugins
                 .iter()
-                .find(|found| is_plugin_named(&found.id, legacy))
+                .find(|found| Some(found.id.as_str()) == legacy)
         });
 
     match installed {
