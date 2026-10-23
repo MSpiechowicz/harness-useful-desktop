@@ -31,6 +31,11 @@ export function combinesFilters(search: string = globalThis.location?.search ?? 
   return new URLSearchParams(search).get('filters') !== 'old';
 }
 
+/** Browser-preview switch `?lang=old`: a Harness Memory without `notes-lang`, which says nothing about the language of a note and ignores the filter. */
+export function notesLangListed(search: string = globalThis.location?.search ?? ''): boolean {
+  return new URLSearchParams(search).get('lang') !== 'old';
+}
+
 /** The notes of Harness Memory kept in memory: `memory_notes_list/note_get/note_delete/notes_delete_all/note_save` like the real backend, without a server. */
 export interface NoteHandlers extends TeamNotesHandlers {
   memory_notes_list: (args: CommandArgs<'memory_notes_list'>) => MemoryNotesPage;
@@ -152,7 +157,7 @@ const NOTE_ORDERS: Record<NoteSort, NoteOrder> = {
  */
 export function pageOfNotes(
   visible: NoteContent[],
-  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, place, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
+  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, place, lang, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
   combined = true,
   everything: NoteContent[] = visible,
 ): Omit<MemoryNotesPage, 'availability'> {
@@ -163,7 +168,8 @@ export function pageOfNotes(
   const inKind = answering.filter((found) => kind === undefined || found.kind === kind);
   const inScope = answering.filter((found) => !combined || scope === undefined || found.scope === scope);
   const inPlace = answering.filter((found) => !combined || place === undefined || found.place === place);
-  const chosen = inKind.filter((found) => inScope.includes(found) && inPlace.includes(found));
+  const inLang = answering.filter((found) => lang === undefined || (lang === 'unknown' ? !found.lang : found.lang === lang));
+  const chosen = inKind.filter((found) => inScope.includes(found) && inPlace.includes(found) && inLang.includes(found));
   const ofKindHere = inKind.filter((found) => inPlace.includes(found));
   const ofKindInScope = inKind.filter((found) => inScope.includes(found));
 
@@ -192,6 +198,7 @@ export function memoryNotesHandlers(
   combined: () => boolean = combinesFilters,
   importScenario: () => NotesImportScenario = notesImportScenarioFromLocation,
   copyStores: CopyStores = {},
+  langListed: () => boolean = notesLangListed,
 ): NoteHandlers {
   let notes: NoteContent[] | null = null;
   const current = (): NoteContent[] =>
@@ -219,6 +226,14 @@ export function memoryNotesHandlers(
       const state = availability();
       if (state.kind !== 'available') {
         return { availability: state, total: 0, kinds: [], scopes: null, places: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null };
+      }
+
+      // A server without `notes-lang` ignores the filter and leaves `lang` empty.
+      if (!langListed()) {
+        const { lang: _ignored, ...asked } = args;
+        const page = pageOfNotes(visible(args), asked, combined(), current());
+
+        return { availability: state, ...page, notes: page.notes.map((found) => ({ ...found, lang: null })) };
       }
 
       return { availability: state, ...pageOfNotes(visible(args), args, combined(), current()) };

@@ -228,6 +228,38 @@ flowchart LR
      Notes and a Scripts card (this chat, this repository, Ask before saving), Pause and Check again. A waiting card in
      the transcript shows the held saves for Save, Edit or Skip. Settings > Memory has a Notes and a Scripts card
      (`MemoryGuardsCard.svelte`: pause everywhere, the Ask default, repositories without saves).
+10. **Vector search and English notes.** Harness Memory can search by meaning as well as by keywords, through one
+    local embedder per computer (`harness-memory embedder run`), which every `harness-memory mcp` asks over a local
+    socket. The app keeps that process running and never talks to the socket itself.
+    - **Files.** `business/src/ecosystem/memory_embedder.rs` holds what the app understands of it: the JSON lines the
+      embedder prints (`EmbedderEvent`, `parse_event`), the state they add up to (`EmbedderTracker`, shown as
+      `MemoryEmbedderState`: `phase`, `progress`, `model`, `error`) and the short commands `embedder enable|disable`,
+      `embedder status --json`, `embedder remove-model` and `settings get|set english_notes=… --json`.
+      `memory_embedder_supervisor.rs` runs and restarts the process. `src-tauri/src/memory_embedder.rs` decides when it
+      runs and forwards its state, and `src-tauri/src/commands/memory_embedder.rs` holds the commands.
+    - **Gating.** `harness-memory features` gates each part: `embedder` (the supervisor, the vector search switch and the
+      model removal), `settings` (the English notes setting) and `notes-lang` (`lang` in a note and the `--lang`
+      filter, dropped from a query for a server that does not list it). A server without the line answers
+      `unsupported`, and Harness Memory not installed answers `notFound`.
+    - **Pref.** `vectorSearch` in `prefs.json` (default on, also for a file without the key) is server-managed:
+      only `memory_set_vector_search` changes it, because it also runs `embedder enable|disable` and starts or stops the
+      process. The embedder is wanted while `memoryEnabled` and `vectorSearch` are both on.
+    - **Lifecycle.** `memory_embedder::spawn_on_launch` reconciles at launch, in the background, so the window never
+      waits for it. The same reconcile runs after the server's install and after each switch of either pref. It starts
+      the process through the tracked spawner (`embedder run` in the home directory, stdin piped and kept open), after
+      turning the embedder's own switch on when `embedder status` says it is off. Hiding the window to the tray leaves
+      it running. Quit (`lifecycle.rs`) stops it within 5 s: stdin is closed, then 2 s later what is left is killed.
+      A crash restarts it after 1, 5 and 30 s, at most three times within ten minutes, then the phase is `failed`.
+      An exit 0 on its own leaves it `off`. `{"event":"busy"}` means another app instance runs the embedder, the phase
+      is `elsewhere` and it is not started again.
+    - **IPC.** `memory_set_vector_search(enabled)` returns the stored pref and the state. `memory_embedder_watch`
+      streams the state over a channel, now and on every change (one listener, a new one replaces the old).
+      `memory_embedder_remove_model` deletes the model files and vectors after stopping the embedder.
+      `memory_settings_get` and `memory_settings_set` read and write the English notes setting, which the server keeps
+      in the store (team-wide on a team database). `memory_notes_list` takes a `lang` filter and `NoteSummary` has `lang`
+      (`en`, `other` or none yet), sent as `--lang`.
+    - **Hooks.** The Harness family hooks ask agents to search with a few English keywords and to write each note in
+      English with 3 to 5 lowercase tags, synonyms included (`hooks/family.rs`).
 
 Older app versions put a `<harness-memory-recall>` block of found notes in front of the first message of a new chat;
 the app no longer adds it. Transcripts that hold one still show it as a collapsed chip (`splitRecall`,

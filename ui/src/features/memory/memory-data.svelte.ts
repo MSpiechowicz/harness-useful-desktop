@@ -84,6 +84,7 @@ export function useNotesData(): void {
     order: viewState.notesSort.desc ? 'desc' : 'asc',
     page: viewState.notesPage,
     hidden: notesTeam.showHidden,
+    notEnglish: viewState.notesNotEnglish,
   });
 
   // The editor and the import review belong to the project on screen and to this view: neither outlives a switch of project or leaving the view.
