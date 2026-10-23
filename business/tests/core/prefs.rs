@@ -359,6 +359,19 @@ fn project_memory_is_on_for_a_file_written_before_it_existed() {
 }
 
 #[test]
+fn vector_search_is_on_for_a_file_without_the_key_and_stays_off_when_stored_off() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join(PREFS_FILE);
+    fs::write(&path, r#"{ "version": 1, "onboardingCompleted": true }"#).unwrap();
+
+    let store = PrefsStore::new(dir.path().to_path_buf());
+    assert!(store.load().vector_search);
+
+    fs::write(&path, r#"{ "version": 1, "vectorSearch": false }"#).unwrap();
+    assert!(!store.load().vector_search);
+}
+
+#[test]
 fn a_file_with_the_retired_memory_recall_switch_still_loads_and_drops_it_on_save() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join(PREFS_FILE);

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-settings-get"
+description = "Enables the memory_settings_get command without any pre-configured scope."
+commands.allow = ["memory_settings_get"]
+
+[[permission]]
+identifier = "deny-memory-settings-get"
+description = "Denies the memory_settings_get command without any pre-configured scope."
+commands.deny = ["memory_settings_get"]

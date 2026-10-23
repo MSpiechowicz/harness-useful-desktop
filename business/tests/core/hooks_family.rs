@@ -196,6 +196,36 @@ mod hooks_family {
     }
 
     #[test]
+    fn the_previous_save_and_search_texts_are_earlier_versions_and_the_current_ones_are_not() {
+        let (_temp, store) = store();
+        seed_defaults(&store, MEMORY, at(0)).unwrap();
+
+        let entries = family_status(&store.list(MEMORY), MEMORY);
+        assert!(
+            entries.iter().all(|entry| !entry.stale),
+            "the seeded texts are the current ones"
+        );
+
+        for seed in [HookSeed::MemorySave, HookSeed::MemorySearch] {
+            let entry = family_hook(seed);
+            assert_ne!(
+                entry.earlier[0], entry.text,
+                "the first earlier text is the one before this"
+            );
+
+            edit_text(&store, seed, HookAuthor::Desktop, entry.earlier[0]);
+            let entries = family_status(&store.list(MEMORY), MEMORY);
+            let found = entries.iter().find(|found| found.seed == seed).unwrap();
+
+            assert_eq!(
+                (found.status, found.stale),
+                (HookFamilyStatus::Outdated, true),
+                "{seed:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_pending_file_with_a_seed_is_replaced_by_the_approved_catalog_version() {
         let (_temp, store) = store();
         seed_defaults(&store, MEMORY, at(0)).unwrap();

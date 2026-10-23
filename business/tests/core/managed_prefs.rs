@@ -110,6 +110,23 @@ fn save_ui_cannot_switch_project_memory() {
 }
 
 #[test]
+fn save_ui_cannot_switch_vector_search() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    let saved = store
+        .save_ui(&AppPrefs {
+            vector_search: false,
+            ..AppPrefs::default()
+        })
+        .unwrap();
+    assert!(saved.vector_search);
+
+    store.update(|prefs| prefs.vector_search = false).unwrap();
+    assert!(!store.save_ui(&AppPrefs::default()).unwrap().vector_search);
+}
+
+#[test]
 fn turning_off_recent_projects_through_the_ui_clears_them() {
     let dir = TempDir::new().unwrap();
     let (store, stored) = store_with_server_state(&dir);

@@ -69,6 +69,8 @@ pub mod mcp_rename;
 pub mod memory_binary;
 pub mod memory_cli;
 mod memory_copy_answer;
+pub mod memory_embedder;
+pub mod memory_embedder_supervisor;
 pub mod memory_features;
 pub mod memory_guards;
 pub mod memory_held;
@@ -121,6 +123,11 @@ pub use mcp_rename::rename_dashboard_mcp_file;
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
 pub use memory_cli::Repos;
+pub use memory_embedder::{
+    EmbedderEvent, EmbedderStatus, EmbedderTracker, embedder_status, feature_server, get_settings, parse_event,
+    remove_embedder_model, set_embedder_enabled, set_settings,
+};
+pub use memory_embedder_supervisor::{EmbedderSupervisor, SupervisorOptions, embedder_spec};
 pub use memory_features::{FeaturesSupport, MemoryFeatures};
 pub use memory_guards::{
     CHAT_MAX_AGE, ChatGuardWrites, SESSION_VAR, chat_repo_root, check_chat_key, is_chat_key, read_chat, read_chat_repo,

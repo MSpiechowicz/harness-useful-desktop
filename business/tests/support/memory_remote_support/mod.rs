@@ -39,6 +39,9 @@ pub const EVERY_FEATURE: FeaturesSupport = FeaturesSupport::Listed {
     scripts_hide: true,
     scripts_push_json: true,
     save_guards: true,
+    embedder: false,
+    settings: false,
+    notes_lang: false,
 };
 
 /// What a server with `scripts` support and `features` supports (team documents and database kinds

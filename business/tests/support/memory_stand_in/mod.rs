@@ -61,7 +61,10 @@ impl ProcessSpawner for StandIn {
         self.requested.lock().unwrap().push(spec.clone());
 
         let args: Vec<std::ffi::OsString> = self.args.iter().map(Into::into).collect();
-        TokioSpawner.spawn(&self.fake(&args))
+        let mut fake = self.fake(&args);
+        fake.cwd = spec.cwd.clone();
+
+        TokioSpawner.spawn(&fake)
     }
 }
 

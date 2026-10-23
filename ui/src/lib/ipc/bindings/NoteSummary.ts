@@ -75,4 +75,9 @@ readOnly: boolean,
  * True for a team note hidden on this machine (listed only when hidden notes are asked for).
  * False from a server that does not say.
  */
-hidden: boolean, };
+hidden: boolean, 
+/**
+ * The language the server detected: `en`, `other` (flagged, it gets a rewrite hint) or
+ * nothing yet. `None` from a server that does not say.
+ */
+lang?: string | null, };

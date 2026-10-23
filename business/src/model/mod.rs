@@ -23,6 +23,7 @@ mod git;
 mod harness;
 mod hook;
 mod ipc_error;
+mod memory_embedder;
 mod memory_guards;
 mod memory_import;
 mod memory_notes;
@@ -85,6 +86,7 @@ pub use hook::{
     TeamHooks,
 };
 pub use ipc_error::{IpcError, IpcErrorCode};
+pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 pub use memory_guards::{
     GlobalKindGuard, HeldItem, HeldKind, HeldSaved, HeldTool, KindGuard, MemoryChatGuards, MemoryChatGuardsSet,
     MemoryChatStart, MemoryGuardKind, MemoryGuards, MemoryGuardsPatch, MemoryHeldEvent,
@@ -95,8 +97,8 @@ pub use memory_import::{
     NotesImportResult, NotesImportRow,
 };
 pub use memory_notes::{
-    MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLink, NoteLinkDirection, NoteSort,
-    NoteSummary, SortOrder,
+    MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLangFilter, NoteLink, NoteLinkDirection,
+    NoteSort, NoteSummary, SortOrder,
 };
 pub use memory_notes_copy::{
     LocalNoteIds, MemoryCopyKind, NoteIdsWord, NotesCopyAction, NotesCopyCounts, NotesCopyFailure, NotesCopyFilter,

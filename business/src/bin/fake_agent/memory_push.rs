@@ -3,7 +3,7 @@
 //! from fixed fixtures (nothing is kept between runs).
 //!
 //! - `features` prints `notes-remote-local`, `notes-hide`, `push-json`, `scripts-remote-local`,
-//!   `scripts-hide` and `scripts-push-json`, one per line;
+//!   `scripts-hide`, `scripts-push-json`, `embedder`, `settings` and `notes-lang`, one per line;
 //!   `FAKE_MEMORY_FEATURES=none` is a server that predates the command (usage error, exit 2) and
 //!   `FAKE_MEMORY_FEATURES=<a,b>` lists those instead.
 //! - Each note of `notes list|get` gets `readOnly` (a team note of a scope routed `remote+local` by
@@ -128,12 +128,33 @@ pub fn features() -> ! {
     match std::env::var("FAKE_MEMORY_FEATURES").as_deref() {
         Ok("none") => usage(),
         Ok(listed) => println!("{}", listed.replace(',', "\n")),
-        Err(_) => {
-            println!("notes-remote-local\nnotes-hide\npush-json\nscripts-remote-local\nscripts-hide\nscripts-push-json")
-        }
+        Err(_) => println!("{}", DEFAULT_FEATURES.join("\n")),
     }
 
     std::process::exit(0);
+}
+
+/// The features of a stand-in without `FAKE_MEMORY_FEATURES`.
+const DEFAULT_FEATURES: [&str; 9] = [
+    "notes-remote-local",
+    "notes-hide",
+    "push-json",
+    "scripts-remote-local",
+    "scripts-hide",
+    "scripts-push-json",
+    "embedder",
+    "settings",
+    "notes-lang",
+];
+
+/// Whether this stand-in lists `feature` in `features`: the commands of a feature it does not list
+/// are usage errors, as an older server answers.
+pub fn lists(feature: &str) -> bool {
+    match std::env::var("FAKE_MEMORY_FEATURES").as_deref() {
+        Ok("none") => false,
+        Ok(listed) => listed.split(',').any(|listed| listed.trim() == feature),
+        Err(_) => DEFAULT_FEATURES.contains(&feature),
+    }
 }
 
 /// `note` with `readOnly` and `hidden` (see the module docs).
