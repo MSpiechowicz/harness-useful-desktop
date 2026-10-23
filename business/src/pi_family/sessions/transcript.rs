@@ -64,6 +64,7 @@ pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result
         next_cursor: (end < total).then(|| end.to_string()),
         total: u32::try_from(total).unwrap_or(u32::MAX),
         stats: tally.map(StatsTally::finish),
+        truncated: false,
     })
 }
 

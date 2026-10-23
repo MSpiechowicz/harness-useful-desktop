@@ -103,6 +103,7 @@ export const sessions = {
   'sessions.transcript.progress.one': '{shown} of {count} message',
   'sessions.transcript.progress.other': '{shown} of {count} messages',
   'sessions.transcript.loadMore': 'Load more messages',
+  'sessions.transcript.truncated': 'This session is longer than the app reads. Its latest messages are not shown.',
 
   'sessions.folder.label': 'Folder',
   'sessions.folder.project': 'This project',

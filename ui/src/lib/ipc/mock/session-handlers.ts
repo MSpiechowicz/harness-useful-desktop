@@ -123,6 +123,7 @@ function pageOf(harness: SessionRef['harness'], cursor: string | null, limit: nu
     nextCursor: end < messages.length ? String(end) : null,
     total: messages.length,
     stats: cursor === null ? structuredClone(stats) : null,
+    truncated: false,
   };
 }
 

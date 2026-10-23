@@ -28,6 +28,11 @@
 //! - A change that removed an entry and could add neither the new nor the old one back is refused
 //!   as `CliRemovedEntry` without that second read (it would take the missing entry for one the
 //!   user removed).
+//! - A server whose name starts with `-` is never changed (the CLI would read it as an option, and
+//!   `-h` prints help with exit 0): the change is refused as `CliFailed` before anything runs.
+//! - `codex mcp add` silently replaces a server of the same name, so the file is read again right
+//!   before each add: a server of that name that appeared meanwhile (the user, or a running
+//!   harness, wrote it) is never overwritten, the change stops there as a failed run.
 //! - A batch-shim CLI (`claude.cmd`, an npm install on Windows) cannot take the JSON argument of
 //!   `add-json`: such a change is refused as `CliBatchShim` before anything runs, so no entry is
 //!   removed and left out.
@@ -138,7 +143,7 @@ async fn change_via_cli<R>(
         return Err(Blocked::Refused(McpRefusal::CliBatchShim));
     }
 
-    match apply(cli, &edits, file.shape).await {
+    match apply(cli, &edits, file).await {
         Applied::All => return Ok(value),
         Applied::RemovedEntry => return Err(Blocked::Refused(McpRefusal::CliRemovedEntry)),
         Applied::Failed => {}
@@ -196,13 +201,13 @@ enum Applied {
     RemovedEntry,
 }
 
-/// Runs `edits` of a `shape` file in order, stopping at the first that fails.
-async fn apply(cli: HarnessCli<'_>, edits: &[Edit], shape: Shape) -> Applied {
+/// Runs `edits` of `file` in order, stopping at the first that fails.
+async fn apply(cli: HarnessCli<'_>, edits: &[Edit], file: &McpFile) -> Applied {
     for edit in edits {
         let applied = match edit {
-            Edit::Add { name, definition } => done(add(cli, shape, name, definition).await),
-            Edit::Remove { name } => done(remove(cli, shape, name).await),
-            Edit::Replace { name, old, new } => replace(cli, shape, name, old, new).await,
+            Edit::Add { name, definition } => done(add(cli, file, name, definition).await),
+            Edit::Remove { name } => done(remove(cli, file.shape, name).await),
+            Edit::Replace { name, old, new } => replace(cli, file, name, old, new).await,
         };
 
         if !matches!(applied, Applied::All) {
@@ -217,17 +222,18 @@ fn done(ok: bool) -> Applied {
     if ok { Applied::All } else { Applied::Failed }
 }
 
-/// Removes `name` and adds it as `new`; when the add fails, adds it back as `old`.
-async fn replace(cli: HarnessCli<'_>, shape: Shape, name: &str, old: &Value, new: &Value) -> Applied {
-    if !remove(cli, shape, name).await {
+/// Removes `name` and adds it as `new`; when the add fails, adds it back as `old`. A server of that
+/// name that appeared meanwhile is left as it is.
+async fn replace(cli: HarnessCli<'_>, file: &McpFile, name: &str, old: &Value, new: &Value) -> Applied {
+    if !remove(cli, file.shape, name).await {
         return Applied::Failed;
     }
 
-    if add(cli, shape, name, new).await {
+    if add(cli, file, name, new).await {
         return Applied::All;
     }
 
-    if add(cli, shape, name, old).await {
+    if present(file, name) || add(cli, file, name, old).await {
         return Applied::Failed;
     }
 
@@ -244,10 +250,10 @@ async fn replace(cli: HarnessCli<'_>, shape: Shape, name: &str, old: &Value, new
 fn edit_args(edit: &Edit, shape: Shape) -> Option<Vec<String>> {
     match edit {
         Edit::Add { name, definition } => add_args(shape, name, definition),
-        Edit::Remove { name } => Some(remove_args(shape, name)),
+        Edit::Remove { name } => remove_args(shape, name),
         Edit::Replace { name, old, new } => Some(
             [
-                remove_args(shape, name),
+                remove_args(shape, name)?,
                 add_args(shape, name, new)?,
                 add_args(shape, name, old)?,
             ]
@@ -277,8 +283,13 @@ pub fn add_json_args(name: &str, definition: &Value) -> Vec<String> {
 
 /// The arguments (after the program name) that add the server `name` with `definition` through
 /// the CLI of a `shape` file: [`add_json_args`] for Claude Code, [`codex_add_args`] for Codex.
-/// `None` when that CLI cannot write the entry as it is, or the file is not changed by a CLI.
+/// `None` when that CLI cannot write the entry as it is, the name would read as an option, or the
+/// file is not changed by a CLI.
 pub fn add_args(shape: Shape, name: &str, definition: &Value) -> Option<Vec<String>> {
+    if !is_cli_name(name) {
+        return None;
+    }
+
     match shape {
         Shape::ClaudeCli => Some(add_json_args(name, definition)),
         Shape::CodexCli => codex_add_args(name, definition),
@@ -287,8 +298,13 @@ pub fn add_args(shape: Shape, name: &str, definition: &Value) -> Option<Vec<Stri
 }
 
 /// The arguments that remove the server `name` through the CLI of a `shape` file: `mcp remove
-/// --scope user <name>` for Claude Code, `mcp remove <name>` for Codex.
-pub fn remove_args(shape: Shape, name: &str) -> Vec<String> {
+/// --scope user <name>` for Claude Code, `mcp remove <name>` for Codex. `None` when the name would
+/// read as an option.
+pub fn remove_args(shape: Shape, name: &str) -> Option<Vec<String>> {
+    if !is_cli_name(name) {
+        return None;
+    }
+
     let mut args = vec!["mcp".to_owned(), "remove".to_owned()];
 
     if shape == Shape::ClaudeCli {
@@ -296,7 +312,13 @@ pub fn remove_args(shape: Shape, name: &str) -> Vec<String> {
     }
 
     args.push(name.to_owned());
-    args
+    Some(args)
+}
+
+/// Whether a server name can stand as a CLI argument: one starting with `-` would be read as an
+/// option (`codex mcp remove -h` prints help and exits 0, a removal that never happened).
+fn is_cli_name(name: &str) -> bool {
+    !name.is_empty() && !name.starts_with('-')
 }
 
 /// `mcp add <name> -- <command> <args…>` for a stdio entry, `mcp add <name> --url <url>
@@ -352,15 +374,36 @@ pub fn codex_add_args(name: &str, definition: &Value) -> Option<Vec<String>> {
     Some(args)
 }
 
-async fn add(cli: HarnessCli<'_>, shape: Shape, name: &str, definition: &Value) -> bool {
-    match add_args(shape, name, definition) {
+/// Adds `name` unless the file has such a server by now (see the module docs).
+async fn add(cli: HarnessCli<'_>, file: &McpFile, name: &str, definition: &Value) -> bool {
+    let Some(args) = add_args(file.shape, name, definition) else {
+        return false;
+    };
+
+    if present(file, name) {
+        tracing::warn!(
+            harness = ?cli.harness.id(),
+            server = name,
+            "MCP entry not added: a server of that name appeared meanwhile"
+        );
+        return false;
+    }
+
+    run(cli, args, name).await
+}
+
+async fn remove(cli: HarnessCli<'_>, shape: Shape, name: &str) -> bool {
+    match remove_args(shape, name) {
         Some(args) => run(cli, args, name).await,
         None => false,
     }
 }
 
-async fn remove(cli: HarnessCli<'_>, shape: Shape, name: &str) -> bool {
-    run(cli, remove_args(shape, name), name).await
+/// Whether `file`, read now, has a server `name` (or cannot be read, so nothing is added blindly).
+fn present(file: &McpFile, name: &str) -> bool {
+    load(&file.path, file.shape).map_or(true, |target| {
+        servers(&target.document(), file.shape).is_some_and(|servers| servers.contains_key(name))
+    })
 }
 
 /// Runs `args` for the server `server`; true when the CLI reports success. Logs the outcome (see

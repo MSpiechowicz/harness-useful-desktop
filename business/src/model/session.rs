@@ -181,6 +181,9 @@ pub struct SessionMessagesPage {
     pub total: u32,
     /// Totals of the active path; only on the first page (no cursor).
     pub stats: Option<TranscriptStats>,
+    /// True when the session is longer than the app reads: the transcript (and its totals) end
+    /// early, its latest messages are left out.
+    pub truncated: bool,
 }
 
 /// Totals of a saved session's active path (root to leaf), sent with the first

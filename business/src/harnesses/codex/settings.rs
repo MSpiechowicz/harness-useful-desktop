@@ -52,9 +52,14 @@ pub(super) fn project_config(project: &Path) -> Document {
 }
 
 /// Whether the user file trusts `project`: Codex looks up the folder itself and the root of its
-/// git repository (the main checkout for a worktree), never any other folder above it.
+/// git repository (the main checkout for a worktree), never any other folder above it. Both are
+/// physical paths: a chat runs in the canonical project folder, and Codex resolves the repository
+/// root from the canonical git directory, so a folder that cannot be resolved is not trusted.
 pub(super) fn is_trusted(user: &Document, project: &Path) -> bool {
     let Some(projects) = user.get("projects").and_then(Value::as_object) else {
+        return false;
+    };
+    let Ok(project) = dunce::canonicalize(project) else {
         return false;
     };
     let trusted = |dir: &Path| {
@@ -64,26 +69,28 @@ pub(super) fn is_trusted(user: &Document, project: &Path) -> bool {
             .is_some_and(|level| level == "trusted")
     };
 
-    trusted(project) || repository_root(project).is_some_and(|root| trusted(&root))
+    trusted(&project) || repository_root(&project).is_some_and(|root| trusted(&root))
 }
 
-/// The root of the git repository holding `dir`: the folder of the nearest `.git` above it, or
-/// for a worktree (a `.git` file) the folder of the repository's common git directory.
+/// The root of the git repository holding the canonical `dir`, as Codex resolves it: the folder
+/// above the canonical common git directory of the nearest `.git` (for a worktree, a `.git` file,
+/// the one its `commondir` names). `None` when that directory cannot be resolved.
 fn repository_root(dir: &Path) -> Option<PathBuf> {
     let checkout = dir.ancestors().find(|folder| folder.join(".git").exists())?;
     let marker = checkout.join(".git");
 
-    if marker.is_dir() {
-        return Some(checkout.to_path_buf());
-    }
+    let git_dir = if marker.is_dir() {
+        marker
+    } else {
+        let text = std::fs::read_to_string(&marker).ok()?;
+        checkout.join(text.trim().strip_prefix("gitdir:")?.trim())
+    };
 
-    let text = std::fs::read_to_string(&marker).ok()?;
-    let git_dir = checkout.join(text.trim().strip_prefix("gitdir:")?.trim());
     let common = match std::fs::read_to_string(git_dir.join("commondir")) {
         Ok(relative) => git_dir.join(relative.trim()),
         Err(_) => git_dir,
     };
-    let common = std::fs::canonicalize(&common).unwrap_or(common);
+    let common = dunce::canonicalize(&common).ok()?;
 
     common.parent().map(Path::to_path_buf)
 }

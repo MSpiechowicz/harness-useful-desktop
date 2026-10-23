@@ -1,6 +1,6 @@
 //! Paging of Codex sessions through the short-lived `codex app-server` (the fake of
 //! `sessions_codex`): each call has its own deadline, a run stops paging at its read budget and
-//! keeps what it read, and a transcript page of a session that changed since its first page is
+//! keeps what it read (marked as cut short), and a transcript page of a session that changed since its first page is
 //! refused instead of repeating or skipping messages.
 #![cfg(unix)]
 
@@ -62,6 +62,8 @@ fn paging_stops_at_the_read_budget_and_keeps_what_was_read() {
 
     assert!(page.total < whole.total, "{} of {}", page.total, whole.total);
     assert!(page.total > 0);
+    assert!(page.truncated, "the transcript says it ends early");
+    assert!(!whole.truncated);
 }
 
 #[test]
