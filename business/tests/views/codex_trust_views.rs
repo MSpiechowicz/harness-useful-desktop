@@ -32,8 +32,8 @@ fn the_configured_mode_follows_the_layers_and_the_profile() {
     write(
         &home.path().join(".codex/config.toml"),
         &format!(
-            "approval_policy = \"untrusted\"\nsandbox_mode = \"workspace-write\"\n\n[projects.\"{}\"]\ntrust_level = \"trusted\"\n",
-            project.display()
+            "approval_policy = \"untrusted\"\nsandbox_mode = \"workspace-write\"\n\n{}",
+            trust_entry(&project)
         ),
     );
     assert_eq!(
@@ -88,22 +88,22 @@ fn an_unset_mode_is_read_only_in_an_untrusted_folder() {
     assert_eq!(native.name, "on-request / read-only");
     assert_eq!(Codex.configured_approval_mode(&env, Some(&project)), None);
 
-    write(
-        &home.path().join(".codex/config.toml"),
-        &format!("[projects.\"{}\"]\ntrust_level = \"trusted\"\n", project.display()),
-    );
+    write(&home.path().join(".codex/config.toml"), &trust_entry(&project));
     assert_eq!(
         Codex.configured_approval_mode(&env, Some(&project)),
         Some(ApprovalMode::Write)
     );
 }
 
+/// The `config.toml` table trusting `folder`. The key is a literal string: a Windows path has
+/// backslashes, which a basic string would read as escapes.
+pub(crate) fn trust_entry(folder: &Path) -> String {
+    format!("[projects.'{}']\ntrust_level = \"trusted\"\n", folder.display())
+}
+
 /// The user's `config.toml` under `home` trusting `folder`.
 fn trust(home: &Path, folder: &Path) {
-    write(
-        &home.join(".codex/config.toml"),
-        &format!("[projects.\"{}\"]\ntrust_level = \"trusted\"\n", folder.display()),
-    );
+    write(&home.join(".codex/config.toml"), &trust_entry(folder));
 }
 
 /// Whether the project's own `approval_policy = "never"` applies (only in a trusted folder).

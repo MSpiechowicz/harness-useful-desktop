@@ -279,7 +279,11 @@ async fn approvals_name_everything_they_grant() {
         )),
         "{title}"
     );
+    #[cfg(unix)]
     assert!(title.ends_with("src/lib.rs?"), "{title}");
+    // Without the link both files are in the project, listed in the order Codex sent them.
+    #[cfg(not(unix))]
+    assert_eq!(title, "Allow apply_patch: src/lib.rs, cfg/autostart/x.desktop?");
 
     chat.settled(1).await;
     chat.finish().await;
@@ -311,6 +315,9 @@ async fn approvals_show_what_a_title_could_hide() {
     // A move names where it goes: out of the project counts as outside, so nothing is allowed for good.
     let change = answer(&chat, 0, "Reject").await;
     let (title, options) = select(&change);
+    // The dangling link and the absolute /etc path only exist as such on unix.
+    #[cfg(not(unix))]
+    let _ = (&title, &options);
     #[cfg(unix)]
     assert_eq!(
         title,

@@ -310,13 +310,7 @@ fn the_models_file_is_read_from_the_new_folder_the_old_one_or_the_new_one_when_b
     write_file(&old, OLD_ROLES);
     let view = config(home.path(), None);
     assert_eq!(default_role(&view).as_deref(), Some("claude-sonnet-5-5:low"));
-    assert!(
-        find(&view, MODELS)
-            .unwrap()
-            .source
-            .path
-            .ends_with("useful-skills/models.yml")
-    );
+    assert!(Path::new(&find(&view, MODELS).unwrap().source.path).ends_with("useful-skills/models.yml"));
     assert!(
         !find(&view, MODELS)
             .unwrap()

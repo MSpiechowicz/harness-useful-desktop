@@ -143,8 +143,10 @@ fn the_codex_home_is_not_a_project_layer() {
 #[test]
 fn trust_once_is_offered_only_for_an_untrusted_project_layer() {
     let dir = tempfile::tempdir().unwrap();
-    let env = Env::for_tests(dir.path()).with_var("CODEX_HOME", dir.path().join(HOME).to_string_lossy());
-    let project = dir.path().join("project");
+    // Codex keys trust by the physical folder (a temporary folder may sit below a symlink, as on macOS).
+    let root = dunce::canonicalize(dir.path()).unwrap();
+    let env = Env::for_tests(&root).with_var("CODEX_HOME", root.join(HOME).to_string_lossy());
+    let project = root.join("project");
     let offered = |project: &Path| Codex.trust_once_offered(&env, project);
 
     assert!(!offered(&project), "no .codex folder, nothing to trust");
@@ -155,10 +157,10 @@ fn trust_once_is_offered_only_for_an_untrusted_project_layer() {
     project_settings(&project);
     assert!(offered(&project));
 
-    user_trusts_in(dir.path(), &project);
+    user_trusts_in(&root, &project);
     assert!(!offered(&project), "the user's config.toml already trusts the folder");
 
-    let rules = dir.path().join("rules-only");
+    let rules = root.join("rules-only");
     write_file(&rules.join(".codex/rules/default.rules"), "# rules\n");
     assert!(offered(&rules));
 }

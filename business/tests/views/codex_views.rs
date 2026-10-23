@@ -3,7 +3,7 @@
 //! layer, and the plugins, marketplaces, skills, MCP servers, rules and instruction files Codex
 //! uses. The configured mode and the trust lookup are in `codex_trust_views`.
 
-use crate::codex_trust_views::real;
+use crate::codex_trust_views::{real, trust_entry};
 use crate::common;
 
 use std::path::Path;
@@ -39,7 +39,10 @@ fn the_config_view_shows_both_layers_in_source_order_with_secrets_hidden() {
     let user = &view.sections[0];
     assert_eq!(user.source.format, ConfigFormat::Toml);
     assert_eq!(user.source.layer, ConfigLayer::User);
-    assert_eq!(user.source.path, home.join(".codex/config.toml").to_string_lossy());
+    assert_eq!(
+        user.source.path,
+        home.join(".codex").join("config.toml").to_string_lossy()
+    );
     let keys: Vec<&str> = user.entries.iter().map(|entry| entry.key.as_str()).collect();
     assert_eq!(
         keys,
@@ -91,7 +94,7 @@ fn a_renamed_home_is_read_and_api_key_variables_are_named_only() {
     assert_eq!(view.sections.len(), 1);
     assert_eq!(
         view.sections[0].source.path,
-        home.join("codex-work/config.toml").to_string_lossy()
+        home.join("codex-work").join("config.toml").to_string_lossy()
     );
 
     let text = json_text(&view);
@@ -254,8 +257,8 @@ fn a_trusted_projects_servers_come_first_and_win() {
     write(
         &home.path().join(".codex/config.toml"),
         &format!(
-            "[mcp_servers.tools]\ncommand = \"user-tools\"\n\n[projects.\"{}\"]\ntrust_level = \"trusted\"\n",
-            project.display()
+            "[mcp_servers.tools]\ncommand = \"user-tools\"\n\n{}",
+            trust_entry(&project)
         ),
     );
     write(

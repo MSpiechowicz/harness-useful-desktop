@@ -157,8 +157,13 @@ async fn the_offer_names_the_codex_home_that_is_set() {
     // A relative CODEX_HOME is ignored, as for the Codex harness itself.
     let relative = env_with_node(home.path()).with_var("CODEX_HOME", "relative/home");
     let (_, side_effects, _) = script_of(codex_skills(&relative).await);
+    let default_folder = if cfg!(windows) {
+        r"(%USERPROFILE%\.codex)"
+    } else {
+        "(~/.codex)"
+    };
     assert!(
-        side_effects.iter().any(|line| line.contains("(~/.codex)")),
+        side_effects.iter().any(|line| line.contains(default_folder)),
         "{side_effects:?}"
     );
 }

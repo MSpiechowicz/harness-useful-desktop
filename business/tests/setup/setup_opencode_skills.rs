@@ -167,7 +167,7 @@ async fn a_record_with_a_version_counts_as_installed() {
 #[tokio::test]
 async fn an_install_under_the_old_names_counts_but_is_updated_by_the_installer() {
     let home = tempfile::tempdir().unwrap();
-    let env = env_with_node(home.path());
+    let env = env_with_node(home.path()).with_os(OsKind::Linux);
     write(&legacy_record(home.path()), r#"{"version":"0.3.14"}"#);
 
     let SkillsSetup::Script {
