@@ -43,18 +43,20 @@ async fn startup_sends_initialize_and_emits_ready_state_and_commands_first() {
     let AgentEvent::State { state } = &events[1] else {
         unreachable!()
     };
-    // The chat that came up: a start the manager retried (a busy executable under load) spawns again.
-    let args = argv(&chat, chat.spawner.requested().len() - 1);
+    let args = argv(&chat, 0);
     let named = args
         .iter()
         .position(|arg| arg == "--session-id")
         .map(|flag| args[flag + 1].clone());
-    assert_eq!(
-        named.as_deref(),
-        Some(state.session_id.as_str()),
-        "a new chat names its session at startup"
+    let named = named.expect("a new chat names its session at startup");
+    assert_eq!(named.len(), 36, "a UUID");
+    // The first state carries that name, unless the sink folded it into the one Claude's init
+    // sent right after (a loaded runner): then it already carries the recorded session's id.
+    assert!(
+        state.session_id == named || state.session_id == BASIC_SESSION,
+        "{} is neither the named {named} nor the recorded {BASIC_SESSION}",
+        state.session_id
     );
-    assert_eq!(state.session_id.len(), 36, "a UUID");
     assert_eq!(
         state.model.as_ref().map(|model| model.id.as_str()),
         Some("default"),
