@@ -166,7 +166,11 @@ fn trust_is_looked_up_for_the_physical_folder() {
     symlink(&root.join("data"), &link);
 
     // Codex sees the folder a symlink leads to, never the path through it.
-    trust(home.path(), &link.join("repo"));
+    let through_link = format!(
+        "[projects.'{}']\ntrust_level = \"trusted\"\n",
+        link.join("repo").display()
+    );
+    write(&home.path().join(".codex/config.toml"), &through_link);
     assert!(!project_layer_applies(&env, &link.join("repo/app")));
     assert!(!project_layer_applies(&env, &link.join("repo")));
 
