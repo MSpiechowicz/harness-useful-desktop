@@ -228,6 +228,7 @@ pub(super) fn agent_with(prompt: &str, model: Option<(&str, &str)>, max_minutes:
         model: model.map(|(provider, id)| RoutineModel {
             provider: provider.to_owned(),
             id: id.to_owned(),
+            thinking: None,
         }),
         prompt: prompt.to_owned(),
         approval_mode: None,

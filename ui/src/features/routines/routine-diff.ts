@@ -15,6 +15,7 @@ export type ChangedField =
   | 'does'
   | 'harness'
   | 'model'
+  | 'thinking'
   | 'approval'
   | 'maxMinutes'
   | 'text'
@@ -61,6 +62,7 @@ function valuesOf(routine: Routine, scopeOf: (routine: Routine) => string): Reco
     does: t(ACTION_LABELS[action.type]),
     harness: agent ? HARNESS_NAMES[agent.harness] : null,
     model: agent ? (agent.model ? `${agent.model.provider}/${agent.model.id}` : t('routines.value.defaultModel')) : null,
+    thinking: agent?.model?.thinking ?? null,
     approval: approvalValue(routine),
     maxMinutes: agent ? t('routines.value.minutes', { count: agent.maxMinutes ?? DEFAULT_MAX_MINUTES }) : null,
     text: actionText(action),
@@ -72,7 +74,7 @@ function valuesOf(routine: Routine, scopeOf: (routine: Routine) => string): Reco
   };
 }
 
-const ORDER: readonly ChangedField[] = ['name', 'description', 'when', 'does', 'harness', 'model', 'approval', 'maxMinutes', 'text', 'timeout', 'scriptScope', 'scope', 'project', 'enabled'];
+const ORDER: readonly ChangedField[] = ['name', 'description', 'when', 'does', 'harness', 'model', 'thinking', 'approval', 'maxMinutes', 'text', 'timeout', 'scriptScope', 'scope', 'project', 'enabled'];
 
 /**
  * What differs between a waiting routine and the version the user approved. Without an approved version (an agent added the

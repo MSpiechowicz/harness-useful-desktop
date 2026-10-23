@@ -1,3 +1,10 @@
+## [0.38.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.0...v0.38.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** DOMPurify 3.4.17 and ip-address 10.7.4 for new advisories ([130707a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/130707a3fa7a078bff93dfb51dfa2c9fb2e96037))
+
 # [0.38.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.2...v0.38.0) (2026-10-22)
 
 

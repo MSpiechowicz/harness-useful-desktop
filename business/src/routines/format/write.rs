@@ -71,6 +71,11 @@ fn action_value(action: &RoutineAction) -> Value {
                 let mut pair = Map::new();
                 pair.insert("provider".to_owned(), Value::from(model.provider.as_str()));
                 pair.insert("id".to_owned(), Value::from(model.id.as_str()));
+
+                if let Some(thinking) = &model.thinking {
+                    pair.insert("thinking".to_owned(), Value::from(thinking.as_str()));
+                }
+
                 Value::Object(pair)
             });
             map.insert("model".to_owned(), model.unwrap_or(Value::Null));

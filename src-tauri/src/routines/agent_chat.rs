@@ -43,7 +43,7 @@ pub(super) struct Chat<'a> {
 }
 
 impl Chat<'_> {
-    /// Switches to the routine's model, when it sets one.
+    /// Switches to the routine's model and thinking level, when it sets them.
     pub(super) async fn set_model(&self, order: &Order) -> Result<(), RunOutcome> {
         let Some(model) = &order.model else {
             return Ok(());
@@ -54,15 +54,29 @@ impl Chat<'_> {
             model_id: model.id.clone(),
         };
 
-        match self.state.agents.manager().send(&self.key, action).await {
-            Ok(_) => Ok(()),
-            Err(error) => {
-                tracing::info!(session = %self.key, code = ?error.code(), "the routine's model is not available");
-                let named = format!("{}/{}", model.provider, model.id);
+        if let Err(error) = self.state.agents.manager().send(&self.key, action).await {
+            tracing::info!(session = %self.key, code = ?error.code(), "the routine's model is not available");
+            let named = format!("{}/{}", model.provider, model.id);
 
-                Err(RunOutcome::failed(&format!("The model {named} is not available")))
-            }
+            return Err(RunOutcome::failed(&format!("The model {named} is not available")));
         }
+
+        let Some(level) = &model.thinking else {
+            return Ok(());
+        };
+
+        let action = AgentAction::SetThinkingLevel { level: level.clone() };
+
+        if let Err(error) = self.state.agents.manager().send(&self.key, action).await {
+            tracing::info!(session = %self.key, code = ?error.code(), "the routine's thinking level is not available");
+
+            return Err(RunOutcome::failed(&format!(
+                "The thinking level {level} is not available for {}/{}",
+                model.provider, model.id
+            )));
+        }
+
+        Ok(())
     }
 
     /// Sends the prompt through the chat's hooks; the relay is told in event order when the agent
@@ -155,6 +169,8 @@ pub(super) struct Watch {
     handled: bool,
     /// The last prompt ended with an error.
     pub(super) failed: bool,
+    /// The harness's text for that error (a provider's refusal, for example).
+    pub(super) error: Option<String>,
     /// The last assistant text.
     pub(super) said: Option<String>,
 }
@@ -172,6 +188,7 @@ impl Watch {
             settled: false,
             handled: false,
             failed: false,
+            error: None,
             said: None,
         }
     }
@@ -232,9 +249,11 @@ impl Watch {
                 self.taken = true;
                 self.settled = false;
                 self.failed = false;
+                self.error = None;
             }
-            Signal::PromptDone { failed, handled } => {
+            Signal::PromptDone { failed, handled, error } => {
                 self.failed = failed;
+                self.error = error;
                 self.handled |= handled;
             }
             Signal::Said(text) => self.said = Some(text),

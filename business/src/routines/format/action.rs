@@ -70,8 +70,11 @@ fn parse_agent(action: &Map<String, Value>) -> Result<RoutineAction, String> {
         Some(Value::Object(model)) => Some(RoutineModel {
             provider: model_text(model, "provider")?,
             id: model_text(model, "id")?,
+            thinking: thinking_text(model)?,
         }),
-        Some(_) => return Err("action.model must be an object with provider and id, or null".to_owned()),
+        Some(_) => {
+            return Err("action.model must be an object with provider, id and optionally thinking, or null".to_owned());
+        }
     };
 
     let approval_mode = match action.get("approvalMode") {
@@ -119,6 +122,15 @@ fn model_text(model: &Map<String, Value>, field: &str) -> Result<String, String>
     }
 }
 
+/// The optional `thinking` of the model object (`null` or absent: `None`).
+fn thinking_text(model: &Map<String, Value>) -> Result<Option<String>, String> {
+    match model.get("thinking") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(text)) => Ok(Some(text.clone())),
+        Some(_) => Err("action.model.thinking must be a string or null".to_owned()),
+    }
+}
+
 /// An optional whole number (`null` or absent: `None`); a fraction, a negative number or another
 /// type is refused.
 fn whole(action: &Map<String, Value>, field: &str) -> Result<Option<u32>, String> {
@@ -154,6 +166,10 @@ pub fn check_action(action: &RoutineAction, scope: HookScope) -> Result<(), Stri
             if let Some(model) = model {
                 check_model_part("provider", &model.provider)?;
                 check_model_part("id", &model.id)?;
+
+                if let Some(thinking) = &model.thinking {
+                    check_model_part("thinking", thinking)?;
+                }
             }
 
             if approval_mode.is_some() && !takes_approval_mode(*harness) {

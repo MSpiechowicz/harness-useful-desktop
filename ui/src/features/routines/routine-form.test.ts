@@ -6,7 +6,7 @@ import { fixtures } from '$lib/ipc/mock/fixtures';
 import { withOpenCodeChat } from '$lib/ipc/mock/opencode-chat';
 import { harness } from '$lib/stores/harness.svelte';
 
-import { blankForm, draftOf, formOf, hasHiddenCharacters, problemsOf, type RoutineForm, runsUnattended, targetOf, toggleDraft, whenOf, withHarness, withTarget } from './routine-form';
+import { blankForm, draftOf, formOf, hasHiddenCharacters, problemsOf, type RoutineForm, runsUnattended, targetOf, toggleDraft, whenOf, withHarness, withModel, withTarget } from './routine-form';
 
 // The harness list says what each harness lets a routine ask for.
 beforeEach(() => {
@@ -122,6 +122,21 @@ describe('the draft', () => {
     expect(draftOf(complete({ provider: 'a', modelId: 'b' }), null).action).toMatchObject({ model: { provider: 'a', id: 'b' } });
     expect(draftOf(withHarness(complete({ approvalMode: 'yolo', trustOnce: true }), 'pi'), null).action).toMatchObject({ harness: 'pi', approvalMode: null, trustOnce: true });
     expect(draftOf(withHarness(complete({ harness: 'pi', trustOnce: true }), 'omp'), null).action).toMatchObject({ harness: 'omp', approvalMode: null, trustOnce: false });
+  });
+
+  it('keeps the thinking level of a model through the form, and drops it with the model', () => {
+    const thinking = { ...AGENT, action: { ...(AGENT.action as Extract<Routine['action'], { type: 'agent' }>), model: { provider: 'anthropic', id: 'claude-sonnet-4-5', thinking: 'high' } } };
+    const form = formOf(thinking);
+
+    expect(form.thinking).toBe('high');
+    expect(draftOf(form, null).action).toEqual(thinking.action);
+
+    // The levels belong to a model: another model starts without one, and the default model has none to send.
+    expect(withModel(form, { provider: 'openai', id: 'gpt-5' })).toMatchObject({ provider: 'openai', modelId: 'gpt-5', thinking: '' });
+    expect(withModel(form, null)).toMatchObject({ provider: '', modelId: '', thinking: '' });
+    expect(draftOf({ ...form, provider: '', modelId: '' }, null).action).toMatchObject({ model: null });
+    expect(draftOf(withModel(form, { provider: 'openai', id: 'gpt-5' }), null).action).toMatchObject({ model: { provider: 'openai', id: 'gpt-5' } });
+    expect((draftOf(withModel(form, { provider: 'openai', id: 'gpt-5' }), null).action as { model: object }).model).not.toHaveProperty('thinking');
   });
 
   it('sends an approval mode for every harness that has approval modes and a one-time trust only for one with project trust', () => {
@@ -259,6 +274,7 @@ describe('what keeps a routine from being saved', () => {
     expect(fieldsWithProblems(complete({ provider: 'anthropic' }))).toEqual(['model']);
     expect(fieldsWithProblems(complete({ modelId: 'x' }))).toEqual(['model']);
     expect(fieldsWithProblems(complete({ provider: 'p'.repeat(201), modelId: 'x' }))).toEqual(['model']);
+    expect(fieldsWithProblems(complete({ provider: 'p', modelId: 'x', thinking: 't'.repeat(201) }))).toEqual(['model']);
   });
 
   it('wants a script name in the form harness memory keeps, and a repository only for a project routine', () => {

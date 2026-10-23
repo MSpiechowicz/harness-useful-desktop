@@ -65,6 +65,8 @@ export interface RoutineForm {
   /** The model as typed, a provider and an id; both empty for the harness's own default. */
   provider: string;
   modelId: string;
+  /** The thinking level set after the model, as the harness names it; empty keeps the model's own, and is the only value without a model. */
+  thinking: string;
   /** OMP and OpenCode only (approval modes): null keeps the harness's own setting. */
   approvalMode: ApprovalMode | null;
   /** PI only. */
@@ -105,6 +107,7 @@ export function blankForm(target: ScopeTarget = { kind: 'global' }): RoutineForm
     prompt: '',
     provider: '',
     modelId: '',
+    thinking: '',
     approvalMode: null,
     trustOnce: false,
     maxMinutes: '',
@@ -154,6 +157,7 @@ function actionFields(action: RoutineAction): Partial<RoutineForm> {
         prompt: action.prompt,
         provider: action.model?.provider ?? '',
         modelId: action.model?.id ?? '',
+        thinking: action.model?.thinking ?? '',
         approvalMode: action.approvalMode,
         trustOnce: action.trustOnce,
         maxMinutes: action.maxMinutes === null ? '' : String(action.maxMinutes),
@@ -170,6 +174,11 @@ export function withHarness(form: RoutineForm, harness: HarnessId): RoutineForm 
   const abilities = abilitiesOf(harness);
 
   return { ...form, harness, approvalMode: modeFor(abilities, form.approvalMode), trustOnce: abilities.trustOnce ? form.trustOnce : false };
+}
+
+/** Chooses the model of the routine, or the harness's default (null). The levels belong to a model, so the thinking level goes. */
+export function withModel(form: RoutineForm, model: { provider: string; id: string } | null): RoutineForm {
+  return { ...form, provider: model?.provider ?? '', modelId: model?.id ?? '', thinking: '' };
 }
 
 /** Moves the routine to another scope or project. A global routine has no repository to look a script up in. */
@@ -319,7 +328,7 @@ function modelProblems(form: RoutineForm): Problem[] {
     return [{ field: 'model', message: 'routines.editor.model.both', required: false }];
   }
 
-  return length(provider) > LIMITS.model || length(id) > LIMITS.model ? [{ field: 'model', message: 'routines.editor.model.long', params: { max: LIMITS.model }, required: false }] : [];
+  return length(provider) > LIMITS.model || length(id) > LIMITS.model || length(form.thinking.trim()) > LIMITS.model ? [{ field: 'model', message: 'routines.editor.model.long', params: { max: LIMITS.model }, required: false }] : [];
 }
 
 function commandProblems(form: RoutineForm): Problem[] {
@@ -379,13 +388,14 @@ function actionOf(form: RoutineForm): RoutineAction {
 
   const provider = form.provider.trim();
   const id = form.modelId.trim();
+  const thinking = form.thinking.trim();
   const maxMinutes = form.maxMinutes.trim();
   const abilities = abilitiesOf(form.harness);
 
   return {
     type: 'agent',
     harness: form.harness,
-    model: provider === '' ? null : { provider, id },
+    model: provider === '' ? null : { provider, id, ...(thinking === '' ? {} : { thinking }) },
     prompt: form.prompt.trim(),
     approvalMode: modeFor(abilities, form.approvalMode),
     trustOnce: abilities.trustOnce && form.trustOnce,
