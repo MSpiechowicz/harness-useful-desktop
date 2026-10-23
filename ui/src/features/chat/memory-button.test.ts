@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { SessionState } from '$lib/ipc/bindings/SessionState';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { sampleHeld } from '$lib/ipc/mock/memory-guards-fixtures';
 import { harness } from '$lib/stores/harness.svelte';
@@ -82,6 +83,25 @@ describe('the Memory button of a chat', () => {
     render(MemoryButton, { session });
 
     expect(screen.queryByRole('button', { name: /^Memory/ })).toBeNull();
+  });
+
+  it('follows the chat when a new thread finds a harness-memory server, or none any more', async () => {
+    const { session } = chatSession([], { harness: 'codex', project: PROJECT, memoryGuards: false });
+    memoryChat.attach(session.key, { key: KEY, guards: defaultGuards({ notes: false, scripts: false }) });
+    attached.push(session.key);
+    render(MemoryButton, { session });
+    let seq = 0;
+    const state = (memoryGuards: boolean) => {
+      const sent: SessionState = { sessionId: 'thread', sessionName: null, model: null, thinkingLevel: null, agent: null, isStreaming: false, isCompacting: false, messageCount: 0, queuedCount: 0, contextUsage: null, memoryGuards };
+      session.ingest({ sessionKey: session.key, seq: ++seq, event: { type: 'state', state: sent } });
+      session.flush();
+    };
+
+    state(true);
+    expect(await screen.findByRole('button', { name: /^Memory/ })).toBeInTheDocument();
+
+    state(false);
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Memory/ })).toBeNull());
   });
 
   it('is not shown for a chat that has no memory identity', async () => {

@@ -129,6 +129,7 @@ impl Chat {
             thinking_level: current_effort(live),
             agent: None,
             context_usage: live.stats.context().cloned(),
+            memory_guards: self.memory_guards(live),
             message_count: live.message_counts().total,
             queued_count: queued,
             is_streaming: live.mapper.is_streaming(),

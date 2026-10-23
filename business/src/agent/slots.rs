@@ -48,6 +48,19 @@ pub(super) struct Entry {
     pub info: AgentSessionInfo,
     pub session: Arc<AgentSession>,
     pub bound: Bound,
+    /// The chat has a memory identity and its harness supports a chat's own guards.
+    pub guards_offered: bool,
+}
+
+impl Entry {
+    /// The info with whether the chat's own guards apply as of now (a Codex chat learns it again
+    /// for every new thread).
+    pub fn info(&self) -> AgentSessionInfo {
+        AgentSessionInfo {
+            memory_guards: self.guards_offered && self.session.memory_passed_on(),
+            ..self.info.clone()
+        }
+    }
 }
 
 /// An agent taken out of the manager that may still be running. Held weakly: a

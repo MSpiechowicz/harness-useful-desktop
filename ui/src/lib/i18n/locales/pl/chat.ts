@@ -43,6 +43,7 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.approvalCard.label': 'Wymagane zatwierdzenie',
   'chat.approvalCard.denies': 'odrzuca',
+  'chat.approvalCard.readsAs.codex': 'Codex odczytuje to jako: {reading}',
 
   'chat.ask.compact.title': 'Skompaktuj rozmowę',
   'chat.ask.compact.description': 'Streszcza starsze wiadomości, aby zwolnić kontekst. Możesz wskazać agentowi, co zachować.',

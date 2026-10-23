@@ -40,6 +40,7 @@ export const chat = {
 
   'chat.approvalCard.label': 'Approval needed',
   'chat.approvalCard.denies': 'denies',
+  'chat.approvalCard.readsAs.codex': 'Codex reads this as: {reading}',
 
   'chat.ask.compact.title': 'Compact the conversation',
   'chat.ask.compact.description': 'Summarizes older messages to free up context. You can tell the agent what to keep.',

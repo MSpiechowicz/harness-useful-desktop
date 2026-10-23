@@ -7,7 +7,7 @@
 //!   (permissions for the session), offered for a command only when Codex lists it, so nothing
 //!   outlives the chat: the app never answers with a rule amendment, which Codex would save.
 //!   `Reject` or a dismissed dialog declines (the turn goes on without it). Titles and details are
-//!   redacted.
+//!   redacted, except the command that runs (`dialog_text.rs`).
 //! - **Questions** of the model and an MCP server's form: the question dialog (`forms.rs`). A
 //!   dismissed dialog answers nothing (the questions) or declines (the form). A request to visit a
 //!   URL is declined at once with a notice: the chat cannot open it yet.
@@ -15,8 +15,8 @@
 //!   closes. An abort cancels every open ask (`cancel`, no permissions, no answers).
 //! - Extra permissions are granted only as the dialog shows them (network access, folders to
 //!   read, folders to write): an ask for anything else is declined at once with a notice. A file
-//!   change names every path outside the project and the folder it asks to write below, and then
-//!   offers no `Always allow`. A command shows in full (a very long one says how much is left out),
+//!   change names every path outside the project (where a move goes too) and the folder it asks to
+//!   write below, and with either offers no `Always allow`. A command shows in full and as it runs,
 //!   input for a running command is named as such.
 //! - A helper chat (AI naming) declines every ask at once, as does any chat past [`MAX_OPEN_ASKS`]
 //!   open ones, and an ask about another thread than the chat's. A dialog's id names the type of
@@ -114,9 +114,8 @@ impl Dialogs {
             AskKind::FileChange { approval, changes } => {
                 let grant_root = approval.grant_root.as_deref().filter(|root| !root.is_empty());
                 let subject = file_change_subject(&changes, &self.project, grant_root);
-                let title = titled("apply_patch", subject.as_deref());
-                let always = grant_root
-                    .is_none()
+                let title = redact_text(&titled("apply_patch", subject.text.as_deref()));
+                let always = (grant_root.is_none() && !subject.outside)
                     .then_some("Allows changes to these files again until this chat ends");
                 let event = approval_dialog(&dialog, &title, approval.reason.as_deref(), always);
                 (

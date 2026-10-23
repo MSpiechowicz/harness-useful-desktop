@@ -226,7 +226,9 @@ fn a_thread_opens_as_a_paged_transcript_with_its_touched_files() {
             (
                 MessageRole::ToolResult,
                 Some(TURN2),
-                vec![format!("update {project}/src/old.rs\n@@\n")]
+                vec![format!(
+                    "update {project}/src/old.rs (moved to {project}/src/new.rs)\n@@\n"
+                )]
             ),
             (MessageRole::CompactionSummary, Some(TURN3), vec![]),
             (

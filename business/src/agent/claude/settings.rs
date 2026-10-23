@@ -192,6 +192,7 @@ impl Chat {
             message_count: live.counts.total,
             queued_count: u32::try_from(live.queue.len()).unwrap_or(u32::MAX),
             context_usage: live.stats.context().cloned(),
+            memory_guards: None,
         }
     }
 

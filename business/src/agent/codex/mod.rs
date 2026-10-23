@@ -146,6 +146,8 @@ struct Live {
     memory_config: serde_json::Map<String, serde_json::Value>,
     /// The chat's memory identity reaches a harness-memory server (`memory.rs`).
     memory_passed_on: bool,
+    /// The harness-memory servers the newest read found that cannot be told (`memory.rs`).
+    memory_missed: Vec<String>,
 }
 
 /// A queued user message.
@@ -192,6 +194,7 @@ impl Live {
             naming: None,
             memory_config: serde_json::Map::new(),
             memory_passed_on: false,
+            memory_missed: Vec::new(),
         }
     }
 

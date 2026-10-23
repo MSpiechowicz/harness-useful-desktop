@@ -15,10 +15,11 @@
 //! - A server the read did not return is never named: Codex refuses a thread whose `config` names
 //!   a server it does not have (`invalid transport`). A server whose name a key path cannot hold (a
 //!   dot) or whose `env_vars` is not a list gets nothing.
-//! - The chat passes its identity on ([`CodexSession::memory_passed_on`]) only when the read at
-//!   startup gave at least one server the variable, or one lists it already. Otherwise the app does
-//!   not offer the chat's own guards, and a chat whose harness-memory server could not be told gets
-//!   a notice saying so.
+//! - The chat passes its identity on ([`CodexSession::memory_passed_on`]) only when the newest read
+//!   gave at least one server the variable, or one lists it already. Otherwise the app does not
+//!   offer the chat's own guards. A later read that changes it sends a `state` with it
+//!   (`memoryGuards`), so the memory button follows. Every harness-memory server that could not be
+//!   told gets a notice naming it, also when another one was, once for each new list of them.
 //! - A later read that fails keeps the servers of the one before.
 //! - A helper chat (AI naming) switches off every server of the read (`naming.rs`). Servers the
 //!   read does not list (a plugin's own) stay on for it.
@@ -27,7 +28,7 @@ use std::time::Duration;
 
 use serde_json::{Map, Value};
 
-use super::{Chat, CodexSession};
+use super::{Chat, CodexSession, Live};
 use crate::codex_rpc::wire::outbound::Request;
 use crate::ecosystem::catalog::{MEMORY_BINARY, MEMORY_MCP_SERVER};
 use crate::ecosystem::memory_guards::SESSION_VAR;
@@ -91,18 +92,25 @@ pub(super) fn memory_config(servers: &McpServers) -> MemoryConfig {
 }
 
 /// The notice of a chat whose harness-memory servers `missed` cannot be told to pass its
-/// identity on; none when some server got it, or there is no such server.
+/// identity on, whether or not another server got it; none without such a server.
 pub(super) fn memory_notice(memory: &MemoryConfig) -> Option<AgentEvent> {
-    if memory.passed_on || memory.missed.is_empty() {
+    if memory.missed.is_empty() {
         return None;
     }
 
+    let missed = memory.missed.join(", ");
+    let message = match memory.passed_on {
+        true => format!(
+            "Codex cannot be told to pass this chat's key on to {missed}, so the chat's own memory settings do not apply there. The settings for every chat still apply"
+        ),
+        false => format!(
+            "This chat's own memory settings do not apply: Codex cannot be told to pass the chat's key on to {missed}. The settings for every chat still apply"
+        ),
+    };
+
     Some(AgentEvent::Notice {
         level: NoticeLevel::Warning,
-        message: format!(
-            "This chat's own memory settings do not apply: Codex cannot be told to pass the chat's key on to {}. The settings for every chat still apply",
-            memory.missed.join(", ")
-        ),
+        message,
     })
 }
 
@@ -149,16 +157,42 @@ impl Chat {
     }
 
     /// Before a new, resumed or forked thread of a chat with a memory identity: its servers read
-    /// again, a failed read keeping the last ones.
+    /// again, a failed read keeping the last ones. A change of whether the identity reaches a
+    /// server sends a `state`, a new list of servers that cannot be told their notice.
     pub(super) async fn refresh_memory_config(&self) {
         if !self.memory_session {
             return;
         }
 
-        match self.mcp_servers(DEFAULT_TIMEOUT).await {
-            Ok(servers) => self.lock().memory_config = memory_config(&servers).config,
-            Err(error) => tracing::debug!(%error, "Codex did not list its MCP servers again, the last ones stay"),
+        let servers = match self.mcp_servers(DEFAULT_TIMEOUT).await {
+            Ok(servers) => servers,
+            Err(error) => {
+                tracing::debug!(%error, "Codex did not list its MCP servers again, the last ones stay");
+                return;
+            }
+        };
+
+        let memory = memory_config(&servers);
+
+        let mut live = self.lock();
+        let notice = memory_notice(&memory).filter(|_| live.memory_missed != memory.missed);
+        let changed = live.memory_passed_on != memory.passed_on;
+        live.memory_config = memory.config;
+        live.memory_passed_on = memory.passed_on;
+        live.memory_missed = memory.missed;
+
+        if let Some(notice) = notice {
+            self.shared.emit(notice);
         }
+
+        if changed {
+            self.emit_state(&live);
+        }
+    }
+
+    /// Whether the chat's own guards apply, for its `state`: `None` without a memory identity.
+    pub(super) fn memory_guards(&self, live: &Live) -> Option<bool> {
+        self.memory_session.then_some(live.memory_passed_on)
     }
 }
 

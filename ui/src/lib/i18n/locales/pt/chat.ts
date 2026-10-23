@@ -43,6 +43,7 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.approvalCard.label': 'Aprovação necessária',
   'chat.approvalCard.denies': 'nega',
+  'chat.approvalCard.readsAs.codex': 'O Codex interpreta isto como: {reading}',
 
   'chat.ask.compact.title': 'Compactar a conversa',
   'chat.ask.compact.description': 'Resume as mensagens mais antigas para liberar contexto. Você pode dizer ao agente o que manter.',

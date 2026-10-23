@@ -228,6 +228,7 @@ impl Chat {
         let mut live = self.lock();
         live.memory_config = memory.config;
         live.memory_passed_on = memory.passed_on;
+        live.memory_missed = memory.missed;
 
         notice
     }
