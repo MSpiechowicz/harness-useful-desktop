@@ -1,3 +1,10 @@
+## [0.40.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.1...v0.40.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **memory:** stop the save spinner when the routing check fails and before the copy offer ([e080030](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e080030aa76953d3ecb822116c461103743f37da))
+
 ## [0.40.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.0...v0.40.1) (2026-10-26)
 
 
