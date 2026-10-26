@@ -1,3 +1,15 @@
+# [0.41.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.4...v0.41.0) (2026-10-26)
+
+
+### Bug Fixes
+
+* **test:** keep line endings as written in the git test homes ([3d69a07](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3d69a0756f5aab236356fa2d744e1deda4d54029))
+
+
+### Features
+
+* **chat:** sync and switch branches from the composer branch chip ([71bc206](https://github.com/MSpiechowicz/harness-useful-desktop/commit/71bc2067e78d90089a48958cb30bc5c81f414a5f))
+
 ## [0.40.4](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.3...v0.40.4) (2026-10-26)
 
 
