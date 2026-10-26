@@ -224,7 +224,16 @@
     busy = 'save';
     status = null;
 
-    const effects = await effectsOfSave();
+    let effects: RoutingEffect[];
+
+    try {
+      effects = await effectsOfSave();
+    } catch (error) {
+      status = { ok: false, text: failure(error) };
+      busy = null;
+
+      return;
+    }
 
     if (effects.length > 0) {
       busy = null;
@@ -279,12 +288,19 @@
         viewState.noteId = null;
         viewState.scriptId = null;
       }
+    } catch (error) {
+      status = { ok: false, text: failure(error) };
 
+      return;
+    } finally {
+      busy = null;
+    }
+
+    // After the saved line shows and the spinner stops: counting what this computer holds waits for the database when it is down.
+    try {
       await offerCopy(before, wasOn);
     } catch (error) {
       status = { ok: false, text: failure(error) };
-    } finally {
-      busy = null;
     }
   }
 </script>
