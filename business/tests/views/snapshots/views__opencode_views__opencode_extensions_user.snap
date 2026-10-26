@@ -1,0 +1,569 @@
+---
+source: business/tests/views/opencode_views.rs
+expression: "exported(extensions(&env, None), &home, &project)"
+---
+{
+  "harness": "opencode",
+  "plugins": [
+    {
+      "id": "opencode-wakatime",
+      "name": "opencode-wakatime",
+      "version": "1.2.0",
+      "description": null,
+      "enabled": true,
+      "scope": "user",
+      "marketplace": null,
+      "features": [],
+      "path": null,
+      "latestVersion": null,
+      "updateAvailable": false
+    },
+    {
+      "id": "@acme/opencode-plugin",
+      "name": "@acme/opencode-plugin",
+      "version": null,
+      "description": null,
+      "enabled": true,
+      "scope": "user",
+      "marketplace": null,
+      "features": [],
+      "path": null,
+      "latestVersion": null,
+      "updateAvailable": false
+    },
+    {
+      "id": "/home/demo/.config/opencode/plugins/hello.ts",
+      "name": "hello",
+      "version": null,
+      "description": null,
+      "enabled": true,
+      "scope": "user",
+      "marketplace": null,
+      "features": [],
+      "path": "/home/demo/.config/opencode/plugins/hello.ts",
+      "latestVersion": null,
+      "updateAvailable": false
+    }
+  ],
+  "marketplaces": [],
+  "skills": [
+    {
+      "name": "demo",
+      "description": "Demonstrates an OpenCode skill.",
+      "scope": "user",
+      "origin": "~/.config/opencode/skills",
+      "path": "/home/demo/.config/opencode/skills/demo/SKILL.md",
+      "package": null
+    },
+    {
+      "name": "plain-writing",
+      "description": "Write in plain language.",
+      "scope": "user",
+      "origin": "~/.agents/skills",
+      "path": "/home/demo/.agents/skills/plain-writing/SKILL.md",
+      "package": null
+    },
+    {
+      "name": "claude-notes",
+      "description": "A Claude Code skill OpenCode also loads.",
+      "scope": "user",
+      "origin": "~/.claude/skills",
+      "path": "/home/demo/.claude/skills/claude-notes/SKILL.md",
+      "package": null
+    }
+  ],
+  "promptTemplates": [
+    {
+      "name": "deploy",
+      "description": "Deploy the current branch",
+      "argumentHint": null,
+      "scope": "user",
+      "path": "/home/demo/.config/opencode/opencode.jsonc"
+    },
+    {
+      "name": "git/changelog",
+      "description": "Draft a changelog entry from recent commits",
+      "argumentHint": null,
+      "scope": "user",
+      "path": "/home/demo/.config/opencode/commands/git/changelog.md"
+    },
+    {
+      "name": "standup",
+      "description": "Write a standup note",
+      "argumentHint": null,
+      "scope": "user",
+      "path": "/home/demo/.opencode/command/standup.md"
+    },
+    {
+      "name": "test",
+      "description": "Run the test suite and summarize failures",
+      "argumentHint": null,
+      "scope": "user",
+      "path": "/home/demo/.config/opencode/commands/test.md"
+    }
+  ],
+  "agents": [
+    {
+      "name": "build",
+      "description": "Build agent with the house model.",
+      "mode": "primary",
+      "model": "anthropic/claude-sonnet-4-5",
+      "builtIn": true,
+      "hidden": false,
+      "scope": "builtin",
+      "path": null
+    },
+    {
+      "name": "plan",
+      "description": "Plan mode. Disallows all edit tools.",
+      "mode": "primary",
+      "model": "anthropic/claude-opus-4-1",
+      "builtIn": true,
+      "hidden": false,
+      "scope": "builtin",
+      "path": null
+    },
+    {
+      "name": "general",
+      "description": "General-purpose agent for researching complex questions and executing multi-step tasks.",
+      "mode": "subagent",
+      "model": null,
+      "builtIn": true,
+      "hidden": false,
+      "scope": "builtin",
+      "path": null
+    },
+    {
+      "name": "compaction",
+      "description": null,
+      "mode": "primary",
+      "model": null,
+      "builtIn": true,
+      "hidden": true,
+      "scope": "builtin",
+      "path": null
+    },
+    {
+      "name": "title",
+      "description": null,
+      "mode": "primary",
+      "model": null,
+      "builtIn": true,
+      "hidden": true,
+      "scope": "builtin",
+      "path": null
+    },
+    {
+      "name": "summary",
+      "description": null,
+      "mode": "primary",
+      "model": null,
+      "builtIn": true,
+      "hidden": true,
+      "scope": "builtin",
+      "path": null
+    },
+    {
+      "name": "docs",
+      "description": "Writes and updates documentation.",
+      "mode": "subagent",
+      "model": "openai/gpt-5",
+      "builtIn": false,
+      "hidden": false,
+      "scope": "user",
+      "path": "/home/demo/.config/opencode/opencode.jsonc"
+    },
+    {
+      "name": "focus",
+      "description": "Legacy mode: primary agent without distractions.",
+      "mode": "primary",
+      "model": null,
+      "builtIn": false,
+      "hidden": false,
+      "scope": "user",
+      "path": "/home/demo/.config/opencode/opencode.jsonc"
+    },
+    {
+      "name": "reviewer",
+      "description": "Reviews staged changes for bugs and style.",
+      "mode": "subagent",
+      "model": "anthropic/claude-sonnet-4-5",
+      "builtIn": false,
+      "hidden": false,
+      "scope": "user",
+      "path": "/home/demo/.config/opencode/agents/reviewer.md"
+    }
+  ],
+  "mcpServers": [
+    {
+      "name": "github",
+      "transport": "stdio",
+      "command": "npx",
+      "args": [
+        {
+          "kind": "text",
+          "value": "-y"
+        },
+        {
+          "kind": "text",
+          "value": "@modelcontextprotocol/server-github"
+        },
+        {
+          "kind": "text",
+          "value": "--token=••••"
+        },
+        {
+          "kind": "text",
+          "value": "--api-key"
+        },
+        {
+          "kind": "secret",
+          "value": {
+            "type": "value"
+          }
+        }
+      ],
+      "url": null,
+      "enabled": true,
+      "source": {
+        "path": "/home/demo/.config/opencode/opencode.jsonc",
+        "layer": "user",
+        "profile": null,
+        "format": "jsonc",
+        "exists": true
+      },
+      "details": [
+        {
+          "key": "environment",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "GITHUB_TOKEN",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              },
+              {
+                "key": "GITHUB_HOST",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "envRef",
+                    "name": "GITHUB_HOST"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "linear",
+      "transport": "http",
+      "command": null,
+      "args": [],
+      "url": {
+        "kind": "text",
+        "value": "https://mcp.linear.app/mcp"
+      },
+      "enabled": true,
+      "source": {
+        "path": "/home/demo/.config/opencode/opencode.jsonc",
+        "layer": "user",
+        "profile": null,
+        "format": "jsonc",
+        "exists": true
+      },
+      "details": [
+        {
+          "key": "headers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "Authorization",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "oauth",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "clientId",
+                "value": {
+                  "kind": "text",
+                  "value": "desktop-client"
+                }
+              },
+              {
+                "key": "clientSecret",
+                "value": {
+                  "kind": "secret",
+                  "value": {
+                    "type": "value"
+                  }
+                }
+              },
+              {
+                "key": "scope",
+                "value": {
+                  "kind": "text",
+                  "value": "read"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "timeout",
+          "value": {
+            "kind": "number",
+            "value": "10000"
+          }
+        }
+      ]
+    },
+    {
+      "name": "internal",
+      "transport": "http",
+      "command": null,
+      "args": [],
+      "url": {
+        "kind": "text",
+        "value": "https://••••@mcp.example.com/sse?key=••••"
+      },
+      "enabled": false,
+      "source": {
+        "path": "/home/demo/.config/opencode/opencode.jsonc",
+        "layer": "user",
+        "profile": null,
+        "format": "jsonc",
+        "exists": true
+      },
+      "details": []
+    }
+  ],
+  "themes": [
+    {
+      "name": "aura",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "ayu",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "catppuccin",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "catppuccin-frappe",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "catppuccin-macchiato",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "cobalt2",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "cursor",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "dracula",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "everforest",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "flexoki",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "github",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "gruvbox",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "kanagawa",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "material",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "matrix",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "mercury",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "monokai",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "nightowl",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "nord",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "one-dark",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "osaka-jade",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "opencode",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "orng",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "lucent-orng",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "palenight",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "rosepine",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "solarized",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "synthwave84",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "tokyonight",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "vesper",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "vercel",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "zenburn",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "carbonfox",
+      "scope": "builtin",
+      "path": null,
+      "active": false
+    },
+    {
+      "name": "dusk",
+      "scope": "user",
+      "path": "/home/demo/.config/opencode/themes/dusk.json",
+      "active": true
+    }
+  ],
+  "packages": [],
+  "extensionModules": [],
+  "notices": []
+}

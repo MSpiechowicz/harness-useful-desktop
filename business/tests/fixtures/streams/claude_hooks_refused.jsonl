@@ -1,0 +1,5 @@
+// A prompt the app refused before it reached the CLI (an image type no chat takes): the next prompt
+// still carries the sessionStart context, then basic.jsonl's turn ("pong").
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt", "match": {"/message/content": "<harness-hook-context>\n<hook name=\"Project notes\">Read NOTES.md first.</hook>\n</harness-hook-context>\n\nHello"}}
+{"replay": "../claude/stream/basic.jsonl", "from": 6, "to": 22, "except": ["control_response"], "replace": {"c3ffc375-3f53-4214-acb4-665d7431545c": "$prompt"}}

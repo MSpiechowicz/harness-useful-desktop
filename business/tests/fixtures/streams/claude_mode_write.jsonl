@@ -1,0 +1,5 @@
+// A Write chat registers no hook, so even a callback naming the ask-all id gets no opinion.
+{"include": "claude_init_write.jsonl"}
+{"replay": "../claude/stream/tools.jsonl", "from": 27, "to": 27, "replace": {"askall": "harness_ask_all"}}
+{"expect": "control_response", "match": {"/response/request_id": "f3258419-e209-447e-97d2-05b1ef3830c9", "/response/response": {}}}
+{"emit": {"type": "system", "subtype": "session_title_changed", "title": "Marker", "session_id": "0a433744-8ef1-4d3c-861b-8ff5bc0e302c"}}

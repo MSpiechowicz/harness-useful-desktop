@@ -1,0 +1,4 @@
+// The turn of tools.jsonl without its asks: Read, Write and a denied Bash call, then the reply.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/tools.jsonl", "from": 7, "to": 115, "except": ["control_request", "control_response"], "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt"}}

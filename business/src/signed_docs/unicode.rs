@@ -57,6 +57,23 @@ pub(crate) fn is_hidden_char(character: char) -> bool {
             .any(|(first, last)| (*first..=*last).contains(&code))
 }
 
+/// `text` with each hidden character ([`is_hidden_char`]) spelled out as `⟨U+XXXX⟩`, the way the
+/// app shows them elsewhere, so text the user approves reads as it runs (no bidirectional control
+/// reorders it, no zero-width character hides in it).
+pub(crate) fn spelled_out(text: &str) -> String {
+    let mut shown = String::with_capacity(text.len());
+
+    for character in text.chars() {
+        if is_hidden_char(character) {
+            shown.push_str(&format!("⟨U+{:04X}⟩", u32::from(character)));
+        } else {
+            shown.push(character);
+        }
+    }
+
+    shown
+}
+
 /// True for a Unicode format character (see [`FORMAT_CHARS`]).
 pub(crate) fn is_format_char(character: char) -> bool {
     let code = u32::from(character);

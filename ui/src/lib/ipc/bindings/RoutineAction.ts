@@ -25,7 +25,8 @@ prompt: string,
  */
 approvalMode: ApprovalMode | null, 
 /**
- * PI only: trust the project's local resources for this launch.
+ * PI and Claude Code only: trust the project's local resources for this launch (a Claude
+ * Code run in a folder it does not trust yet is refused without it).
  */
 trustOnce: boolean, 
 /**

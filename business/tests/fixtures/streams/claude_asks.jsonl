@@ -1,0 +1,26 @@
+// The turn of tools.jsonl in an Always ask chat (the recorded callback id renamed to the app's):
+// every hook callback is answered with `ask`, the Read prompt allowed once, the Write prompt always
+// (no suggestions: the chat keeps Write on files in the project, so a second Write prompt in the
+// project is allowed without a dialog, but not one the CLI allows no lasting rule for, nor one
+// outside the project), the Bash prompt rejected.
+{"include": "claude_init_ask_all.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/tools.jsonl", "from": 7, "to": 27, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt", "askall": "harness_ask_all"}}
+{"expect": "control_response", "match": {"/response/request_id": "f3258419-e209-447e-97d2-05b1ef3830c9", "/response/subtype": "success", "/response/response": {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask"}}}}
+{"replay": "../claude/stream/tools.jsonl", "from": 29, "to": 30, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt"}}
+{"expect": "control_response", "match": {"/response/request_id": "f9c23b59-dafb-4bcb-aa8f-fd0d3dd816c9", "/response/response/behavior": "allow", "/response/response/updatedPermissions": []}}
+{"replay": "../claude/stream/tools.jsonl", "from": 32, "to": 56, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt", "askall": "harness_ask_all"}}
+{"expect": "control_response", "match": {"/response/request_id": "bdb02678-7a02-48f0-8111-14f3f0c7908e", "/response/response/hookSpecificOutput/permissionDecision": "ask"}}
+{"replay": "../claude/stream/tools.jsonl", "from": 58, "to": 58, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt"}}
+{"expect": "control_response", "match": {"/response/request_id": "33b799d2-2e75-432e-8d84-d2a660dd3979", "/response/response/behavior": "allow", "/response/response/updatedInput/content": "hi", "/response/response/updatedPermissions": []}}
+{"emit": {"type": "control_request", "request_id": "5e1f0a2b-0000-4000-8000-000000000001", "request": {"subtype": "can_use_tool", "tool_name": "Write", "display_name": "Write", "input": {"file_path": "/home/user/project/src/again.txt", "content": "again"}, "description": "again.txt", "decision_reason": "", "decision_reason_type": "hook", "tool_use_id": "toolu_crafted_second_write"}}}
+{"expect": "control_response", "match": {"/response/request_id": "5e1f0a2b-0000-4000-8000-000000000001", "/response/response/behavior": "allow", "/response/response/updatedInput/content": "again"}}
+{"emit": {"type": "control_request", "request_id": "5e1f0a2b-0000-4000-8000-000000000002", "request": {"subtype": "can_use_tool", "tool_name": "Write", "display_name": "Write", "input": {"file_path": "/home/user/project/.claude/settings.json", "content": "{}"}, "description": "settings.json", "decision_reason": "Claude Code settings files need approval", "decision_reason_type": "safetyCheck", "suppress_always_allow_rule": true, "tool_use_id": "toolu_crafted_settings_write"}}}
+{"expect": "control_response", "match": {"/response/request_id": "5e1f0a2b-0000-4000-8000-000000000002", "/response/response/behavior": "deny"}}
+{"emit": {"type": "control_request", "request_id": "5e1f0a2b-0000-4000-8000-000000000003", "request": {"subtype": "can_use_tool", "tool_name": "Write", "display_name": "Write", "input": {"file_path": "/tmp/elsewhere.txt", "content": "away"}, "description": "elsewhere.txt", "decision_reason": "", "decision_reason_type": "hook", "tool_use_id": "toolu_crafted_outside_write"}}}
+{"expect": "control_response", "match": {"/response/request_id": "5e1f0a2b-0000-4000-8000-000000000003", "/response/response/behavior": "allow", "/response/response/updatedInput/content": "away"}}
+{"replay": "../claude/stream/tools.jsonl", "from": 60, "to": 73, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt", "askall": "harness_ask_all"}}
+{"expect": "control_response", "match": {"/response/request_id": "4ec03056-04c7-4d80-abb5-ba304ffeec87", "/response/response/hookSpecificOutput/permissionDecision": "ask"}}
+{"replay": "../claude/stream/tools.jsonl", "from": 75, "to": 77, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt"}}
+{"expect": "control_response", "match": {"/response/request_id": "42443ed3-2830-4af2-ac90-1baccc6fc545", "/response/response": {"behavior": "deny", "message": "The user declined this tool call."}}}
+{"replay": "../claude/stream/tools.jsonl", "from": 79, "to": 115, "except": ["control_response"], "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt"}}

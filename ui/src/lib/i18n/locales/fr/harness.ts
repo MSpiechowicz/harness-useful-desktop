@@ -7,11 +7,11 @@ export const harness: AreaMessages<typeof enHarness> = {
   'harness.boundary.notifications': 'Les notifications',
 
   'harness.gate.noneTitle': 'Aucun harness trouvé',
-  'harness.gate.noneBody': 'Harness Desktop fonctionne avec OMP, PI et OpenCode. Lancez la configuration pour les détecter.',
+  'harness.gate.noneBody': 'Harness Desktop fonctionne avec OMP, PI, OpenCode, Claude Code et Codex. Lancez la configuration pour les détecter.',
   'harness.gate.missingTitle': '{name} n’est pas installé',
   'harness.gate.setup': 'Configurer {name}',
   'harness.gate.retry': 'Réessayer',
-  'harness.gate.banner': '{name} n’est pas installé ; affichage de ce qui se trouve sur le disque.',
+  'harness.gate.banner': '{name} n’est pas installé. Voici ce qui se trouve sur le disque.',
 
   'harness.gate.config.missingBody': 'Installez-le, ou indiquez à Harness Desktop un exécutable existant, pour voir ici sa configuration.',
   'harness.gate.config.errorTitle': 'Impossible de lire la configuration',

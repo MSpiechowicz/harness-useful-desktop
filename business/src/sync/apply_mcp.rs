@@ -11,7 +11,7 @@ use crate::ecosystem::mcp_register::snippet;
 use crate::ecosystem::{Blocked, MergeResult};
 use crate::env::Env;
 use crate::harnesses::opencode::merged_mcp_names;
-use crate::model::{HarnessId, SyncItemOutcome, SyncNote, SyncOutcome, SyncSkipReason};
+use crate::model::{HarnessId, McpRefusal, SyncItemOutcome, SyncNote, SyncOutcome, SyncSkipReason};
 use crate::pi_family::tilde;
 
 /// True when one of the MCP `servers` is missing from every file the app reads, so it would be
@@ -88,6 +88,26 @@ pub(super) enum Names<'a> {
     Unavailable(&'a Unchecked),
 }
 
+/// The outcome of an MCP item that `presence` already decides: the server or another of its name
+/// is there, or the file cannot be read safely. `None` when the server is missing.
+pub(super) fn found_outcome(item: &StoredItem, presence: Result<Presence, McpRefusal>) -> Option<SyncItemOutcome> {
+    match presence {
+        Err(refusal) => Some(outcome(
+            item,
+            SyncOutcome::Skipped {
+                reason: SyncSkipReason::McpFileRefused { refusal },
+            },
+        )),
+        Ok(Presence::Absent) => None,
+        Ok(Presence::Conflict) => Some(outcome(item, SyncOutcome::Conflict)),
+        Ok(Presence::Unreadable) => Some(SyncItemOutcome {
+            notes: vec![SyncNote::ConfigUnreadable],
+            ..outcome(item, SyncOutcome::Conflict)
+        }),
+        Ok(Presence::Present | Presence::DifferentVersion { .. }) => Some(outcome(item, SyncOutcome::AlreadyPresent)),
+    }
+}
+
 /// The MCP servers of one file: each re-checked (an OpenCode one against OpenCode's merged `names`
 /// too), then all that are still missing merged at once. Without a file (the review found the
 /// harness not installed) every server is skipped.
@@ -128,25 +148,9 @@ pub(super) fn mcp_batch(
             Names::Unchecked => mcp_presence(files, server).map(|presence| with_merged(presence, None, &server.name)),
         };
 
-        let decided = match presence {
-            Err(refusal) => Some(outcome(
-                item,
-                SyncOutcome::Skipped {
-                    reason: SyncSkipReason::McpFileRefused { refusal },
-                },
-            )),
-            Ok(Presence::Absent) => match names {
-                Names::Unavailable(unchecked) => Some(unchecked.outcome(item)),
-                _ => None,
-            },
-            Ok(Presence::Conflict) => Some(outcome(item, SyncOutcome::Conflict)),
-            Ok(Presence::Unreadable) => Some(SyncItemOutcome {
-                notes: vec![SyncNote::ConfigUnreadable],
-                ..outcome(item, SyncOutcome::Conflict)
-            }),
-            Ok(Presence::Present | Presence::DifferentVersion { .. }) => {
-                Some(outcome(item, SyncOutcome::AlreadyPresent))
-            }
+        let decided = match (presence, names) {
+            (Ok(Presence::Absent), Names::Unavailable(unchecked)) => Some(unchecked.outcome(item)),
+            (presence, _) => found_outcome(item, presence),
         };
 
         if decided.is_none() {

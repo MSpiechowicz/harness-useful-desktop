@@ -30,6 +30,8 @@ interface Seed {
   age: number;
   revision?: number;
   hits?: number;
+  /** `other` for a note the server flagged as not written in English. */
+  lang?: 'en' | 'other';
 }
 
 function note(seed: Seed): NoteContent {
@@ -52,6 +54,7 @@ function note(seed: Seed): NoteContent {
     hits: seed.hits ?? 0,
     readOnly: false,
     hidden: false,
+    lang: seed.lang ?? 'en',
   };
 }
 
@@ -77,6 +80,7 @@ const CRAFTED: Seed[] = [
     entities: ['WEBKIT_DISABLE_DMABUF_RENDERER', 'src-tauri/tauri.conf.json'],
     age: 28,
     hits: 7,
+    lang: 'other',
   },
   {
     id: 5,
@@ -111,6 +115,7 @@ const CRAFTED: Seed[] = [
     source: 'codex',
     age: 140,
     hits: 9,
+    lang: 'other',
   },
   {
     id: 8,

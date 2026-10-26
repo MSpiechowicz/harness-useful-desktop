@@ -1,0 +1,16 @@
+// "Always allow" for a command without suggested rules (crafted after tools.jsonl line 77): the
+// chat keeps exactly `cargo test -p demo`, so the same command runs again without a dialog (only
+// its description differs), but a command that chains another asks again and is rejected. Then a
+// dialog the app cannot show is refused and an MCP elicitation declined, both at once.
+{"include": "claude_init_write.jsonl"}
+{"emit": {"type": "control_request", "request_id": "0c7e0c11-0000-4000-8000-000000000001", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "display_name": "Bash", "input": {"command": "cargo test -p demo"}, "tool_use_id": "toolu_cargo_1"}}}
+{"expect": "control_response", "match": {"/response/request_id": "0c7e0c11-0000-4000-8000-000000000001", "/response/response/behavior": "allow", "/response/response/updatedPermissions": []}}
+{"emit": {"type": "control_request", "request_id": "0c7e0c11-0000-4000-8000-000000000002", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "display_name": "Bash", "input": {"command": "cargo test -p demo", "description": "Run the tests again"}, "tool_use_id": "toolu_cargo_2"}}}
+{"expect": "control_response", "match": {"/response/request_id": "0c7e0c11-0000-4000-8000-000000000002", "/response/response/behavior": "allow", "/response/response/updatedInput/description": "Run the tests again"}}
+{"emit": {"type": "control_request", "request_id": "0c7e0c11-0000-4000-8000-000000000003", "request": {"subtype": "can_use_tool", "tool_name": "Bash", "display_name": "Bash", "input": {"command": "cargo test -p demo && rm -rf target"}, "tool_use_id": "toolu_cargo_3"}}}
+{"expect": "control_response", "match": {"/response/request_id": "0c7e0c11-0000-4000-8000-000000000003", "/response/response/behavior": "deny"}}
+{"emit": {"type": "control_request", "request_id": "0c7e0c11-0000-4000-8000-000000000004", "request": {"subtype": "request_user_dialog", "dialog_kind": "oauth", "payload": {}}}}
+{"expect": "control_response", "match": {"/response/request_id": "0c7e0c11-0000-4000-8000-000000000004", "/response/subtype": "error"}}
+{"emit": {"type": "control_request", "request_id": "0c7e0c11-0000-4000-8000-000000000005", "request": {"subtype": "elicitation", "mcp_server_name": "docs", "message": "Pick a workspace", "mode": "form", "requested_schema": {"type": "object", "properties": {}}}}}
+{"expect": "control_response", "match": {"/response/request_id": "0c7e0c11-0000-4000-8000-000000000005", "/response/subtype": "success", "/response/response": {"action": "decline"}}}
+{"emit": {"type": "system", "subtype": "session_title_changed", "title": "Marker", "session_id": "0a433744-8ef1-4d3c-861b-8ff5bc0e302c"}}

@@ -1,0 +1,17 @@
+// A turn waits on two permission prompts (tools.jsonl lines 30 and 58) when the user stops it:
+// the CLI withdraws the first, the engine denies the second after the interrupt's answer, then the
+// turn ends as interrupted (interrupt.jsonl lines 46 and 50). The `Marker` title tells the test
+// that both prompts are open.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/tools.jsonl", "from": 7, "to": 26, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt"}}
+{"replay": "../claude/stream/tools.jsonl", "from": 30, "to": 30}
+{"replay": "../claude/stream/tools.jsonl", "from": 58, "to": 58}
+{"emit": {"type": "system", "subtype": "session_title_changed", "title": "Marker", "session_id": "0a433744-8ef1-4d3c-861b-8ff5bc0e302c"}}
+{"expect": "control_request", "subtype": "interrupt", "hold": true}
+{"emit": {"type": "control_cancel_request", "request_id": "f9c23b59-dafb-4bcb-aa8f-fd0d3dd816c9"}}
+{"respond": "interrupt", "reply": {"still_queued": []}}
+{"expect": "control_response", "match": {"/response/request_id": "33b799d2-2e75-432e-8d84-d2a660dd3979", "/response/subtype": "success", "/response/response/behavior": "deny", "/response/response/message": "The user stopped the turn."}}
+{"replay": "../claude/stream/interrupt.jsonl", "from": 46, "to": 46}
+{"replay": "../claude/stream/interrupt.jsonl", "from": 50, "to": 50, "replace": {"a81a4bda-83f5-4cb7-9d14-1c6dbba81788": "$prompt"}}
+{"replay": "../claude/stream/interrupt.jsonl", "from": 52, "to": 52, "replace": {"a81a4bda-83f5-4cb7-9d14-1c6dbba81788": "$prompt"}}

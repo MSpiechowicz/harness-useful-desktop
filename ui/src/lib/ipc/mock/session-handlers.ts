@@ -28,6 +28,14 @@ const keyOf = (session: SessionRef): string => `${session.harness}:${session.id}
 
 /** The fixture sessions of `harness` that were not deleted. */
 function listed(state: MockState, harness: SessionRef['harness']): SessionSummary[] {
+  if (harness === 'claude') {
+    throw IpcFailure.from({ code: 'unsupported', message: 'Claude Code sessions are not available yet' });
+  }
+
+  if (harness === 'codex') {
+    throw IpcFailure.from({ code: 'unsupported', message: 'Codex sessions are not available yet' });
+  }
+
   const all = harness === 'opencode' ? (sessionsListOpenCode as unknown as SessionSummary[]) : fixtures.sessions.list[harness];
 
   const kept = all.filter((summary) => !state.deletedSessions.has(keyOf(summary.ref)));
@@ -64,6 +72,16 @@ function folderOf(harness: SessionRef['harness'], project: string): SessionFolde
   // OpenCode keeps every project's sessions in one data folder, which the project cannot change.
   if (harness === 'opencode') {
     return { path: `${HOME}/.local/share/opencode`, configured: false };
+  }
+
+  // Claude Code names the folder after the whole path, every character but ASCII letters and digits a `-`.
+  if (harness === 'claude') {
+    return { path: `${HOME}/.claude/projects/${project.replaceAll(/[^a-zA-Z0-9]/g, '-')}`, configured: false };
+  }
+
+  // Codex keeps every project's sessions in one folder of its home.
+  if (harness === 'codex') {
+    return { path: `${HOME}/.codex/sessions`, configured: false };
   }
 
   const path =
@@ -105,6 +123,7 @@ function pageOf(harness: SessionRef['harness'], cursor: string | null, limit: nu
     nextCursor: end < messages.length ? String(end) : null,
     total: messages.length,
     stats: cursor === null ? structuredClone(stats) : null,
+    truncated: false,
   };
 }
 
@@ -146,6 +165,14 @@ export function sessionHandlers(state: MockState, routines: Pick<MockRoutines, '
       // OpenCode keeps its sessions in a database the totals do not read.
       if (harness === 'opencode') {
         throw IpcFailure.from({ code: 'unsupported', message: 'OpenCode sessions cannot be counted across projects.' });
+      }
+
+      if (harness === 'claude') {
+        throw IpcFailure.from({ code: 'unsupported', message: 'CC has no session files' });
+      }
+
+      if (harness === 'codex') {
+        throw IpcFailure.from({ code: 'unsupported', message: 'CX has no session files' });
       }
 
       return structuredClone(harness === 'pi' ? totalsPi : totalsOmp) as SessionTotals;

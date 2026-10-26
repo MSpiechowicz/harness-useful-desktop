@@ -76,6 +76,7 @@ fn an_unattended_opencode2_run_in_approval_mode_write_writes_a_file_and_finishes
     let model = RoutineModel {
         provider: "opencode".to_owned(),
         id: "longcat-2.5-preview-free".to_owned(),
+        thinking: None,
     };
 
     // The start is refused unless the server's agents show the write rules; the model goes to the

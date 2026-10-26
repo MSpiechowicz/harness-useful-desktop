@@ -189,7 +189,22 @@ pub fn parse_bash(data: Option<&Value>) -> BashOutput {
 /// [`AgentReply::History::next_cursor`]); messages inside the page stay oldest first.
 pub fn slice_history(messages: Vec<ChatMessage>, cursor: Option<&str>, limit: u32) -> Result<AgentReply> {
     let total = messages.len();
+    let (start, end) = page_bounds(total, cursor, limit)?;
+    let page = messages.into_iter().skip(start).take(end - start).collect();
 
+    Ok(history_page(page, start, total))
+}
+
+/// [`slice_history`] of messages held elsewhere (a cached transcript): only the page is copied.
+pub fn page_history(messages: &[ChatMessage], cursor: Option<&str>, limit: u32) -> Result<AgentReply> {
+    let total = messages.len();
+    let (start, end) = page_bounds(total, cursor, limit)?;
+
+    Ok(history_page(messages[start..end].to_vec(), start, total))
+}
+
+/// The page of `total` messages ending before `cursor`, at most `limit` long.
+fn page_bounds(total: usize, cursor: Option<&str>, limit: u32) -> Result<(usize, usize)> {
     let end = match cursor {
         None => total,
         Some(raw) => raw
@@ -199,12 +214,13 @@ pub fn slice_history(messages: Vec<ChatMessage>, cursor: Option<&str>, limit: u3
             .ok_or_else(|| BusinessError::InvalidInput("unknown history cursor".to_owned()))?,
     };
 
-    let start = end.saturating_sub(limit as usize);
-    let page = messages.into_iter().skip(start).take(end - start).collect();
+    Ok((end.saturating_sub(limit as usize), end))
+}
 
-    Ok(AgentReply::History {
-        messages: page,
+fn history_page(messages: Vec<ChatMessage>, start: usize, total: usize) -> AgentReply {
+    AgentReply::History {
+        messages,
         next_cursor: (start > 0).then(|| start.to_string()),
         total: u32::try_from(total).ok(),
-    })
+    }
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentEvent } from '$lib/ipc/bindings/AgentEvent';
 import type { ChatMessage } from '$lib/ipc/bindings/ChatMessage';
-import type { Transport } from '$lib/ipc/transport';
+import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
 import { sampleInfo } from '../../../tests/chat-helpers';
 import { requestAiLabel } from './ai-name';
@@ -61,6 +61,20 @@ describe('requestAiLabel', () => {
 
     expect(await requestAiLabel(transport, REQUEST)).toBeNull();
     expect(calls.at(-1)?.name).toBe('agent_stop');
+  });
+
+  it('skips naming quietly in a folder the harness does not trust: no prompt, no retry, nothing to show', async () => {
+    const calls: string[] = [];
+    const transport: Transport = {
+      invoke: (name) => {
+        calls.push(name);
+
+        return Promise.reject(new IpcFailure({ code: 'untrusted', message: 'Claude Code does not trust this folder yet.' }));
+      },
+    };
+
+    expect(await requestAiLabel(transport, { ...REQUEST, harness: 'claude' })).toBeNull();
+    expect(calls).toEqual(['agent_start']);
   });
 
   it('gives null when the helper cannot start', async () => {

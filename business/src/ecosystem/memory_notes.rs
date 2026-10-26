@@ -5,7 +5,8 @@
 //! server's commands, within [`LIST_TIMEOUT`]:
 //!
 //! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] [--place
-//!   local|team] --sort updated|title|kind|scope|place --order O [--project P] [--hidden]` answers
+//!   local|team] [--lang en|other|unknown] --sort updated|title|kind|scope|place --order O
+//!   [--project P] [--hidden]` (`--lang` only of a server that lists `notes-lang`) answers
 //!   `{"notes": [...], "total": N, "kinds": [{"kind", "count"}], "scopes": {"repo", "global"},
 //!   "places": {"local", "team"}}`: the repository notes of the project and the global ones, each
 //!   with `readOnly` and `hidden`, and with a team database `hiddenCount` and `localCounts`
@@ -40,6 +41,7 @@ use super::memory_cli::{
     ListWindow, Repos, count_of, counts_by_scope, delete_all, list_availability, run_json, run_text, scope_counts,
     scope_name,
 };
+use super::memory_features::FeaturesSupport;
 pub(super) use super::memory_hidden::ids_on_stdin;
 use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, kind_args, not_found};
 use super::memory_list::{ListAnswer, list_filters, place_counts, run_list};
@@ -48,7 +50,7 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteDetail, NoteKind, NoteKindCount,
-    NoteSort, NoteSummary, ScriptPlace, ScriptScope,
+    NoteLangFilter, NoteSort, NoteSummary, ScriptPlace, ScriptScope,
 };
 use crate::process::ProcessRunner;
 
@@ -66,10 +68,24 @@ pub struct NotesQuery {
     pub scope: Option<ScriptScope>,
     /// One place only, or both (dropped by a server that does not filter by place).
     pub place: Option<ScriptPlace>,
+    /// One language only, or all. The caller drops it for a server that does not list `notes-lang`
+    /// (it would refuse `--lang`).
+    pub lang: Option<NoteLangFilter>,
     /// `updated` unless given.
     pub sort: Option<NoteSort>,
     /// List the team notes hidden on this machine instead of the visible ones.
     pub hidden: bool,
+}
+
+impl NotesQuery {
+    /// This query as the server `features` describes can answer it: `lang` is dropped unless
+    /// `notes-lang` is listed (an older server refuses `--lang` as a usage error).
+    #[must_use]
+    pub fn for_server(&self, features: FeaturesSupport) -> Self {
+        let lang = self.lang.filter(|_| features.notes_lang());
+
+        Self { lang, ..self.clone() }
+    }
 }
 
 /// One page of the repository notes of `project` (a project root; `None` for the global ones
@@ -114,7 +130,10 @@ pub async fn list_notes(
         .into_iter()
         .collect();
 
-    let (filters, fallbacks) = list_filters(&kind, &scope, query.place);
+    let lang: Vec<(&str, &str)> = query.lang.map(|lang| ("--lang", lang_name(lang))).into_iter().collect();
+
+    let kind_and_lang: Vec<(&str, &str)> = kind.iter().chain(&lang).copied().collect();
+    let (filters, fallbacks) = list_filters(&kind_and_lang, &scope, query.place);
 
     let hidden = query.hidden.then(|| OsString::from(HIDDEN_FLAG));
     let listed = |filters: &[(&str, &str)]| {
@@ -214,6 +233,15 @@ fn kind_name(kind: NoteKind) -> &'static str {
         NoteKind::Location => "location",
         NoteKind::Decision => "decision",
         NoteKind::Note => "note",
+    }
+}
+
+/// The server's name of `lang`.
+fn lang_name(lang: NoteLangFilter) -> &'static str {
+    match lang {
+        NoteLangFilter::En => "en",
+        NoteLangFilter::Other => "other",
+        NoteLangFilter::Unknown => "unknown",
     }
 }
 

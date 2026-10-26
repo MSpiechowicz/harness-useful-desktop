@@ -10,7 +10,10 @@
 //!     [`RpcDialect`](crate::pi_family::rpc::RpcDialect): request correlation, dialogs and startup;
 //!   - [`OpenCodeSession`] — `opencode serve` over loopback HTTP and its event stream (the
 //!     manager does not offer it yet);
-//!   - [`OpenCodeV2Session`] — the same for OpenCode 2's `/api` server.
+//!   - [`OpenCodeV2Session`] — the same for OpenCode 2's `/api` server;
+//!   - [`ClaudeSession`] — `claude` in stream-json mode with its control protocol (a preview),
+//!     started again when the chat moves to another session;
+//!   - [`CodexSession`] — `codex app-server` over JSON-RPC on stdio (a preview).
 //! - [`EventSink`] — where the normalized [`AgentEnvelope`](crate::model::AgentEnvelope)s go
 //!   (the desktop shell adapts it to a Tauri channel).
 //! - [`DeltaCoalescer`] — merges streaming deltas within [`COALESCE_WINDOW`].
@@ -18,8 +21,11 @@
 //! The webview never sees raw frames: every event is normalized, redacted where it carries agent
 //! diagnostics, and numbered per session.
 
+mod claude;
 mod coalesce;
+mod codex;
 mod engine;
+mod export;
 mod io;
 mod launch;
 mod manager;
@@ -30,12 +36,15 @@ mod session;
 mod sink;
 mod slots;
 mod startup;
+mod trust_memory;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+pub use claude::ClaudeSession;
 pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
+pub use codex::{CodexSession, codex_bash_allowed};
 pub use engine::{AgentSession, SessionLaunch};
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
 pub use opencode::OpenCodeSession;
@@ -44,6 +53,7 @@ pub use process::{MAX_STDERR_LINE, MAX_STDERR_PER_SECOND, StartAbort};
 pub use session::{BASH_TIMEOUT, RpcSession};
 pub use sink::{CollectingSink, EventSink, PromptTaken};
 pub use slots::SessionClaim;
+pub use trust_memory::TrustMemory;
 
 /// Time limit for the handshake and the first `get_state`.
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
@@ -82,6 +92,12 @@ pub struct SessionOptions {
     pub export_dir: Option<PathBuf>,
     /// See [`EVENT_SILENCE`].
     pub event_silence: Duration,
+    /// Where an engine that hands images to the agent as files (Codex) saves them; `None` is the
+    /// `attachments` folder in the app's data folder, never the project.
+    pub attachments_dir: Option<PathBuf>,
+    /// How long a Codex chat waits for Codex to take a turn
+    /// ([`PROMPT_ACK_TIMEOUT`](crate::pi_family::rpc::pending::PROMPT_ACK_TIMEOUT)).
+    pub prompt_ack_timeout: Duration,
 }
 
 impl Default for SessionOptions {
@@ -95,6 +111,8 @@ impl Default for SessionOptions {
             clock: Arc::new(|| rfc3339(SystemTime::now())),
             export_dir: None,
             event_silence: EVENT_SILENCE,
+            attachments_dir: None,
+            prompt_ack_timeout: crate::pi_family::rpc::pending::PROMPT_ACK_TIMEOUT,
         }
     }
 }
@@ -108,6 +126,8 @@ impl std::fmt::Debug for SessionOptions {
             .field("startup_deadline", &self.startup_deadline)
             .field("export_dir", &self.export_dir)
             .field("event_silence", &self.event_silence)
+            .field("attachments_dir", &self.attachments_dir)
+            .field("prompt_ack_timeout", &self.prompt_ack_timeout)
             .finish_non_exhaustive()
     }
 }

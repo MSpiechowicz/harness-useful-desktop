@@ -21,6 +21,7 @@ export const FORMAT_LABELS: Record<ConfigFormat, string> = {
   yaml: 'YAML',
   json: 'JSON',
   jsonc: 'JSONC',
+  toml: 'TOML',
   markdown: 'Markdown',
   get text() {
     return t('config.format.text');
@@ -32,6 +33,7 @@ export const FORMAT_TILES: Record<ConfigFormat, string> = {
   yaml: 'YAML',
   json: 'JSON',
   jsonc: 'JSONC',
+  toml: 'TOML',
   markdown: 'MD',
   text: 'TXT',
 };

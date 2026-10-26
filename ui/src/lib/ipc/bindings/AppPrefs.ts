@@ -25,7 +25,8 @@ theme: ThemePref,
  */
 motion: MotionPref, 
 /**
- * UI language code, one of `LANGUAGES` (`en`, `de`, `es`, `fr`, `pl`); default `en`.
+ * UI language code, one of `LANGUAGES` (`en`, `de`, `es`, `fr`, `pl`, `pt` for Brazilian
+ * Portuguese); default `en`.
  * Any other stored value (an unknown code, or not a string at all) loads as `en` instead of
  * making the file unusable.
  */
@@ -114,6 +115,12 @@ chatDefaults: Array<ChatDefaults>,
  * only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
  */
 memoryEnabled: boolean, 
+/**
+ * Whether Harness Memory searches by meaning as well as by keywords, through the local embedder
+ * the app keeps running (default on, also for a file without this key). Server-managed: only
+ * `memory_set_vector_search` changes it, since it also starts or stops the embedder.
+ */
+vectorSearch: boolean, 
 /**
  * Whether closing the main window hides it to the tray instead of quitting, so routines keep
  * running (default off). Without a tray icon closing always quits.

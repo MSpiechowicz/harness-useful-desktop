@@ -92,9 +92,11 @@ pub fn agent_rules(agents: &Value, agent: &str) -> Vec<Rule> {
 }
 
 /// The rules of `mode` for an agent with `rules` (see the module docs); `None` without an override.
+/// Auto is Claude Code's and refused before an OpenCode chat starts; should it reach here, it asks
+/// like Always ask.
 pub fn mode_rules(mode: Option<ApprovalMode>, rules: &[Rule]) -> Option<Vec<Rule>> {
     let list = match mode? {
-        ApprovalMode::AlwaysAsk => gated(rules, &ASK_EXEMPT, &[]),
+        ApprovalMode::AlwaysAsk | ApprovalMode::Auto => gated(rules, &ASK_EXEMPT, &[]),
         ApprovalMode::Write => gated(rules, &WRITE_EXEMPT, &WRITE_KEPT),
         ApprovalMode::Yolo => relaxed(rules),
     };

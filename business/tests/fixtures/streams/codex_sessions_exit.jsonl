@@ -1,0 +1,4 @@
+// Codex stops after the handshake, saying why on stderr.
+{"include": "codex_sessions_handshake.jsonl"}
+{"stderr": "Error: failed to load config.toml: expected a table"}
+{"exit": 1}

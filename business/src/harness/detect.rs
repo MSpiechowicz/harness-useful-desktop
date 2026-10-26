@@ -135,9 +135,8 @@ async fn probe_version<H: Harness + ?Sized>(
         return Err(format!("Skipped {command}: unsafe argument for a batch script."));
     }
 
-    let spec = ExecSpec::new(&binary.path)
-        .args(args.iter().copied())
-        .envs(harness.spawn_env().iter().copied())
+    let spec = harness
+        .spawn_spec(env, ExecSpec::new(&binary.path).args(args.iter().copied()))
         .search_dirs(launcher_search_dirs(env, &binary.path))
         .timeout(VERSION_TIMEOUT)
         .max_output_bytes(VERSION_OUTPUT_BYTES);

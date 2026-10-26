@@ -1,0 +1,10 @@
+// A Claude Code routine run in approval mode write whose agent asks to write a file, and nobody
+// answers (src-tauri routine tests, the Write of tools.jsonl without its hook callback): the app
+// denies the permission prompt. Any other answer fails the match, and the fake exits 4.
+{"include": "claude_init_write.jsonl"}
+{"expect": "user", "as": "prompt", "match": {"/message/content": "Write the report"}}
+{"replay": "../claude/stream/tools.jsonl", "from": 7, "to": 10, "replace": {"8eaa941b-e611-4895-bac2-95b7d3e75f4f": "$prompt"}}
+{"replay": "../claude/stream/tools.jsonl", "from": 37, "to": 55}
+{"replay": "../claude/stream/tools.jsonl", "from": 58, "to": 58}
+{"expect": "control_response", "match": {"/response/request_id": "33b799d2-2e75-432e-8d84-d2a660dd3979", "/response/response": {"behavior": "deny", "message": "The user declined this tool call."}}}
+{"hang": true}

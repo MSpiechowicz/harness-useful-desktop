@@ -1,0 +1,15 @@
+// Steering that reaches Codex once its turn is over (-32600): it runs as the next turn.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "reply": {"turn": {"id": "turn-late-1", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-late-1", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"expect": "turn/steer", "match": {"/params/expectedTurnId": "turn-late-1"}, "error": "no active turn to steer"}
+{"emit": {"method": "item/started", "params": {"item": {"type": "agentMessage", "id": "msg-late-1", "text": "", "phase": "final_answer"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-late-1"}, "emittedAtMs": 1}}
+{"emit": {"method": "item/agentMessage/delta", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-late-1", "itemId": "msg-late-1", "delta": "First answer."}, "emittedAtMs": 1}}
+{"emit": {"method": "item/completed", "params": {"item": {"type": "agentMessage", "id": "msg-late-1", "text": "First answer.", "phase": "final_answer"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-late-1"}, "emittedAtMs": 1}}
+{"emit": {"method": "turn/completed", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-late-1", "items": [], "status": "completed", "error": null}}, "emittedAtMs": 1}}
+{"expect": "turn/start", "match": {"/params/input/0/text": "Too late for that turn."}, "reply": {"turn": {"id": "turn-late-2", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-late-2", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"emit": {"method": "item/started", "params": {"item": {"type": "agentMessage", "id": "msg-late-2", "text": "", "phase": "final_answer"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-late-2"}, "emittedAtMs": 1}}
+{"emit": {"method": "item/agentMessage/delta", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-late-2", "itemId": "msg-late-2", "delta": "Second answer."}, "emittedAtMs": 1}}
+{"emit": {"method": "item/completed", "params": {"item": {"type": "agentMessage", "id": "msg-late-2", "text": "Second answer.", "phase": "final_answer"}, "threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-late-2"}, "emittedAtMs": 1}}
+{"emit": {"method": "turn/completed", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-late-2", "items": [], "status": "completed", "error": null}}, "emittedAtMs": 1}}

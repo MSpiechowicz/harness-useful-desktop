@@ -73,6 +73,8 @@ export class ViewState {
   notesKind = $state<NoteKind | null>(null);
   /** Where the notes shown are kept (the Kept in filter); null for both places. */
   notesPlace = $state<ScriptPlace | null>(null);
+  /** Only the notes the server flagged as not written in English (the Not in English filter). */
+  notesNotEnglish = $state(false);
   notesSort = $state<Sort>({ key: 'updated', desc: true });
   notesPage = $state(0);
 
@@ -196,6 +198,7 @@ export class ViewState {
       this.notesQuery = '';
       this.notesKind = null;
       this.notesPlace = null;
+      this.notesNotEnglish = false;
       this.notesSort = { key: 'updated', desc: true };
       this.notesPage = 0;
     } else if (view === 'scripts') {

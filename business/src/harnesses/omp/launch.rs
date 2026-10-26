@@ -11,7 +11,7 @@ use serde_json::Value;
 use super::config::{project_settings, user_settings};
 use super::paths::omp_paths;
 use crate::env::Env;
-use crate::error::Result;
+use crate::error::{BusinessError, Result};
 use crate::harness::{LaunchRequest, flag_with, rpc_exec_spec, utility_args};
 use crate::model::ApprovalMode;
 use crate::process::ExecSpec;
@@ -19,12 +19,13 @@ use crate::process::ExecSpec;
 /// The OMP default when `tools.approvalMode` is not configured (`tools/settings.ts`).
 pub const DEFAULT_APPROVAL_MODE: ApprovalMode = ApprovalMode::Yolo;
 
-/// The CLI spelling of `mode`.
-pub fn cli_approval_mode(mode: ApprovalMode) -> &'static str {
+/// The CLI spelling of `mode`; `None` for Auto, which OMP does not have.
+pub fn cli_approval_mode(mode: ApprovalMode) -> Option<&'static str> {
     match mode {
-        ApprovalMode::AlwaysAsk => "always-ask",
-        ApprovalMode::Write => "write",
-        ApprovalMode::Yolo => "yolo",
+        ApprovalMode::AlwaysAsk => Some("always-ask"),
+        ApprovalMode::Write => Some("write"),
+        ApprovalMode::Yolo => Some("yolo"),
+        ApprovalMode::Auto => None,
     }
 }
 
@@ -38,12 +39,19 @@ pub fn parse_approval_mode(label: &str) -> Option<ApprovalMode> {
     }
 }
 
-/// `omp --mode rpc [--approval-mode <mode>] [--resume <id>]` in the project.
+/// `omp --mode rpc [--approval-mode <mode>] [--resume <id>]` in the project. An Auto override is
+/// refused.
 pub fn omp_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
     let mut args = vec!["--mode".to_owned(), "rpc".to_owned()];
 
     if let Some(mode) = request.approval_override {
-        args.extend(flag_with("--approval-mode", cli_approval_mode(mode)));
+        let Some(label) = cli_approval_mode(mode) else {
+            return Err(BusinessError::Unsupported(
+                "Oh My Pi chats have no Auto mode: choose Always ask, Write or Yolo".to_owned(),
+            ));
+        };
+
+        args.extend(flag_with("--approval-mode", label));
     }
 
     if let Some(id) = request.resume {

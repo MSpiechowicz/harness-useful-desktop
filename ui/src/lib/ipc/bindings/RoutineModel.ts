@@ -11,4 +11,9 @@ provider: string,
 /**
  * 1 to 200 characters.
  */
-id: string, };
+id: string, 
+/**
+ * The thinking level to set after the model (a level the harness lists for it), 1 to 200
+ * characters; `None` keeps the model's own.
+ */
+thinking?: string, };

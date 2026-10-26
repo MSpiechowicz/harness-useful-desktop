@@ -55,13 +55,32 @@ cliActions: boolean,
  */
 profiles: boolean, 
 /**
- * A configurable tool approval mode (OMP `tools.approvalMode`).
+ * A configurable tool approval mode (OMP `tools.approvalMode`, Claude Code
+ * `permissions.defaultMode`): Always ask and Write, with Yolo and Auto where flagged.
  */
 approvalModes: boolean, 
 /**
- * Project trust gating of project-local resources (PI `.pi/`).
+ * The approval modes include Yolo (tools run without asking). Without it a harness with
+ * `approval_modes` offers no Yolo (Claude Code: the app never starts its bypass mode), and a
+ * Yolo override is refused.
+ */
+yoloMode: boolean, 
+/**
+ * The approval modes include Auto: the harness judges which tool calls are safe and asks
+ * about the rest (Claude Code's auto mode). Without it an Auto override is refused.
+ */
+autoMode: boolean, 
+/**
+ * Project trust gating of project-local resources (PI `.pi/`, Claude Code's `.claude/`
+ * settings, Codex's `.codex/` layer): a launch may trust the project once (`trustOnce`).
  */
 projectTrust: boolean, 
+/**
+ * With `project_trust`: the harness starts only in a folder it trusts itself (Claude Code's
+ * trust dialog). Elsewhere a start is refused (`untrusted`) unless it trusts the project
+ * once, so a running chat has nothing left to trust.
+ */
+projectTrustRequired: boolean, 
 /**
  * Slash commands run by sending their text as a prompt.
  */

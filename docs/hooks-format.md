@@ -110,6 +110,36 @@ OpenCode 2 (2.1) renamed some tools and the argument that names the file:
 
 A relative path resolves against the working directory of the OpenCode session. One hook can match the file changes of both generations by naming every id: `edit|write|apply_patch|patch`. Likewise `bash|shell` for the shell tool and `task|subagent` for subagents. The same rules apply as on OpenCode 1: only paths inside the project count, and tool calls made inside a subagent are not reported. A session that OpenCode 2 migrated from OpenCode 1 may still hold `apply_patch` calls and a `filePath` argument, and both count as file changes.
 
+Claude Code reports its native tool ids, which are capitalized (the matcher ignores ASCII case, so `edit` matches `Edit`). The ids the app knows (`business/src/claude_stream/tools.rs`):
+
+| Tool | What it does | Touched paths |
+| --- | --- | --- |
+| `Bash` | runs a shell command | none |
+| `Read` | reads a file | none |
+| `Edit`, `MultiEdit` | replace text in the file in `file_path` (`MultiEdit` is in older Claude Code versions) | that file |
+| `Write` | writes the file in `file_path` | that file |
+| `NotebookEdit` | edits a cell of the notebook in `notebook_path` | that notebook |
+| `Task` | runs a subagent | none |
+| `AskUserQuestion` | asks the user questions | none |
+| `mcp__<server>__<tool>` | tool `<tool>` of MCP server `<server>` | none |
+
+`Edit`, `MultiEdit`, `Write` and `NotebookEdit` are the file changes, so the matcher `Edit|MultiEdit|Write|NotebookEdit` (or in lowercase, `edit|multiedit|write|notebookedit`) matches every one of them. `Bash` matches the shell tool. The app lists only these names, and a tool of another name is reported as Claude Code names it and has no touched paths. Only paths inside the project count, and a call that failed adds none. A relative path resolves against the working directory of the Claude Code session. Tool calls made inside a subagent (a `Task`) are not reported: they fire no `toolEnd` and add no touched paths. Claude Code's own hooks in its settings are not these hooks and run in Claude Code as they do in a terminal.
+
+Hooks run in a Claude Code chat like in any other (its chat is a preview, `capabilities.chat` and `capabilities.chatPreview` are `true`). The tool ids above are the ones `toolEnd` carries.
+
+Codex reports four tool names, which the app gives its tool cards (`business/src/codex_rpc/mapper/tools.rs`). They are lowercase and are not Codex's own item types:
+
+| Tool | What it does | Touched paths |
+| --- | --- | --- |
+| `shell` | runs a command (Codex's `commandExecution` item) | none |
+| `apply_patch` | adds, edits, deletes or moves files (Codex's `fileChange` item) | every file of the change, and the target of a move |
+| `mcp__<server>__<tool>` | tool `<tool>` of MCP server `<server>` | none |
+| `web_search` | searches the web | none |
+
+`apply_patch` is the only file change, so the matcher `apply_patch` matches every one of them, and `shell` matches the shell tool. A tool of another kind is not a card and fires no `toolEnd`. Only paths inside the project count, and a change that was declined or failed adds none. Codex names the files with absolute paths. Codex's approval for a change carries only the item, so the files come from the item when it started (and from its later patch updates). Items of a subagent are not shown by the app, so they fire no `toolEnd` and add no touched paths. Codex's own hooks (`hooks.json` in its home, and the `hooks` key of `config.toml`) are not these hooks and run in Codex as they do in a terminal.
+
+Hooks run in a Codex chat like in any other (its chat is a preview, `capabilities.chat` and `capabilities.chatPreview` are `true`). The tool ids above are the ones `toolEnd` carries, so `mcp__harness-memory__note_save` matches a note Harness Memory saved.
+
 ## Events
 
 - `sessionStart`: the first eligible prompt of a new desktop chat (fresh or after a new session, including `/new`). Eligible means a user prompt that is not a steer or follow-up and does not start with `/` or `!`. When its context does not fit in the prompt (see Prompt text), it fires again on the next eligible prompt. A `sessionStart` whose hooks produced nothing (a command without output) does not.
@@ -216,8 +246,8 @@ A catalog of hooks for the Harness family members agents use over MCP. Each is g
 
 Exact texts:
 
-- `memory-search`: `Before you start, search Harness Memory for notes about this task (note_search) and check the saved scripts (script_list). Reuse what fits. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository.`
-- `memory-save`: `Most turns need no note: reply "nothing to save" unless this turn produced knowledge that a future agent or a teammate could not get from the code or git history, such as the root cause of a non-obvious bug and its fix, a decision with the reason behind it, a constraint or gotcha, or where something non-obvious lives. Never save routine work: installing or configuring tools or MCP servers, running commands, editing files, progress or status, or anything this turn merely did. Before saving, search with note_search and update the existing note (note_update, by id) instead of adding a near duplicate. Write a specific title and a body that stands alone for a reader with no context: what, why, and the repo-relative paths involved; no transcripts or step lists. Save as many notes as clear this bar and none otherwise: one focused note per finding, repository-specific knowledge in the repository scope and knowledge useful across projects in the global scope. Save a command sequence as a script (script_save) only when you have run it more than once and it will recur. Always pass project_path (the absolute path of the repository you are working in, its git root) to note_save, note_update and script_save: without it a note can land in the wrong repository. Reply briefly.`
+- `memory-search`: `Before you start, search Harness Memory for notes about this task with a few English keywords (note_search) and check the saved scripts (script_list). Reuse what fits. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository.`
+- `memory-save`: `Most turns need no note: reply "nothing to save" unless this turn produced knowledge that a future agent or a teammate could not get from the code or git history, such as the root cause of a non-obvious bug and its fix, a decision with the reason behind it, a constraint or gotcha, or where something non-obvious lives. Never save routine work: installing or configuring tools or MCP servers, running commands, editing files, progress or status, or anything this turn merely did. Before saving, search with note_search and update the existing note (note_update, by id) instead of adding a near duplicate. Write a specific title and a body that stands alone for a reader with no context: what, why, and the repo-relative paths involved; no transcripts or step lists. Save as many notes as clear this bar and none otherwise: one focused note per finding, repository-specific knowledge in the repository scope and knowledge useful across projects in the global scope. Write each note in English and add 3 to 5 lowercase tags, including synonyms someone might search for. Save a command sequence as a script (script_save) only when you have run it more than once and it will recur. Always pass project_path (the absolute path of the repository you are working in, its git root) to note_save, note_update and script_save: without it a note can land in the wrong repository. Reply briefly.`
 - `dashboard-limits`: `Before a long or expensive task, check the plan limits and budgets with Harness Dashboard (limits, budget_status). Say so if a limit is close.`
 - `useful-skills`: `If Useful Skills are installed, read the ones that apply before you act: decide the workflow first (plan, implement, review), then read any other skill that fits the task and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.`
 - `branch-sync`: `At the start of the session, compare the branch you are working on with the repository's main branch: main, master or prod, whichever exists (git symbolic-ref refs/remotes/origin/HEAD names the default). Run git fetch, find which of the two has the most recent commits, and list the commits of the main branch your branch does not contain (git log HEAD..origin/<main> --oneline). If there are any, pull them into your branch unless the work tree is dirty or the merge would conflict, then tell me what came in and whether it touches the files in the scope of this work. Never discard local changes or rewrite history; ask me first when unsure.`

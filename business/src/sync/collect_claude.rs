@@ -1,0 +1,154 @@
+//! Export readers for Claude Code: its marketplaces, its user plugins and the MCP servers of its
+//! user scope. See [`super::collect`]; the registries are read by the Claude adapter
+//! ([`known_marketplaces`], [`plugin_records`]).
+//!
+//! - Marketplaces: the entries of `known_marketplaces.json` whose source another machine can add
+//!   the same way: a GitHub `owner/repo` (`github`) or an `https://` URL (`git`, `url`). Folders
+//!   and files (`directory`, `file`) are machine paths, and other sources (npm, `ssh` or `http` git
+//!   URLs) and sources pinned to a ref, a folder inside the repository or a sparse checkout are not
+//!   shared. Sources with credentials or secrets are left out.
+//! - Plugins: `name@marketplace` ids installed in the user scope, with the recorded version
+//!   (informational: the import installs the latest). Left out: plugins installed only for projects
+//!   or by the organization, Claude's own pseudo marketplaces (`inline` and `skills-dir` are local
+//!   folders, `synced` comes from the account), and plugins of a marketplace that is left out (for
+//!   that marketplace's reason).
+//! - MCP servers: the top-level `mcpServers` of the global file ([`mcp_target`]), in the shared
+//!   form of [`shared_server`]: the transport, the command and arguments or the URL, the key names
+//!   of `env` and `headers`. A server whose command, arguments or URL hold a `${…}` substitution
+//!   is left out ([`validate::claude_mcp_server`]); the app's own servers are skipped without a
+//!   row. The file is read with [`read_global_file`] (up to 32 MiB); one that cannot be read or
+//!   parsed, a larger one included, is listed as excluded.
+
+use std::collections::BTreeMap;
+
+use serde_json::Value;
+
+use super::collect::{Found, excluded_reason, safe_label, source_problem};
+use super::collect_items::{MarketplacePlugin, marketplace_item, marketplace_plugins};
+use super::collect_mcp::{collect_servers, shared_server};
+use super::schema::{Marketplace, McpServer};
+use super::validate;
+use crate::ecosystem::mcp_target;
+use crate::env::Env;
+use crate::error::BusinessError;
+use crate::harness::Harness;
+use crate::harnesses::claude::{
+    KnownMarketplace, PluginRecord, PluginScope, known_marketplaces, plugin_records, read_global_file,
+};
+use crate::harnesses::plugin_registry::split_id;
+use crate::model::{ConfigFormat, HarnessId, SyncExcludedReason, SyncItemKind, SyncNote};
+use crate::pi_family::{Document, parse_text};
+
+/// Pseudo marketplaces Claude Code names plugins after that are local folders.
+const LOCAL_MARKETPLACES: &[&str] = &["inline", "skills-dir"];
+
+/// The pseudo marketplace of plugins synced from the Claude account.
+const SYNCED_MARKETPLACE: &str = "synced";
+
+/// The shareable marketplaces (see the module docs).
+pub(super) fn claude_marketplaces(env: &Env, found: &mut Found) {
+    let harness = HarnessId::Claude;
+    let kind = SyncItemKind::Marketplace;
+
+    for known in known_marketplaces(env) {
+        match marketplace(&known) {
+            Ok(marketplace) => found.items.push(marketplace_item(harness, marketplace)),
+            Err(reason) => found.exclude(harness, kind, safe_label(Some(&known.name)), reason),
+        }
+    }
+}
+
+fn marketplace(known: &KnownMarketplace) -> Result<Marketplace, SyncExcludedReason> {
+    validate::marketplace_name(&known.name).map_err(excluded_reason)?;
+
+    match known.source_type.as_deref() {
+        Some("directory" | "file") => return Err(SyncExcludedReason::LocalPath),
+        Some("github" | "git" | "url") => {}
+        _ => return Err(SyncExcludedReason::Unsupported),
+    }
+
+    if known.source.is_empty() {
+        return Err(SyncExcludedReason::Invalid);
+    }
+
+    if let Some(problem) = source_problem(&known.source) {
+        return Err(problem);
+    }
+
+    if known.pinned {
+        return Err(SyncExcludedReason::Unsupported);
+    }
+
+    let marketplace = Marketplace {
+        name: known.name.clone(),
+        source: known.source.clone(),
+    };
+    validate::marketplace(&marketplace).map_err(excluded_reason)?;
+
+    Ok(marketplace)
+}
+
+/// The user plugins (see the module docs).
+pub(super) fn claude_plugins(env: &Env, found: &mut Found) {
+    let left_out: BTreeMap<String, SyncExcludedReason> = known_marketplaces(env)
+        .iter()
+        .filter_map(|known| marketplace(known).err().map(|reason| (known.name.clone(), reason)))
+        .collect();
+    let plugins = plugin_records(env)
+        .into_iter()
+        .map(|record| MarketplacePlugin {
+            refused: refused(&record),
+            id: record.id,
+            version: record.version,
+        })
+        .collect();
+
+    marketplace_plugins(HarnessId::Claude, found, plugins, &left_out, validate::claude_plugin);
+}
+
+/// Why Claude Code's own rules keep `record` here: installed only for projects or by the
+/// organization, or from a pseudo marketplace.
+fn refused(record: &PluginRecord) -> Option<SyncExcludedReason> {
+    match record.scope {
+        PluginScope::User => {}
+        PluginScope::Project => return Some(SyncExcludedReason::ProjectScope),
+        PluginScope::Managed => return Some(SyncExcludedReason::Unsupported),
+    }
+
+    match split_id(&record.id).1 {
+        Some(marketplace) if LOCAL_MARKETPLACES.contains(&marketplace) => Some(SyncExcludedReason::LocalPath),
+        Some(SYNCED_MARKETPLACE) => Some(SyncExcludedReason::Unsupported),
+        _ => None,
+    }
+}
+
+/// The servers of the user scope; nothing when the global file is missing or has no
+/// `mcpServers` (see [`collect_servers`]).
+pub(super) fn claude_servers(env: &Env, harness: &dyn Harness, found: &mut Found) {
+    let Some(file) = mcp_target(env, harness) else {
+        return;
+    };
+
+    let document = match read_global_file(&file.path) {
+        Ok(text) => parse_text(&text, ConfigFormat::Json).map_or_else(Document::Invalid, Document::Parsed),
+        Err(BusinessError::NotFound(_)) => Document::Missing,
+        Err(error) => Document::Invalid(error.to_string()),
+    };
+    collect_servers(
+        env,
+        harness,
+        found,
+        &file.path,
+        &document,
+        "mcpServers",
+        shared_claude_server,
+    );
+}
+
+/// [`shared_server`], also refusing what Claude Code would substitute.
+fn shared_claude_server(name: &str, server: &Value) -> Result<(McpServer, Vec<SyncNote>), SyncExcludedReason> {
+    let (server, notes) = shared_server(name, server)?;
+    validate::claude_mcp_server(&server).map_err(excluded_reason)?;
+
+    Ok((server, notes))
+}

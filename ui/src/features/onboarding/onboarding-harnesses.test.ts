@@ -6,10 +6,11 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
 
 import { intro } from '../intro/intro-state.svelte';
+import { featureTags } from './harness-tags';
 import Onboarding from './Onboarding.svelte';
 import { onboarding } from './onboarding-state.svelte';
 
-// The mock machine: Oh My Pi and OpenCode installed (both can chat), Pi missing.
+// The mock machine: Oh My Pi and OpenCode installed (both can chat), Pi, Claude Code and Codex missing (Codex has no chat yet).
 beforeAll(async () => {
   vi.stubEnv('VITE_TRANSPORT', 'mock');
 
@@ -42,7 +43,8 @@ describe('Meet your harnesses', () => {
       const card = await screen.findByRole('article', { name: summary.info.name });
 
       expect(card).toHaveTextContent(summary.info.description);
-      expect(within(card).getAllByRole('listitem').length).toBeGreaterThan(0);
+      // Only what the harness really supports: none of the tagged kinds yet for Claude Code.
+      expect(within(card).queryAllByRole('listitem')).toHaveLength(featureTags(summary.capabilities).length);
       expect(card).not.toHaveTextContent(/Installed|Not found|Coming soon|Supported/);
       expect(card).not.toHaveTextContent(/\/home|\/usr|curl /);
     }
@@ -80,7 +82,7 @@ describe('Which harness do you use every day?', () => {
     expect(driver).toHaveTextContent('Daily driver');
     expect(screen.getByRole('article', { name: 'Oh My Pi' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Use Oh My Pi as daily driver' })).toBeChecked();
-    expect(screen.getByText('Found 2 of 3 on this machine.')).toBeInTheDocument();
+    expect(screen.getByText('Found 2 of 5 on this machine.')).toBeInTheDocument();
     // What the harnesses can do belongs to the previous step.
     expect(screen.queryByRole('list', { name: 'What it supports' })).toBeNull();
   });
@@ -204,7 +206,7 @@ describe('Which harness do you use every day?', () => {
 
     await fireEvent.keyDown(second, { key: 'ArrowUp' });
     await fireEvent.keyDown(first, { key: 'ArrowUp' });
-    expect(screen.getByRole('option', { name: /^OpenCode/ })).toHaveFocus();
+    expect(screen.getByRole('option', { name: /^Codex/ })).toHaveFocus();
     expect(onboarding.driver).toBe('omp');
   });
 
@@ -215,10 +217,10 @@ describe('Which harness do you use every day?', () => {
     first.focus();
 
     await fireEvent.keyDown(first, { key: 'End' });
-    const last = screen.getByRole('option', { name: /^OpenCode/ });
+    const last = screen.getByRole('option', { name: /^Codex/ });
     expect(last).toHaveFocus();
     expect(last).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('article', { name: 'OpenCode' })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Codex' })).toBeInTheDocument();
 
     await fireEvent.keyDown(last, { key: 'Home' });
     expect(first).toHaveFocus();

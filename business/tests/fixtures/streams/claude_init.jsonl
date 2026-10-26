@@ -1,0 +1,3 @@
+// The handshake of Claude Code 2.1.304: the recorded `initialize` reply (controls.jsonl line 5).
+{"expect": "control_request", "subtype": "initialize", "hold": true}
+{"replay": "../claude/stream/controls.jsonl", "from": 5, "to": 5, "replace": {"req_1": "$initialize"}}

@@ -8,6 +8,7 @@
   import MenuSearch from '../MenuSearch.svelte';
   import { matchOptions, type MenuSearchTexts } from '../menu-search';
   import Popover from '../Popover.svelte';
+  import { SELECT_TRIGGER } from './doc-field';
 
   interface Props {
     /** Names the menu the choices open in. */
@@ -43,7 +44,7 @@
       type="button"
       {disabled}
       aria-labelledby={labelledby}
-      class="flex h-control w-full items-center gap-2.5 rounded-md border border-line-strong bg-surface-2 px-3 text-left text-base text-fg transition-colors duration-[var(--dur-fast)] hover:bg-surface-3 focus-visible:border-focus disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface-2"
+      class={SELECT_TRIGGER}
     >
       {#if CurrentIcon}<CurrentIcon size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />{/if}
       {#if current}

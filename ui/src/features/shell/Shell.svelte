@@ -12,6 +12,7 @@
   import { GIT_POLL_MS, HARNESS_FOCUS_GAP_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
   import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
+  import { toasts } from '$lib/stores/toasts.svelte';
   import { ui } from '$lib/stores/ui-state.svelte';
   import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
@@ -27,6 +28,7 @@
   import { onboarding } from '../onboarding/onboarding-state.svelte';
   import ScriptRequestDialog from '../memory/ScriptRequestDialog.svelte';
   import { familyUpdater } from '../ecosystem/family-updater';
+  import { skillsNamesMigration } from '../ecosystem/skills-migration';
   import { hooks } from '../hooks/hooks-data.svelte';
   import { openRequestedRun } from '../routines/routine-request';
   import { routines } from '../routines/routines-data.svelte';
@@ -94,6 +96,13 @@
         void project.open(path);
       }
     });
+  });
+
+  // A toast about one project (a folder to trust once) goes away when another project becomes the active one.
+  $effect(() => {
+    const path = project.active?.path ?? null;
+
+    untrack(() => toasts.leaveProjects(path));
   });
 
   // The rail and the chat card show git state everywhere, not only in Changes.
@@ -193,6 +202,14 @@
   $effect(() => {
     if (intro.phase === 'done' && prefs.value?.autoUpdateExtensions && !onboarding.visible && ecosystem.status) {
       void familyUpdater.check();
+    }
+  });
+
+  // Harness Skills installed under their names before 0.4.0 move to the new ones once per launch, after the first-run
+  // setup is out of the way (it is the onboarding). The backend holds every condition and answers with what it did.
+  $effect(() => {
+    if (intro.phase === 'done' && !onboarding.visible && prefs.value) {
+      void skillsNamesMigration.run();
     }
   });
 

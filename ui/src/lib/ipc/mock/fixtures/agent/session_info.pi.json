@@ -5,6 +5,9 @@
   "startedAt": "2026-10-09T10:00:00Z",
   "approvalOverride": null,
   "configuredApprovalMode": null,
+  "nativeApprovalMode": null,
   "trustedOnce": false,
+  "trustOffered": true,
+  "memoryGuards": false,
   "protocolVersion": null
 }

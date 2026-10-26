@@ -4,7 +4,8 @@
 //! The active project, the recent projects and the binary overrides decide which directories the
 //! app reads and which executables it runs, so only Rust changes them: through the native pickers
 //! and the dedicated project/harness commands, never through `prefs_set`. Project memory
-//! (`memory_enabled`) writes to the harnesses' MCP files when switched, so it has its own command too.
+//! (`memory_enabled`) writes to the harnesses' MCP files when switched, and vector search (`vector_search`) starts or
+//! stops the embedder, so each has its own command too.
 
 use std::path::Path;
 
@@ -89,6 +90,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         recent_projects: _,
         binary_overrides: _,
         memory_enabled: _,
+        vector_search: _,
     } = ui.clone();
 
     AppPrefs {

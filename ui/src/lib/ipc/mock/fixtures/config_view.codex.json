@@ -1,0 +1,518 @@
+{
+  "harness": "codex",
+  "sections": [
+    {
+      "id": "user.config",
+      "title": "Settings",
+      "description": "Global Codex settings: model, approvals, sandbox, MCP servers, plugins, marketplaces and features.",
+      "source": {
+        "path": "/home/demo/.codex/config.toml",
+        "layer": "user",
+        "profile": null,
+        "format": "toml",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "model",
+          "value": {
+            "kind": "text",
+            "value": "gpt-5-codex"
+          }
+        },
+        {
+          "key": "model_reasoning_effort",
+          "value": {
+            "kind": "text",
+            "value": "high"
+          }
+        },
+        {
+          "key": "approval_policy",
+          "value": {
+            "kind": "text",
+            "value": "on-request"
+          }
+        },
+        {
+          "key": "sandbox_mode",
+          "value": {
+            "kind": "text",
+            "value": "workspace-write"
+          }
+        },
+        {
+          "key": "notify",
+          "value": {
+            "kind": "list",
+            "value": [
+              {
+                "kind": "text",
+                "value": "notify-send"
+              },
+              {
+                "kind": "text",
+                "value": "Codex"
+              }
+            ]
+          }
+        },
+        {
+          "key": "shell_environment_policy",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "inherit",
+                "value": {
+                  "kind": "text",
+                  "value": "core"
+                }
+              },
+              {
+                "key": "set",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "DEPLOY_HOOK",
+                      "value": {
+                        "kind": "secret",
+                        "value": {
+                          "type": "value"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "model_providers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "azure",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "name",
+                      "value": {
+                        "kind": "text",
+                        "value": "Azure"
+                      }
+                    },
+                    {
+                      "key": "base_url",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://example.openai.azure.com/openai"
+                      }
+                    },
+                    {
+                      "key": "env_key",
+                      "value": {
+                        "kind": "secret",
+                        "value": {
+                          "type": "envRef",
+                          "name": "AZURE_OPENAI_API_KEY"
+                        }
+                      }
+                    },
+                    {
+                      "key": "query_params",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "api-version",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          },
+                          {
+                            "key": "api-key",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "mcp_servers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "github",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "npx"
+                      }
+                    },
+                    {
+                      "key": "args",
+                      "value": {
+                        "kind": "list",
+                        "value": [
+                          {
+                            "kind": "text",
+                            "value": "-y"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "@modelcontextprotocol/server-github"
+                          },
+                          {
+                            "kind": "text",
+                            "value": "--token"
+                          },
+                          {
+                            "kind": "secret",
+                            "value": {
+                              "type": "value"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": "env",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "GITHUB_PERSONAL_ACCESS_TOKEN",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "docs",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "url",
+                      "value": {
+                        "kind": "text",
+                        "value": "https://docs.example.com/mcp"
+                      }
+                    },
+                    {
+                      "key": "bearer_token_env_var",
+                      "value": {
+                        "kind": "secret",
+                        "value": {
+                          "type": "envRef",
+                          "name": "DOCS_TOKEN"
+                        }
+                      }
+                    },
+                    {
+                      "key": "http_headers",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "Authorization",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "paused",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "paused-server"
+                      }
+                    },
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "bool",
+                        "value": false
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "marketplaces",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "demo-market",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "source_type",
+                      "value": {
+                        "kind": "text",
+                        "value": "git"
+                      }
+                    },
+                    {
+                      "key": "source",
+                      "value": {
+                        "kind": "text",
+                        "value": "acme/demo-market"
+                      }
+                    },
+                    {
+                      "key": "last_updated",
+                      "value": {
+                        "kind": "text",
+                        "value": "2026-10-20T10:00:00Z"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "openai-bundled",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "source_type",
+                      "value": {
+                        "kind": "text",
+                        "value": "local"
+                      }
+                    },
+                    {
+                      "key": "source",
+                      "value": {
+                        "kind": "text",
+                        "value": "~/.codex/.tmp/bundled-marketplaces/openai-bundled"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "plugins",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "lint-tools@demo-market",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "bool",
+                        "value": true
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "pdf@openai-bundled",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "bool",
+                        "value": false
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "key": "ghost@demo-market",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "bool",
+                        "value": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "features",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "hooks",
+                "value": {
+                  "kind": "bool",
+                  "value": true
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": "tui",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "notifications",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "enabled",
+                      "value": {
+                        "kind": "bool",
+                        "value": true
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    },
+    {
+      "id": "project.config",
+      "title": "Project settings",
+      "description": "Settings for this project. Codex applies them only in a folder you trust.",
+      "source": {
+        "path": "/home/demo/Projects/demo/.codex/config.toml",
+        "layer": "project",
+        "profile": null,
+        "format": "toml",
+        "exists": true
+      },
+      "entries": [
+        {
+          "key": "model",
+          "value": {
+            "kind": "text",
+            "value": "gpt-5"
+          }
+        },
+        {
+          "key": "mcp_servers",
+          "value": {
+            "kind": "map",
+            "value": [
+              {
+                "key": "project-tools",
+                "value": {
+                  "kind": "map",
+                  "value": [
+                    {
+                      "key": "command",
+                      "value": {
+                        "kind": "text",
+                        "value": "project-tools"
+                      }
+                    },
+                    {
+                      "key": "env",
+                      "value": {
+                        "kind": "map",
+                        "value": [
+                          {
+                            "key": "PROJECT_TOKEN",
+                            "value": {
+                              "kind": "secret",
+                              "value": {
+                                "type": "value"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "error": null
+    }
+  ],
+  "notices": [
+    {
+      "level": "info",
+      "message": "Codex is configured with model gpt-5-codex, reasoning effort high, approval policy on-request, sandbox workspace-write."
+    },
+    {
+      "level": "info",
+      "message": "Codex does not trust this folder yet, so it ignores the project settings until you trust it in Codex."
+    },
+    {
+      "level": "info",
+      "message": "The login (auth.json), prompt history, session files, logs, databases and caches are never read."
+    }
+  ]
+}

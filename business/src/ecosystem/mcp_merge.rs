@@ -19,6 +19,11 @@
 //! - JSONC: a file of a JSONC shape is read as JSONC. One with comments is never written
 //!   ([`Blocked::ManualEdit`]): a rewrite would lose them. One with only trailing commas is
 //!   rewritten as plain JSON. A new file of an OpenCode shape starts with OpenCode's `$schema`.
+//! - A [`Shape::ClaudeCli`] file is only read (a symlink followed): every write is refused as
+//!   `WriteFailed`, since Claude Code's CLI changes it (see [`super::mcp_cli`]). It is Claude Code's
+//!   global file, read with [`claude::read_global_file`] (its name is denied to every other read)
+//!   and a cap of [`claude::MAX_GLOBAL_FILE_BYTES`]. A [`Shape::CodexCli`] file (Codex's
+//!   `config.toml`, TOML) is only read too: `codex mcp` changes it.
 //! - The write is atomic (temporary sibling, flushed, renamed over the file) and keeps the file's
 //!   permissions. A file that changed meanwhile is read again once, then refused; a write that
 //!   fails (or a second change) is refused as `WriteFailed`, the file left as it was.
@@ -35,8 +40,9 @@ use serde_json::{Map, Value};
 use crate::env::Env;
 use crate::error::BusinessError;
 use crate::fs_atomic::{temp_sibling, write_synced};
-use crate::model::McpRefusal;
-use crate::pi_family::jsonc;
+use crate::harnesses::claude;
+use crate::model::{ConfigFormat, McpRefusal};
+use crate::pi_family::{jsonc, parse_text};
 use crate::security::SafeReader;
 
 mod shape;
@@ -177,6 +183,11 @@ pub(crate) fn change_file<R>(
             Change::Write(document, value) => (document, value),
         };
 
+        // The harness's CLI changes such a file; the app never writes it.
+        if !shape.app_writes() {
+            return Err(Blocked::Refused(McpRefusal::WriteFailed));
+        }
+
         let original = match target {
             Target::Absent { .. } => None,
             Target::Present { rewritable: false, .. } => return Err(Blocked::ManualEdit),
@@ -271,9 +282,16 @@ impl Stamp {
     }
 }
 
-/// Reads `path` as a `shape` MCP file, or says why it is refused.
+/// Reads `path` as a `shape` MCP file, or says why it is refused. A symlink is refused, except for
+/// a file the app only reads (see [`Shape::app_writes`]), where it is followed.
 pub(crate) fn load(path: &Path, shape: Shape) -> Result<Target, McpRefusal> {
-    let metadata = match fs::symlink_metadata(path) {
+    let metadata = if shape.app_writes() {
+        fs::symlink_metadata(path)
+    } else {
+        fs::metadata(path)
+    };
+
+    let metadata = match metadata {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(Target::Absent {
@@ -291,11 +309,21 @@ pub(crate) fn load(path: &Path, shape: Shape) -> Result<Target, McpRefusal> {
         return Err(McpRefusal::NotRegularFile);
     }
 
-    if metadata.len() > MAX_MCP_BYTES {
+    let max_bytes = match shape {
+        Shape::ClaudeCli => claude::MAX_GLOBAL_FILE_BYTES,
+        _ => MAX_MCP_BYTES,
+    };
+
+    if metadata.len() > max_bytes {
         return Err(McpRefusal::TooLarge);
     }
 
-    let text = match SafeReader::read_to_string(path, MAX_MCP_BYTES) {
+    let read = match shape {
+        Shape::ClaudeCli => claude::read_global_file(path),
+        _ => SafeReader::read_to_string(path, MAX_MCP_BYTES),
+    };
+
+    let text = match read {
         Ok(text) => text,
         // The checks above passed, so this is invalid UTF-8 (or a file swapped meanwhile).
         Err(BusinessError::InvalidInput(_)) => return Err(McpRefusal::Unparsable),
@@ -321,6 +349,11 @@ fn parse(text: &str, shape: Shape) -> Result<(Map<String, Value>, bool), McpRefu
     let (value, rewritable) = if shape.is_opencode() {
         let value = jsonc::parse(text).map_err(|_| McpRefusal::Unparsable)?;
         (value, !jsonc::has_comments(text))
+    } else if shape == Shape::CodexCli {
+        // `codex mcp` changes it (the app never writes it, see `Shape::app_writes`), so an entry
+        // it lacks can still be added: not a manual step.
+        let value = parse_text(text, ConfigFormat::Toml).map_err(|_| McpRefusal::Unparsable)?;
+        (value, true)
     } else {
         let value = serde_json::from_str(text).map_err(|_| McpRefusal::Unparsable)?;
         (value, true)

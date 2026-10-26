@@ -1,0 +1,7 @@
+// nologin.jsonl: Claude Code without a login answers the handshake, fails the first turn with its
+// sign-in error and exits 1.
+{"expect": "control_request", "subtype": "initialize", "hold": true}
+{"replay": "../claude/stream/nologin.jsonl", "from": 3, "to": 3, "replace": {"req_1": "$initialize"}}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/nologin.jsonl", "from": 5, "to": 11, "replace": {"ea938e8e-7f17-4fdc-bc61-e0c7fa3892d9": "$prompt"}}
+{"exit": 1}

@@ -73,7 +73,7 @@ pub struct ChatDefaults {
 }
 
 /// UI language codes the app ships translations for.
-pub const LANGUAGES: [&str; 5] = ["en", "de", "es", "fr", "pl"];
+pub const LANGUAGES: [&str; 6] = ["en", "de", "es", "fr", "pl", "pt"];
 
 /// UI language used when none is stored or the stored one is not in [`LANGUAGES`].
 pub const DEFAULT_LANGUAGE: &str = "en";
@@ -91,7 +91,8 @@ pub struct AppPrefs {
     pub theme: ThemePref,
     /// Animation level.
     pub motion: MotionPref,
-    /// UI language code, one of `LANGUAGES` (`en`, `de`, `es`, `fr`, `pl`); default `en`.
+    /// UI language code, one of `LANGUAGES` (`en`, `de`, `es`, `fr`, `pl`, `pt` for Brazilian
+    /// Portuguese); default `en`.
     /// Any other stored value (an unknown code, or not a string at all) loads as `en` instead of
     /// making the file unusable.
     #[serde(with = "lenient_language")]
@@ -143,6 +144,10 @@ pub struct AppPrefs {
     /// detected harness's user MCP file at launch and after its install (default on). Server-managed:
     /// only `memory_set_enabled` changes it, since turning it off also removes the app's entries.
     pub memory_enabled: bool,
+    /// Whether Harness Memory searches by meaning as well as by keywords, through the local embedder
+    /// the app keeps running (default on, also for a file without this key). Server-managed: only
+    /// `memory_set_vector_search` changes it, since it also starts or stops the embedder.
+    pub vector_search: bool,
     /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
     /// running (default off). Without a tray icon closing always quits.
     pub keep_running_in_tray: bool,
@@ -183,6 +188,7 @@ impl Default for AppPrefs {
             binary_overrides: Vec::new(),
             chat_defaults: Vec::new(),
             memory_enabled: true,
+            vector_search: true,
             keep_running_in_tray: false,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,

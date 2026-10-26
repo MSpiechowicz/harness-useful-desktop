@@ -3,7 +3,8 @@
 //! - [`ProcessRunner`] runs a command to completion with a timeout and an output cap
 //!   (version probes, `omp plugin …`, git); [`BlockingRunner`] does the same for synchronous
 //!   callers.
-//! - [`ProcessSpawner`] starts a long-lived child with piped stdio (RPC agent sessions).
+//! - [`ProcessSpawner`] starts a long-lived child with piped stdio (RPC agent sessions);
+//!   [`LineChild`] is a short-lived one a synchronous caller talks to line by line.
 //! - [`resolve`] finds harness binaries without asking a shell for `PATH`.
 //! - [`TrackedSpawner`] records long-lived children so [`sweep_orphans`] can stop the ones a
 //!   crashed app left behind.
@@ -24,6 +25,7 @@ mod appimage;
 mod blocking;
 mod identity;
 mod join;
+mod line_child;
 mod orphans;
 mod resolve;
 mod runner;
@@ -33,7 +35,9 @@ mod windows_tree;
 
 pub use blocking::{BlockingRunner, StdRunner};
 pub use identity::ProcessIdentity;
+pub(crate) use identity::pid_may_be_running;
 pub(crate) use join::join_all;
+pub use line_child::{LineChild, ReadLine};
 pub use orphans::{ChildRegistry, MAX_RECORDED_CHILDREN, SweepReport, TrackedSpawner, sweep_orphans};
 pub use resolve::{
     ResolvedBinary, absolute_path_dirs, extra_search_dirs, find_override, is_batch_script, is_executable_file,

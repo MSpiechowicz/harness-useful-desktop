@@ -15,11 +15,21 @@ pub enum HarnessId {
     Pi,
     /// OpenCode (`opencode`).
     OpenCode,
+    /// Claude Code (`claude`).
+    Claude,
+    /// Codex (`codex`).
+    Codex,
 }
 
 impl HarnessId {
     /// Every supported harness, in display order.
-    pub const ALL: [HarnessId; 3] = [HarnessId::Omp, HarnessId::Pi, HarnessId::OpenCode];
+    pub const ALL: [HarnessId; 5] = [
+        HarnessId::Omp,
+        HarnessId::Pi,
+        HarnessId::OpenCode,
+        HarnessId::Claude,
+        HarnessId::Codex,
+    ];
 
     /// The default executable name of the harness CLI.
     pub fn binary_name(self) -> &'static str {
@@ -27,6 +37,8 @@ impl HarnessId {
             HarnessId::Omp => "omp",
             HarnessId::Pi => "pi",
             HarnessId::OpenCode => "opencode",
+            HarnessId::Claude => "claude",
+            HarnessId::Codex => "codex",
         }
     }
 }
@@ -81,10 +93,23 @@ pub struct Capabilities {
     pub cli_actions: bool,
     /// Named configuration profiles.
     pub profiles: bool,
-    /// A configurable tool approval mode (OMP `tools.approvalMode`).
+    /// A configurable tool approval mode (OMP `tools.approvalMode`, Claude Code
+    /// `permissions.defaultMode`): Always ask and Write, with Yolo and Auto where flagged.
     pub approval_modes: bool,
-    /// Project trust gating of project-local resources (PI `.pi/`).
+    /// The approval modes include Yolo (tools run without asking). Without it a harness with
+    /// `approval_modes` offers no Yolo (Claude Code: the app never starts its bypass mode), and a
+    /// Yolo override is refused.
+    pub yolo_mode: bool,
+    /// The approval modes include Auto: the harness judges which tool calls are safe and asks
+    /// about the rest (Claude Code's auto mode). Without it an Auto override is refused.
+    pub auto_mode: bool,
+    /// Project trust gating of project-local resources (PI `.pi/`, Claude Code's `.claude/`
+    /// settings, Codex's `.codex/` layer): a launch may trust the project once (`trustOnce`).
     pub project_trust: bool,
+    /// With `project_trust`: the harness starts only in a folder it trusts itself (Claude Code's
+    /// trust dialog). Elsewhere a start is refused (`untrusted`) unless it trusts the project
+    /// once, so a running chat has nothing left to trust.
+    pub project_trust_required: bool,
     /// Slash commands run by sending their text as a prompt.
     pub slash_commands_via_prompt: bool,
     /// Sessions form a branching tree (fork/resume from any entry).
@@ -192,4 +217,20 @@ pub struct HarnessSummary {
     pub capabilities: Capabilities,
     /// Detection result on this machine.
     pub detection: Detection,
+    /// The permission mode the harness's own user settings choose, by the harness's name for it
+    /// (Claude Code `permissions.defaultMode`); `None` for harnesses without one.
+    pub native_approval_mode: Option<NativeApprovalMode>,
+}
+
+/// A harness's own permission mode from its settings, as the harness names it. The app's approval
+/// modes cover only some of them, so the chat header shows the name read-only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NativeApprovalMode {
+    /// Claude Code: `default`, `acceptEdits`, `plan`, `auto`, `dontAsk` or `bypassPermissions`.
+    pub name: String,
+    /// True when the mode lets tools run without asking the user (Claude Code `bypassPermissions`
+    /// and `auto`), which onboarding points out.
+    pub unattended: bool,
 }

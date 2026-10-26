@@ -201,7 +201,7 @@ export class MockRoutineTeam {
       approval: row.approved === null ? 'never' : row.approved === row.routine ? 'approved' : 'changed',
       approved: row.approved !== row.routine ? row.approved : null,
       origin: 'team',
-      runsUnattended: action.type === 'agent' && (action.approvalMode === 'yolo' || action.trustOnce),
+      runsUnattended: action.type === 'agent' && (action.approvalMode === 'yolo' || action.approvalMode === 'auto' || action.trustOnce),
       canRunNow: status === 'active',
       queued: false,
       nextRun: null,

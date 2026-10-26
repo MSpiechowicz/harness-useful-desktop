@@ -22,7 +22,10 @@
       "cliActions": true,
       "profiles": true,
       "approvalModes": true,
+      "yoloMode": true,
+      "autoMode": false,
       "projectTrust": false,
+      "projectTrustRequired": false,
       "slashCommandsViaPrompt": true,
       "sessionTree": true,
       "moveSession": true,
@@ -42,7 +45,8 @@
       "configDirExists": true,
       "installHint": null,
       "error": null
-    }
+    },
+    "nativeApprovalMode": null
   },
   {
     "info": {
@@ -67,7 +71,10 @@
       "cliActions": true,
       "profiles": false,
       "approvalModes": false,
+      "yoloMode": false,
+      "autoMode": false,
       "projectTrust": true,
+      "projectTrustRequired": false,
       "slashCommandsViaPrompt": false,
       "sessionTree": true,
       "moveSession": false,
@@ -95,7 +102,8 @@
         "docsUrl": "https://github.com/earendil-works/pi"
       },
       "error": null
-    }
+    },
+    "nativeApprovalMode": null
   },
   {
     "info": {
@@ -120,7 +128,10 @@
       "cliActions": true,
       "profiles": false,
       "approvalModes": true,
+      "yoloMode": true,
+      "autoMode": false,
       "projectTrust": false,
+      "projectTrustRequired": false,
       "slashCommandsViaPrompt": true,
       "sessionTree": false,
       "moveSession": false,
@@ -140,6 +151,121 @@
       "configDirExists": true,
       "installHint": null,
       "error": null
-    }
+    },
+    "nativeApprovalMode": null
+  },
+  {
+    "info": {
+      "id": "claude",
+      "name": "Claude Code",
+      "shortName": "CC",
+      "binaryName": "claude",
+      "description": "Anthropic's terminal coding agent with plugins, skills, subagents and hooks, on your own Claude login.",
+      "homepage": "https://code.claude.com"
+    },
+    "capabilities": {
+      "chat": true,
+      "plugins": true,
+      "marketplaces": true,
+      "packages": false,
+      "mcp": true,
+      "skills": true,
+      "promptTemplates": true,
+      "agents": true,
+      "extensionModules": false,
+      "themes": false,
+      "cliActions": true,
+      "profiles": false,
+      "approvalModes": true,
+      "yoloMode": false,
+      "autoMode": true,
+      "projectTrust": true,
+      "projectTrustRequired": true,
+      "slashCommandsViaPrompt": true,
+      "sessionTree": false,
+      "moveSession": false,
+      "removeQueued": false,
+      "agentPicker": false,
+      "chatPreview": true,
+      "compactInstructions": true,
+      "memoryChatGuards": true
+    },
+    "detection": {
+      "installed": false,
+      "binaryPath": null,
+      "isBatchScript": false,
+      "version": null,
+      "versionSupport": "unknown",
+      "configDir": "/home/demo/.claude",
+      "configDirExists": false,
+      "installHint": {
+        "commands": [
+          {
+            "label": null,
+            "command": "curl -fsSL https://claude.ai/install.sh | bash"
+          }
+        ],
+        "docsUrl": "https://code.claude.com/docs/en/setup"
+      },
+      "error": null
+    },
+    "nativeApprovalMode": null
+  },
+  {
+    "info": {
+      "id": "codex",
+      "name": "Codex",
+      "shortName": "CX",
+      "binaryName": "codex",
+      "description": "OpenAI's terminal coding agent with skills, plugins, MCP servers and hooks, on your own ChatGPT or API login.",
+      "homepage": "https://developers.openai.com/codex"
+    },
+    "capabilities": {
+      "chat": true,
+      "plugins": true,
+      "marketplaces": true,
+      "packages": false,
+      "mcp": true,
+      "skills": true,
+      "promptTemplates": false,
+      "agents": false,
+      "extensionModules": false,
+      "themes": false,
+      "cliActions": true,
+      "profiles": false,
+      "approvalModes": true,
+      "yoloMode": true,
+      "autoMode": false,
+      "projectTrust": true,
+      "projectTrustRequired": false,
+      "slashCommandsViaPrompt": true,
+      "sessionTree": true,
+      "moveSession": false,
+      "removeQueued": true,
+      "agentPicker": false,
+      "chatPreview": true,
+      "compactInstructions": false,
+      "memoryChatGuards": true
+    },
+    "detection": {
+      "installed": false,
+      "binaryPath": null,
+      "isBatchScript": false,
+      "version": null,
+      "versionSupport": "unknown",
+      "configDir": "/home/demo/.codex",
+      "configDirExists": false,
+      "installHint": {
+        "commands": [
+          {
+            "label": null,
+            "command": "npm install -g @openai/codex"
+          }
+        ],
+        "docsUrl": "https://developers.openai.com/codex/cli"
+      },
+      "error": null
+    },
+    "nativeApprovalMode": null
   }
 ]

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{HarnessId, MemoryChatStart};
+use super::{HarnessId, MemoryChatStart, NativeApprovalMode};
 
 /// An opaque reference to a harness session (OMP/PI session uuid).
 ///
@@ -18,7 +18,8 @@ pub struct SessionRef {
     pub id: String,
 }
 
-/// OMP tool approval mode (`tools.approvalMode`, CLI `--approval-mode`).
+/// Tool approval mode of a chat (OMP `tools.approvalMode`, CLI `--approval-mode`; Claude Code
+/// `--permission-mode`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -29,6 +30,9 @@ pub enum ApprovalMode {
     Write,
     /// Never ask (CLI `yolo`; the OMP default).
     Yolo,
+    /// The harness decides which tool calls are safe and asks about the rest (Claude Code
+    /// `--permission-mode auto`); only where `capabilities.autoMode`.
+    Auto,
 }
 
 /// Arguments of `agent_start`.
@@ -44,8 +48,9 @@ pub struct AgentStartRequest {
     pub resume: Option<SessionRef>,
     /// Per-session approval mode; honoured only by harnesses with `capabilities.approvalModes`.
     pub approval_override: Option<ApprovalMode>,
-    /// Trust the project's local resources for this launch only (PI project trust); honoured only
-    /// by harnesses with `capabilities.projectTrust`. Never implied.
+    /// Trust the project's local resources for this launch only (PI project trust, a folder Claude
+    /// Code does not trust yet); honoured only by harnesses with `capabilities.projectTrust`. Never
+    /// implied.
     pub trust_once: bool,
     /// A throwaway helper agent (naming a chat): no tools, no saved session, no thinking. Cannot
     /// resume a session.
@@ -74,8 +79,20 @@ pub struct AgentSessionInfo {
     /// The approval mode from the harness configuration (OMP `tools.approvalMode`, default
     /// `yolo`); `None` for harnesses without approval modes.
     pub configured_approval_mode: Option<ApprovalMode>,
+    /// The harness's own permission mode for the project, by its own name (Claude Code
+    /// `permissions.defaultMode`), shown read-only next to the approval mode; `None` for
+    /// harnesses without one.
+    pub native_approval_mode: Option<NativeApprovalMode>,
     /// True when the session was launched with the one-time project trust.
     pub trusted_once: bool,
+    /// Whether trusting the project once would change anything for this harness: false when it
+    /// has nothing of the project to leave out (Codex without an untrusted `.codex/` layer), so
+    /// the chat offers no trust button.
+    pub trust_offered: bool,
+    /// True when Harness Memory gets the chat's memory identity, so the chat's own guards (and
+    /// "Ask before saving") apply: the chat has one and its harness passes it on. False for a
+    /// Codex chat with no harness-memory server Codex could be told to pass it to.
+    pub memory_guards: bool,
     /// RPC protocol version reported by the agent, once known.
     pub protocol_version: Option<u32>,
 }

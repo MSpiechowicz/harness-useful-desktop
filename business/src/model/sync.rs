@@ -154,6 +154,9 @@ pub enum SyncExcludedReason {
     Invalid,
     /// More items of this kind than a bundle may hold.
     TooMany,
+    /// It is switched off here (a Codex server with `enabled = false`), so another machine would
+    /// get a server running that the user does not use.
+    SwitchedOff,
 }
 
 /// The `hud1:` string of an export.

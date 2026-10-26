@@ -1,0 +1,7 @@
+// A helper chat asked for a tool anyway (the Read prompt of tools.jsonl line 30): denied at once.
+{"expect": "control_request", "subtype": "initialize", "match": {"request": {"subtype": "initialize"}}, "hold": true}
+{"replay": "../claude/stream/utility.jsonl", "from": 5, "to": 5, "replace": {"req_1": "$initialize"}}
+{"replay": "../claude/stream/tools.jsonl", "from": 30, "to": 30}
+{"expect": "control_response", "match": {"/response/request_id": "f9c23b59-dafb-4bcb-aa8f-fd0d3dd816c9", "/response/response/behavior": "deny", "/response/response/message": "This helper chat runs no tools."}}
+// The `Marker` title tells the test the answer arrived.
+{"emit": {"type": "system", "subtype": "session_title_changed", "title": "Marker", "session_id": "0a433744-8ef1-4d3c-861b-8ff5bc0e302c"}}

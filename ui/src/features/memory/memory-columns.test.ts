@@ -98,7 +98,7 @@ describe('resizing a column', () => {
 
     await fireEvent.dblClick(handle('Kind'));
 
-    expect(widthOf('Kind')).toBe('9rem');
+    expect(widthOf('Kind')).toBe('12rem');
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({});
   });
 
@@ -117,7 +117,7 @@ describe('resizing a column', () => {
     fakeMemory();
     await showNotes();
 
-    expect(widthOf('Kind')).toBe('9rem');
+    expect(widthOf('Kind')).toBe('12rem');
   });
 });
 

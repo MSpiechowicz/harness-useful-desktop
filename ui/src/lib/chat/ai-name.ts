@@ -1,14 +1,9 @@
-import type { AgentEnvelope } from '$lib/ipc/bindings/AgentEnvelope';
 import type { AgentSessionInfo } from '$lib/ipc/bindings/AgentSessionInfo';
 import type { Transport } from '$lib/ipc/transport';
 
+import { withHelper } from './helper-session';
 import { namingPrompt, parseLabel, type ChatLabel } from './naming';
-import { reduceEnvelope } from './reducer';
-import { initialChatState } from './state';
 import type { ChatState } from './types';
-
-/** A naming helper that has not answered by now is dropped; the chat keeps the name from its first message. */
-const TIMEOUT_MS = 45_000;
 
 /** The text of the helper's last assistant message. */
 function replyText(state: ChatState): string {
@@ -36,68 +31,14 @@ export interface AiNameRequest {
  * fails, times out or answers with something that is not a label.
  */
 export async function requestAiLabel(transport: Transport, request: AiNameRequest): Promise<ChatLabel | null> {
-  let helper: AgentSessionInfo | null = null;
-  const pending: AgentEnvelope[] = [];
-  let state: ChatState | null = null;
-  let wake: (() => void) | null = null;
-
-  const onEvent = (envelope: AgentEnvelope): void => {
-    if (state) {
-      state = reduceEnvelope(state, envelope);
-      wake?.();
-    } else {
-      pending.push(envelope);
-    }
-  };
-
-  /** Resolves once `done` holds for the helper's state, or when time runs out. */
-  const until = (done: (state: ChatState) => boolean): Promise<boolean> =>
-    new Promise((resolve) => {
-      const timer = setTimeout(() => resolve(false), TIMEOUT_MS);
-      const check = (): void => {
-        if (state && (done(state) || state.phase === 'exited')) {
-          clearTimeout(timer);
-          wake = null;
-          resolve(done(state));
-        }
-      };
-
-      wake = check;
-      check();
-    });
-
-  try {
-    helper = await transport.invoke('agent_start', {
-      request: { harness: request.harness, project: request.project, resume: null, approvalOverride: 'alwaysAsk', trustOnce: false, utility: true, memoryChat: null },
-      onEvent,
-    });
-
-    state = initialChatState(helper.key);
-    for (const envelope of pending) {
-      state = reduceEnvelope(state, envelope);
-    }
-
-    if (!(await until((current) => current.readyCount > 0))) {
-      return null;
-    }
-
+  return withHelper(transport, request, async (helper) => {
     if (request.model) {
-      await transport.invoke('agent_send', { key: helper.key, action: { type: 'setModel', provider: request.model.provider, modelId: request.model.id } });
+      await helper.send({ type: 'setModel', provider: request.model.provider, modelId: request.model.id });
     }
 
-    const settledBefore = state.settledCount;
-    await transport.invoke('agent_send', { key: helper.key, action: { type: 'prompt', message: namingPrompt(request.prompt), images: [], streamingBehavior: null } });
+    const settledBefore = helper.state().settledCount;
+    await helper.send({ type: 'prompt', message: namingPrompt(request.prompt), images: [], streamingBehavior: null });
 
-    if (!(await until((current) => current.settledCount > settledBefore))) {
-      return null;
-    }
-
-    return parseLabel(replyText(state));
-  } catch {
-    return null;
-  } finally {
-    if (helper) {
-      void transport.invoke('agent_stop', { key: helper.key }).catch(() => undefined);
-    }
-  }
+    return (await helper.until((current) => current.settledCount > settledBefore)) ? parseLabel(replyText(helper.state())) : null;
+  });
 }

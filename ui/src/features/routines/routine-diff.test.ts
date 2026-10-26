@@ -104,6 +104,16 @@ describe('routineFacts', () => {
     expect(labels(routineFacts({ ...BASE, scope: 'global', project: null, action: { type: 'command', command: 'ls', timeoutSecs: null } }, 'approved', view(), 'Global'))).toEqual(['When', 'Does', 'Timeout', 'Applies to', 'Source', 'Changed']);
   });
 
+  it('says the thinking level of a model only when the routine sets one, and lists its change', () => {
+    const agent = BASE.action as Extract<Routine['action'], { type: 'agent' }>;
+    const withLevel = (thinking?: string): Routine => ({ ...BASE, action: { ...agent, model: { provider: 'openai', id: 'gpt-5', ...(thinking ? { thinking } : {}) } } });
+
+    expect(labels(routineFacts(withLevel(), 'approved', view(), 'app'))).not.toContain('Thinking');
+    expect(routineFacts(withLevel('high'), 'approved', view(), 'app').find((row) => row.label === 'Thinking')).toMatchObject({ value: 'high' });
+    expect(changesOf(withLevel('high'), withLevel(), scopeOf)).toEqual([{ field: 'thinking', from: null, to: 'high' }]);
+    expect(changesOf(withLevel(), withLevel(), scopeOf)).toEqual([]);
+  });
+
   it('says where the routine applies with the scope it is given, whatever project that is', () => {
     expect(routineFacts(BASE, 'approved', view(), 'other-app').find((row) => row.label === 'Applies to')).toMatchObject({ value: 'other-app' });
   });

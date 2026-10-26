@@ -4,7 +4,9 @@ import { afterEach, beforeAll, describe, expect, it, vi, type MockInstance } fro
 import { i18n } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
 import { fixtures } from '$lib/ipc/mock/fixtures';
+import type { SessionMessagesPage } from '$lib/ipc/bindings/SessionMessagesPage';
 import { createMockTransport } from '$lib/ipc/mock/transport';
+import type { Transport } from '$lib/ipc/transport';
 import { defaultScenario } from '$lib/ipc/mock/scenarios';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { git } from '$lib/stores/git.svelte';
@@ -238,6 +240,25 @@ describe('transcript', () => {
 
     await waitFor(() => expect(detail.messages.length).toBeGreaterThan(5));
     expect(screen.getByRole('list', { name: 'Session transcript' }).querySelectorAll('[role="listitem"]').length).toBeGreaterThan(0);
+  });
+
+  it('says above the transcript when the session is longer than the app reads', async () => {
+    const mock = createMockTransport(defaultScenario(), 0);
+    const cut: Transport = {
+      invoke: async (name, args) => {
+        const reply = await mock.invoke(name, args);
+
+        return (name === 'session_messages' ? { ...(reply as SessionMessagesPage), truncated: true } : reply) as never;
+      },
+    };
+    const detail = new SessionDetail(cut);
+    detail.open(SESSIONS[1].ref, PROJECT);
+
+    render(Transcript, { detail, project: PROJECT });
+
+    const notice = await screen.findByText('This session is longer than the app reads. Its latest messages are not shown.');
+    expect(notice.closest('[role="status"]')).not.toBeNull();
+    expect(screen.getByRole('list', { name: 'Session transcript' })).toBeInTheDocument();
   });
 
   it('shows the first user message as read-only chat content', async () => {

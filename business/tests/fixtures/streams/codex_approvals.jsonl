@@ -1,0 +1,11 @@
+// The turn of 02_turn_approvals_accept.jsonl: a command, a file change and a command, each asked
+// for and answered by the app before Codex goes on.
+{"include": "codex_start.jsonl"}
+{"expect": "turn/start", "as": "turn", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8"}, "reply": {"turn": {"id": "01a164a0-4c86-7902-8de6-44d0f7bc8ac7", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 4, "to": 42, "except": ["response"]}
+{"expect": "answer", "match": {"/id": 0}}
+{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 44, "to": 53, "except": ["response"]}
+{"expect": "answer", "match": {"/id": 1}}
+{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 55, "to": 66, "except": ["response"]}
+{"expect": "answer", "match": {"/id": 2}}
+{"replay": "../codex/app_server/02_turn_approvals_accept.jsonl", "from": 68, "to": 104, "except": ["response"]}

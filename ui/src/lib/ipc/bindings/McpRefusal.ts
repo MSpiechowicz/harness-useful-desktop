@@ -3,4 +3,4 @@
 /**
  * Why an MCP file is left alone.
  */
-export type McpRefusal = "unparsable" | "notAnObject" | "serversNotAnObject" | "symlink" | "notRegularFile" | "tooLarge" | "unreadable" | "writeFailed";
+export type McpRefusal = "unparsable" | "notAnObject" | "serversNotAnObject" | "symlink" | "notRegularFile" | "tooLarge" | "unreadable" | "writeFailed" | "cliFailed" | "cliRemovedEntry" | "cliBatchShim";

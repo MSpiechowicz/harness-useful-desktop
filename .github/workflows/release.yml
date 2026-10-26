@@ -4,7 +4,7 @@ name: Release
 # fix: -> patch, feat: -> minor, "BREAKING CHANGE:" footer or "feat!:" -> major; other types do not release.
 # On a release it bumps package.json/Cargo.toml/Cargo.lock, updates CHANGELOG.md, pushes the release commit and
 # the vX.Y.Z tag and creates a DRAFT GitHub release. The bundle job then builds installers on every OS and
-# uploads them (plus latest.json for the updater) to that draft; the publish job finally un-drafts it.
+# uploads them to that draft; the publish job writes latest.json for the updater and finally un-drafts it.
 # See docs/release-and-updater-keys.md.
 on:
   workflow_run:
@@ -153,7 +153,9 @@ jobs:
           tauriScript: bun tauri
           tagName: v${{ needs.release.outputs.version }}
           releaseDraft: true
-          includeUpdaterJson: true
+          # latest.json is written once by the publish job: four jobs merging into it in parallel (read, delete,
+          # re-upload) raced and failed a bundle job with "Not Found" on the asset delete.
+          includeUpdaterJson: false
           args: ${{ matrix.args }}
 
   publish:
@@ -163,31 +165,49 @@ jobs:
     permissions:
       contents: write # un-draft the release
     steps:
-      # Each bundle job merges its platforms into latest.json (read, delete, re-upload), so two jobs finishing
-      # together can drop each other's entries. A platform missing from the manifest could never update, so the
-      # release stays a draft until it is complete: re-run the failed platform's bundle job, then this job.
-      - name: Check latest.json lists every platform
+      # Every bundle job only uploads its installers and their .sig files. latest.json is written here, once all of
+      # them are on the draft, so no platform can go missing from the updater manifest.
+      - name: Write latest.json
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
-          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir "$RUNNER_TEMP"
-          manifest="$RUNNER_TEMP/latest.json"
-          if ! jq -e --arg version "$VERSION" '(.version | ltrimstr("v")) == $version' "$manifest" > /dev/null; then
-            echo "::error::latest.json does not announce version $VERSION"
-            exit 1
-          fi
+          assets="$RUNNER_TEMP/updater"
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --dir "$assets" \
+            --pattern '*.AppImage' --pattern '*.AppImage.sig' --pattern '*.deb' --pattern '*.deb.sig' \
+            --pattern '*.rpm' --pattern '*.rpm.sig' --pattern '*.app.tar.gz' --pattern '*.app.tar.gz.sig' \
+            --pattern '*.msi' --pattern '*.msi.sig' --pattern '*-setup.exe' --pattern '*-setup.exe.sig'
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/v$VERSION"
+          platforms='{}'
           missing=0
-          for platform in \
-            linux-x86_64 linux-x86_64-appimage linux-x86_64-deb linux-x86_64-rpm \
-            darwin-aarch64 darwin-aarch64-app darwin-x86_64 darwin-x86_64-app \
-            windows-x86_64 windows-x86_64-nsis windows-x86_64-msi; do
-            if ! jq -e --arg platform "$platform" '.platforms[$platform] | ((.url // "") | startswith("https://")) and ((.signature // "") | length > 0)' "$manifest" > /dev/null; then
-              echo "::error::latest.json has no usable entry for $platform"
+          # platform key, then the glob of its updater artifact on the release
+          while read -r platform glob; do
+            mapfile -t matches < <(compgen -G "$assets/$glob" || true)
+            if [ "${#matches[@]}" -ne 1 ] || [ ! -s "${matches[0]}.sig" ]; then
+              echo "::error::no single signed artifact for $platform ($glob)"
               missing=1
+              continue
             fi
-          done
-          exit "$missing"
+            name="$(basename "${matches[0]}")"
+            platforms="$(jq --arg platform "$platform" --arg url "$base/$name" --rawfile signature "${matches[0]}.sig" \
+              '.[$platform] = {signature: $signature, url: $url}' <<< "$platforms")"
+          done <<'PLATFORMS'
+          linux-x86_64 *_amd64.AppImage
+          linux-x86_64-appimage *_amd64.AppImage
+          linux-x86_64-deb *_amd64.deb
+          linux-x86_64-rpm *.x86_64.rpm
+          darwin-aarch64 *_aarch64.app.tar.gz
+          darwin-aarch64-app *_aarch64.app.tar.gz
+          darwin-x86_64 *_x64.app.tar.gz
+          darwin-x86_64-app *_x64.app.tar.gz
+          windows-x86_64 *_x64_en-US.msi
+          windows-x86_64-msi *_x64_en-US.msi
+          windows-x86_64-nsis *_x64-setup.exe
+          PLATFORMS
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          jq -n --arg version "$VERSION" --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" --argjson platforms "$platforms" \
+            '{version: $version, notes: "", pub_date: $pub_date, platforms: $platforms}' > "$RUNNER_TEMP/latest.json"
+          gh release upload "v$VERSION" "$RUNNER_TEMP/latest.json" --repo "$GITHUB_REPOSITORY" --clobber
       # install.sh / install.ps1 install nothing without a SHA-256 to compare against.
       - name: Upload checksums.txt
         env:

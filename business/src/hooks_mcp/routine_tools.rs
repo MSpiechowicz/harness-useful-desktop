@@ -6,6 +6,7 @@
 use serde_json::{Map, Value, json};
 
 use super::tools::{Hints, annotated, id, list_scope, project, sha256, text, tool};
+use crate::model::HarnessId;
 use crate::routines::MAX_ROUTINES_PER_SCOPE;
 use crate::routines::format::{
     DEFAULT_MAX_MINUTES, DEFAULT_TIMEOUT_SECS, MAX_COMMAND_CHARS, MAX_CRON_CHARS, MAX_DESCRIPTION_CHARS,
@@ -144,7 +145,12 @@ fn properties(edit: bool) -> Value {
     put("approvalMode", approval_mode());
     put(
         "trustOnce",
-        json!({ "type": "boolean", "description": "agent, pi only: trust the project's local resources for the run" }),
+        json!({
+            "type": "boolean",
+            "description": "agent, pi, claude or codex only: trust the project's local resources for the run (a \
+                            claude run needs it in a folder Claude Code does not trust yet, a codex run applies the \
+                            project's own .codex settings only with it)"
+        }),
     );
     put("maxMinutes", minutes());
     put(
@@ -221,15 +227,17 @@ fn action() -> Value {
 }
 
 fn harness() -> Value {
-    json!({ "type": "string", "enum": ["omp", "pi", "opencode"], "description": "agent: the harness that runs the chat" })
+    let names: Vec<&str> = HarnessId::ALL.iter().map(|id| id.binary_name()).collect();
+    json!({ "type": "string", "enum": names, "description": "agent: the harness that runs the chat" })
 }
 
 fn approval_mode() -> Value {
     json!({
         "type": "string",
-        "enum": ["alwaysAsk", "write", "yolo", "default"],
-        "description": "agent, omp and opencode only: ask before every tool (alwaysAsk), before tools that write or run \
-            something (write), or never (yolo). Absent or default: the harness's setting",
+        "enum": ["alwaysAsk", "write", "yolo", "auto", "default"],
+        "description": "agent, omp, opencode, claude and codex only: ask before every tool (alwaysAsk), before tools \
+            that write or run something (write), never (yolo, not claude), or only about what the harness does not \
+            judge safe (auto, claude only). Absent or default: the harness's setting",
     })
 }
 

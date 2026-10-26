@@ -1,0 +1,10 @@
+// The user stops a prompt before its turn began and Codex then refuses that turn/start: the stop
+// ends with it, so the next prompt (the plain turn of codex_engine_basic.jsonl) is not interrupted,
+// and the refused message is not counted.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "as": "refused", "hold": true}
+{"sleep": 300}
+{"respond": "refused", "error": "Codex is busy"}
+{"expect": "turn/start", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "/params/summary": "auto", "/params/input/0/type": "text", "/params/input/0/text": "Ask me about colours."}, "reply": {"turn": {"id": "01a164a1-64a5-7b70-9920-b4110aad2502", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"replay": "../codex/app_server/09_user_input.jsonl", "from": 3, "to": 33, "except": ["response"]}
+{"expect": "turn/interrupt", "match": {"/params/turnId": "no interrupt is owed"}}

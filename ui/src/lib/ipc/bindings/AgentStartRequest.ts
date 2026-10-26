@@ -25,8 +25,9 @@ resume: SessionRef | null,
  */
 approvalOverride: ApprovalMode | null, 
 /**
- * Trust the project's local resources for this launch only (PI project trust); honoured only
- * by harnesses with `capabilities.projectTrust`. Never implied.
+ * Trust the project's local resources for this launch only (PI project trust, a folder Claude
+ * Code does not trust yet); honoured only by harnesses with `capabilities.projectTrust`. Never
+ * implied.
  */
 trustOnce: boolean, 
 /**

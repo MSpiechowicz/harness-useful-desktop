@@ -1,4 +1,4 @@
-//! Reading JSON/JSONC/YAML configuration files into redacted [`ConfigSection`]s.
+//! Reading JSON/JSONC/YAML/TOML configuration files into redacted [`ConfigSection`]s.
 //!
 //! Every read goes through [`SafeReader`] with the default 2 MiB cap. Parse failures are reported
 //! by location only (`Invalid YAML at line 3, column 5`), never with file content.
@@ -37,7 +37,7 @@ impl Document {
     }
 }
 
-/// Reads and parses `path` as `format` (JSON unless `format` is YAML or JSONC).
+/// Reads and parses `path` as `format` (JSON unless `format` is YAML, JSONC or TOML).
 pub fn read_document(path: &Path, format: ConfigFormat) -> Document {
     match SafeReader::read_to_string(path, SafeReader::DEFAULT_MAX_BYTES) {
         Ok(text) => match parse_text(&text, format) {
@@ -60,6 +60,10 @@ pub fn parse_text(text: &str, format: ConfigFormat) -> Result<Value, String> {
         return super::jsonc::parse(text);
     }
 
+    if format == ConfigFormat::Toml {
+        return parse_toml(text);
+    }
+
     if format != ConfigFormat::Yaml {
         return serde_json::from_str(text)
             .map_err(|error| format!("Invalid JSON at line {}, column {}", error.line(), error.column()));
@@ -73,6 +77,95 @@ pub fn parse_text(text: &str, format: ConfigFormat) -> Result<Value, String> {
         Some(location) => format!("Invalid YAML at line {}, column {}", location.line(), location.column()),
         None => "Invalid YAML".to_owned(),
     })
+}
+
+/// The key `toml` gives a date or time when it reads one into another format.
+const TOML_DATETIME_KEY: &str = "$__toml_private_datetime";
+
+/// Parses TOML into JSON values, keys in source order, dates and times as their text.
+fn parse_toml(text: &str) -> Result<Value, String> {
+    let mut value: Value = toml::from_str(text).map_err(|error| match error.span() {
+        Some(span) => {
+            let before = &text[..span.start.min(text.len())];
+            let line = before.matches('\n').count() + 1;
+            let column = before.rsplit('\n').next().map_or(0, |rest| rest.chars().count()) + 1;
+
+            format!("Invalid TOML at line {line}, column {column}")
+        }
+        None => "Invalid TOML".to_owned(),
+    })?;
+
+    // `toml` hands tables over sorted by key; the spans of its document put them back in order.
+    if let Ok(document) = toml::de::DeTable::parse(text) {
+        source_order(&mut value, document.get_ref());
+    }
+
+    Ok(plain_datetimes(value))
+}
+
+/// Orders the keys of `value` (an object) and of every table below it as `table` holds them in the
+/// source. Keys the document does not have keep their place after the others.
+fn source_order(value: &mut Value, table: &toml::de::DeTable<'_>) {
+    let Value::Object(entries) = value else {
+        return;
+    };
+
+    let position = |key: &str| {
+        table
+            .iter()
+            .find(|(name, _)| name.get_ref().as_ref() == key)
+            .map_or(usize::MAX, |(name, _)| name.span().start)
+    };
+
+    let mut sorted: Vec<(String, Value)> = std::mem::take(entries).into_iter().collect();
+    sorted.sort_by_cached_key(|(key, _)| position(key));
+
+    for (key, mut item) in sorted {
+        let source = table
+            .iter()
+            .find(|(name, _)| name.get_ref().as_ref() == key.as_str())
+            .map(|(_, source)| source.get_ref());
+
+        if let Some(source) = source {
+            source_order_value(&mut item, source);
+        }
+
+        entries.insert(key, item);
+    }
+}
+
+fn source_order_value(value: &mut Value, source: &toml::de::DeValue<'_>) {
+    match (value, source) {
+        (value @ Value::Object(_), toml::de::DeValue::Table(table)) => source_order(value, table),
+        (Value::Array(items), toml::de::DeValue::Array(sources)) => {
+            for (item, source) in items.iter_mut().zip(sources.iter()) {
+                source_order_value(item, source.get_ref());
+            }
+        }
+        _ => {}
+    }
+}
+
+/// `value` with every date or time `toml` wrapped in an object replaced by its text.
+fn plain_datetimes(value: Value) -> Value {
+    match value {
+        Value::Object(entries) => {
+            if entries.len() == 1
+                && let Some(Value::String(text)) = entries.get(TOML_DATETIME_KEY)
+            {
+                return Value::String(text.clone());
+            }
+
+            Value::Object(
+                entries
+                    .into_iter()
+                    .map(|(key, item)| (key, plain_datetimes(item)))
+                    .collect(),
+            )
+        }
+        Value::Array(items) => Value::Array(items.into_iter().map(plain_datetimes).collect()),
+        other => other,
+    }
 }
 
 /// The first of `candidates` that exists, else the first one (where the file would be created).
@@ -124,9 +217,20 @@ pub fn optional_section(text: SectionText<'_>, source: ConfigSource) -> Option<C
 
 /// Renders an already-read document.
 pub fn section_from(text: SectionText<'_>, source: ConfigSource, document: &Document) -> ConfigSection {
+    section_with(text, source, document, top_level_fields)
+}
+
+/// Renders an already-read document whose parsed value `fields` turns into redacted top-level
+/// fields (or a secret-free error), for harnesses with redaction rules of their own.
+pub fn section_with(
+    text: SectionText<'_>,
+    source: ConfigSource,
+    document: &Document,
+    fields: impl Fn(&Value) -> Result<Vec<ConfigField>, String>,
+) -> ConfigSection {
     let (entries, error) = match document {
         Document::Missing => (Vec::new(), None),
-        Document::Parsed(value) => match top_level_fields(value) {
+        Document::Parsed(value) => match fields(value) {
             Ok(entries) => (entries, None),
             Err(error) => (Vec::new(), Some(error)),
         },

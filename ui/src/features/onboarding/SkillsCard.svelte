@@ -70,6 +70,9 @@
                 <SetupCommand text={commandOf(entry.harness, action)} copyLabel={t('onboarding.setup.copyCommand')} />
               {/each}
             {:else if entry.skills.type === 'script'}
+              {#if entry.skills.outdatedFrom}
+                <p class="text-fg-3">{t('onboarding.setup.skills.version', { version: entry.skills.outdatedFrom })}</p>
+              {/if}
               <SetupCommand text={entry.skills.command} copyLabel={t('onboarding.setup.copyCommand')} />
               <SetupEffects effects={entry.skills.sideEffects} />
             {:else if entry.skills.type === 'manual'}

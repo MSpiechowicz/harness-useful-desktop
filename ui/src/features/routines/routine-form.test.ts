@@ -6,7 +6,7 @@ import { fixtures } from '$lib/ipc/mock/fixtures';
 import { withOpenCodeChat } from '$lib/ipc/mock/opencode-chat';
 import { harness } from '$lib/stores/harness.svelte';
 
-import { blankForm, draftOf, formOf, hasHiddenCharacters, problemsOf, type RoutineForm, runsUnattended, targetOf, toggleDraft, whenOf, withHarness, withTarget } from './routine-form';
+import { blankForm, draftOf, formOf, hasHiddenCharacters, problemsOf, type RoutineForm, runsUnattended, targetOf, toggleDraft, whenOf, withHarness, withModel, withTarget } from './routine-form';
 
 // The harness list says what each harness lets a routine ask for.
 beforeEach(() => {
@@ -124,12 +124,59 @@ describe('the draft', () => {
     expect(draftOf(withHarness(complete({ harness: 'pi', trustOnce: true }), 'omp'), null).action).toMatchObject({ harness: 'omp', approvalMode: null, trustOnce: false });
   });
 
+  it('keeps the thinking level of a model through the form, and drops it with the model', () => {
+    const thinking = { ...AGENT, action: { ...(AGENT.action as Extract<Routine['action'], { type: 'agent' }>), model: { provider: 'anthropic', id: 'claude-sonnet-4-5', thinking: 'high' } } };
+    const form = formOf(thinking);
+
+    expect(form.thinking).toBe('high');
+    expect(draftOf(form, null).action).toEqual(thinking.action);
+
+    // The levels belong to a model: another model starts without one, and the default model has none to send.
+    expect(withModel(form, { provider: 'openai', id: 'gpt-5' })).toMatchObject({ provider: 'openai', modelId: 'gpt-5', thinking: '' });
+    expect(withModel(form, null)).toMatchObject({ provider: '', modelId: '', thinking: '' });
+    expect(draftOf({ ...form, provider: '', modelId: '' }, null).action).toMatchObject({ model: null });
+    expect(draftOf(withModel(form, { provider: 'openai', id: 'gpt-5' }), null).action).toMatchObject({ model: { provider: 'openai', id: 'gpt-5' } });
+    expect((draftOf(withModel(form, { provider: 'openai', id: 'gpt-5' }), null).action as { model: object }).model).not.toHaveProperty('thinking');
+  });
+
   it('sends an approval mode for every harness that has approval modes and a one-time trust only for one with project trust', () => {
     const opencode = withHarness(complete({ approvalMode: 'write', trustOnce: true }), 'opencode');
 
     expect(draftOf(opencode, null).action).toMatchObject({ harness: 'opencode', approvalMode: 'write', trustOnce: false });
     expect(runsUnattended({ ...opencode, approvalMode: 'yolo' })).toBe(true);
     expect(runsUnattended({ ...opencode, approvalMode: 'write' })).toBe(false);
+  });
+
+  it('drops Yolo for a harness without it and keeps it where it is offered', () => {
+    harness.summaries = fixtures.harnesses.map((summary) =>
+      summary.info.id === 'claude' ? { ...summary, capabilities: { ...summary.capabilities, chat: true } } : summary,
+    );
+
+    const claude = withHarness(complete({ approvalMode: 'yolo' }), 'claude');
+    expect(claude.approvalMode).toBeNull();
+    expect(draftOf({ ...claude, approvalMode: 'yolo' }, null).action).toMatchObject({ harness: 'claude', approvalMode: null });
+    expect(withHarness(complete({ approvalMode: 'write' }), 'claude').approvalMode).toBe('write');
+    expect(runsUnattended({ ...claude, approvalMode: 'yolo' })).toBe(false);
+
+    expect(withHarness(complete({ approvalMode: 'yolo' }), 'omp').approvalMode).toBe('yolo');
+    expect(runsUnattended(complete({ approvalMode: 'yolo' }))).toBe(true);
+  });
+
+  it('keeps Auto only for Claude Code, where it runs tools unattended', () => {
+    harness.summaries = fixtures.harnesses.map((summary) =>
+      summary.info.id === 'claude' ? { ...summary, capabilities: { ...summary.capabilities, chat: true } } : summary,
+    );
+
+    const claude = withHarness(complete({ approvalMode: 'auto' }), 'claude');
+    expect(claude.approvalMode).toBe('auto');
+    expect(draftOf(claude, null).action).toMatchObject({ harness: 'claude', approvalMode: 'auto' });
+    expect(runsUnattended(claude)).toBe(true);
+
+    for (const other of ['omp', 'opencode', 'pi'] as const) {
+      const moved = withHarness(claude, other);
+      expect(moved.approvalMode, other).toBeNull();
+      expect(runsUnattended({ ...moved, approvalMode: 'auto' }), other).toBe(false);
+    }
   });
 
   it('follows the capabilities the harness list reports and not the name of the harness', () => {
@@ -227,6 +274,7 @@ describe('what keeps a routine from being saved', () => {
     expect(fieldsWithProblems(complete({ provider: 'anthropic' }))).toEqual(['model']);
     expect(fieldsWithProblems(complete({ modelId: 'x' }))).toEqual(['model']);
     expect(fieldsWithProblems(complete({ provider: 'p'.repeat(201), modelId: 'x' }))).toEqual(['model']);
+    expect(fieldsWithProblems(complete({ provider: 'p', modelId: 'x', thinking: 't'.repeat(201) }))).toEqual(['model']);
   });
 
   it('wants a script name in the form harness memory keeps, and a repository only for a project routine', () => {

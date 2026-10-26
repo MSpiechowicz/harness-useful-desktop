@@ -42,6 +42,7 @@ export function defaultPrefs(): AppPrefs {
     binaryOverrides: [],
     chatDefaults: [],
     memoryEnabled: true,
+    vectorSearch: true,
     keepRunningInTray: false,
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
@@ -58,6 +59,7 @@ export class MockState {
 
   overrides: BinaryOverride[] = [];
   memoryEnabled = true;
+  vectorSearch = true;
   recents: ProjectInfo[] = structuredClone(fixtures.recentProjects);
   active: ProjectInfo | null = null;
 
@@ -91,12 +93,20 @@ export class MockState {
       recentProjects: this.recents.map((project) => project.path),
       binaryOverrides: structuredClone(this.overrides),
       memoryEnabled: this.memoryEnabled,
+      vectorSearch: this.vectorSearch,
     };
   }
 
   /** The "Project memory" switch: the only way to change `memoryEnabled`. */
   setMemoryEnabled(enabled: boolean): AppPrefs {
     this.memoryEnabled = enabled;
+
+    return this.snapshot();
+  }
+
+  /** The "Vector search" switch: the only way to change `vectorSearch`. */
+  setVectorSearch(enabled: boolean): AppPrefs {
+    this.vectorSearch = enabled;
 
     return this.snapshot();
   }

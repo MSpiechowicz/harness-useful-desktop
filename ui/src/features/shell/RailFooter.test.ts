@@ -63,8 +63,8 @@ describe('rail footer, expanded', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Language: English' }));
 
     const options = await screen.findAllByRole('menuitemradio');
-    expect(options.map((option) => option.textContent?.trim())).toEqual(['English', 'Deutsch', 'Español', 'Français', 'Polski']);
-    expect(options.map((option) => option.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'false', 'false']);
+    expect(options.map((option) => option.textContent?.trim())).toEqual(['English', 'Deutsch', 'Español', 'Français', 'Polski', 'Português (Brasil)']);
+    expect(options.map((option) => option.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false', 'false', 'false', 'false']);
   });
 
   it('picks English while the saved Polish is still loading', async () => {
@@ -109,6 +109,24 @@ describe('rail footer, expanded', () => {
     expect(screen.getByRole('button', { name: 'Język: Polski' })).toHaveTextContent('Polski');
     expect(document.documentElement.lang).toBe('pl');
     expect(i18n.lang).toBe('pl');
+  });
+
+  it('saves Brazilian Portuguese and turns the rail Portuguese', async () => {
+    ready();
+    stopLanguage = language.start();
+    const invoke = vi.spyOn(ipc, 'invoke');
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('min-width'), media: query, addEventListener: () => {}, removeEventListener: () => {} }));
+    ui.setRailExpanded(true);
+    render(Rail);
+    const rail = screen.getByRole('navigation', { name: 'Primary' });
+
+    await fireEvent.click(within(rail).getByRole('button', { name: 'Language: English' }));
+    await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Português (Brasil)' }));
+
+    expect(invoke).toHaveBeenCalledWith('prefs_set', { prefs: expect.objectContaining({ language: 'pt' }) });
+    await waitFor(() => expect(screen.getByRole('navigation', { name: 'Principal' })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Idioma: Português (Brasil)' })).toHaveTextContent('Português (Brasil)');
+    expect(i18n.lang).toBe('pt');
   });
 });
 

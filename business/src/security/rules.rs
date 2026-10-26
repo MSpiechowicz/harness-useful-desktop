@@ -26,9 +26,9 @@ pub(crate) const SECRET_KEY_FRAGMENTS: &[&str] = &[
     "credentialid",
 ];
 
-/// Keys whose whole subtree is secret (MCP server `env`, OpenCode's `environment`, and `headers`).
-/// Keys stay visible.
-pub(crate) const SECRET_CONTAINERS: &[&str] = &["env", "environment", "headers"];
+/// Keys whose whole subtree is secret (MCP server `env`, OpenCode's `environment`, `headers` and
+/// Codex's `http_headers`), compared normalized. Keys stay visible.
+pub(crate) const SECRET_CONTAINERS: &[&str] = &["env", "environment", "headers", "httpheaders"];
 
 /// Keys whose subtree is secret except for the [`AUTH_PUBLIC_KEYS`] children.
 pub(crate) const AUTH_CONTAINERS: &[&str] = &["auth", "oauth"];

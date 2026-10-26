@@ -13,6 +13,8 @@ mod error;
 mod hooks;
 mod lifecycle;
 mod logging;
+mod mcp_cli;
+mod memory_embedder;
 mod memory_held;
 mod memory_requests;
 mod memory_setup;
@@ -55,6 +57,7 @@ pub fn run() -> ExitCode {
             app.state::<AppState>().agents.sweep_orphans_in_background();
             window::create_main_window(app)?;
             memory_setup::spawn_on_launch(app.handle());
+            memory_embedder::spawn_on_launch(app.handle());
             desktop_mcp::spawn_on_launch(app.handle());
             hooks::spawn_on_launch(app.handle());
             routines::agent_run::install(app.handle());
@@ -75,6 +78,11 @@ pub fn run() -> ExitCode {
             commands::app::prefs_get,
             commands::app::prefs_set,
             commands::memory::memory_set_enabled,
+            commands::memory_embedder::memory_set_vector_search,
+            commands::memory_embedder::memory_embedder_watch,
+            commands::memory_embedder::memory_embedder_remove_model,
+            commands::memory_embedder::memory_settings_get,
+            commands::memory_embedder::memory_settings_set,
             commands::memory_remote::memory_remote_get,
             commands::memory_remote::memory_remote_set,
             commands::memory_remote::memory_remote_test,
@@ -156,6 +164,8 @@ pub fn run() -> ExitCode {
             commands::setup::setup_install_dashboard,
             commands::setup::setup_install_memory,
             commands::setup::setup_install_opencode_skills,
+            commands::setup::setup_install_codex_skills,
+            commands::skills_migration::skills_migrate_names,
             commands::setup::setup_register_mcp,
             commands::setup::setup_register_memory,
             commands::desktop_mcp::setup_register_desktop_mcp,

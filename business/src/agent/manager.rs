@@ -1,8 +1,9 @@
 //! All running agent sessions of the app, addressed by session key.
 //!
 //! The manager validates what the business layer can check itself: the harness matches, the
-//! project is an existing directory, a resumed session id is safe, the per-session approval
-//! override and one-time trust are honoured only where the harness supports them, and at most
+//! project is an existing directory, a resumed session id is safe and the project's
+//! ([`resumed_session`]), the per-session approval override (Yolo and Auto only where offered) and
+//! one-time trust apply only where supported, and at most
 //! [`MAX_SESSIONS`] run at once. The rule that `project` must be the active or a recent project
 //! is enforced by the caller (the desktop shell), as is the explicit user confirmation required
 //! before [`AgentManager::bash`].
@@ -31,7 +32,7 @@ use tokio::time::Instant;
 
 use super::SessionOptions;
 use super::engine::{AgentSession, SessionLaunch};
-use super::launch::{ensure_chat, exec_spec, prepare_memory_chat};
+use super::launch::{approval_override, ensure_chat, exec_spec, prepare_memory_chat, resumed_session, trust_once};
 use super::sink::{EventSink, PromptTaken};
 use super::slots::{
     BindingSink, Bound, Claimant, Entry, Holder, Reservation, SessionClaim, Slots, bind, open_elsewhere, still_stopping,
@@ -42,7 +43,6 @@ use crate::harness::{Harness, LaunchRequest};
 use crate::model::{
     AgentAction, AgentEvent, AgentReply, AgentSessionInfo, AgentStartRequest, BashOutput, NoticeLevel, UiResponse,
 };
-use crate::pi_family::sessions::is_safe_session_id;
 use crate::process::{ProcessSpawner, ResolvedBinary};
 use crate::security::validate_project_dir;
 
@@ -104,7 +104,7 @@ impl AgentManager {
         Self::default()
     }
 
-    /// A manager with custom options (tests, fixture export).
+    /// A manager with custom options (the desktop's folders, tests, fixture export).
     pub fn with_options(options: SessionOptions) -> Self {
         Self {
             slots: Mutex::default(),
@@ -187,23 +187,9 @@ impl AgentManager {
         ensure_chat(harness)?;
 
         let project = validate_project_dir(deps.env, Path::new(&request.project))?;
-        let resume = match &request.resume {
-            Some(session) if session.harness != harness.id() || !is_safe_session_id(&session.id) => {
-                return Err(BusinessError::InvalidInput("invalid session to resume".to_owned()));
-            }
-            Some(session) => Some(session.id.as_str()),
-            None => None,
-        };
-
-        if request.utility && request.resume.is_some() {
-            return Err(BusinessError::InvalidInput(
-                "a utility agent cannot resume a session".to_owned(),
-            ));
-        }
-
-        let capabilities = harness.capabilities();
-        let approval_override = request.approval_override.filter(|_| capabilities.approval_modes);
-        let trust_once = request.trust_once && capabilities.project_trust;
+        let resume = resumed_session(harness, deps.env, &project, &request)?;
+        let approval_override = approval_override(harness, request.approval_override)?;
+        let trust_once = trust_once(harness, deps.env, &project, request.trust_once)?;
 
         // A utility agent saves nothing, so it has no memory identity.
         let memory_session = match request.memory_chat.as_ref().filter(|_| !request.utility) {
@@ -244,19 +230,23 @@ impl AgentManager {
         let session = AgentSession::start(SessionLaunch {
             key: key.clone(),
             spec,
-            spawner: deps.spawner.as_ref(),
+            spawner: deps.spawner.clone(),
             protocol: harness.chat_protocol(),
             project: project.clone(),
             sessions_dir: harness.sessions_dir(deps.env, &project),
+            config_dir: harness.paths(deps.env, Some(&project)).config_root,
             resume,
             approval_override,
+            trust_once,
             utility: request.utility,
+            memory_session: memory_session.is_some(),
             sink,
             options: &self.options,
             abort,
         })
         .await?;
 
+        let guards_offered = memory_session.is_some() && harness.capabilities().memory_chat_guards;
         let info = AgentSessionInfo {
             key: key.clone(),
             harness: harness.id(),
@@ -264,7 +254,10 @@ impl AgentManager {
             started_at: (self.options.clock)(),
             approval_override,
             configured_approval_mode: harness.configured_approval_mode(deps.env, Some(&project)),
+            native_approval_mode: harness.native_approval_mode(deps.env, Some(&project)),
             trusted_once: trust_once,
+            trust_offered: harness.trust_once_offered(deps.env, &project),
+            memory_guards: guards_offered && session.memory_passed_on(),
             protocol_version: session.protocol_version(),
         };
 
@@ -272,6 +265,7 @@ impl AgentManager {
             info: info.clone(),
             session: Arc::new(session),
             bound,
+            guards_offered,
         };
 
         if let Some(stopping) = self.register(key, entry, reservation.generation) {
@@ -410,7 +404,7 @@ impl AgentManager {
 
     /// The info of session `key`.
     pub fn info(&self, key: &str) -> Result<AgentSessionInfo> {
-        self.entry(key, |entry| entry.info.clone())
+        self.entry(key, Entry::info)
     }
 
     /// Moves session `key`, conversation included, to `project` (a canonical, authorized project
@@ -426,7 +420,7 @@ impl AgentManager {
             .ok_or_else(|| BusinessError::NotFound(format!("agent session {key}")))?;
         entry.info.project = project.to_string_lossy().into_owned();
 
-        Ok(entry.info.clone())
+        Ok(entry.info())
     }
 
     /// Takes session `key` out of the manager; its agent stops when the result is finished.
@@ -493,7 +487,7 @@ impl AgentManager {
         let mut slots = self.lock();
         slots.prune();
 
-        let mut infos: Vec<AgentSessionInfo> = slots.sessions.values().map(|entry| entry.info.clone()).collect();
+        let mut infos: Vec<AgentSessionInfo> = slots.sessions.values().map(Entry::info).collect();
         infos.sort_by(|left, right| left.started_at.cmp(&right.started_at).then(left.key.cmp(&right.key)));
         infos
     }

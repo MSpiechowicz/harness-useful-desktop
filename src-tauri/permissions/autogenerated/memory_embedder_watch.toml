@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-embedder-watch"
+description = "Enables the memory_embedder_watch command without any pre-configured scope."
+commands.allow = ["memory_embedder_watch"]
+
+[[permission]]
+identifier = "deny-memory-embedder-watch"
+description = "Denies the memory_embedder_watch command without any pre-configured scope."
+commands.deny = ["memory_embedder_watch"]

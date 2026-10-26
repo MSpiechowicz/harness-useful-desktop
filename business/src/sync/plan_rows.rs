@@ -7,6 +7,7 @@ use super::collect::package_identity;
 use super::plan_presence::McpFiles;
 use super::schema::{Marketplace, McpServer, Package, Plugin, Transport};
 use crate::ecosystem::Shape;
+use crate::ecosystem::mcp_cli::add_args;
 use crate::harness::Harness;
 use crate::model::{
     ExtensionAction, HarnessId, InstallScope, SyncImportItem, SyncInvalidReason, SyncItemKind, SyncItemStatus,
@@ -313,6 +314,17 @@ pub(super) fn mcp_preview(file: String, server: &McpServer) -> SyncStep {
     }
 }
 
+/// The command line shown and run for `server` of `harness`, whose servers are added through its
+/// CLI (Claude Code: `claude mcp add-json --scope user <name> <json>`, Codex: `codex mcp add
+/// <name> -- <command> <args…>` or `--url <url>`, see [`mcp_definition`]). The definition holds
+/// only fields both CLIs take, so the arguments always exist.
+pub(super) fn mcp_cli_preview(harness: HarnessId, server: &McpServer, shape: Shape) -> SyncStep {
+    let mut command = vec![harness.binary_name().to_owned()];
+    command.extend(add_args(shape, &server.name, &mcp_definition(server, shape)).unwrap_or_default());
+
+    SyncStep::Cli { command }
+}
+
 /// True when the server needs env or header values the user has to fill in.
 fn needs_values(server: &McpServer) -> bool {
     !server.env_keys.is_empty() || !server.header_keys.is_empty()
@@ -322,8 +334,12 @@ fn needs_values(server: &McpServer) -> bool {
 /// http/sse `{type, url}`, plus `"enabled": false` when it needs env or header values. OpenCode 1:
 /// `{type: "local", command: [command, ...args], enabled}` or `{type: "remote", url, enabled}`, with
 /// `enabled` false when it needs values. OpenCode 2 (under `mcp.servers`): the same without
-/// `enabled`, plus `"disabled": true` when it needs values. Nothing else, ever: env and header
-/// names are not written (the review lists them), so no empty value can reach the server.
+/// `enabled`, plus `"disabled": true` when it needs values. Claude Code (through its CLI):
+/// `{type: "stdio", command, args}` or `{type, url}`, never with `enabled` (it has no such field,
+/// so a server that needs values is added switched on and finds them in its environment, or the
+/// user adds them). Codex (through its CLI): `{command, args}` or `{url}` without a `type` (an
+/// entry of its `config.toml` has none), never with `enabled` either. Nothing else, ever: env and header names are not written (the review lists
+/// them), so no empty value can reach the server.
 pub(crate) fn mcp_definition(server: &McpServer, shape: Shape) -> Value {
     if shape.is_opencode() {
         return opencode_definition(server, shape);
@@ -333,6 +349,9 @@ pub(crate) fn mcp_definition(server: &McpServer, shape: Shape) -> Value {
 
     match server.transport {
         Transport::Stdio => {
+            if shape == Shape::ClaudeCli {
+                entry.insert("type".to_owned(), "stdio".into());
+            }
             entry.insert("command".to_owned(), server.command.clone().unwrap_or_default().into());
             entry.insert("args".to_owned(), server.args.clone().into());
         }
@@ -342,12 +361,16 @@ pub(crate) fn mcp_definition(server: &McpServer, shape: Shape) -> Value {
             } else {
                 "sse"
             };
-            entry.insert("type".to_owned(), kind.into());
+
+            if shape != Shape::CodexCli {
+                entry.insert("type".to_owned(), kind.into());
+            }
+
             entry.insert("url".to_owned(), server.url.clone().unwrap_or_default().into());
         }
     }
 
-    if needs_values(server) {
+    if needs_values(server) && shape.app_writes() {
         entry.insert("enabled".to_owned(), false.into());
     }
 

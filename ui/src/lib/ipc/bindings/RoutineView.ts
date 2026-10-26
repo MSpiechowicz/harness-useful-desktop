@@ -47,7 +47,8 @@ approved: Routine | null,
  */
 origin: HookOrigin, 
 /**
- * The agent action runs tools without asking (`approvalMode: "yolo"` or `trustOnce: true`).
+ * The agent action runs tools without asking (`approvalMode: "yolo"` or `"auto"`, or
+ * `trustOnce: true`).
  */
 runsUnattended: boolean, 
 /**

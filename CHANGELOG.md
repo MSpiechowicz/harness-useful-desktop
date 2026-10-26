@@ -1,3 +1,121 @@
+# [0.40.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.39.0...v0.40.0) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** tokio 1.54.1 for RUSTSEC-2026-0386 ([a87e876](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a87e87644a6233ab7cb677e00c3345738381041b))
+* **memory:** feature flags for vector search, English notes and note language, model presence ([74d926e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/74d926e9cb1dfb90ca2362a797dfa8e2b1bfae51))
+* **memory:** respect an explicit embedder opt-out, close review races ([2fc604d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2fc604d20e6d25441a533c677f3bbe0106a8c18f))
+* **memory:** Settings shows vector search off after a launch-time opt-out ([0bb3024](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0bb302434589eb5d726a4720fed20a0fbf02a8b7))
+* **skills:** rename migration replaces the old marketplace of the same repository ([74f641f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/74f641f87dd0b28a9c06a2b0f636c31a76b15958))
+* **skills:** rename migration replaces the old marketplace of the same repository ([4b87c3f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4b87c3f28831c38580da5ac32fd3a81714d4b4bc))
+
+
+### Features
+
+* **memory:** embedder supervisor, vector search and English notes commands ([55e807c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/55e807cd938dc1817dbe37ae00cc405f82d6eb84))
+* **memory:** Settings switches for vector search and English notes, Not in English filter ([63ccc68](https://github.com/MSpiechowicz/harness-useful-desktop/commit/63ccc689d3ce1a29ff6c6302b6a052700e096cd0))
+* **memory:** vector search status as a clear state row ([6d5b156](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6d5b156441d08f0b0259d423cbc65e770222e211))
+* **memory:** vector search, English notes and the shared harness-memory embedder ([5667923](https://github.com/MSpiechowicz/harness-useful-desktop/commit/56679237a46aee9e2d35973c90903e683adffc93))
+
+# [0.39.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.2...v0.39.0) (2026-10-23)
+
+
+### Bug Fixes
+
+* **codex:** final repairs after review pass 3 ([faf22a0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/faf22a012aa35f41ac16182b96a60367d39695a7))
+* **codex:** review pass 1 repairs ([188fa24](https://github.com/MSpiechowicz/harness-useful-desktop/commit/188fa2423d512c850e60405bc980fa30b3e78da6))
+* **codex:** review pass 2 repairs for setup, trust and sessions ([6b5f821](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6b5f82137bf97cff2ebd1241412260c3f44a1f07))
+* **codex:** review pass 2 repairs for the chat engine ([0c3d708](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0c3d7086c04c8039f88812d4d80f7031284f2fbf))
+* **codex:** sessions match the real app-server ([94aec09](https://github.com/MSpiechowicz/harness-useful-desktop/commit/94aec0974c087e886df1445cf3023d2309e90b4c))
+* **codex:** setup offers to add missing MCP entries instead of a manual step ([bcb9624](https://github.com/MSpiechowicz/harness-useful-desktop/commit/bcb96246ad85aa3525a6885dc5f5c296076223d7))
+
+
+### Features
+
+* **codex:** app-server wire types, event mapper and fake dialect (S7) ([4b6c697](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4b6c6977408d1e2bc29280bdad330de6a4259193))
+* **codex:** approval modes and trust once (S9) ([90223a2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/90223a24fd01095ab144d34bc351effe2062acc3))
+* **codex:** chat engine core over codex app-server (S8) ([7ab810c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7ab810c1ff34c21772ea6e6c1e9610ea6837dd66))
+* **codex:** chat operations and chat on as Preview (S10) ([7f3eb12](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7f3eb12ab0a0c1a0ce9c8833542bda070f1020ea))
+* **codex:** Codex harness, unified Harness Skills names and routine model pickers ([#43](https://github.com/MSpiechowicz/harness-useful-desktop/issues/43)) ([aaed0d6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/aaed0d67699c08b956248c2812fa36728d5279c4))
+* **codex:** config view, extensions, setup and share setup (S2, S3, S5, S6) ([ff47d63](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ff47d6316fd58647e49b21ed0c9a07ab5339ca90))
+* **codex:** install Harness Skills for Codex from Recommended setup ([9c9722e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9c9722e4fa1ca94eb8e303353a3a3c79b44e4a95))
+* **codex:** register Codex as the fifth harness (S1) ([a2703b9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a2703b9e891426ba152a63b7a2cb441b788b3b0b))
+* **codex:** session tree from a cached parent lookup ([2144195](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2144195bc7da4d5771ebb9c187ea659b7b717e3b))
+* **codex:** sessions through a short-lived app-server (S4) ([f1fd398](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f1fd3981efac0013a5da1127a7539f5b991bfaac))
+* **codex:** UI polish for the Codex preview (S12) ([72a09bd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/72a09bde8669ac078f5994b3d3ee9818c2ff68ed))
+* **routines:** model and thinking level dropdowns in the routine editor ([7c0e250](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7c0e2505fb2fc374ce491892be99aa570af2ebb2))
+* **skills:** adopt the unified harness-useful-skills names with automatic migration ([a0d83bd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a0d83bd77a494f38ca58953c2c62fefb873e0498))
+* **skills:** fully automatic name migration, Claude cleanup and dashboard rename ([8389c72](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8389c72c2cee23ea5c33a57c0cc7a8c58208fdae))
+
+## [0.38.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.1...v0.38.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* **chat:** hide the thinking picker when the level is unknown ([8c698a9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8c698a9d9d30489638575c261b9976ef54db3e45))
+* **routines:** show why an agent run failed ([9823a0e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9823a0e0477ef1d7684bedbab6f11290eff25c72))
+
+## [0.38.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.38.0...v0.38.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** DOMPurify 3.4.17 and ip-address 10.7.4 for new advisories ([130707a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/130707a3fa7a078bff93dfb51dfa2c9fb2e96037))
+
+# [0.38.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.2...v0.38.0) (2026-10-22)
+
+
+### Bug Fixes
+
+* **agent:** keep a session's events when its process exits before it opens ([ed70616](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ed706167e7190ad837997557387c423a93e06d55))
+* **chat:** even gaps between composer controls, a gauge for thinking ([7dd2262](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7dd2262409c6ef8746fd363539fabfebecba3188))
+* **chat:** thinking uses a sparkles icon, the brain stays for memory ([2850a27](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2850a275d8f19475490448a69f62aebec7f694b9))
+* **claude:** a plugin install in an untrusted folder says how to trust it ([7026ab5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7026ab57829d76350fe1aece2c27442c472b2135))
+* **claude:** chat-side fixes from review round 2 ([0385bda](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0385bdad9f43bc889057ab73c930f2eda40f6405))
+* **claude:** engine and mapper robustness from review round 1 ([5089033](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5089033c1b5d5ed30cd9c68f37eeaff93ffb9527))
+* **claude:** files-side fixes from review round 2 ([5a0a0c2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5a0a0c27c6adc34ae8bd43749306437e8f405424))
+* **claude:** files, CLI and setup hardening from review round 1 ([baa5bad](https://github.com/MSpiechowicz/harness-useful-desktop/commit/baa5badd8a53c446825b950828bf724accb9d842))
+* **claude:** project-files approvals only for paths the CLI reads the same way ([5f40728](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5f40728056fa425985a7c11792c1a2901fcce32d))
+* **claude:** remember a folder trusted once for the app run ([6f8622c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6f8622ccbd6f63bcd215d98a14961d8744ced3c2))
+* **claude:** safer always-allow, MCP-free helper chat and a folder trust gate ([24ca04d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/24ca04d274dbe104781a119b2a3aeedf6fc702f9))
+* **ui:** Claude Code is a real orange in the light theme ([fa59388](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fa59388e0f166b190174844180eee730e6d8c7cc)), closes [#b84a00](https://github.com/MSpiechowicz/harness-useful-desktop/issues/b84a00)
+* **ui:** Claude Code's light badge reads orange, not OpenCode's red ([104224f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/104224f29ec55574073424d23bf6244bf615f85e)), closes [#9f4200](https://github.com/MSpiechowicz/harness-useful-desktop/issues/9f4200)
+
+
+### Features
+
+* **chat:** the harness picker shows a breathing dot and the harness's full name ([3330c61](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3330c615bbc86fe64920ad49893194f04c1d61ea))
+* **claude:** approval prompts, questions and approval modes in the Claude chat ([8e897cd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8e897cd9c62a171d226134c3295a4fe7398eb492))
+* **claude:** approval UI for Claude Code and chat preview copy ([df52120](https://github.com/MSpiechowicz/harness-useful-desktop/commit/df521203f3aa88043d2029bfa2d1a9c8d896293c))
+* **claude:** Auto approval mode for Claude Code chats and routines ([c4fbaef](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c4fbaefbfdeb1fb34f4360e3156fef5686e3f055))
+* **claude:** chat engine core over Claude Code's stream-json mode ([7fa2713](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7fa2713036d69f9e438f41cfc6ffc47629292b75))
+* **claude:** Claude Code sessions in the Sessions view ([237fc06](https://github.com/MSpiechowicz/harness-useful-desktop/commit/237fc066ab574c2ee55ae3a9b8493ce95a426290))
+* **claude:** fork, clone and switch keep the Harness Skills default model ([0730477](https://github.com/MSpiechowicz/harness-useful-desktop/commit/07304772f825327ef2a4af6e145508ebe37d56d0))
+* **claude:** Harness Skills model roles and workflow switches in the Claude config view ([4e07e34](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4e07e34b046e0c8c0497586915f67880af43f913))
+* **claude:** name Claude Code in the app copy, readable badge on light themes ([a0aa63c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a0aa63caf547fb3f5aff7501d5a34e740a20bca9)), closes [#ac3708](https://github.com/MSpiechowicz/harness-useful-desktop/issues/ac3708)
+* **claude:** new chats start on the Harness Skills default model, no thinking picker without a model ([c73eddb](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c73eddb674d66547a96cb87867f4b8e315b66d3c))
+* **claude:** plugin actions, Harness Skills and MCP registration through the CLI ([9f00105](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9f00105e7eec67860bd542b45e8221277b4b028c))
+* **claude:** read-only extensions view for Claude Code ([ec478cf](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ec478cf97f8cb907b243803801767a4085858c20))
+* **claude:** redacted config view and deny rules under CLAUDE_CONFIG_DIR ([307e262](https://github.com/MSpiechowicz/harness-useful-desktop/commit/307e2626566740c76be6e68b6f9656cd59db0a00))
+* **claude:** register Claude Code as a detected harness with chat off ([e4470fd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e4470fd5f79a519097adda3607bd3519454d475d))
+* **claude:** session operations and Claude Code chat as a preview ([4e79d04](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4e79d0449fa4cda5ac4caa79599157e251da6372))
+* **claude:** setup and share copy for CLI-run MCP changes ([19536d1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/19536d1f8c44440d967097371ceab399994aa381))
+* **claude:** Share setup for Claude Code marketplaces, plugins and MCP servers ([f7d2d53](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f7d2d538394af4fb42ce745b7a752e42ded84893))
+* **claude:** stream-json wire types, event mapper and session stats ([93743b5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/93743b51bce016c837940566f80e83cc3db44d11))
+* **claude:** tool ids and the files a Claude Code tool call touched ([f4f0ed7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f4f0ed70c9200f55ec8663113cfc6863c37ee4b4))
+* **i18n:** Brazilian Portuguese as a sixth language ([d9a4de0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d9a4de0041b79f9e3045bc9bef9e848597992cc6))
+* **opencode:** Harness Skills model roles and workflow switches in the OpenCode config view ([eec667b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/eec667be90c551c34fdfab8193a2366a009a96e4))
+* **routines:** agent routines name any registered harness ([608632c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/608632c6e85272a156ea29c0c850ff0e54087f97))
+
+## [0.37.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.1...v0.37.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* **chat:** hint at an outdated agent when its start times out or breaks the protocol ([a4df37e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a4df37e88fdb3f6df1fc450a85b6c68af520864d))
+* **memory:** show a loading state instead of an empty list while a cleared filter is read ([d06f4e4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d06f4e4758dfbf370738b3d40ee89ebab59452a6))
+
 ## [0.37.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.37.0...v0.37.1) (2026-10-22)
 
 

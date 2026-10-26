@@ -11,6 +11,10 @@ not guaranteed, it says so under [Limits](#limits).
 - The app itself makes two kinds of network request, both to GitHub and both possible to turn off: the update check and
   download (only when the build carries an updater key), and the companion release lookup (Harness Memory's included).
   See [Network](#network).
+- The app runs your own, unmodified `claude`, signed in the way you signed in. It offers no Claude login and never
+  reads Claude Code's login store or tokens. See [Claude Code](#claude-code).
+- The same holds for Codex: the app runs your own `codex`, offers no login (sign in from a terminal with `codex login`),
+  never reads `auth.json` and never answers Codex's token refresh requests. See [Codex](#codex).
 - The app never reads credential stores, databases, logs or private keys, even through a symlink. The one database in
   the picture is the project memory that the `harness-memory` server (a separate program from its own repository, which
   you install; your harnesses start it) opens directly with SQLite; the desktop app never opens it itself. See [Project memory](#project-memory).
@@ -21,7 +25,10 @@ not guaranteed, it says so under [Limits](#limits).
   off in Settings or remove the entry yourself), the `harness-desktop` entry (the app's own MCP server for hooks, added
   automatically on launch in release builds, or when you choose it in Recommended setup, until you remove the entry
   yourself), the `harness-dashboard` entry when you choose it in Recommended setup, and the MCP servers you
-  tick when you import a shared setup. An OpenCode config file that has comments is never rewritten
+  tick when you import a shared setup. Claude Code's global file (`~/.claude.json`) is never written by the app. Its
+  MCP servers change only when the app runs `claude mcp add-json` and
+  `claude mcp remove` in the user scope (see [Claude Code](#claude-code)). The same goes for Codex's `~/.codex/config.toml`: its MCP servers
+  change only when the app runs `codex mcp add` and `codex mcp remove` (see [Codex](#codex)). An OpenCode config file that has comments is never rewritten
   (the app shows the entry to paste or the plugin to remove instead). Switching project memory off does not rewrite such a file either: the app's
   own `harness-memory` entry stays in it, and Settings names the file and the entry so you can remove it yourself. An
   existing entry is never overwritten; the only change to one is the `command`
@@ -34,10 +41,12 @@ not guaranteed, it says so under [Limits](#limits).
   in it runs until you have read the review and confirmed. Secret and path detection in free-form text is best effort,
   and host names are part of sources and URLs. Bundles are not signed. See [Shared setups](#shared-setups).
 - Secrets in configuration and in the app's own CLI output are masked before they reach the screen.
-- No shell is spawned, with two exceptions: the companion installers (Harness Dashboard, Harness Memory and the Harness Skills
-  for OpenCode), fixed
-  commands that run only after you confirm them, and command hooks, shell commands that run only when you wrote them or
-  approved that exact version (see [Process spawning](#process-spawning) and [Hooks](#hooks)). Their interpreter has an
+- No shell is spawned, with three exceptions: the companion installers (Harness Dashboard, Harness Memory and the Harness Skills
+  for OpenCode and Codex), fixed
+  commands that run only after you confirm them, command hooks, shell commands that run only when you wrote them or
+  approved that exact version, and the `!command` you type in a Claude Code chat, which the app runs itself because Claude
+  Code has no shell mode there (see [Process spawning](#process-spawning), [Hooks](#hooks) and
+  [Claude Code](#claude-code)). Their interpreter has an
   absolute path (`/bin/sh`, Windows PowerShell for the installers, `cmd.exe` from `<SystemRoot>\System32` for
   command hooks), but the `curl` and `sh` the Linux and macOS command line names are
   looked up on the `PATH` the app inherited, for all three installers alike. Every other
@@ -77,8 +86,8 @@ your terminal (see [Limits](#limits)).
 ## Network
 
 The app contains no analytics client. Its only HTTP clients are the updater and the companion release lookup; the one
-other downloads, those of the companion installers (dashboard, memory server and Harness Skills for OpenCode), are made by the installer command
-itself, and only after consent. Enumerated:
+other downloads, those of the companion installers (dashboard, memory server and Harness Skills for OpenCode and Codex), are made by the installer command
+itself, and only after consent. The one more download, the search model, is made by `harness-memory`, not by the app. Enumerated:
 
 | Request | When | Details |
 | --- | --- | --- |
@@ -86,13 +95,14 @@ itself, and only after consent. Enumerated:
 | Companion release lookup | When the Ecosystem view loads or is refreshed, at most once per companion every 6 hours while the app runs (the cache is in memory, so a restart asks again; failed lookups, including rate limits, retry after 5 minutes), and only while **Check companions for updates** (`checkCompanionUpdates` in prefs, on by default) is on. A prefs file that exists but cannot be read counts as off. | Four fixed URLs, `https://api.github.com/repos/MSpiechowicz/harness-useful-{dashboard,memory,skills,sidebar}/releases/latest`, HTTPS only, with timeouts and a capped response. Only `tag_name` is read. The request carries a `User-Agent` (`harness-desktop/<version>`) and an `Accept` header and nothing else: no token, no cookies, no referer, no installed versions or other local data. While at least one companion is installed, all four are requested, so the request set does not reveal which ones (with none installed, nothing is requested); GitHub sees the IP address, the app version and when Ecosystem was opened. The comparison with the installed version happens on this machine (`ecosystem_releases`). Redirects are followed only to `https://api.github.com` on port 443. System proxy settings apply, as for the updater. A failed lookup only means no update badge. |
 | Dashboard installer download | Only when the user confirms **Install the dashboard** in Recommended setup (onboarding, or **Run recommended setup** in Ecosystem), or, for an already installed dashboard with a newer release, without asking each time while **Update extensions automatically** (`autoUpdateExtensions`, on by default) and **Check companions for updates** are on | The app opens no connection itself. The installer command it runs (a `curl` of `install.sh` piped to `sh` on Linux and macOS, `irm` of `install.ps1` piped to `iex` on Windows) fetches the script from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/` and then whatever that script downloads, the dashboard release. GitHub sees the IP address and the request. See [Process spawning](#process-spawning). |
 | Memory server installer download | Only when the user confirms the install of Harness Memory (Recommended setup, or the **Project memory** switch in Settings), or, for an already installed server with a newer release, without asking each time under the same two switches as the dashboard | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/` and then the `harness-memory` release it names; its `install.sh` and `install.ps1` verify the release's `checksums.txt`. |
-| Harness Skills installer download | Only when the user confirms the install of the Harness Skills for OpenCode in Recommended setup. It is never part of the automatic family updates. | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/` (`install.sh` fetched by a `curl` held to HTTPS and TLS 1.2 or newer, `install.ps1` by `irm`). The script needs Node.js 22 or newer and downloads the skills' release tarball from `codeload.github.com`, checks its entries, sizes and manifests, and runs `useful-skills install --host opencode --scope user`. There is no checksum: the trust model is that of the skills' own updater. GitHub sees the IP address and the request. |
+| Harness Skills installer download | Only when the user confirms the install of the Harness Skills for OpenCode or Codex in Recommended setup. It is never part of the automatic family updates. The one exception is the launch migration of the Harness Skills names (below), which reruns it for an install found only under the names before Harness Skills 0.4.0. | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/` (`install.sh` fetched by a `curl` held to HTTPS and TLS 1.2 or newer, `install.ps1` by `irm`). The script needs Node.js 22 or newer and downloads the skills' release tarball from `codeload.github.com`, checks its entries, sizes and manifests, and runs `useful-skills install --host opencode --scope user`, or `--host codex` when the app sets `HARNESS_SKILLS_HOST=codex` for the Codex install (that run also needs the `codex` command, adds the skills' marketplace and plugin with it and registers the `harness-useful-skills` MCP server through `codex mcp add`). There is no checksum: the trust model is that of the skills' own updater. GitHub sees the IP address and the request. |
+| Search model download (by `harness-memory`) | Only while vector search is on (the `vectorSearch` pref, on by default, and project memory on), when the embedder first starts without the model files, and again when a Harness Memory release names a newer model | The app opens no connection itself. `harness-memory embedder run`, which the app starts, fetches two files, `model_quantized.onnx` and `tokenizer.json` (about 135 MB together), from one GitHub release of `MSpiechowicz/harness-useful-memory`. Each file's SHA-256 and size are compiled into `harness-memory`, and a file that does not match is not used. Nothing is sent but the request itself, so GitHub sees the IP address and when the model was fetched. It reads nothing from Hugging Face. `HARNESS_MEMORY_MODEL_BASE_URL` can move the base URL (HTTPS, or HTTP to localhost), the hashes stay pinned. With vector search off, nothing is fetched. |
 | Extension catalog refresh | While **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default) is on: the first look 30 s after start, then every 30 minutes. With **Update extensions automatically** on, the catalogs are refreshed on the same schedule even with this switch off, never more often than every 30 minutes (see below). | The app opens no connection itself. For each OMP catalog it runs `omp plugin marketplace update <name>`, and OMP clones or fetches that catalog's repository from the git or `https` URL it was added with: hosts you chose when adding the catalog (GitHub for the Harness Skills). The host sees the IP address and the request. |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL, or `http` to localhost, with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
 - **AI chat names** (`aiChatNames`, off by default). When on, after the first message of a new chat the app starts one
   throwaway agent of the chat's own harness (`utility` launch: `--no-session --no-tools --thinking off`, no resume,
-  stopped right after the reply), on the chat's model, and sends it the first 500 characters of that message with a
+  stopped right after the reply, for Claude Code the flags in [Claude Code](#claude-code)), on the chat's model, and sends it the first 500 characters of that message with a
   fixed instruction. The app opens no connection itself; the request goes through the harness exactly as your own chat
   does, and costs one very small request per chat. Without it, names come from the first message locally.
 - **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default). While on, the app refreshes the extension
@@ -133,23 +143,24 @@ Everything else:
   client. What a hook adds to a prompt, and a command hook's redacted output, are sent by the harness to its model
   provider like the rest of the prompt. A command a hook runs may open connections of its own: that is the command you
   approved.
-- Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`, `opencode plugin <module> -g`) run the CLI,
+- Harness CLIs make their own provider requests. Extension actions (`omp plugin install`, `pi install`, `opencode plugin <module> -g`, `claude plugin install`, `codex plugin add`) run the CLI,
   which may download packages. The UI asks first and previews with the CLI's dry-run flag where one exists. Recommended
   setup installs the Harness Skills for OMP the same way (`omp plugin marketplace add`, then `omp plugin install` at
   user scope, through `extension_action`, after you confirm). For PI it runs `pi install` of the skills' package the same
-  way. For OpenCode it runs the Harness Skills installer (see the Network table). Removing an OpenCode plugin runs nothing:
+  way. For Claude Code it runs `claude plugin marketplace add` and `claude plugin install` of the skills' plugin at user
+  scope the same way, after you confirm. For OpenCode and Codex it runs the Harness Skills installer (see the Network table), for Codex with `HARNESS_SKILLS_HOST=codex`. Removing an OpenCode plugin runs nothing:
   it edits a local file.
 - Share setup opens no connection. Export and import read and write local files; an import's marketplace, plugin and
   package installs go through the harness CLI, which fetches from the sources in the setup you confirmed, exactly as
   `omp plugin install`, `pi install` or `opencode plugin` do in your terminal.
-- Project memory opens no connection once installed (the installer above is the only download). `harness-memory` speaks MCP over stdio to the harness that started it
-  and has no HTTP client; the only program it runs is `git` (see
+- Project memory opens no connection once installed, apart from the search model download (the installer above and that download are the only ones, and the app itself makes neither). `harness-memory` speaks MCP over stdio to the harness that started it
+  and, apart from that download by the embedder, has no HTTP client; the only program it runs is `git` (see
   [Process spawning](#process-spawning)). What an agent reads from it is sent by the harness to its model provider like
   the rest of its context. The exception is a team database
   you set in Settings: then `harness-memory` itself connects to it (PostgreSQL, libSQL or MongoDB at the URL you gave).
   The app still opens no connection; **Test** runs `harness-memory check`, which does. See [Team database](#team-database).
 - The Ecosystem tab shows install commands for copying (`business/src/ecosystem/catalog.rs`). The app never runs them,
-  except the Harness Dashboard, Harness Memory and Harness Skills (OpenCode) installers (see [Process spawning](#process-spawning)).
+  except the Harness Dashboard, Harness Memory and Harness Skills (OpenCode, Codex) installers (see [Process spawning](#process-spawning)).
 
 ## Files the app never reads
 
@@ -160,11 +171,11 @@ a separate program and is not covered by these rules: it opens its own database,
 
 | Rule | Entries |
 | --- | --- |
-| Extensions | `db`, `db-wal`, `db-shm`, `db-journal`, `sqlite`, `sqlite3`, `log`, `pem`, `key`, `p12`, `pfx` |
-| Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env`; `prompt-history.jsonl` directly below an `opencode` directory |
-| Name prefixes | `.env.`, `id_rsa`, `id_ed25519` |
+| Extensions | `db`, `db-wal`, `db-shm`, `db-journal`, `sqlite`, `sqlite3` and their `-wal`, `-shm` and `-journal` side files, `log`, `pem`, `key`, `p12`, `pfx`, `heapsnapshot` |
+| Exact names | `auth.json`, `mcp-auth.json`, `install-id`, `auth-token`, `models-store.json`, `gpu_cache.json`, `credentials`, `credentials.json`, `.env`, `.credentials.json`, `.claude.json` (opened only by `SafeReader::read_claude_global_file`), `mcp-needs-auth-cache.json`, `policy-limits.json`, `policy-limits.stamp.json`; `prompt-history.jsonl` directly below an `opencode` directory; `history.jsonl`, `remote-settings.json`, `stats-cache.json` directly in a Claude Code config directory |
+| Name prefixes | `.env.`, `id_rsa`, `id_ed25519`, `.claude.json.backup` (Claude Code's copies of its global file) |
 | Prefix and suffix | `opencode.` ... `.dat` (OpenCode desktop state: `opencode.settings.dat`, `opencode.global.dat`, `opencode.workspace.*.dat`) |
-| Directories | `terminal-sessions`, `url-search`; `blobs` below an `agent` directory; `storage`, `repos`, `snapshot`, `tool-output`, `plans` directly below an `opencode` directory; `node_modules` directly below `.cache/opencode` (or `cache/opencode`) |
+| Directories | `terminal-sessions`, `url-search`, `paste-cache`, `shell-snapshots`, `file-history`, `session-env`; `backups`, `statsig`, `debug`, `uploads`, `image-cache`, `chrome`, `ide` and `feedback*` directly in a Claude Code config directory, its `plugins/data`, and `tool-results` below a `projects` directory; `blobs` below an `agent` directory; `storage`, `repos`, `snapshot`, `tool-output`, `plans` directly below an `opencode` directory; `node_modules` directly below `.cache/opencode` (or `cache/opencode`) |
 
 `SafeReader` also:
 
@@ -185,8 +196,8 @@ Session scans skip denied paths and never enter a session's companion directory.
 Credential files are never listed in the configuration view either (PI: `auth.json`, `mcp-auth.json`,
 `models-store.json`). The Harness Dashboard's `usage.db` and `auth-token` fall under the same rules, and so does the
 project memory database `memory.sqlite3` (the `sqlite3` extension is denied), so the desktop app could not read it
-through `SafeReader` either. Its `-wal` and `-shm` side files carry the `sqlite3-wal` and `sqlite3-shm` extensions,
-which are not listed; the app has no code that opens them.
+through `SafeReader` either, nor its `-wal` and `-shm` side files (`sqlite3-wal`, `sqlite3-shm`). The same goes for
+the `-wal`, `-shm` and `-journal` files of Codex's stores in its home (`state_5.sqlite-wal` and the like).
 
 OpenCode's credential stores (`auth.json`, `mcp-auth.json`), its database (`opencode.db`, `opencode-<channel>.db` and
 their `-wal`/`-shm` files) and its logs fall under the name and extension rules. The scoped directory rules keep out
@@ -200,7 +211,28 @@ substitution in an OpenCode config (it shows the reference, like `{env:...}`, by
 only from `opencode session list --format json` and `opencode export <id>`, never from the database (see
 [Process spawning](#process-spawning)).
 
-The `canary` tests (`business/tests/canary.rs`, `adapter_canary.rs`) hide a marker in denied files and secret values of
+Claude Code's login store (`.credentials.json`), its cached account and policy state, the prompts you typed
+(`history.jsonl`), pasted text, shell snapshots, file edit history, per-session environments, backups of the global
+file, debug logs, uploads, the IDE connection locks (which hold an auth token), the full tool outputs of a session
+(`<session>/tool-results/`) and plugin data fall under these rules. The scoped names (`history.jsonl`, `backups`, `debug`,
+`ide`, ...) match only directly inside a Claude Code config directory: a folder named `.claude`, or the absolute
+directory `CLAUDE_CONFIG_DIR` names (`Env::from_process` registers it with `add_claude_root`, `business/src/security/deny.rs`),
+so renaming the directory does not lift them. A project folder with such a name stays readable. The macOS Keychain is never
+asked for anything. See [Claude Code](#claude-code).
+
+Codex's login store (`auth.json`, denied by name like OpenCode's), the prompts you typed (`history.jsonl`), the session
+titles (`session_index.jsonl`), dictation transcripts, its install id, the desktop app's state, its copy of `config.toml`
+(`config.toml.backup`, which holds the same secrets) and its memory stores (`memories_*`) fall under the rules in
+`business/src/security/deny/codex.rs`. So do the folders `sessions` and `archived_sessions` (the rollout files: the app reads
+sessions through `codex app-server`, never from them), `shell_snapshots`, `mcp-oauth-locks`, `computer-use`,
+`dictation-history`, `log`, `logs`, `sqlite`, `cache`, `ipc`, `generated_images`, `node_repl`, `pets`,
+`thread-writer-locks`, `tmp`, `rollout-migrations`, `visualizations` and `memories`. These names match only directly inside a
+Codex home: a folder named `.codex`, or the absolute directory `CODEX_HOME` names (`Env` registers it with
+`add_codex_root`), so renaming the home does not lift them and a project folder with such a name stays readable. A
+relative `CODEX_HOME` is ignored. `config.toml`, `AGENTS.md`, skills, rules, plugins and the marketplace clones stay
+readable. See [Codex](#codex).
+
+The `canary` tests (`business/tests/canary.rs`, `adapter_canary.rs`, `deny_claude.rs`, `deny_codex.rs`) hide a marker in denied files and secret values of
 fixture homes and fail if any read or view contains it.
 
 ## Secret redaction
@@ -295,7 +327,7 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
 - **No shell.** `build_command` (`business/src/process/mod.rs`) requires an absolute program path and passes the
   argument list verbatim. `scripts/check-forbidden.ts` rejects `Command::new("sh" | "bash" | "cmd" | ...)` with no
   opt-out. The exceptions are the companion installers and command hooks below.
-- **Command hooks (the other shell).** `run_command` (`business/src/hooks/command.rs`) runs the `command` of an approved,
+- **Command hooks (a shell).** `run_command` (`business/src/hooks/command.rs`) runs the `command` of an approved,
   enabled hook through `/bin/sh -c` (Linux, macOS) or `<SystemRoot>\System32\cmd.exe /D /S /C` (Windows, the command
   passed unquoted as `ExecSpec::raw_arg`, which only this call uses). The interpreter has an absolute path; the command
   text is the hook's own and is never built from tool results, prompts or other hooks. It runs in the project root or the
@@ -303,23 +335,23 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   timeout of 1 to 30 s (default 10) cut short to a 30 s budget per firing, and 16 KiB of stdout kept; stderr is dropped.
   The webview sends no command line to run: it can only save a hook, which the window approves because it saved it.
   See [Hooks](#hooks).
-- **Companion installers (one of the two shells).** Recommended setup can run the official Harness Dashboard installer
+- **Companion installers (a shell).** Recommended setup can run the official Harness Dashboard installer
   (`setup_install_dashboard`), the official Harness Memory installer (`setup_install_memory`, also offered by the
-  **Project memory** switch) and the Harness Skills installer for OpenCode (`setup_install_opencode_skills`), all
+  **Project memory** switch) and the Harness Skills installer for OpenCode and for Codex (`setup_install_opencode_skills`, `setup_install_codex_skills`), all
   through `run_installer` in `business/src/ecosystem/installer.rs`. It is the only place
-  the app runs an install command. The only other place that names a shell is the command hook runner (see
-  [Hooks](#hooks)). Each command is a Rust constant per companion and OS
+  the app runs an install command. The only other places that name a shell are the command hook runner (see
+  [Hooks](#hooks)) and the `!command` of a Claude Code chat (see [Claude Code](#claude-code)). Each command is a Rust constant per companion and OS
   (`DASHBOARD_INSTALL_SH` / `DASHBOARD_INSTALL_PS1_SCRIPT`, `MEMORY_INSTALL_SH` / `MEMORY_INSTALL_PS1_SCRIPT` and
-  `SKILLS_INSTALL_SH` / `SKILLS_INSTALL_PS1_SCRIPT` in `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
+  `SKILLS_INSTALL_SH` / `SKILLS_INSTALL_PS1_SCRIPT` and, for Codex, `CODEX_SKILLS_INSTALL_SH` / `CODEX_SKILLS_INSTALL_PS1` in `business/src/ecosystem/catalog.rs`): `/bin/sh -c` on Linux and macOS, Windows PowerShell from
   `<SystemRoot>\System32\WindowsPowerShell\v1.0` with `-NoProfile` on Windows. The webview sends only `confirmed`; no
   command line, path or URL. The command fails with `invalidInput` unless `confirmed` is true (the UI asks first and
   lists what the installer changes), and only one install per companion runs at a time. The child runs in the home
-  directory with `NO_COLOR=1`, inherits the app's environment, has its stdin closed, lives in its own process group
+  directory with `NO_COLOR=1`, inherits the app's environment (except that the OpenCode skills installer never inherits `HARNESS_SKILLS_HOST`, the Codex one gets `HARNESS_SKILLS_HOST=codex` and loses a relative `CODEX_HOME`), has its stdin closed, lives in its own process group
   and is killed with it after 10 minutes. Its output reaches the UI line by line with escapes stripped and secrets
   redacted (`redact_text`; 2 KiB per line, 256 KiB in all); the log keeps only counts and the exit code. Success needs
   exit code 0 and a `harness-dashboard` (or `harness-memory`) that reports a version afterwards, because a piped
   download can exit 0 after failing. The Harness Skills have no binary: success needs an install record
-  (`plugins/useful-skills/install-record.json` in OpenCode's config directory) that is a regular file, not a symlink,
+  (`plugins/harness-useful-skills/install-record.json` in OpenCode's config directory, `harness-useful-skills/install-record.json` in the Codex home, or the `useful-skills` folder of Harness Skills before 0.4.0 when no record exists under the new name, which then counts as installed and is offered the update) that is a regular file, not a symlink,
   of at most 256 KiB, with a valid `version`. The skills' installer runs `node`, so the usual install directories are
   appended to its `PATH` (after the user's own entries). It downloads the skills' release tarball and checks its
   entries, sizes and manifests, but has no checksum, so it trusts GitHub and the repository like the skills' updater. After a successful memory install the app registers the server (see the next
@@ -337,8 +369,8 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   installer at a time, never while the first-run setup is installing, and tries each release once per launch. A
   failure is shown in a toast and the update stays offered in Ecosystem. The installers verify the release's
   `checksums.txt` themselves, and the scripts are the unpinned ones described above and in [Limits](#limits). The
-  Harness Skills for OpenCode are not part of it: the app never reruns their installer by itself. To stop
-  this, switch off **Update extensions automatically** in Settings under Updates (or **Check companions for updates**,
+  Harness Skills are not part of it, with one exception: Harness Skills 0.4.0 renamed everything (plugin, marketplace, MCP server, data folders), and once per launch the app moves an install found only under the old names. For Claude Code it adds the new marketplace and installs the new plugin through `claude plugin`, then uninstalls the old plugin `useful-skills@useful-skills-local` (Claude Code keeps the two as separate plugins, and both would load) and removes the old marketplace `useful-skills-local` only when nothing else is installed from it. For OpenCode and Codex it reruns the Harness Skills installer, which migrates the install and its data itself. OMP is not touched: its plugin ID did not change, and the plugin moves its own data. The same run renames the dashboard's MCP server from `harness` to `harness-dashboard` where a harness's user MCP file holds an entry named `harness` that runs `harness-dashboard mcp` (through `claude mcp add-json` then `claude mcp remove` for Claude Code, `codex mcp add` then `codex mcp remove` for Codex, a one-time rewrite of the file for the others), and only when no different `harness-dashboard` entry exists. The migration is fully automatic, with no prompt and **no dependency on the update switches**: you set the install up, and it only moves it to the names it has now. It runs only for a harness that is installed and whose skills were not switched off, the skills step only when the latest GitHub release is 0.4.0 or newer (never to an older one), and a success is remembered in `skills-names-migration.json` in the app's config folder (`{"version": 1, "migrated": [harness ids], "mcpChecked": [harness ids]}`, no file contents). A failure is retried at the next launch from what is installed then, so a failed removal of the old Claude Code plugin is retried alone. A quiet notice names what moved or failed. Switching off **Update extensions automatically** or **Check companions for updates** does not stop it, because it is a rename and not an update. To stop
+  the family and skills updates, switch off **Update extensions automatically** in Settings under Updates (or **Check companions for updates**,
   which also stops the release lookup). The installs then happen only when you run them.
 - **OpenCode.** Every OpenCode child gets `OPENCODE_DISABLE_AUTOUPDATE=1`, so no probe, session listing or action
   updates the binary behind the user's back. The Harness Skills installer gets it too, so an `opencode` it runs does not
@@ -375,6 +407,18 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   process tree, see [Limits](#limits)), so every wait above is bounded by those limits. A command that exited normally
   gets 2 seconds for any process it left holding its output, then that process group, if any member is left, is killed
   too (on Unix only: on Windows such a process is left running).
+- **Claude Code.** Every `claude` child gets `DISABLE_UPDATES=1` (`SPAWN_ENV`, `business/src/harnesses/claude/mod.rs`,
+  through `Harness::spawn_env`), so no probe, plugin action, MCP change or chat updates the binary behind your back. The
+  app runs only `claude --version`, `claude plugin …`, `claude mcp add-json` and `claude mcp remove` (all with an argument
+  list and no shell) and the chat process described in [Claude Code](#claude-code). It never runs `claude mcp list` or
+  `claude mcp get` (they start the servers), or any Claude Code login command.
+- **Codex.** The app runs only `codex --version`, `codex plugin …`, `codex mcp add`, `codex mcp remove` and `codex
+  app-server` (all with an argument list and no shell), the last for a chat and, briefly, for the Sessions view. It never
+  runs `codex login`, `codex mcp list` or `codex mcp get`, `codex cloud` or any Codex login command. Every chat process
+  starts as `codex app-server -c check_for_update_on_startup=false -c features.in_app_updates=false`
+  (`APP_SERVER_ARGS`, `business/src/harnesses/codex/launch.rs`), so Codex neither checks for nor offers updates behind your
+  back. The Sessions view's helper passes `-c check_for_update_on_startup=false` (`harnesses/codex/sessions/app_server.rs`).
+  Nothing else of your `config.toml` is overridden on the command line, and no model, session or approval flag is.
 - **Binary resolution.** `resolve_binary` uses absolute `PATH` entries only, then the standard install directories. A
   relative or empty `PATH` entry is ignored, so a project cannot plant a binary. A user-chosen override must be an
   absolute existing file whose name is exactly the harness binary name, and is set only through the native file
@@ -384,19 +428,25 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   `A-Z a-z 0-9 @ . _ / : + = , -`, no URL credentials. An OpenCode plugin install passes `cli_target` with the stricter
   npm module kind: an npm registry name (`name` or `@scope/name`, at most 214 characters) with an optional version or
   tag, never a path, URL, `file:`, `github:` or `git+` spec. The argv is then exactly `opencode plugin <module> -g`
-  (user scope only, no `-f`). A name that fails any check is refused before anything is spawned, without echoing it.
+  (user scope only, no `-f`). A Claude Code plugin or marketplace target passes `cli_target` and runs
+  `claude plugin … --scope user --json` (`--scope project` only for a project-scope install you chose, never `-y`/`--yes`,
+  see [Claude Code](#claude-code)). A Codex plugin or marketplace target passes `cli_target` (a marketplace source also
+  `marketplace_source`) and runs `codex plugin add|remove <name@marketplace>` or `codex plugin marketplace add|remove|upgrade`
+  in the home folder, user scope only. A name that fails any check is refused before anything is spawned, without echoing it.
   OpenCode has no preview flag, so a dry run never starts the CLI. Windows `.cmd`/`.bat` shims (re-parsed by `cmd.exe`) only
   receive arguments that pass `is_safe_arg` after the leading dashes are removed. The webview sends typed actions,
   never command lines.
 - **Flags never passed.** `--auto-approve`, `--auto`, `--yolo`, `--dangerously-skip-permissions`, `--no-ui`, login and
-  credential RPCs (`get_login_providers`), `set_ask_dialog`. OpenCode is never run with `auth login`, `providers login`,
+  credential RPCs (`get_login_providers`), `set_ask_dialog`. For Claude Code also `--allow-dangerously-skip-permissions`,
+  `--permission-mode bypassPermissions`, a switch to `bypassPermissions` over the control protocol, `--permission-prompts
+  none` and `--bare` (see [Claude Code](#claude-code)). OpenCode is never run with `auth login`, `providers login`,
   `auth logout`, `mcp auth`, `mcp logout`, `account`, `db`, `mcp list`, `mcp debug` (the last two start MCP servers) or
   `export` without a session id. `scripts/check-forbidden.ts` rejects, with no opt-out, the four flags (`"--auto"` also
   as `"--auto=`), an `"auth"` or `"providers"` literal followed by `"login"` on one line or later in the same argument
   array across lines, `"mcp"` followed in an argument array by `"auth"`, `"logout"`, `"list"` or `"debug"`, and an
   argument array or `.arg(` that starts with `"db"` or `"account"` (a call argument, a field or a `let` binding; a
   constant list such as the deny-list is not argv). A test (`every_spawn_runs_without_plugins_project_config_or_self_update`,
-  `business/tests/sessions_opencode.rs`) pins the exact argv set the session commands use. `--approve` goes to PI only for the user's explicit "trust this project once" choice, for that launch.
+  `business/tests/views/sessions_opencode.rs`) pins the exact argv set the session commands use. `--approve` goes to PI only for the user's explicit "trust this project once" choice, for that launch.
   The OMP `--approval-mode` flag is sent only when the user picks a per-session mode. The app does not edit either
   harness's settings, with exceptions that all concern MCP server entries in the user MCP file of a detected harness (the
   `mcp.json` of OMP and PI, the `mcp` object of OpenCode's global config file):
@@ -433,6 +483,22 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   project's config, another global file or a plugin file). In those cases nothing is written, and the result names the
   file and what to remove yourself. Removing a plugin that is not listed changes nothing. A dry run only reads. The
   webview sends the plugin's id, never a path.
+- **Codex MCP registration.** Codex's `config.toml` is TOML with your own formatting and comments, so the app never writes
+  it (`Shape::CodexCli` refuses a file write). Recommended setup, project memory, the app's own `harness-desktop` entry and
+  a Share import add a server by running `codex mcp add <name> -- <absolute path> mcp` (or `--url <url>`) and remove one with
+  `codex mcp remove <name>` (`business/src/ecosystem/mcp_cli.rs`), with the same decisions, limits and no retry as for
+  Claude Code. `codex mcp add` takes only a command and its arguments, or a URL and a bearer token variable. A change whose
+  old or new entry holds anything else (`env` values, `http_headers`, `enabled`, timeouts) is refused as `CliFailed` before
+  anything runs, so an entry with literal secrets is never rewritten or copied.
+- **Claude Code MCP registration.** The user scope of Claude Code's global file is rewritten by every running `claude`,
+  so the app never writes it (`Shape::ClaudeCli` refuses a file write, `business/src/ecosystem/mcp_merge.rs`). Recommended
+  setup, project memory, the app's own `harness-desktop` entry and a Share import change it by running `claude mcp
+  add-json --scope user <name> <json>` and `claude mcp remove --scope user <name>` (`business/src/ecosystem/mcp_cli.rs`).
+  The decisions are the ones the file merge makes (an entry you own is never changed, a removed one is not added back,
+  `add-json` refuses a name the user scope has), made on a read of the file. The entry is `{"type": "stdio", "command":
+  "<absolute path>", "args": ["mcp"]}`. Moving an owned entry to a new program path is a remove and an add, and the old
+  entry is added back when the add fails. Each run has a 60 s limit, no shell and no retry. A failed run is reported
+  as a refusal without the CLI's output, and logs hold the harness, the command, the server and the CLI's redacted last line.
 - **Project memory registration.** At every launch, in the background and only while `memoryEnabled` is on (the
   default) and the server is installed, the shell (`src-tauri/src/memory_setup.rs`) registers it in the user MCP file
   (`mcp.json`, or OpenCode's global config file) of every detected harness whose adapter has one (`register_memory_mcp`, `business/src/ecosystem/memory_register.rs`);
@@ -716,6 +782,283 @@ OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/
 - **Orphans.** Like every agent process, the server is recorded while it runs, and the next app start kills one a
   crashed app left behind (see [Process spawning](#process-spawning)).
 
+## Claude Code
+
+The app chats with and manages Claude Code (`claude`) as a harness: adapter `business/src/harnesses/claude/`, the pure
+stream-json mapper `business/src/claude_stream/`, the chat engine `business/src/agent/claude/`. The plan and its
+verified protocol facts are in [claude-code.md](plans/claude-code.md). The chat is a preview (`capabilities.chat` and
+`capabilities.chatPreview` are true): permission prompts, questions, approval modes and the session operations (new,
+fork, clone, rename, compact, export, `!command`) work, and are described below.
+
+- **Terms and login.** Anthropic's terms ([code.claude.com/docs/en/legal-and-compliance](https://code.claude.com/docs/en/legal-and-compliance),
+  read 2026-10-22) do not let a third-party product offer claude.ai login or "collect, store, or intermediate Claude.ai
+  credentials or session tokens", and allow "an end user ... signing in to the unmodified Claude Code binary with their own
+  Claude subscription". So the app spawns your own installed, unmodified `claude`, which uses the login you made through
+  Anthropic's own flow. It offers no login, runs no login command, never reads `.credentials.json` or the macOS Keychain,
+  never sees a token, and passes nothing that strips an authentication method (`--bare` is rejected by the guard). When
+  Claude Code reports that it is not signed in, the chat shows "Claude Code is not signed in. Sign in from a terminal:
+  run claude, then type /login." (`SIGN_IN_ERROR`, `business/src/claude_stream/mapper/turns.rs`).
+- **What it reads.** Through `SafeReader`: the settings layers (`/etc/claude-code/managed-settings.json` and
+  `managed-settings.d/*.json` or the macOS and Windows managed folders, `~/.claude/settings.json`, and the project's
+  `.claude/settings.json` and `.claude/settings.local.json`), shown with the usual redaction plus Claude's own secret
+  settings (`apiKeyHelper`, `awsCredentialExport`, `awsAuthRefresh`, `otelHeadersHelper` are shown as hidden commands,
+  `pluginConfigs` is hidden whole, secret-looking words in MCP `args` are masked, `env` and `headers` are hidden). From
+  the global file (`~/.claude.json`, or `$CLAUDE_CONFIG_DIR/.claude.json`) only an allow-list: the top-level `mcpServers`
+  and, for the open project's entry in `projects`, `mcpServers`, `enabledMcpjsonServers`, `disabledMcpjsonServers`,
+  `disabledMcpServers`, `allowedTools` and `hasTrustDialogAccepted` (`harnesses/claude/config/global_file.rs`). The
+  name `.claude.json` is on the deny list everywhere, and so are its `.claude.json.*` copies. Only
+  `SafeReader::read_claude_global_file` opens it: the path must resolve canonically to a global file that
+  `global_config_file` registered (`add_claude_global_file`), the file is capped at 32 MiB (`MAX_GLOBAL_FILE_BYTES`, a
+  larger file is reported as too large, never as empty), and every other check of `SafeReader` still applies. Only
+  the readers that keep to the allow-list above call it. A project's `.claude/settings.json` and
+  `.claude/settings.local.json` must resolve inside the project (one that does not, a symlink to your own files for
+  example, is listed with an error and nothing is read from it), and so must the skills, agents, commands and
+  `.mcp.json` of a project layer. A plugin's files must resolve inside the plugin. The
+  plugin registries (`plugins/installed_plugins.json`, `plugins/known_marketplaces.json` and the marketplace catalogs
+  in `.claude-plugin/marketplace.json`), the skills, agents and commands files and the `.mcp.json` of the project and
+  of enabled plugins. The CLAUDE.md files are listed by name and layer, never read for content. Sessions
+  (`<config>/projects/<slug>/<uuid>.jsonl`, plus the `<uuid>/custom-title.json` rename sidecar) are read without the
+  `api-request*` lines (they hold the full system prompt, with your CLAUDE.md and hook context), the `attachment` lines
+  and subagent lines. The running-session check reads `<config>/sessions/<pid>.json` (at most 64 KiB).
+- **What it never reads.** `.credentials.json`, the Keychain, `oauthAccount`, `userID`, `machineID`, `githubRepoPaths` and
+  every other project's entry in the global file (the allow-list never copies them), and the folders and files of the
+  [deny list](#files-the-app-never-reads): `history.jsonl`, `paste-cache/`, `shell-snapshots/`, `file-history/`,
+  `session-env/`, `backups/`, `statsig/`, `debug/`, `uploads/`, `image-cache/`, `chrome/`, `ide/`, `feedback*/`,
+  `plugins/data/`, `projects/**/tool-results/`, `remote-settings.json`, `policy-limits*.json`, `stats-cache.json`,
+  `mcp-needs-auth-cache.json`, `.claude.json.backup*` and `*.heapsnapshot`. With `CLAUDE_CONFIG_DIR` set to an absolute
+  path, `Env::from_process` registers that directory with `add_claude_root`, so the same private names stay unread
+  under a renamed directory. A relative `CLAUDE_CONFIG_DIR` is ignored: the app keeps using `~/.claude`.
+- **Secret variables are presence-only.** `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`,
+  `CLAUDE_CODE_OAUTH_REFRESH_TOKEN`, `ANTHROPIC_CUSTOM_HEADERS`, `AWS_BEARER_TOKEN_BEDROCK`, `ANTHROPIC_FOUNDRY_API_KEY` and
+  `ANTHROPIC_FOUNDRY_AUTH_TOKEN` are in `PRESENCE_VARS` (`business/src/env.rs`): `Env` records that they are set and
+  never their value, and the Config view says "is set in the environment ... Its value is not shown". `CLAUDE_CONFIG_DIR` is
+  captured. `CLAUDE_CODE_USE_BEDROCK`, `_VERTEX` and `_FOUNDRY` are captured and shown as the provider in use. The
+  app does not remove these variables from the children it starts, so `claude` sees what your shell gave the app.
+- **What it writes.** Never the global file (`.claude.json`) and never a settings file. Claude Code's MCP servers change
+  only through `claude mcp add-json --scope user` and `claude mcp remove --scope user` (see
+  [Process spawning](#process-spawning)), and plugins and marketplaces only through `claude plugin ...` (the CLI writes
+  its own registries). Deleting a session in the Sessions view removes, without reading them and never following a symlink:
+  the `<uuid>.jsonl` file, the `<uuid>/` folder next to it (subagent transcripts, tool outputs, the rename sidecar),
+  `<uuid>.ccr-tip.json` and `<uuid>.precompact.json` next to it, `<config>/file-history/<uuid>/` and
+  `<config>/session-env/<uuid>/`. It is refused (`Forbidden`) while a `<config>/sessions/<pid>.json` names the session
+  and that process may still run (`business/src/harnesses/claude/sessions/delete.rs`).
+- **Spawn environment.** Every `claude` child gets `DISABLE_UPDATES=1` (see [Process spawning](#process-spawning)).
+- **The chat process.** One `claude` per chat process, started by `harnesses/claude/launch.rs` with exactly
+  `--output-format stream-json --verbose --input-format stream-json --permission-prompt-tool stdio
+  --include-partial-messages`, plus `--permission-mode default` when an approval override of Always ask or Write is
+  chosen, `--permission-mode auto` for Auto (see Approval modes below), and `--resume <id>` for a saved session (the id must be a lowercase UUID). The
+  engine adds the session flags in `agent/claude/startup.rs`: `--session-id <fresh UUID>` for a new chat, `--resume <id>
+  --fork-session --session-id <fresh UUID>` for a clone, the same with `--resume-session-at <uuid>` for a fork, and
+  `--model=<id>` once you picked a model and the chat starts another process (new chat, switch, fork or clone stop the
+  old process). The app talks to it over stdin and stdout only: no port, no password, no server.
+  `--permission-prompt-tool stdio` sends every permission prompt to the app instead of the terminal. No `--settings`,
+  `--setting-sources` or `--mcp-config` is passed, so the chat runs on your default model until you pick one and, as in
+  your terminal, loads your user, project, local and managed settings, hooks, plugins and MCP servers. The `initialize`
+  request registers a hook only in Always ask mode (see Approval modes). Control requests the engine does not handle
+  are answered with an error and a hook callback of another id with no opinion. The engine's frame reader caps a line
+  at 4 MiB, and every control request has a time limit.
+- **Forbidden flags.** The app never starts Claude Code in the `bypassPermissions` mode and never passes
+  `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions`, `--bare` or `--permission-prompts none`.
+  `scripts/check-forbidden.ts` rejects them with no opt-out: `skip-permissions-flag` (both skip flags, in any source
+  file), `claude-bypass-mode` (`--permission-mode bypassPermissions`, and `SetPermissionMode` together with
+  `bypassPermissions` in Rust), `claude-permission-mode` (any `--permission-mode` value but `default` and `auto` in the
+  Claude Code engine, and `set_permission_mode`), `claude-no-prompts` (`--permission-prompts none`) and `claude-bare` (`"--bare"` in
+  `business/src/claude_stream/`, `agent/claude/` and `harnesses/claude/`, since `--bare` is a valid git flag elsewhere). The app offers no
+  Yolo approval mode for Claude Code for the same reason, since it would need `--allow-dangerously-skip-permissions`.
+- **Approvals.** Every permission prompt of Claude Code (`can_use_tool`, also one a subagent raises) is held until you
+  answer it, and no tool runs on your behalf before that. The dialog is titled `Allow <tool>: <subject>?`, the subject
+  one redacted line (a command, a file relative to the project, a URL or query, a subagent's task), and offers
+  `Allow once`, `Always allow` and `Reject` (`business/src/claude_stream/permissions.rs`). `Allow once` lets the call
+  run with its input. `Reject`, or a dismissed dialog, denies it with "The user declined this tool call." The CLI can
+  withdraw a prompt (`control_cancel_request`), which closes its dialog, and an abort of the turn denies the open
+  ones (`agent/claude/dialogs.rs`, `prompts.rs`). At most 256 asks are open at once (`MAX_OPEN_ASKS`,
+  `agent/claude/io.rs`), the next one is denied with "Too many requests are waiting for the user". A question
+  (`AskUserQuestion`) is one dialog per question, answered with the options you pick, and a dismissed dialog denies
+  the call. A `request_user_dialog` of Claude Code is answered with an error and an MCP server's elicitation is
+  declined, each with a notice in the chat, because the chat cannot show them yet.
+- **Always allow.** It is offered only when it can be kept safely and lasts until the chat's process ends, never longer.
+  Two shapes exist. When Claude Code sends `permission_suggestions` (and the chat is not in Always ask mode), only the
+  suggestions that add an allow rule or a directory are echoed back, each with its destination set to `session`
+  (`session_rules`), so Claude Code saves nothing to a settings file, and the dialog names what they allow. Otherwise
+  (no suggestions, or Always ask, whose hook would ask again despite a session rule) the app keeps the answer itself
+  in memory (`AllowList`, `business/src/claude_stream/allow_list.rs`): a file tool (`Read`, `Write`, `Edit`,
+  `MultiEdit`, `NotebookEdit`) on a file inside the project covers later calls of that tool on files inside the
+  project, `Bash` covers the exact same command text with every other input field equal (only the model's
+  `description` may differ), and any other tool covers the exact same input. There are no command prefixes in the
+  app's list. `Always allow` is never offered, and a kept answer never covers, an ask the CLI marks
+  `suppress_always_allow_rule`, one blocked on a path (`blocked_path`) or one a safety check flagged
+  (`decision_reason_type` `safetyCheck`) (`PermissionAsk::may_always_allow`): such a call always shows its dialog.
+- **Approval modes.** Always ask starts Claude Code with `--permission-mode default` and registers a `PreToolUse` hook
+  for every tool in `initialize` (matcher `.*`, callback `harness_ask_all`, `ask_all_hooks`) whose callback answers
+  `ask`, so even calls Claude Code would allow on its own reach the dialog. Write starts it with `--permission-mode
+  default`. Auto (`capabilities.autoMode`, Claude Code only) starts it with `--permission-mode auto` and no hook:
+  Claude Code's classifier runs the calls it judges safe without asking, and the rest still reach the dialog as
+  `can_use_tool` prompts. Auto counts as running tools without asking: the header badge and the routine form warn, and
+  a routine with `approvalMode: "auto"` shows "Runs tools without asking". A respawn (new chat, switch, fork, clone)
+  keeps the mode, and the AI-naming helper always starts in `default`. Another harness asking for Auto is refused
+  (`Unsupported`), and a routine with `approvalMode: "auto"` for it is Invalid. Yolo is not offered (`capabilities.yoloMode` is false): the picker hides it, a launch asking for it is
+  refused (`Unsupported`, `approval_override` in `business/src/agent/launch.rs` and `claude_launch_spec`), and a routine
+  with `approvalMode: "yolo"` for Claude Code is Invalid. Without an override your own `permissions.defaultMode` applies,
+  as in your terminal. The chat header shows it read-only (`Harness::native_approval_mode`,
+  `harnesses/claude/modes.rs`): the value of the last settings layer that sets a known mode (managed over local over
+  project over user, `manual` read as `default`), and `default` otherwise. `default` reads as the app's Write, `auto`
+  as Auto and `bypassPermissions` as Yolo, informational only. A mode the app has no name for (`acceptEdits`, `plan`,
+  `dontAsk`) is shown under Claude Code's name. `bypassPermissions` and `auto` let tools run without asking, so when
+  Claude Code is the daily driver and your settings choose one of them, onboarding shows a notice once (the mode's
+  `unattended` flag). The app never changes your settings.
+- **Folder trust.** Claude Code in stream-json mode shows no folder trust prompt (recorded with 2.1.304), so a folder
+  it was never trusted in would apply the project's `.claude/settings*.json` (hooks, environment, helper commands,
+  modes) and `.mcp.json` unasked. Claude Code therefore has `capabilities.projectTrust` and
+  `capabilities.projectTrustRequired`, and `Harness::check_project_trust` refuses a chat unless the project's entry
+  in the global file has `hasTrustDialogAccepted: true` (read through the allow-list above), with `Untrusted` and
+  the text "Claude Code does not trust this folder yet. Run claude in it once from a terminal, or trust it once here."
+  The chat shows a toast with a **Trust once** button that says trusting lets the project's own settings and hooks run
+  with your permissions, for this chat only. Trusting once passes no flag to `claude` and writes nothing, to the
+  global file or anywhere else: it only lets the app start the process. The app remembers it in memory, per project,
+  until the app quits (`TrustMemory`, `business/src/agent/trust_memory.rs`): the chats you open there later in the
+  same run (restarts, approval changes, reopened chats, harness moves and the AI-naming helper) trust it once too,
+  and the next app start asks again. Routine runs never use that memory, so a routine in such a folder needs
+  `trustOnce: true` in its file (see [routines-format.md](routines-format.md)).
+- **Helper chat.** AI chat names start a helper `claude` with `--tools ""`, `--strict-mcp-config`,
+  `--thinking=disabled` and `--no-session-persistence` (`UTILITY_ARGS`) and no resume, so it runs no tools, loads no
+  MCP servers (`--strict-mcp-config` without `--mcp-config` loads none, not yet checked against a real CLI), saves no
+  session and registers no hook. Nobody sees its dialogs, so every permission prompt and question is denied at once
+  with "This helper chat runs no tools." On Windows a `claude.cmd` batch shim refuses the empty `--tools` argument.
+- **`!command`.** Claude Code has no shell mode in stream-json, so the app runs the command itself: your shell
+  (`sh -c`, `cmd.exe /D /S /C` on Windows) in the project, with the environment the chat's `claude` has, stdin closed,
+  killed after 10 minutes, each output stream capped at 1 MiB (`business/src/agent/claude/runs.rs`). It runs outside
+  the approval flow, only when you type it, and is refused while the chat works or runs another command. An abort
+  or a stop of the chat kills its process group. The output you see is redacted. The model gets the command and
+  its output on its next turn as a quiet user message (`shouldQuery: false`, so it triggers no reply) in
+  `<bash-input>`, `<bash-stdout>` and `<bash-stderr>` tags, each part redacted, stripped of trailing line breaks, cut
+  to 30 KB (`MAX_HANDED_BYTES`) and tag-safe: a `<` that opens or closes a `bash-` tag becomes `&lt;`, so output cannot
+  close its tag.
+- **Bounds and ids.** A streamed reply and the streamed input of a tool call stop growing at 8 MiB
+  (`MAX_STREAMED_BYTES`, the reply ends with a note that it was cut). A dialog answer over `MAX_ACTION_TEXT_BYTES`
+  (512 KiB) is refused. A session id the app puts on a command line is a lowercase UUID: the one you resume or switch
+  to is checked (`is_session_id`), and a new, forked or cloned session gets a fresh UUID v4 of the app's own. A
+  `--resume-session-at` value is the `uuid` of a line in the session file (`fork_point`), never typed text.
+- **What the chat shows.** Tool results from Claude Code pass `redact_text` before they reach the screen, and so do the
+  texts of subagent tasks and the process's stderr lines. Assistant text, thinking and tool arguments are shown as
+  produced, and saved sessions are shown as written: they are your own session data (see [Secret redaction](#secret-redaction)).
+- **Trust boundary.** Even in a trusted folder, a project's `.claude/settings.json` hooks, `.mcp.json` servers and
+  plugins run as you whatever the app does, as they would with `claude -p`. The app's own hooks stay app-side, so
+  nothing runs twice. Trust once only in a repository you would run `claude` in.
+- **Plugin installs.** `claude plugin install` and `update` never get `-y`/`--yes`. It would accept a command a marketplace
+  declares (a command-source plugin or a `headersHelper`) without showing it to a person. Without a terminal such an install
+  fails, and you install it from a terminal where Claude Code asks (`harnesses/claude/cli.rs`). The plugin actions run in
+  the user scope, with `--json` so the exit code and the result line decide, and in the home folder, so no project
+  settings (hooks, environment, helpers) apply to them. Only a project-scope install you chose runs in the project
+  (`claude_cli_action`, `business/src/harnesses/claude/cli.rs`).
+- **Share setup.** A Claude Code export carries marketplaces (GitHub `owner/repo` and `https://` sources, not pinned),
+  user plugins as `name@marketplace` and the user scope's MCP servers. The import runs `claude plugin marketplace add
+  <source> --scope user --json`, `claude plugin install <id> --scope user --json` and `claude mcp add-json --scope user`, and a
+  Claude Code server whose command, arguments or URL holds `${` is refused, because Claude Code expands it from this
+  machine's environment. Claude Code has no way to write a server switched off, so a server that declares env or header
+  keys is added switched on and without values: a stdio server runs with Claude Code's environment until you add them.
+  See [Shared setups](#shared-setups) and [share-setup.md](share-setup.md).
+
+## Codex
+
+The app chats with and manages Codex (`codex`) as a harness: adapter `business/src/harnesses/codex/`, the pure
+JSON-RPC mapper `business/src/codex_rpc/`, the chat engine `business/src/agent/codex/` and the Sessions helper
+`business/src/harnesses/codex/sessions/`. The plan and its verified protocol facts are in [codex.md](plans/codex.md). The
+chat is a preview. Approval dialogs, approval modes and Trust once work as described below. New, resume, fork, clone, rename,
+compact, export and `!command` are chat operations listed in the plan's parity map and are being finished: the rules for
+them below are the ones they follow.
+
+- **Terms and login.** Codex is Apache-2.0 and the app spawns your own installed `codex`, which uses the login you made
+  with `codex login`. The app offers no login, runs no login command and never reads `auth.json` (denied by name,
+  `business/src/security/deny.rs`). `account/chatgptAuthTokens/refresh`, the request Codex sends when it wants the host
+  to supply ChatGPT tokens, is always refused (`business/src/agent/codex/io.rs`), as are dynamic tool calls (the app
+  registers none) and any method the app does not know. The one account call the app can send is `account/read` with
+  `refreshToken: false`, and its result type keeps only whether there is a login, its kind (`apiKey`, `chatgpt`,
+  `amazonBedrock`) and whether Codex needs one: the account's email is not decoded (`AccountRead`,
+  `business/src/codex_rpc/wire/results.rs`). When Codex reports that it is not signed in, the chat shows "Codex is not signed
+  in. Sign in from a terminal: run codex login." (`SIGN_IN_ERROR`, `business/src/codex_rpc/mapper/turns.rs`).
+- **What it reads.** Through `SafeReader`: the user's `config.toml` (`$CODEX_HOME`, else `~/.codex`) and the project's
+  `.codex/config.toml` (which must resolve inside the project, else it is listed with an error and nothing is read), the
+  plugin and marketplace entries of `config.toml` and the plugin cache, skills, and the names of the rule files
+  (`rules/*.rules`) and instruction files (`AGENTS.md`), which are never read for content. Sessions come from `codex
+  app-server` (`thread/list`, `thread/read`, `thread/turns/list`, `thread/items/list`, `thread/delete`), never from the
+  rollout files. The thread each listed thread was forked from is read once in the background (`thread/read` of the
+  listed ids only, a bounded batch per run, one app-server at a time) and kept as thread ids in
+  `codex-thread-parents.json` (see [What is stored on disk](#what-is-stored-on-disk)).
+- **What it never reads.** `auth.json` and the other names under [Files the app never reads](#files-the-app-never-reads):
+  `history.jsonl`, `session_index.jsonl`, `config.toml.backup`, `memories_*`, the `sessions` and `archived_sessions` folders,
+  logs, databases and caches. With an absolute `CODEX_HOME`, the same names stay unread under a renamed home.
+- **Secrets in `config.toml`.** The file can hold secrets: `mcp_servers.<name>.env`, `http_headers` with a literal
+  `Authorization` value, a bearer token. The config view hides `env`, `http_headers`, `query_params` and
+  `shell_environment_policy.set`, masks secret-looking words in MCP `args`, shows an `env_key` or a `*_env_var` as the
+  variable it names, and runs the usual redaction over the rest (`business/src/harnesses/codex/config.rs`).
+  `OPENAI_API_KEY` and `CODEX_API_KEY` are presence-only: the view says they are set and never their value. Share setup
+  exports key names, never values (`business/src/sync/collect_codex.rs`).
+- **MCP is written only through `codex mcp`.** See [Process spawning](#process-spawning). The app does not edit
+  `config.toml` for plugins or marketplaces either: they run `codex plugin …`.
+- **Approval dialogs.** Codex's requests (`item/commandExecution/requestApproval`, `item/fileChange/requestApproval`,
+  `item/permissions/requestApproval`, questions and MCP elicitations) become the app's dialogs. The app keeps no allow-list
+  of its own and allows nothing Codex asks about without you. **Always allow** is Codex's `acceptForSession`, and for a
+  command only when Codex offers it. The app never sends `acceptWithExecpolicyAmendment`, because that writes a lasting
+  rule into your Codex command rules. Extra permissions are granted only as the dialog shows them (network access,
+  folders to read, folders to write): a request for anything else, such as `fileSystem.entries`, is declined at once.
+  A file change names every path outside the project (also where a move takes a file) and the folder it asks to write
+  below, and with either offers no Always allow. An ask about another thread than the chat's is declined
+  (`business/src/agent/codex/dialogs.rs`). A dialog's title names everything that is granted and is never cut, most
+  widening first: the folder to write below, writes, paths outside the project, then reads and the project's files
+  (`dialog_text.rs`). A path counts as inside the project only once the symbolic links of its deepest existing folder
+  are resolved, and a dangling link is followed to where it points, so a link in the project to a place outside is
+  named as outside. A path that cannot be told, or climbs out with `..`, counts as outside, and the `writableRoots`
+  warning resolves its folders the same way. A long title scrolls on the approval card instead of being clamped (it is
+  clamped only when the command below repeats it in full, so input for a running command or one command of it shows in
+  full), and so does a long command, so the buttons stay in view. A command is shown as it runs, with its spacing and
+  line breaks and unredacted: the script of a plain `bash`/`sh`/`zsh -lc '<script>'` wrapper of a system shell (named
+  alone or in `/bin`, `/usr/bin`, `/usr/local/bin`, `/opt/homebrew/bin`), else the whole line, never Codex's own reading
+  of it (`commandActions`, which can leave parts of a pipeline out). That reading is only a hint, labelled as Codex's.
+  Bidirectional controls and zero-width characters are spelled out (`⟨U+202E⟩`) in the title and on the card.
+  An oversized request whose numeric id the app cannot read whole is not answered under another id
+  (`business/src/pi_family/rpc/codec.rs`).
+- **Approval modes.** Always ask is `approvalPolicy: untrusted` with the `workspace-write` sandbox, Write is `on-request`
+  with `workspace-write` (Codex's own default) and Yolo is `never` with `danger-full-access`. Yolo is offered because
+  Codex's `capabilities.yoloMode` is true, and it runs commands with full access to the machine without asking. Auto is
+  refused before anything starts: Codex has no such mode. The mode goes on `thread/start` and `thread/resume` and names
+  only the sandbox mode, so Codex keeps the writable roots and network setting of your `[sandbox_workspace_write]`.
+  Changing the mode resumes the thread. An override also sends `approvalsReviewer: "user"`. When Codex answers the
+  thread with another policy, sandbox or reviewer (settings it must keep), the chat warns and follows what Codex runs,
+  also for the `!command` gate. With no override nothing is sent and your `config.toml` applies. With or without one,
+  the chat warns when Codex's answer gives the thread more than its mode shows: folders outside the project to write in
+  (`writableRoots`), network access, and without an override a model reviewer (`approvalsReviewer` other than `user`)
+  or full access outside Yolo. A chat shows each such warning once, not again for every thread it moves to. The chat header
+  and onboarding show the configured `approval_policy / sandbox`, and onboarding warns when it is `never` or
+  `danger-full-access`. The app never changes your Codex settings.
+- **Trust once.** Codex applies a project's own `.codex/config.toml`, hooks and rules only in a folder your `config.toml`
+  trusts (`[projects."<path>"] trust_level = "trusted"`), and ignores them elsewhere, so a chat starts either way. The
+  chat says so when the folder has such a layer and is not trusted. **Trust once** passes
+  `-c projects={"<path>"={trust_level="trusted"}}` to that one process (`business/src/harnesses/codex/trust.rs`): the project is
+  a quoted key of an inline table, so a path with dots or quotes stays one key, and a path that is not absolute text, or
+  holds a control character, is refused. It never writes `config.toml`, and it holds for that launch only. Codex trusts
+  the folder itself or the root of its git repository, never another folder above it, and the app reads trust the same
+  way. A resumed chat's thread must belong to the project (`thread/read` checks its folder before `thread/resume`).
+- **`!command`.** The app's `!command` is Codex's `thread/shellCommand`, whose output lands in the thread so the model sees
+  it. It runs unsandboxed with full access and without asking, so Always ask refuses it (`codex_bash_allowed`,
+  `business/src/agent/codex/approvals.rs`) and the other modes keep the app's usual confirmation.
+- **What the chat shows.** Tool results from Codex pass `redact_text` before they reach the screen (`business/src/codex_rpc/mapper/tools.rs`),
+  and so does the process's stderr. Assistant text, reasoning and tool arguments are shown as produced, and saved sessions as
+  written: they are your own session data. A thread id the app puts on a command line or a request is a lowercase UUID
+  (`is_thread_id`). Frames over 4 MiB a line are not read: a request among them is answered with an error, the app's
+  request they answer fails at once, and a tool card whose end was dropped ends as failed. The AI-naming helper's thread
+  runs read-only with web search and every MCP server Codex lists for the project (`config/read`) switched off, and its
+  asks are declined. A helper whose servers Codex does not list does not start. Servers Codex does not list there (a
+  plugin's own) and servers with a dotted name stay on for it.
+- **Trust boundary.** In a trusted folder, a project's `.codex` hooks, rules and MCP servers run as you, as in a terminal.
+  The user's own Codex hooks run as they do there too, and the app's own hooks stay app-side, so nothing runs twice. Trust
+  once only in a repository you would run `codex` in.
+- **Share setup.** A Codex export carries `[marketplaces]` whose source another machine can add (a GitHub `owner/repo` or an
+  `https://` URL: local folders, Codex's bundled marketplaces, sources pinned to a ref or a sparse checkout, SSH URLs and
+  sources with credentials are left out), the user's plugins as `name@marketplace`, and the MCP servers of `config.toml`
+  with the key names of `env` and `env_vars` and the header names of `http_headers`, never a value. The import runs `codex
+  plugin marketplace add`, `codex plugin add` and `codex mcp add`. See [Shared setups](#shared-setups) and
+  [share-setup.md](share-setup.md).
+
 ## Shared setups
 
 Share setup (Settings) exports the extensions and MCP servers of your harnesses as a `hud1:` string or a `.json` file
@@ -735,8 +1078,8 @@ a non-numeric value, `--password`, `--token`, `--key`, `--pat`, `user:password` 
 machine path (an absolute, home or drive path after `=` or `@`, or a system or user directory after `:`, `,`, `;` or
 `scheme:///`) or a `${VAR}`/`$NAME`
 reference the server does not declare, the dashboard's own `harness-dashboard` entry (Recommended setup installs it),
-the app's `harness-memory` entry (the app registers it; project memory itself is never exported) and the `useful_skills`
-entry (the Harness Skills installer registers it for OpenCode),
+the app's `harness-memory` entry (the app registers it; project memory itself is never exported) and the `harness-useful-skills`
+entry and its name before Harness Skills 0.4.0, `useful_skills` (the Harness Skills installer registers it for OpenCode and Codex),
 sources with credentials, local or unknown packages, local marketplaces, `file:`/`link:` plugin specs, project-scope
 items and anything over the limits. Export runs the same validators as import, so an exported file imports again without
 invalid items.
@@ -747,6 +1090,13 @@ files, as the package name plus the version, range or tag they pin. Local files,
 config file: a `local` server as stdio, a `remote` one as http, with the key names of `environment` and `headers`. Their
 values, OAuth settings and other fields are never exported, and a server whose command, arguments or URL hold a
 `{env:…}` or `{file:…}` substitution is left out whole.
+
+**Claude Code.** Its export has three kinds. Marketplaces are the entries of `plugins/known_marketplaces.json`, shared as
+GitHub `owner/repo` or `https://` sources (local, npm, `ssh`, plain `http` and pinned sources are left out). Plugins are the
+user-scope entries of `plugins/installed_plugins.json` as `name@marketplace`.
+MCP servers are the top-level `mcpServers` of the global file (the user scope), with the key names of `env` and `headers`.
+The values, a project's or local scope's servers and every other part of the global file are never read for it. A server
+whose command, arguments or URL holds a `${` is left out.
 
 **An import is untrusted input.** A pasted string or picked file is decoded defensively (`codec.rs`): pasted text at
 most 128 KiB, compressed payload 96 KiB, decompressed JSON 256 KiB read through a capped reader (zip-bomb guard), at
@@ -763,13 +1113,16 @@ then validated in Rust (`validate.rs`, `validate_source.rs`, `validate_mcp.rs`, 
   `https://` only for a URL). Specs that name a path (starting with `.`, `/`, `~`, `\` or a drive letter), a tarball or
   archive (`.tgz`, `.tar`, `.tar.gz`, `.zip`), `file:`, `link:`, `git+file:`, `http:`, `git+http:` or `git:` are
   refused. Every URL or git host must be a plain host name.
-- MCP: the server name pattern (`harness-dashboard`, `harness-memory` and `useful_skills` are reserved, in any case, for every harness); the command must
+- MCP: the server name pattern (`harness-dashboard`, `harness-memory`, `harness-useful-skills` and `useful_skills` are reserved, in any case, for every harness); the command must
   be a bare program name, not a path, not a shell interpreter and not `harness-dashboard` or `harness-memory` (any case,
   with or without `.exe`), so an import can neither add nor shadow either app entry, by name or under another name; URLs are `http(s)` without user info; arguments and URLs may not reference environment
   variables unless the item declares the name in `envKeys` (URLs may hold none at all), because the harness expands
   `${VAR}` and `$NAME` on your machine and could send the value to the setup's author; secret flags in arguments are
   refused. Machine paths in arguments and URLs are left out on export and, as free-form text, not checked on import:
   read them in the review.
+- Claude Code items: a plugin id is `name@marketplace` only (a bare name would install from whichever registered
+  marketplace lists it), and a server's command, arguments and URL may hold no `${`, not even a declared `${NAME}`,
+  since Claude Code expands `${NAME}` and `${NAME:-default}` from this machine's environment.
 - OpenCode items: a plugin id is a bare npm package name (no `name@marketplace`, no marketplace), its version a
   registry version, range or tag, and the install runs `opencode plugin <id>@<version> -g`. A server's command, arguments
   and URL may hold no `{env:…}` or `{file:…}` substitution in any case, since OpenCode would expand it on your machine
@@ -782,7 +1135,8 @@ are ignored and only counted. Secret and machine-path detection in free-form arg
 review lists the exact command line or `mcp.json` entry of every item so you can read what would run.
 
 **What an import can do.** Add only, in the user scope: `omp plugin marketplace add`, `omp plugin install --scope user`,
-`pi install` (no `--local`), `opencode plugin <module> -g`, and an atomic merge of MCP entries into the harness's user
+`pi install` (no `--local`), `opencode plugin <module> -g`, `claude plugin marketplace add <source> --scope user --json`, `claude plugin install <id> --scope user
+--json`, `claude mcp add-json --scope user <name> <json>` (one run per server, and the app never writes `~/.claude.json`) and an atomic merge of MCP entries into the harness's user
 `mcp.json` (OpenCode: the `mcp` object of its global config file). It never uninstalls,
 upgrades, downgrades, overwrites or touches project scope, preferences or harness settings. Commands are built in Rust
 from validated fields and go through `cli_target` and the harness's own `cli_action`; the webview sends only a plan id,
@@ -803,6 +1157,12 @@ never a path from the bundle. An OpenCode server is written as `{"type": "local"
 overwritten: the same definition counts as already present, another one as a conflict. If the OpenCode config file has
 comments, nothing is written and the server is skipped as `manualEdit`, with the entry to paste. The merge is gated by the plan's installed state: a harness that was not installed at
 review time has no file, so its servers are skipped.
+
+A Claude Code server is added with the JSON `type` and `command` and `args`, or `type` and `url`, nothing else. Claude Code has no
+`enabled` field, so a server that declares env or header keys is added switched on and without values, and a stdio server
+sees Claude Code's environment until you add them in Claude Code. The review checks only the user scope for the name: a
+local or project server of the same name shadows the imported one. `add-json` refuses a name the user scope has, so
+nothing is overwritten.
 
 **Name clashes with other config layers.** OpenCode deep-merges its config layers by server name, so an imported server
 named like one from another layer could inherit that server's headers or env. The review therefore checks more than the
@@ -939,10 +1299,49 @@ config file, `config.toml` in `<config>/harness-memory`, where `<config>` is `$X
   symbolic link at the file or its folder is refused. TOML strings are escaped, so quotes, backslashes and any Unicode in
   a password round-trip. Settings also reports what the server checks: a file other users can change or that another
   user owns (the server refuses it), or one other users can read.
+- **English notes setting.** Whether agents must write notes in English is stored in the team database, not in
+  `config.toml` or in the app's prefs, so it is team-wide: one teammate changing it (`settings set english_notes=…`)
+  changes it for everyone. The app reads and writes it only through `harness-memory settings`. See
+  [Vector search and English notes](#vector-search-and-english-notes).
 - **Testing.** `memory_remote_test` runs the installed `harness-memory check` (20 s limit, stdin closed, output capped)
   with the typed URL and token in `HARNESS_MEMORY_DATABASE_URL` and `HARNESS_MEMORY_DATABASE_TOKEN`, never on the
   command line; the app's own values of those variables and of `HARNESS_MEMORY_CONFIG` are not passed on. Its first line
   is shown after the typed and saved secrets are masked and `redact_text` ran over it.
+
+### Vector search and English notes
+
+Vector search finds notes close in meaning to a query, next to the keyword search. It is on by default (the
+`vectorSearch` pref, with project memory on) and runs in a separate local process, `harness-memory embedder run`, the
+embedder. The model and the code are the server's own, see its repository.
+
+- **One process, tracked.** The app starts one embedder per computer through the tracked spawner (the same one that
+  keeps agents from outliving the app), with its standard input piped and open. The embedder exits when that input
+  closes, so stopping it is closing the input, waiting 2 s and killing what is left. Hiding the window to the tray
+  leaves it running, quitting the app stops it. A second app instance finds the embedder's lock taken and does not start
+  another. A crash restarts it three times at most within ten minutes. The app logs the phase it reached and never what
+  the embedder printed.
+- **Opt-out is respected.** A switch turned off on the command line (`harness-memory embedder disable`, which leaves
+  `embedder.toml` in the data folder) is never turned on again by the app: at launch it leaves the embedder off and turns
+  the `vectorSearch` pref off. Only a switch nobody chose yet (no file) follows the default. Turning the setting off in
+  the app also works with a Harness Memory that predates the embedder.
+- **Local socket only.** Every `harness-memory mcp` asks the embedder over a Unix socket (mode `0600`, in the data folder,
+  or in the temporary folder when that path is long, and a client refuses a socket that is not a socket or not owned by
+  the current user) or, on Windows, a named pipe named for the user. No TCP port is opened. The app itself never
+  connects to it.
+- **What is stored.** `vectors.sqlite3` in the Harness Memory data folder holds one vector per note (and the hash of the
+  text it was made from), for this computer. Vectors are never written to a team database. The model files are in
+  `models/<id>/` there. `embedder.toml` holds the on or off switch, and `embedder.lock` and `embedder.sock` exist while
+  the embedder runs. The note text goes to the embedder process on this computer and nowhere else.
+- **Download.** The model is fetched once, from a GitHub release of the memory repository, with its SHA-256 pinned (see
+  the Network table). Turning vector search off stops the embedder and fetches nothing. Removing the model
+  (`memory_embedder_remove_model`) deletes the model files and the vectors.
+- **Fallback.** While vector search is on and the embedder does not answer, `note_search` returns the keyword results
+  with one line saying so. While it is off, search is keyword-only and silent.
+
+English notes is a setting of the memory store (on when nothing is stored). With it on, `harness-memory` refuses an
+agent's `note_save` or `note_update` whose text is clearly not English, with a message asking for a rewrite, and nothing
+is saved or held. The refusal happens in `harness-memory`, not in the app. Saves the user makes in the app (the Notes
+view, the waiting card) are never refused: the server only warns. The app does not detect the language itself.
 
 ### Save guards
 
@@ -962,8 +1361,14 @@ every chat, the Ask default new chats start with, and the repositories where age
   trust before it runs. A repository you turned off applies to everything a chat in that repository writes,
   global notes and scripts included. The agent is told that nothing was saved and not to retry.
 - **The session variable.** The app starts every chat's harness with `HARNESS_MEMORY_SESSION=<chatKey>`, a random
-  lowercase UUID per chat, which the `harness-memory mcp` child inherits. It names the chat to the server and is no
-  secret. A utility agent and any launch without a chat identity get no value (an inherited one is removed). A value that
+  lowercase UUID per chat, which the `harness-memory mcp` child inherits. Codex clears the environment of its MCP
+  servers, so a Codex chat asks Codex which servers it runs the project with (`config/read`) and names the variable in
+  the `env_vars` of each harness-memory stdio server listed, in the `config` of each thread it starts, resumes or forks
+  (the server's own variables kept, nothing on the command line, `config.toml` never written,
+  `business/src/agent/codex/memory.rs`). A server Codex did not list is never named. When no server gets the variable
+  the chat's own guards do not apply: the chat says so (`memoryGuards: false`, no Memory button, a notice when a
+  harness-memory server could not be told) and only the guards for every chat apply. It names the chat to the server
+  and is no secret. A utility agent and any launch without a chat identity get no value (an inherited one is removed). A value that
   is not a UUID makes every guarded call refuse.
 - **Local files, never in the team database.** In the same folder as `desktop.alive` (`<data>/harness-memory`,
   `HARNESS_MEMORY_DIR` overrides it): `guards/global.json` and `guards/chats/<chatKey>.json`, written by the app (version
@@ -1233,6 +1638,9 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in four cases (a shared setup never reaches OpenCode, and an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; the `harness-desktop` entry (the app's own hooks server), added automatically at launch in release builds and by Recommended setup; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entries ever changed are the app's own `harness-memory` and `harness-desktop` ones. Not app data; nothing else in it is touched. |
 | Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
 | Script approval files | `desktop.alive` and `requests/<id>.json`, `requests/<id>.decision` in the same folder as the project memory database | `desktop.alive` (empty) is touched by the app every 5 s while it runs and removed at exit. Run requests (the script's summary and body, its previous approved version, the arguments, the agent's client name) are written by the server and read by the app; the app writes only the one-word answer. The server removes a request and its answer within 45 s. See [Script approval](#script-approval). `0600` files in a `0700` folder on Unix. |
+| Search model | `models/<id>/` (`model_quantized.onnx`, `tokenizer.json`) in `<data>/harness-memory` | The int8 embedding model, about 135 MB, downloaded by `harness-memory` when vector search is on and checked against a pinned SHA-256. No user data. Deleted by `memory_embedder_remove_model` and by `harness-memory embedder remove-model`. |
+| Note vectors | `vectors.sqlite3` in the same folder | A vector and a text hash per note, the store each belongs to (a hash of the file path or of the team URL without credentials), the active model and the read position per store. Derived from your notes, local to this computer, never in the team database. |
+| Embedder files | `embedder.toml`, `embedder.lock` and `embedder.sock` in the same folder (the socket may be in the temporary folder when the path is long) | `embedder.toml` is `enabled = true\|false`. The lock and the socket (`0600`) exist while the embedder runs. Windows uses a named pipe instead of the socket file. |
 | Save guard files | `guards/global.json`, `guards/chats/<chatKey>.json` and `held/<chatKey>/<heldId>.json` in the same folder as the project memory database | Which saves agents may make (pause flags, per-chat switches, the git roots of repositories turned off) and the saves held for your review (the arguments the agent sent). The app writes the guards, the server writes the held items and the app settles them through the server's commands. Local only, never in the team database. `0600` files in `0700` folders on Unix. See [Save guards](#save-guards). |
 | `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
 | Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |
@@ -1241,19 +1649,22 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | Team hook copies | `<root>/team/<id>.json` and `<root>/team/projects.json`, beside the hook files | Only while hooks are shared with the team: each team hook as Harness Memory listed it (id, repository key, SHA-256, the sharer's label, timestamps and the hook file, its text or command included), and the repository key of each project root a list was asked for. Written only by the app window (temp file and rename, `0600` files in a `0700` folder on Unix), deleted when sharing is turned off. Never read by `harness-desktop mcp`. |
 | `hook-approvals.json`, `hook-approved/`, `hooks-state.json` | The OS app-config directory, beside `prefs.json` | `hook-approvals.json`: `{"version": 1, "approvals": {"<id>": "<SHA-256 of the approved file bytes>"}}`. `hook-approved/<id>.json`: a copy of each approved hook file, so the Hooks view can show what a pending edit changed (`0600` files in a `0700` folder). `hooks-state.json`: `{"version": 1, "seeded": ["memory-search", ...], "teamDisabled": [...], "sharedFrom": {...}}`, the Harness family hooks already created at launch (so a deleted one is not created again), the team hooks turned off on this machine and the hash of each local hook when you shared it. Written only by the app window (the hooks server reads the approvals), atomically, `0600`. The copies hold hook text and commands. |
 | `desktop-mcp-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file", "command"}]}`: the home-relative `mcp.json` paths the `harness-desktop` server was registered in and the program written there, so a removed entry is not added back and a moved app is followed. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `desktop-mcp-registration.json.corrupt-<unix-seconds>`. |
+| `skills-names-migration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "migrated": [...], "mcpChecked": [...]}`: the harness IDs whose Harness Skills were moved to the 0.4.0 names (an entry goes away when nothing old is left) and whose MCP file was checked for the dashboard server under its old name `harness`, so neither runs at every launch. No file contents. Read with a 16 KiB cap, written atomically. |
 | Exported setup | A path you choose in the native save dialog (suggested `harness-setup-<date>.json`) | The share file of [Shared setups](#shared-setups): references and key names, no env or header values. Written atomically, only on Save. Not app data; the app never reads it back unless you import it. |
+| `codex-thread-parents.json` | The app's local data folder: `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS), `%LOCALAPPDATA%` (Windows), each followed by `com.mspiechowicz.harness-useful-desktop` | `{"version": 1, "threads": {"<thread id>": "<parent thread id>" or null}}`: which Codex thread each saved thread was forked from, read once per thread with `thread/read` (Codex's `thread/list` leaves it out), for the Sessions view's forks. Thread ids only, no titles, prompts or paths. At most 10,000 entries (the oldest go first), an entry goes when the app deletes its thread. Written atomically, never through a symbolic link, folder `0700` and file `0600` on Unix. A file that cannot be used is read as empty and replaced. Without a local data folder the ids are kept in memory for the app run (`business/src/harnesses/codex/sessions/parents.rs`). |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
-`AppPrefs` (`business/src/model/prefs.rs`) has twenty-three fields and never holds secrets or chat content:
-`version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr` or `pl`; anything else loads as `en`), `introEnabled`,
+`AppPrefs` (`business/src/model/prefs.rs`) has twenty-four fields and never holds secrets or chat content:
+`version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr`, `pl` or `pt` for Brazilian Portuguese; anything else loads as `en`), `introEnabled`,
 `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `activeProject`, `rememberRecentProjects`, `recentProjects` (12 at
 most), `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`, `approvalNoticeSeen`,
-`binaryOverrides`, `chatDefaults` and `memoryEnabled` (project memory, on by default).
+`binaryOverrides`, `chatDefaults`, `memoryEnabled` (project memory, on by default) and `vectorSearch` (vector search, on by default).
 
-**Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects`, `binaryOverrides`
-and `memoryEnabled` decide which directories are read, which programs run and which harness files are written. Only
-Rust changes them: through the native pickers and the project and harness commands, and `memoryEnabled` through
-`memory_set_enabled`, which also adds or removes the `harness-memory` entries. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
+**Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects`, `binaryOverrides`,
+`memoryEnabled` and `vectorSearch` decide which directories are read, which programs run and which harness files are written. Only
+Rust changes them: through the native pickers and the project and harness commands, `memoryEnabled` through
+`memory_set_enabled`, which also adds or removes the `harness-memory` entries, and `vectorSearch` through
+`memory_set_vector_search`, which also starts or stops the embedder. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
 `introEnabled`, `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `rememberRecentProjects`,
 `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`,
 `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
@@ -1320,6 +1731,24 @@ command is not granted). Process errors name only the program's file name (`Exec
   model request per user run that earns one. On Windows a timed-out command kills its process tree, which can miss a process
   whose parent already exited (see Windows above). A project hook matches the project root by its exact path, so a project that moves loses its project hooks until
   they are saved again.
+- **Claude Code runs your settings.** The chat loads your user, project, local and managed Claude Code settings, hooks,
+  plugins and MCP servers. Claude Code shows no folder trust prompt in stream-json mode, so the app refuses a folder
+  that has no `hasTrustDialogAccepted` until you pick **Trust once**, and after that the project's `.claude/settings.json` and
+  `.mcp.json` act as they would in `claude -p`. The trust is kept in memory until the app quits and is never written.
+  The Always allow answers the app keeps itself are broad for file tools (every call of that tool inside the project),
+  and exact for commands and other tools. Your own `permissions.defaultMode` (`bypassPermissions` or `auto`) lets
+  tools run without asking, and the app never changes it. Two things are not yet checked against a real CLI:
+  `--strict-mcp-config` without `--mcp-config` (the helper chat) and whether Claude Code trusts a folder through a
+  trusted parent. The global file is rewritten by every running `claude`, so an MCP entry can change under the app: it reads the file
+  before it decides, and once more when a run fails. On Windows a `claude.cmd` batch shim refuses the JSON argument of `claude
+  mcp add-json` (the batch-safety check), so such a change fails there. The MCP changes are not tested against a real
+  `claude mcp add-json` yet.
+- **Codex is an experimental protocol.** `codex app-server` is labelled experimental, ships weekly and its frames change
+  between releases. The app is tested with Codex 0.154 to 0.156 (others show as untested), decodes only the fields it uses
+  and refuses what it does not know. Not yet checked against a real CLI: `codex mcp add` on an existing name, the output
+  and exit codes of `codex plugin`, the `ref` and `sparse_paths` keys of `[marketplaces.<name>]`, and the `.agents/skills`
+  lookup. A Windows `.cmd` launcher (an npm install) refuses the Trust once argument. Your `approval_policy` of
+  `never` or `sandbox_mode` of `danger-full-access` lets commands run without asking, and the app never changes them.
 - **Heuristics.** The entropy rule and key-name rules can hide harmless values and can miss unusual secrets. The same
   holds for Share setup: secret flags and machine paths in free-form MCP arguments and URLs are detected by patterns,
   so an exotic form can be missed on export, and host names are always part of what is shared.

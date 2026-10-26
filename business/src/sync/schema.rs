@@ -13,7 +13,9 @@
 //!
 //! An OpenCode plugin is an npm package name with the version it installs (`opencode plugin
 //! <id>@<version> -g`), never a marketplace; its servers are the `mcp` entries of the global config
-//! file in the same form (`local` as stdio, `remote` as http).
+//! file in the same form (`local` as stdio, `remote` as http). A Claude Code section (`claude`)
+//! and a Codex section (`codex`) have OMP's shapes, with `name@marketplace` plugins only; Codex
+//! servers are stdio or http, never sse.
 //!
 //! Forward compatible: unknown fields anywhere are ignored (no `deny_unknown_fields`), unknown
 //! harness sections and item kinds are counted, never shown. Each item is parsed and validated on
@@ -274,18 +276,21 @@ impl ParsedSection {
 /// other keys are left to the caller.
 ///
 /// OpenCode plugins and servers pass [`validate::opencode_plugin`] and
-/// [`validate::opencode_mcp_server`].
+/// [`validate::opencode_mcp_server`], Claude Code's [`validate::claude_plugin`] and
+/// [`validate::claude_mcp_server`], Codex's [`validate::codex_plugin`] and
+/// [`validate::codex_mcp_server`].
 pub fn parse_section(harness: HarnessId, section: &Map<String, Value>) -> ParsedSection {
-    let opencode = harness == HarnessId::OpenCode;
-    let plugin: fn(&Plugin) -> Check = if opencode {
-        validate::opencode_plugin
-    } else {
-        validate::plugin
+    let plugin: fn(&Plugin) -> Check = match harness {
+        HarnessId::OpenCode => validate::opencode_plugin,
+        HarnessId::Claude => validate::claude_plugin,
+        HarnessId::Codex => validate::codex_plugin,
+        HarnessId::Omp | HarnessId::Pi => validate::plugin,
     };
-    let mcp_server: fn(&McpServer) -> Check = if opencode {
-        validate::opencode_mcp_server
-    } else {
-        validate::mcp_server
+    let mcp_server: fn(&McpServer) -> Check = match harness {
+        HarnessId::OpenCode => validate::opencode_mcp_server,
+        HarnessId::Claude => validate::claude_mcp_server,
+        HarnessId::Codex => validate::codex_mcp_server,
+        HarnessId::Omp | HarnessId::Pi => validate::mcp_server,
     };
 
     ParsedSection {

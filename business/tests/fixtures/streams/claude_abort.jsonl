@@ -1,0 +1,9 @@
+// interrupt.jsonl: a long reply is interrupted mid-stream (interrupt answers still_queued), the
+// turn ends as interrupted, and the next prompt runs in the same process.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/interrupt.jsonl", "from": 7, "to": 42, "replace": {"a81a4bda-83f5-4cb7-9d14-1c6dbba81788": "$prompt"}}
+{"expect": "control_request", "subtype": "interrupt", "match": {"request": {"subtype": "interrupt"}}, "reply": {"still_queued": []}}
+{"replay": "../claude/stream/interrupt.jsonl", "from": 45, "to": 50, "replace": {"a81a4bda-83f5-4cb7-9d14-1c6dbba81788": "$prompt"}}
+{"expect": "user", "as": "after", "match": {"/message/content": "Reply with exactly: after"}}
+{"replay": "../claude/stream/interrupt.jsonl", "from": 52, "to": 66, "replace": {"a81a4bda-83f5-4cb7-9d14-1c6dbba81788": "$prompt", "62d4bf27-c202-405a-9f0b-e0aae84f359c": "$after"}}

@@ -229,4 +229,21 @@ describe('mock notes on the team side', () => {
     expect(handlers.memory_notes_list({ project: '/work/app', offset: 0 }).localCounts).toEqual({ repo: 0, global: 0 });
     expect(codeOf(() => handlers.memory_notes_discard_local({ ids: 'none' }))).toBe('invalidInput');
   });
+
+  it('filters by the language the server detected, and says nothing about it for a server without notes-lang', () => {
+    const asked = { project: '/work/app', offset: 0 } as const;
+    const listed = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const old = memoryNotesHandlers(AVAILABLE, () => 'ok', undefined, undefined, undefined, () => false);
+
+    const flagged = listed.memory_notes_list({ ...asked, lang: 'other' });
+
+    expect(flagged.total).toBeGreaterThan(0);
+    expect(flagged.notes.every((note) => note.lang === 'other')).toBe(true);
+    expect(listed.memory_notes_list({ ...asked, lang: 'unknown' }).total).toBe(0);
+
+    const ignored = old.memory_notes_list({ ...asked, lang: 'other' });
+
+    expect(ignored.total).toBe(listed.memory_notes_list(asked).total);
+    expect(ignored.notes.every((note) => note.lang === null)).toBe(true);
+  });
 });

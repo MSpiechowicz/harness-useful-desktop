@@ -9,6 +9,8 @@
 //!   with `--project`, one of them of a kind the app does not know (`idea`). `--query` matches
 //!   titles (any case); `kinds` counts every kind under the query, scope and place, `scopes` both
 //!   scopes under the query, kind and place, `places` both places under every other filter.
+//!   `--lang en|other|unknown` keeps the notes whose `lang` is that (a fixture has none, so only
+//!   `unknown` keeps it) and is a usage error unless the stand-in lists `notes-lang`.
 //! - `notes get <id> --json [--project P]` prints `{"note", "links"}`; `notes delete <id>
 //!   [--project P]` prints `deleted note <id> <title>`. A note not visible from the arguments exits
 //!   1 with `harness-memory: note <id> not found`; id [`FAILING_ID`] exits 1 with a URL with a
@@ -60,6 +62,8 @@ struct Options {
     place: Option<String>,
     /// Whether this server filters by place (neither `single` nor `scoped`).
     places: bool,
+    /// `--lang`, taken only when the stand-in lists `notes-lang`.
+    lang: Option<String>,
     sort: Option<String>,
     order: Option<String>,
     project: bool,
@@ -199,6 +203,7 @@ fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
             "--project" => options.project = !value().is_empty(),
             "--scope" if options.combines => options.scope = Some(value()),
             "--place" if options.places => options.place = Some(value()),
+            "--lang" if filter == "--kind" && crate::memory_push::lists("notes-lang") => options.lang = Some(value()),
             "--review" if options.combines && filter == "--group" => options.review = Some(value()),
             other if !filter.is_empty() && other == filter => options.filter = Some(value()),
             _ => usage(),
@@ -235,6 +240,12 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
             .is_none_or(|scope| entry["scope"] == scope.as_str())
     };
     let keeps_review = |entry: &Value| options.review.as_ref().is_none_or(|review| review_of(entry) == review);
+    let keeps_lang = |entry: &Value| {
+        options.lang.as_ref().is_none_or(|lang| match entry["lang"].as_str() {
+            Some(found) => found == lang,
+            None => lang == "unknown",
+        })
+    };
     let keeps_place = |entry: &Value| {
         options
             .place
@@ -249,7 +260,7 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
     let place = |name: &str| in_other_filters.iter().filter(|entry| entry["place"] == name).count();
     let places = json!({ "local": place("local"), "team": place("team") });
 
-    matching.retain(|entry| keeps_place(entry));
+    matching.retain(|entry| keeps_place(entry) && keeps_lang(entry));
 
     let counts = if notes {
         let in_scope: Vec<Value> = matching.iter().filter(|entry| keeps_scope(entry)).cloned().collect();

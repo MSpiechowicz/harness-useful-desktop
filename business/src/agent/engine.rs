@@ -4,11 +4,16 @@
 //! - RPC ([`RpcSession`]): OMP and PI in `--mode rpc`.
 //! - OpenCode server ([`OpenCodeSession`]): `opencode serve` (the manager does not offer it yet).
 //! - OpenCode 2 server ([`OpenCodeV2Session`]): `opencode serve` 2.x and its `/api` routes.
+//! - Claude Code stream-json ([`ClaudeSession`]): `claude` in stream-json mode with its control
+//!   protocol.
+//! - Codex app server ([`CodexSession`]): `codex app-server`, JSON-RPC on stdio.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use super::SessionOptions;
+use super::claude::ClaudeSession;
+use super::codex::CodexSession;
 use super::opencode::OpenCodeSession;
 use super::opencode_v2::OpenCodeV2Session;
 use super::process::StartAbort;
@@ -25,21 +30,32 @@ pub struct SessionLaunch<'a> {
     pub key: String,
     /// The command to run.
     pub spec: ExecSpec,
-    /// Starts the process.
-    pub spawner: &'a dyn ProcessSpawner,
+    /// Starts the process (an engine that starts it again keeps it).
+    pub spawner: Arc<dyn ProcessSpawner>,
     /// How the harness talks to the app (picks the engine).
     pub protocol: ChatProtocol,
     /// Canonical project directory.
     pub project: PathBuf,
     /// The project's session folder (for `switchSession`).
     pub sessions_dir: PathBuf,
+    /// The harness's config directory ([`HarnessPaths::config_root`]): a new Claude Code chat reads
+    /// Harness Skills' default model role from it.
+    ///
+    /// [`HarnessPaths::config_root`]: crate::harness::HarnessPaths::config_root
+    pub config_dir: PathBuf,
     /// The resumed session id. The RPC command line already has it, an engine without one applies
     /// it after spawn (as the next three).
     pub resume: Option<&'a str>,
     /// The per-session approval mode, where the harness supports one.
     pub approval_override: Option<ApprovalMode>,
+    /// The launch trusts the project once (the command line already says so, an engine may tell
+    /// the user what an untrusted project leaves out without it).
+    pub trust_once: bool,
     /// A short-lived helper agent without a saved session.
     pub utility: bool,
+    /// The chat has a memory identity: `spec` sets `HARNESS_MEMORY_SESSION`. An engine whose
+    /// harness clears its MCP servers' environment tells it to pass the variable on (Codex).
+    pub memory_session: bool,
     /// Receives the events.
     pub sink: Arc<dyn EventSink>,
     /// Timing knobs.
@@ -56,6 +72,10 @@ pub enum AgentSession {
     OpenCode(OpenCodeSession),
     /// The `opencode serve` 2.x engine.
     OpenCodeV2(OpenCodeV2Session),
+    /// The Claude Code stream-json engine.
+    Claude(ClaudeSession),
+    /// The `codex app-server` engine.
+    Codex(CodexSession),
 }
 
 impl AgentSession {
@@ -65,6 +85,8 @@ impl AgentSession {
             ChatProtocol::Rpc(dialect) => RpcSession::start(launch, dialect).await.map(Self::Rpc),
             ChatProtocol::OpenCodeServer => OpenCodeSession::start(launch).await.map(Self::OpenCode),
             ChatProtocol::OpenCodeServerV2 => OpenCodeV2Session::start(launch).await.map(Self::OpenCodeV2),
+            ChatProtocol::ClaudeStream => ClaudeSession::start(launch).await.map(Self::Claude),
+            ChatProtocol::CodexAppServer => CodexSession::start(launch).await.map(Self::Codex),
         }
     }
 
@@ -74,6 +96,18 @@ impl AgentSession {
             Self::Rpc(session) => session.protocol_version(),
             Self::OpenCode(session) => session.protocol_version(),
             Self::OpenCodeV2(session) => session.protocol_version(),
+            Self::Claude(session) => session.protocol_version(),
+            Self::Codex(session) => session.protocol_version(),
+        }
+    }
+
+    /// Whether the harness passes a chat's memory identity on to Harness Memory: always, except
+    /// for a Codex chat whose harness-memory servers could not be told to (see
+    /// `codex/memory.rs`).
+    pub fn memory_passed_on(&self) -> bool {
+        match self {
+            Self::Codex(session) => session.memory_passed_on(),
+            _ => true,
         }
     }
 
@@ -83,6 +117,8 @@ impl AgentSession {
             Self::Rpc(session) => session.exit_info(),
             Self::OpenCode(session) => session.exit_info(),
             Self::OpenCodeV2(session) => session.exit_info(),
+            Self::Claude(session) => session.exit_info(),
+            Self::Codex(session) => session.exit_info(),
         }
     }
 
@@ -92,6 +128,8 @@ impl AgentSession {
             Self::Rpc(session) => session.is_running(),
             Self::OpenCode(session) => session.is_running(),
             Self::OpenCodeV2(session) => session.is_running(),
+            Self::Claude(session) => session.is_running(),
+            Self::Codex(session) => session.is_running(),
         }
     }
 
@@ -101,6 +139,8 @@ impl AgentSession {
             Self::Rpc(session) => session.send(action).await,
             Self::OpenCode(session) => session.send(action).await,
             Self::OpenCodeV2(session) => session.send(action).await,
+            Self::Claude(session) => session.send(action).await,
+            Self::Codex(session) => session.send(action).await,
         }
     }
 
@@ -110,6 +150,8 @@ impl AgentSession {
             Self::Rpc(session) => session.move_project(project, sessions_dir).await,
             Self::OpenCode(session) => session.move_project(project, sessions_dir).await,
             Self::OpenCodeV2(session) => session.move_project(project, sessions_dir).await,
+            Self::Claude(session) => session.move_project(project, sessions_dir).await,
+            Self::Codex(session) => session.move_project(project, sessions_dir).await,
         }
     }
 
@@ -119,6 +161,8 @@ impl AgentSession {
             Self::Rpc(session) => session.respond(response).await,
             Self::OpenCode(session) => session.respond(response).await,
             Self::OpenCodeV2(session) => session.respond(response).await,
+            Self::Claude(session) => session.respond(response).await,
+            Self::Codex(session) => session.respond(response).await,
         }
     }
 
@@ -128,6 +172,8 @@ impl AgentSession {
             Self::Rpc(session) => session.bash(command).await,
             Self::OpenCode(session) => session.bash(command).await,
             Self::OpenCodeV2(session) => session.bash(command).await,
+            Self::Claude(session) => session.bash(command).await,
+            Self::Codex(session) => session.bash(command).await,
         }
     }
 
@@ -137,6 +183,8 @@ impl AgentSession {
             Self::Rpc(session) => session.emit(event),
             Self::OpenCode(session) => session.emit(event),
             Self::OpenCodeV2(session) => session.emit(event),
+            Self::Claude(session) => session.emit(event),
+            Self::Codex(session) => session.emit(event),
         }
     }
 
@@ -146,6 +194,8 @@ impl AgentSession {
             Self::Rpc(session) => session.on_prompt_taken(taken),
             Self::OpenCode(session) => session.on_prompt_taken(taken),
             Self::OpenCodeV2(session) => session.on_prompt_taken(taken),
+            Self::Claude(session) => session.on_prompt_taken(taken),
+            Self::Codex(session) => session.on_prompt_taken(taken),
         }
     }
 
@@ -155,6 +205,8 @@ impl AgentSession {
             Self::Rpc(session) => session.stop().await,
             Self::OpenCode(session) => session.stop().await,
             Self::OpenCodeV2(session) => session.stop().await,
+            Self::Claude(session) => session.stop().await,
+            Self::Codex(session) => session.stop().await,
         }
     }
 }

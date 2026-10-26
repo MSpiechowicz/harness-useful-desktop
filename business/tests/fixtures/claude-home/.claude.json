@@ -1,0 +1,29 @@
+{
+  "numStartups": 3,
+  "installMethod": "native",
+  "userID": "CANARY-7f3a9c",
+  "machineID": "CANARY-7f3a9c",
+  "oauthAccount": { "accountUuid": "CANARY-7f3a9c", "emailAddress": "CANARY-7f3a9c@example.com" },
+  "githubRepoPaths": { "demo/demo": ["/home/demo/CANARY-7f3a9c"] },
+  "cachedStatsigGates": { "CANARY-7f3a9c": true },
+  "mcpServers": {
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github", "--api-key", "CANARY-7f3a9c"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "CANARY-7f3a9c", "GITHUB_HOST": "github.com" }
+    },
+    "linear": {
+      "type": "http",
+      "url": "https://mcp.linear.app/mcp",
+      "headers": { "Authorization": "Bearer CANARY-7f3a9c" }
+    }
+  },
+  "projects": {
+    "/home/demo/Projects/elsewhere": {
+      "allowedTools": ["Bash(CANARY-7f3a9c)"],
+      "history": [{ "display": "CANARY-7f3a9c" }],
+      "lastSessionId": "CANARY-7f3a9c"
+    }
+  }
+}

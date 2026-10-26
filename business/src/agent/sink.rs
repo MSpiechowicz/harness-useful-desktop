@@ -5,6 +5,11 @@
 //! `seq` is strictly increasing however many tasks produce events. Until startup completes the
 //! emitter holds events back: the stream always begins with `ready`, `state` and
 //! `commandsUpdated`, and a session that fails to start emits nothing.
+//!
+//! A process can exit right after its handshake, before the engine opened the session: its
+//! `exited` and `Close` then arrive while the events are still held. The emitter keeps them and
+//! waits: `Open` delivers them (`exited` last) and ends the task, while [`EmitMsg::Discard`] or the
+//! end of the channel (every sender dropped, so the start failed) drops them.
 
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -31,8 +36,12 @@ pub(crate) enum EmitMsg {
     Event(Box<AgentEvent>),
     /// Startup completed: deliver these first, then the held events.
     Open(Vec<AgentEvent>),
-    /// Deliver what is buffered and stop. Held events of an unopened session are dropped.
+    /// The process exited: deliver what is buffered and stop. Before [`EmitMsg::Open`], keep the
+    /// held events and stop once the session opens (or is discarded, or every sender is gone).
     Close,
+    /// The session will never open (a failed or abandoned start, a stop or drop): drop the held
+    /// events and stop. Ignored once open.
+    Discard,
     /// Run this once every event sent before it was delivered (see [`PromptTaken`]).
     Call(PromptTaken),
 }
@@ -81,6 +90,8 @@ async fn run_emitter(
     let mut delivery = Delivery { key, sink, seq: 0 };
     let mut coalescer = DeltaCoalescer::new(window);
     let mut held: Option<Vec<AgentEvent>> = Some(Vec::new());
+    // The process closed before the session opened.
+    let mut closed = false;
 
     loop {
         let message = match coalescer.deadline() {
@@ -108,6 +119,11 @@ async fn run_emitter(
                 for event in first.into_iter().chain(later) {
                     delivery.send(coalescer.push(event, Instant::now()));
                 }
+
+                if closed {
+                    delivery.send(coalescer.flush());
+                    break;
+                }
             }
             Some(EmitMsg::Call(call)) => {
                 if held.is_none() {
@@ -116,6 +132,10 @@ async fn run_emitter(
 
                 call();
             }
+            Some(EmitMsg::Close) if held.is_some() => closed = true,
+            Some(EmitMsg::Discard) if held.is_some() => break,
+            Some(EmitMsg::Discard) => {}
+            // Held events of a session that never opened are dropped.
             Some(EmitMsg::Close) | None => {
                 delivery.send(coalescer.flush());
                 break;
@@ -183,5 +203,109 @@ impl EventSink for CollectingSink {
         };
 
         self.count.send_replace(count);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use tokio::sync::mpsc::UnboundedSender;
+    use tokio::task::JoinHandle;
+
+    use super::{CollectingSink, EmitMsg, spawn_emitter};
+    use crate::model::AgentEvent;
+
+    const LIMIT: Duration = Duration::from_secs(5);
+
+    fn ready() -> AgentEvent {
+        AgentEvent::Ready { protocol_version: None }
+    }
+
+    fn line(text: &str) -> AgentEvent {
+        AgentEvent::Stderr { line: text.to_owned() }
+    }
+
+    fn exited() -> AgentEvent {
+        AgentEvent::Exited {
+            code: Some(0),
+            signal: None,
+        }
+    }
+
+    fn emitter() -> (Arc<CollectingSink>, UnboundedSender<EmitMsg>, JoinHandle<()>) {
+        let sink = CollectingSink::new();
+        let (sender, task) = spawn_emitter("chat".to_owned(), sink.clone(), Duration::ZERO);
+
+        (sink, sender, task)
+    }
+
+    fn event(event: AgentEvent) -> EmitMsg {
+        EmitMsg::Event(Box::new(event))
+    }
+
+    /// Waits until the emitter task ended; panics when it keeps running.
+    async fn ended(task: JoinHandle<()>) {
+        tokio::time::timeout(LIMIT, task)
+            .await
+            .expect("the emitter stopped")
+            .expect("the emitter did not panic");
+    }
+
+    #[tokio::test]
+    async fn a_process_that_exits_before_the_session_opens_still_delivers_its_events_on_open() {
+        let (sink, sender, task) = emitter();
+
+        sender.send(event(line("starting"))).ok();
+        sender.send(event(exited())).ok();
+        sender.send(EmitMsg::Close).ok();
+        tokio::task::yield_now().await;
+        assert!(sink.events().is_empty());
+
+        sender.send(EmitMsg::Open(vec![ready()])).ok();
+        ended(task).await;
+
+        assert_eq!(sink.events(), vec![ready(), line("starting"), exited()]);
+        let seqs: Vec<u64> = sink.envelopes().iter().map(|envelope| envelope.seq).collect();
+        assert_eq!(seqs, vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn a_closed_session_that_never_opens_emits_nothing() {
+        let (sink, sender, task) = emitter();
+
+        sender.send(event(exited())).ok();
+        sender.send(EmitMsg::Close).ok();
+        drop(sender);
+        ended(task).await;
+
+        assert!(sink.events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_discarded_session_stops_without_emitting_while_its_senders_live() {
+        let (sink, sender, task) = emitter();
+
+        sender.send(event(exited())).ok();
+        sender.send(EmitMsg::Close).ok();
+        sender.send(EmitMsg::Discard).ok();
+        ended(task).await;
+
+        sender.send(EmitMsg::Open(vec![ready()])).ok();
+        assert!(sink.events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_open_session_ignores_discard_and_delivers_until_close() {
+        let (sink, sender, task) = emitter();
+
+        sender.send(EmitMsg::Open(vec![ready()])).ok();
+        sender.send(EmitMsg::Discard).ok();
+        sender.send(event(exited())).ok();
+        sender.send(EmitMsg::Close).ok();
+        ended(task).await;
+
+        assert_eq!(sink.events(), vec![ready(), exited()]);
     }
 }

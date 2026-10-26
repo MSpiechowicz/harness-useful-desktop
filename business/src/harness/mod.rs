@@ -26,6 +26,7 @@
 
 mod catalog;
 mod cli;
+mod companion;
 mod detect;
 mod launch;
 mod opencode_generation;
@@ -37,9 +38,10 @@ pub use catalog::{
 };
 pub(crate) use cli::clean;
 pub use cli::{
-    CLI_ACTION_TIMEOUT, CliInvocation, CliRun, MAX_CLI_TARGET_CHARS, TargetKind, cli_target, optional_cli_target,
-    run_cli_action,
+    CLI_ACTION_TIMEOUT, CliInvocation, CliRun, HarnessCli, MAX_CLI_TARGET_CHARS, TargetKind, cli_target,
+    marketplace_source, optional_cli_target, run_cli_action,
 };
+pub use companion::{CompanionSetup, McpTarget, SkillsHost, SkillsStrategy};
 pub use detect::{VERSION_TIMEOUT, first_semver, override_name_matches};
 pub use launch::{LaunchRequest, flag_with, rpc_exec_spec, utility_args};
 pub use opencode_generation::OpenCodeGeneration;
@@ -53,16 +55,16 @@ pub mod prelude {
 
     pub use super::{
         ChatProtocol, CliInvocation, CliSessionCtx, CliSessions, CommandCatalog, CompanionSetup, Harness, HarnessPaths,
-        LaunchRequest, McpTarget, OpenCodeGeneration, ShareSupport, SkillsStrategy,
+        LaunchRequest, McpTarget, OpenCodeGeneration, ShareSupport, SkillsHost, SkillsStrategy,
     };
     pub use crate::env::Env;
     pub use crate::error::Result;
     pub use crate::model::{
         ApprovalMode, Capabilities, CliResult, ConfigView, ExtensionAction, ExtensionsView, HarnessId, HarnessInfo,
-        InstallHint, SessionFolder,
+        InstallHint, NativeApprovalMode, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary, SessionTree,
     };
     pub use crate::pi_family::rpc::RpcDialect;
-    pub use crate::pi_family::sessions::SessionStore;
+    pub use crate::pi_family::sessions::{SessionCache, SessionStore};
     pub use crate::process::ExecSpec;
 }
 
@@ -72,8 +74,8 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     ApprovalMode, Capabilities, CliResult, ConfigView, Detection, ExtensionAction, ExtensionsView, HarnessId,
-    HarnessInfo, HarnessSummary, InstallHint, SessionFolder, SessionMessagesPage, SessionRef, SessionSummary,
-    SessionTotals, SessionTree, SyncItemKind, VersionSupport,
+    HarnessInfo, HarnessSummary, InstallHint, NativeApprovalMode, SessionFolder, SessionMessagesPage, SessionRef,
+    SessionSummary, SessionTotals, SessionTree, SyncItemKind, VersionSupport,
 };
 use crate::pi_family::rpc::RpcDialect;
 use crate::pi_family::sessions::{self, SessionCache};
@@ -88,6 +90,10 @@ pub enum ChatProtocol {
     OpenCodeServer,
     /// An `opencode serve` HTTP server of OpenCode 2 (its `/api` routes) on a loopback port.
     OpenCodeServerV2,
+    /// Claude Code's stream-json mode with its control protocol on stdin/stdout.
+    ClaudeStream,
+    /// `codex app-server`: JSON-RPC on stdin/stdout.
+    CodexAppServer,
 }
 
 /// Where a harness keeps its files, resolved from an [`Env`] (and the project, if any).
@@ -106,63 +112,10 @@ pub struct HarnessPaths {
     pub project_dir: Option<PathBuf>,
 }
 
-/// How the "Recommended setup" step provides the companion tools for a harness.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CompanionSetup {
-    /// How the Harness Skills are installed.
-    pub skills: SkillsStrategy,
-    /// Where the `harness-dashboard` MCP server is registered.
-    pub mcp: McpTarget,
-}
-
-/// How the Harness Skills get into a harness.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SkillsStrategy {
-    /// The skills' OMP marketplace: add it, then install the plugin for the user.
-    OmpMarketplace,
-    /// A package of the harness's own package manager (PI's `pi install`): the app installs it for the user.
-    Package {
-        /// The package source, as the harness CLI takes it (for example `git:github.com/owner/repo`).
-        source: &'static str,
-    },
-    /// The Harness Skills' own installer script (OpenCode's `install.sh` / `install.ps1`): the app
-    /// runs it for the user once they confirm, and its install record tells whether it is there.
-    Installer,
-    /// A command the user runs themselves.
-    Manual {
-        /// The command to copy.
-        command: &'static str,
-        /// A remark shown next to it.
-        note: &'static str,
-    },
-    /// The skills do not exist for this harness.
-    Unsupported {
-        /// Why, for display.
-        reason: &'static str,
-    },
-}
-
-/// Where a harness reads user MCP servers from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum McpTarget {
-    /// `<agent dir>/mcp.json` with an `mcpServers` object (written by the setup step), plus other
-    /// files in the agent directory that define servers too (only read, to find an existing entry).
-    UserMcpJson {
-        /// File names in the agent directory that are also read.
-        also_read: &'static [&'static str],
-    },
-    /// The servers of the global OpenCode config file of this generation, whose entries run
-    /// `command` arrays: `mcp.<name>` on OpenCode 1, `mcp.servers.<name>` on OpenCode 2 (see
-    /// [`crate::ecosystem::mcp_target`]).
-    OpenCodeConfig(OpenCodeGeneration),
-    /// The harness has no user MCP file the app can register a server in.
-    Unsupported,
-}
-
 /// Which kinds of items "Share setup" exports from a harness and imports into it (see
 /// [`crate::sync`]). The default shares nothing, so a new harness opts in kind by kind; MCP servers
-/// also need a [`McpTarget::UserMcpJson`] or [`McpTarget::OpenCodeConfig`] in
-/// [`Harness::companion_setup`].
+/// also need an MCP target other than [`McpTarget::Unsupported`] in [`Harness::companion_setup`]
+/// (and an export reader in [`crate::sync`]).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ShareSupport {
     /// Plugin marketplaces (OMP's marketplace registry).
@@ -211,7 +164,8 @@ pub struct CliSessionCtx<'a> {
 
 /// Saved sessions of a harness that exposes them only through its CLI (list, export, delete
 /// commands) instead of session files the app reads. Every spawn carries
-/// [`Harness::spawn_env`]. Sessions are linear: there is no tree, resume or fork.
+/// [`Harness::spawn_env`]. A session may name its parent (`parent_session`), for a harness whose
+/// `session_tree` capability is on; resume and fork go through the harness's chat engine.
 pub trait CliSessions: Send + Sync {
     /// Saved sessions of the project, newest first.
     fn list(&self, ctx: &CliSessionCtx<'_>) -> Result<Vec<SessionSummary>>;
@@ -360,10 +314,45 @@ pub trait Harness: Send + Sync {
         &[]
     }
 
+    /// `spec` with [`Harness::spawn_env`] and what else every spawn of the harness binary needs
+    /// in `env`, e.g. without a variable the harness would resolve differently from the app.
+    /// Default: only [`Harness::spawn_env`].
+    fn spawn_spec(&self, _env: &Env, spec: ExecSpec) -> ExecSpec {
+        spec.envs(self.spawn_env().iter().copied())
+    }
+
+    /// Refuses a chat launch in `project` the harness itself does not trust yet
+    /// ([`BusinessError::Untrusted`](crate::error::BusinessError::Untrusted)), for harnesses with
+    /// `capabilities.projectTrustRequired`. Not asked for a launch that trusts the project once.
+    /// Default: every project is fine.
+    fn check_project_trust(&self, _env: &Env, _project: &Path) -> Result<()> {
+        Ok(())
+    }
+
+    /// Whether trusting `project` once changes anything for a chat of the harness with
+    /// `capabilities.projectTrust`: false when the harness has nothing of the project to leave out
+    /// (the chat then offers no trust button). Default: true.
+    fn trust_once_offered(&self, _env: &Env, _project: &Path) -> bool {
+        true
+    }
+
+    /// Refuses resuming `session` in `project` when it is not one of the project's saved sessions,
+    /// before anything is spawned. Default: nothing is checked (the harness reports an unknown
+    /// session itself).
+    fn check_resume(&self, _env: &Env, _project: &Path, _session: &SessionRef) -> Result<()> {
+        Ok(())
+    }
+
     /// The approval mode the user configured for `project` (harnesses with
     /// `capabilities.approvalModes`); `None` when the harness has no approval modes or its own
     /// settings decide without one (OpenCode).
     fn configured_approval_mode(&self, _env: &Env, _project: Option<&Path>) -> Option<ApprovalMode> {
+        None
+    }
+
+    /// The harness's own permission mode for `project` (the user's layers without one), by the
+    /// harness's name for it (Claude Code `permissions.defaultMode`). Default: `None`.
+    fn native_approval_mode(&self, _env: &Env, _project: Option<&Path>) -> Option<NativeApprovalMode> {
         None
     }
 
@@ -398,6 +387,13 @@ pub trait Harness: Send + Sync {
     /// The output line that reports a failed extension action although the CLI exited with 0
     /// (`stdout` and `stderr` are already cleaned and redacted). Default: the exit code decides.
     fn cli_failure_line(&self, _stdout: &str, _stderr: &str) -> Option<String> {
+        None
+    }
+
+    /// The summary of a successful extension action from its `stdout` (already cleaned and
+    /// redacted), for a CLI whose last line is not meant for people (a JSON result line). Default:
+    /// the last line.
+    fn cli_summary(&self, _stdout: &str) -> Option<String> {
         None
     }
 
@@ -478,6 +474,7 @@ pub trait Harness: Send + Sync {
                 info: self.info(),
                 capabilities: self.capabilities(),
                 detection: self.detect(env, runner, override_path).await,
+                native_approval_mode: self.native_approval_mode(env, None),
             }
         })
     }

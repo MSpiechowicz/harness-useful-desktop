@@ -1,0 +1,4 @@
+{ "name": "demo-market", "plugins": [
+  { "name": "lint-tools", "source": { "source": "local", "path": "./plugins/lint-tools" }, "category": "Developer Tools" },
+  { "name": "format-tools", "source": { "source": "local", "path": "./plugins/format-tools" }, "category": "Developer Tools" }
+] }

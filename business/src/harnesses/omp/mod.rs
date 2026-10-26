@@ -24,13 +24,14 @@ pub use extensions::omp_extensions_view;
 pub use launch::{
     DEFAULT_APPROVAL_MODE, cli_approval_mode, configured_approval_mode, omp_launch_spec, parse_approval_mode,
 };
-pub(crate) use marketplaces::{GITHUB_REPO, MarketplaceRecord, is_word_like, marketplace_records};
-pub use marketplaces::{mark_updates, marketplaces};
+pub use marketplaces::marketplaces;
+pub(crate) use marketplaces::{MarketplaceRecord, marketplace_records};
 pub use paths::{active_profile, omp_paths};
 pub use plugins::{InstalledPlugins, installed_plugins};
 pub(crate) use plugins::{PluginOrigin, PluginRecord, user_plugin_records};
 pub use sessions::{omp_session_store, omp_sessions_dir, omp_sessions_root};
 
+use crate::ecosystem::catalog::{SKILLS_MARKETPLACE, SKILLS_TARGET};
 use crate::harness::prelude::*;
 
 /// The OMP adapter.
@@ -65,6 +66,7 @@ impl Harness for Omp {
             cli_actions: true,
             profiles: true,
             approval_modes: true,
+            yolo_mode: true,
             slash_commands_via_prompt: true,
             session_tree: true,
             move_session: true,
@@ -128,7 +130,12 @@ impl Harness for Omp {
 
     fn companion_setup(&self) -> CompanionSetup {
         CompanionSetup {
-            skills: SkillsStrategy::OmpMarketplace,
+            skills: SkillsStrategy::Marketplace {
+                source: SKILLS_MARKETPLACE,
+                plugin: SKILLS_TARGET,
+                // The plugin ID did not change with the 0.4.0 names.
+                legacy: None,
+            },
             mcp: McpTarget::UserMcpJson {
                 also_read: &[".mcp.json"],
             },

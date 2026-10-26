@@ -1,0 +1,270 @@
+[
+  {
+    "name": "clear",
+    "description": "Start a new conversation",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "newSession"
+    }
+  },
+  {
+    "name": "resume",
+    "description": "Resume a saved conversation",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "resumePicker"
+    }
+  },
+  {
+    "name": "rename",
+    "description": "Rename the conversation",
+    "argumentHint": "<name>",
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "setSessionName"
+    }
+  },
+  {
+    "name": "compact",
+    "description": "Compact the conversation",
+    "argumentHint": "[instructions]",
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "compact"
+    }
+  },
+  {
+    "name": "rewind",
+    "description": "Rewind the conversation and code",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app. Fork from an earlier message instead."
+    }
+  },
+  {
+    "name": "export",
+    "description": "Export the conversation as HTML",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "exportHtml"
+    }
+  },
+  {
+    "name": "copy",
+    "description": "Copy the last reply",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "getLastAssistantText"
+    }
+  },
+  {
+    "name": "model",
+    "description": "Choose the model",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "gui",
+      "target": "modelPicker"
+    }
+  },
+  {
+    "name": "context",
+    "description": "Show the context usage",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "getSessionStats"
+    }
+  },
+  {
+    "name": "cost",
+    "description": "Show the session cost",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "rpc",
+      "action": "getSessionStats"
+    }
+  },
+  {
+    "name": "init",
+    "description": "Create a CLAUDE.md for this project",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "review",
+    "description": "Review a pull request",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "promptText"
+    }
+  },
+  {
+    "name": "agents",
+    "description": "Manage subagents",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "mcp",
+    "description": "Manage MCP servers",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Manage MCP servers in the Extensions view."
+    }
+  },
+  {
+    "name": "plugin",
+    "description": "Manage plugins",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Manage plugins in the Extensions view."
+    }
+  },
+  {
+    "name": "hooks",
+    "description": "Manage hooks",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "memory",
+    "description": "Edit the CLAUDE.md memory files",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "permissions",
+    "description": "Manage tool permissions",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "config",
+    "description": "Open the settings",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "status",
+    "description": "Show the status",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "doctor",
+    "description": "Check the installation",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "help",
+    "description": "Show help",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Only in the Claude Code terminal app."
+    }
+  },
+  {
+    "name": "exit",
+    "description": "Exit Claude Code",
+    "argumentHint": null,
+    "source": "builtin",
+    "invocation": {
+      "kind": "unsupported",
+      "reason": "Stop the session from the desktop app instead."
+    }
+  },
+  {
+    "name": "new",
+    "description": "Start a new session",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "newSession"
+    }
+  },
+  {
+    "name": "thinking",
+    "description": "Choose the thinking level",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "gui",
+      "target": "thinkingPicker"
+    }
+  },
+  {
+    "name": "name",
+    "description": "Rename this session",
+    "argumentHint": "<name>",
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "setSessionName"
+    }
+  },
+  {
+    "name": "abort",
+    "description": "Stop the running turn",
+    "argumentHint": null,
+    "source": "shared",
+    "invocation": {
+      "kind": "rpc",
+      "action": "abort"
+    }
+  }
+]

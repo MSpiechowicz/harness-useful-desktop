@@ -65,35 +65,49 @@ impl MemoryRegistration {
 /// that the app registered it in that file before.
 pub fn register_memory_mcp(file: &McpFile, command: &Path, recorded: bool) -> MemoryRegistration {
     let command = command.to_string_lossy();
-
     let changed = change_file(&file.path, file.shape, |target| {
-        let Some(server) = find_server(file, target, MEMORY_MCP_SERVER, MEMORY_BINARY) else {
-            return when_missing(target, file.shape, &command, recorded);
-        };
-
-        let previous = server_program(&server.definition);
-        let stale = owned(&file.path, &server) && previous != Some(&command);
-
-        if stale {
-            tracing::info!(
-                file = %file.path.display(),
-                from = previous.unwrap_or_default(),
-                to = %command,
-                "project memory: the app's entry now runs another harness-memory"
-            );
-
-            let mut document = target.document();
-            set_program(&mut document, file.shape, &command);
-            return Change::Write(document, MemoryRegistration::Updated);
-        }
-
-        if server.disabled {
-            Change::Keep(MemoryRegistration::Disabled)
-        } else {
-            Change::Keep(MemoryRegistration::Present)
-        }
+        memory_change(file, target, &command, recorded)
     });
 
+    memory_outcome(changed)
+}
+
+/// What registering the memory server as `command mcp` does with `target` (see the module docs).
+pub(crate) fn memory_change(
+    file: &McpFile,
+    target: &Target,
+    command: &str,
+    recorded: bool,
+) -> Change<MemoryRegistration> {
+    let Some(server) = find_server(file, target, MEMORY_MCP_SERVER, MEMORY_BINARY) else {
+        return when_missing(target, file.shape, command, recorded);
+    };
+
+    let previous = server_program(&server.definition);
+    let stale = owned(&file.path, &server) && previous != Some(command);
+
+    if stale {
+        tracing::info!(
+            file = %file.path.display(),
+            from = previous.unwrap_or_default(),
+            to = %command,
+            "project memory: the app's entry now runs another harness-memory"
+        );
+
+        let mut document = target.document();
+        set_program(&mut document, file.shape, command);
+        return Change::Write(document, MemoryRegistration::Updated);
+    }
+
+    if server.disabled {
+        Change::Keep(MemoryRegistration::Disabled)
+    } else {
+        Change::Keep(MemoryRegistration::Present)
+    }
+}
+
+/// The registration a memory change ends in.
+pub(crate) fn memory_outcome(changed: Result<MemoryRegistration, Blocked>) -> MemoryRegistration {
     match changed {
         Ok(registration) => registration,
         Err(Blocked::Refused(reason)) => MemoryRegistration::Refused(reason),
@@ -104,34 +118,42 @@ pub fn register_memory_mcp(file: &McpFile, command: &Path, recorded: bool) -> Me
 /// Removes the owned entry from `file`, leaving every other server and the
 /// `disabledServers`/`enabledServers` lists as they are. `Ok(true)` when it was removed.
 pub fn unregister_memory_mcp(file: &McpFile) -> Result<bool, Blocked> {
-    // Only the target file is changed, so the files it also reads are not looked at.
-    let target_only = McpFile {
+    let target_only = target_only(file);
+
+    change_file(&file.path, file.shape, |target| memory_removal(&target_only, target))
+}
+
+/// `file` without the files it also reads: only the target file is changed when the entry is
+/// removed, so the others are not looked at.
+pub(crate) fn target_only(file: &McpFile) -> McpFile {
+    McpFile {
         also_read: Vec::new(),
         ..file.clone()
-    };
+    }
+}
 
-    change_file(&file.path, file.shape, |target| {
-        let found = find_server(&target_only, target, MEMORY_MCP_SERVER, MEMORY_BINARY);
+/// What removing the owned entry does with `target`; `file` is the [`target_only`] file.
+pub(crate) fn memory_removal(file: &McpFile, target: &Target) -> Change<bool> {
+    let found = find_server(file, target, MEMORY_MCP_SERVER, MEMORY_BINARY);
 
-        if !found.is_some_and(|server| owned(&file.path, &server)) {
-            return Change::Keep(false);
-        }
+    if !found.is_some_and(|server| owned(&file.path, &server)) {
+        return Change::Keep(false);
+    }
 
-        let mut document = target.document();
-        remove_server(&mut document, file.shape, MEMORY_MCP_SERVER, |entry| {
-            runs_mcp(entry, MEMORY_BINARY)
-        });
+    let mut document = target.document();
+    remove_server(&mut document, file.shape, MEMORY_MCP_SERVER, |entry| {
+        runs_mcp(entry, MEMORY_BINARY)
+    });
 
-        let still_seen = servers(&document, file.shape).is_some_and(|left| left.contains_key(MEMORY_MCP_SERVER));
-        if still_seen {
-            tracing::warn!(
-                file = %file.path.display(),
-                "project memory: the app's entry was removed, but a harness-memory server the app does not own stays and is still loaded"
-            );
-        }
+    let still_seen = servers(&document, file.shape).is_some_and(|left| left.contains_key(MEMORY_MCP_SERVER));
+    if still_seen {
+        tracing::warn!(
+            file = %file.path.display(),
+            "project memory: the app's entry was removed, but a harness-memory server the app does not own stays and is still loaded"
+        );
+    }
 
-        Change::Write(document, true)
-    })
+    Change::Write(document, true)
 }
 
 /// Changes the `command` of the owned entry in the `mcpServers` file `path` from exactly `from` to

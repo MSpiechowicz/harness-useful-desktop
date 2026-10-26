@@ -148,3 +148,24 @@
   background: none;
   color: var(--text-2);
 }
+
+/* A harness's live dot: a soft halo in its own colour (`currentColor`) that slowly breathes. */
+@keyframes breathe {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in oklab, currentColor 6%, transparent);
+  }
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 14%, transparent);
+  animation: breathe 2.6s var(--ease-in-out) infinite;
+}
+
+:root[data-motion="reduced"] .live-dot,
+:root[data-motion="off"] .live-dot {
+  animation: none;
+}

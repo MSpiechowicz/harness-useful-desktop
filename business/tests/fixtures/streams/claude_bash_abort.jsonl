@@ -1,0 +1,4 @@
+// An aborted !command hands nothing over: the next user message is the prompt.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt", "match": {"/message/content": "Reply with exactly the word: pong"}}
+{"replay": "../claude/stream/basic.jsonl", "from": 6, "to": 22, "except": ["control_response"], "replace": {"c3ffc375-3f53-4214-acb4-665d7431545c": "$prompt"}}

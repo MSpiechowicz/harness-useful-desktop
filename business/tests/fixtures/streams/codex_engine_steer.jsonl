@@ -1,0 +1,9 @@
+// The steered turn of 04_steer.jsonl: the steer goes into the running turn, Codex takes it as a
+// second user message and the answer honours it.
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "match": {"/params/input/0/text": "Run `sleep 6 && echo done` and report the result."}, "reply": {"turn": {"id": "01a164a0-96a7-7243-8b57-70d95d87c471", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"replay": "../codex/app_server/04_steer.jsonl", "from": 3, "to": 22, "except": ["response"]}
+{"expect": "turn/steer", "match": {"/params/threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "/params/expectedTurnId": "01a164a0-96a7-7243-8b57-70d95d87c471", "/params/input/0/text": "Also mention the word STEERED in your answer."}, "reply": {"turnId": "01a164a0-96a7-7243-8b57-70d95d87c471"}}
+{"replay": "../codex/app_server/04_steer.jsonl", "from": 24, "to": 24}
+{"expect": "answer", "match": {"/id": 4, "/result/decision": "accept"}}
+{"replay": "../codex/app_server/04_steer.jsonl", "from": 26, "to": 53, "except": ["response"]}

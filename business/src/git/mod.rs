@@ -33,6 +33,8 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{Branch, DiffRequest, DiffScope, FileDiff, GitStatus};
 use crate::process::ProcessRunner;
+use crate::security::deny::is_denied_under_private_root;
+use crate::security::is_denied;
 
 /// Paths accepted at most in one [`DiffRequest`].
 pub const MAX_DIFF_PATHS: usize = 1000;
@@ -112,6 +114,17 @@ pub async fn git_diff(
 
         let output = git.run_ok(args).await?;
         let mut parsed = parse_diff(&output.stdout, cached, &mut budget);
+        parsed
+            .iter_mut()
+            .filter(|file| {
+                std::iter::once(&file.path)
+                    .chain(&file.old_path)
+                    .any(|path| is_denied_in(git.project(), path))
+            })
+            .for_each(|file| {
+                file.hunks.clear();
+                file.truncated = true;
+            });
 
         if output.truncated
             && let Some(last) = parsed.last_mut()
@@ -143,6 +156,23 @@ async fn untracked_files(git: &GitCli<'_>, paths: &[String], budget: &mut DiffBu
         .collect();
 
     Ok(diffs)
+}
+
+/// True when the project-relative `relative` is deny-listed as written, or when its full or real
+/// path lies among the private files of a Claude Code config directory or a Codex home (a
+/// `CLAUDE_CONFIG_DIR` or `CODEX_HOME` inside the project). Only the relative path meets the rules that match any ancestor's name, so
+/// a project cloned below a folder such as `projects` or `opencode` keeps its diffs.
+pub(crate) fn is_denied_in(project: &Path, relative: &str) -> bool {
+    if is_denied(Path::new(relative)).is_some() {
+        return true;
+    }
+
+    let full = project.join(relative);
+    if is_denied_under_private_root(&full).is_some() {
+        return true;
+    }
+
+    dunce::canonicalize(&full).is_ok_and(|real| is_denied_under_private_root(&real).is_some())
 }
 
 /// Request paths must be project-relative: not absolute, no `..`, no NUL, at most

@@ -26,6 +26,11 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.autoUpdate.failed': 'Aktualisierung von {name} fehlgeschlagen',
   'ecosystem.autoUpdate.noReason': 'Der Installer hat keinen Grund genannt.',
 
+  'ecosystem.skillsMigration.done': 'Harness Skills in {harnesses} umbenannt',
+  'ecosystem.skillsMigration.failed': 'Harness Skills konnten in {harnesses} nicht umbenannt werden',
+  'ecosystem.skillsMigration.reason': '{harness}: {reason}',
+  'ecosystem.skillsMigration.noReason': 'Der Installer hat keinen Grund genannt.',
+
   'ecosystem.orbit.description': '{summary}: {items}',
   'ecosystem.orbit.installed': '{name} installiert',
   'ecosystem.orbit.updating': '{name} installiert, Update verfügbar',

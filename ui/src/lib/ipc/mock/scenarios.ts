@@ -12,6 +12,7 @@ import { hooksHandlers } from './hooks-handlers';
 import { hookScenarioFromLocation, MockHooks } from './hooks-state';
 import { hostHandlers } from './host-handlers';
 import { MockMemoryGuards } from './memory-guards-handlers';
+import { memoryEmbedderHandlers } from './memory-embedder-handlers';
 import { memoryRemoteHandlers } from './memory-remote-handlers';
 import { memoryNotesHandlers } from './memory-notes-handlers';
 import type { CopyStores } from './memory-notes-team-handlers';
@@ -123,6 +124,7 @@ export function defaultScenario(): Scenario {
     }),
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
     ...memoryRemoteHandlers(),
+    ...memoryEmbedderHandlers(state),
     ...guards.handlers(),
     // Like the backend: refused while the chat's guards skip the memory-save hook, else the hook's text as the user keeps it sent to the agent.
     chat_memory_check_again: async ({ agentId }) => {

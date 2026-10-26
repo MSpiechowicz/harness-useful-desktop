@@ -20,6 +20,7 @@ const MODE_LABELS: Record<ApprovalMode, MessageKey> = {
   alwaysAsk: 'routines.mode.alwaysAsk',
   write: 'routines.mode.write',
   yolo: 'routines.mode.yolo',
+  auto: 'routines.mode.auto',
 };
 
 /** The words for the approval mode of an agent action, and for an unset one. */
@@ -42,7 +43,7 @@ function approvalFacts(action: Extract<RoutineAction, { type: 'agent' }>): FactR
   const rows: FactRow[] = [];
 
   if (abilities.approvalMode) {
-    rows.push({ label: t('routines.field.approvalMode'), value: modeText(action.approvalMode), tone: action.approvalMode === 'yolo' ? 'warning' : undefined });
+    rows.push({ label: t('routines.field.approvalMode'), value: modeText(action.approvalMode), tone: action.approvalMode === 'yolo' || action.approvalMode === 'auto' ? 'warning' : undefined });
   }
 
   if (abilities.trustOnce) {
@@ -52,11 +53,15 @@ function approvalFacts(action: Extract<RoutineAction, { type: 'agent' }>): FactR
   return rows;
 }
 
-/** What an agent routine does besides its prompt: the harness, the model, how it asks for approval and how long it may work. */
+/** What an agent routine does besides its prompt: the harness, the model and its thinking level, how it asks for approval and how long it may work. */
 function agentFacts(action: Extract<RoutineAction, { type: 'agent' }>): FactRow[] {
+  const thinking = action.model?.thinking;
+
   return [
     { label: t('routines.field.harness'), value: HARNESS_NAMES[action.harness] },
     { label: t('routines.field.model'), value: action.model ? `${action.model.provider}/${action.model.id}` : t('routines.value.defaultModel'), mono: action.model !== null },
+    // Only a routine that sets a level says so: the others leave it to the model.
+    ...(thinking ? [{ label: t('routines.field.thinking'), value: thinking }] : []),
     ...approvalFacts(action),
     { label: t('routines.field.maxMinutes'), value: t('routines.value.minutes', { count: action.maxMinutes ?? DEFAULT_MAX_MINUTES }) },
   ];

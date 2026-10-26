@@ -1,0 +1,3 @@
+// thread/read of a thread Codex does not have.
+{"include": "codex_sessions_handshake.jsonl"}
+{"expect": "thread/read", "error": "thread not loaded: 01a164a2-6c00-7000-8000-00000000f00d"}

@@ -19,15 +19,16 @@
 //! referenced file is never read.
 //!
 //! [`layers`] finds the files and directories; this module renders them as redacted sections.
+//! What Harness Skills keeps for OpenCode (its model roles and workflow switches, [`skills`])
+//! follows the OpenCode files.
 
 mod discovery_v2;
 mod keys;
 mod layers;
 mod read;
+mod skills;
 
 use std::path::Path;
-
-use serde_json::Value;
 
 pub(crate) use self::keys::{PluginEntry, mcp_servers};
 pub(super) use self::keys::{command_entries, object_entries, plugin_entries, replace};
@@ -38,12 +39,14 @@ use super::paths::global_config_dir;
 use crate::env::Env;
 use crate::harness::OpenCodeGeneration;
 use crate::model::{ConfigField, ConfigSection, ConfigValue, ConfigView, HarnessId, Notice, NoticeLevel};
+pub(super) use crate::pi_family::mcp_config::command_words;
 use crate::pi_family::{SectionText, origin_label, section_from, source};
-use crate::security::{RedactionContext, Redactor, redact_text};
 pub(super) use discovery_v2::walk as v2_walk;
 
-const CREDENTIALS_NOTICE: &str = "Credentials (auth.json, mcp-auth.json) and the session database (opencode.db) are \
-                                  never read. {env:…} and {file:…} references are shown, never resolved.";
+const CREDENTIALS_NOTICE: &str =
+    "Credentials (auth.json, mcp-auth.json) and the session database (opencode.db) are never read.";
+
+const REFERENCES_NOTICE: &str = "{env:…} and {file:…} references are shown, never resolved.";
 
 const PROJECT_CONFIG_OFF_NOTICE: &str =
     "OPENCODE_DISABLE_PROJECT_CONFIG is on, so OpenCode ignores this project's settings and .opencode directories.";
@@ -70,6 +73,8 @@ pub fn config_view(env: &Env, project: Option<&Path>, generation: OpenCodeGenera
             sections.extend(view.dir_sections(&dir.path, dir.place));
         }
     }
+
+    sections.extend(skills::sections(env, project, generation));
 
     ConfigView {
         harness: HarnessId::OpenCode,
@@ -198,43 +203,6 @@ fn mask_server_commands<'a>(servers: impl Iterator<Item = &'a mut ConfigField>) 
     }
 }
 
-/// Masks secrets in the already redacted words of an MCP command line: credentials and
-/// `--token=...` assignments inside a word, and the whole word after a flag whose name looks
-/// secret (`--api-key <value>`).
-pub(super) fn command_words(words: Vec<ConfigValue>) -> Vec<ConfigValue> {
-    let mut masked: Vec<ConfigValue> = Vec::with_capacity(words.len());
-
-    for word in words {
-        let flag = match masked.last() {
-            Some(ConfigValue::Text(previous)) => flag_name(previous),
-            _ => None,
-        };
-
-        let word = match (word, flag) {
-            (ConfigValue::Text(text), Some(flag)) => {
-                Redactor.redact_at(&Value::String(text), &mut RedactionContext::at([flag]))
-            }
-            (ConfigValue::Text(text), None) => ConfigValue::Text(redact_text(&text)),
-            (other, _) => other,
-        };
-
-        masked.push(word);
-    }
-
-    masked
-}
-
-/// The name of a `--flag` / `-f` word that carries no value of its own.
-fn flag_name(word: &str) -> Option<String> {
-    let name = word.trim_start_matches('-');
-
-    if name.len() == word.len() || name.is_empty() || name.contains('=') {
-        return None;
-    }
-
-    Some(name.to_owned())
-}
-
 fn place_id(place: Place) -> &'static str {
     match place {
         Place::Global => "user",
@@ -319,7 +287,7 @@ fn section_text(place: Place, kind: FileKind, generation: OpenCodeGeneration) ->
     }
 }
 
-/// Environment overrides (by name only), the project switch and the credentials notice. OpenCode 2
+/// Environment overrides (by name only), the project switch, and what is never read or resolved. OpenCode 2
 /// has no `OPENCODE_PERMISSION`.
 fn notices(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) -> Vec<Notice> {
     let mut notices = Vec::new();
@@ -342,6 +310,7 @@ fn notices(env: &Env, project: Option<&Path>, generation: OpenCodeGeneration) ->
     }
 
     notices.push(info(CREDENTIALS_NOTICE));
+    notices.push(info(REFERENCES_NOTICE));
     notices
 }
 
@@ -349,32 +318,5 @@ fn info(message: &str) -> Notice {
     Notice {
         level: NoticeLevel::Info,
         message: message.to_owned(),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::SecretKind;
-
-    fn texts(words: &[&str]) -> Vec<ConfigValue> {
-        words.iter().map(|word| ConfigValue::Text((*word).to_owned())).collect()
-    }
-
-    #[test]
-    fn words_after_secret_flags_and_secret_assignments_are_hidden() {
-        let masked = command_words(texts(&[
-            "npx",
-            "server",
-            "--api-key",
-            "abc",
-            "--port",
-            "8080",
-            "--token=abc",
-        ]));
-
-        assert_eq!(masked[3], ConfigValue::Secret(SecretKind::Value));
-        assert_eq!(masked[5], ConfigValue::Text("8080".to_owned()));
-        assert_eq!(masked[6], ConfigValue::Text("--token=••••".to_owned()));
     }
 }

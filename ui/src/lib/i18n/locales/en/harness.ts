@@ -4,11 +4,11 @@ export const harness = {
   'harness.boundary.notifications': 'Notifications',
 
   'harness.gate.noneTitle': 'No harness found',
-  'harness.gate.noneBody': 'Harness Desktop works with OMP, PI and OpenCode. Run the setup to detect them.',
+  'harness.gate.noneBody': 'Harness Desktop works with OMP, PI, OpenCode, Claude Code and Codex. Run the setup to detect them.',
   'harness.gate.missingTitle': '{name} is not installed',
   'harness.gate.setup': 'Set up {name}',
   'harness.gate.retry': 'Try again',
-  'harness.gate.banner': '{name} is not installed; showing what is on disk.',
+  'harness.gate.banner': '{name} is not installed. Showing what is on disk.',
 
   'harness.gate.config.missingBody': 'Install it, or point Harness Desktop at an existing binary, to see its configuration here.',
   'harness.gate.config.errorTitle': 'Could not read the configuration',

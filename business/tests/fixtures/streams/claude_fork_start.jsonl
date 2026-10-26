@@ -1,0 +1,6 @@
+// The start of a fork (fork_at.jsonl lines 3 to 5): the SessionStart hook frames name the fork's
+// own id, then the handshake reply. The first prompt runs on the forked history (lines 7 to 40).
+{"expect": "control_request", "subtype": "initialize", "hold": true}
+{"replay": "../claude/stream/fork_at.jsonl", "from": 3, "to": 5, "replace": {"req_1": "$initialize"}}
+{"expect": "user", "as": "asked", "match": {"/message/content": "What was my last question? Then reply: forked"}}
+{"replay": "../claude/stream/fork_at.jsonl", "from": 7, "to": 40, "replace": {"dac297ab-cc5e-49ee-bf1b-1c3e9203565b": "$asked"}}

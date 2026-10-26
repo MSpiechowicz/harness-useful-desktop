@@ -9,12 +9,13 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::config::{McpFile, UserLayer, mcp_files, project_settings, user_settings};
-use super::marketplaces::{mark_updates, marketplaces};
+use super::marketplaces::marketplaces;
 use super::paths::{PROJECT_DIR_NAME, omp_paths};
 use super::plugins::installed_plugins;
 use super::themes::BUILTIN_THEMES;
 use crate::env::Env;
 use crate::harness::HarnessPaths;
+use crate::harnesses::plugin_registry::mark_updates;
 use crate::model::{
     ExtensionModuleInfo, ExtensionScope, ExtensionsView, HarnessId, McpServerInfo, SkillInfo, ThemeInfo,
 };

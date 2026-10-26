@@ -9,11 +9,12 @@ import type { ManualRemoval } from '../bindings/ManualRemoval';
 import type { McpState } from '../bindings/McpState';
 import type { RecommendedSetup } from '../bindings/RecommendedSetup';
 import type { SkillsSetup } from '../bindings/SkillsSetup';
+import { HARNESS_IDS } from '../harness-ids';
 import { IpcFailure } from '../transport';
-import { OPENCODE_SKILLS, OPENCODE_SKILLS_COMMAND, OPENCODE_SKILLS_NO_NODE, opencodeSnippet, rosterFor, type RosterEntry } from './setup-roster';
+import { CODEX_SKILLS, CODEX_SKILLS_COMMAND, OPENCODE_SKILLS, OPENCODE_SKILLS_COMMAND, opencodeSnippet, rosterFor, SKILLS_NO_NODE, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
-type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_opencode_skills' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
+type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_opencode_skills' | 'setup_install_codex_skills' | 'skills_migrate_names' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
 
 /**
  * What the mock recommended setup starts from. The browser preview picks one with `?setup=<name>`:
@@ -25,7 +26,7 @@ type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install
  * `many` has five harnesses in every kind of state (see `setup-roster.ts`), `manyLong` a sixth with a very long name.
  * `opencodeOnly` has OpenCode alone, with a config file that has comments, so its MCP entries are left to a manual edit.
  * `manualEdit` has the usual harnesses and the same commented OpenCode file.
- * `noNode` finds no Node.js, so the Harness Skills cannot be installed for OpenCode and its row says why.
+ * `noNode` finds no Node.js, so the Harness Skills cannot be installed for OpenCode and Codex and their rows say why.
  */
 export const SETUP_SCENARIOS = ['none', 'configured', 'fail', 'refused', 'both', 'bothRefused', 'memory', 'many', 'manyLong', 'opencodeOnly', 'manualEdit', 'noNode'] as const;
 export type SetupScenario = (typeof SETUP_SCENARIOS)[number];
@@ -67,8 +68,22 @@ const OPENCODE_SKILLS_VERSION = '0.2.40';
 const OPENCODE_SKILLS_OUTPUT_OK: InstallLogLine[] = [
   { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
   { stream: 'stdout', line: '==> Installing the Harness Skills into ~/.config/opencode' },
-  { stream: 'stdout', line: '==> Adding the useful_skills MCP server to opencode.json' },
+  { stream: 'stdout', line: '==> Adding the harness-useful-skills MCP server to opencode.json' },
   { stream: 'stdout', line: `==> Harness Skills ${OPENCODE_SKILLS_VERSION} installed. Restart OpenCode to load them.` },
+];
+
+const CODEX_SKILLS_VERSION = '0.3.13';
+
+const CODEX_SKILLS_OUTPUT_OK: InstallLogLine[] = [
+  { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
+  { stream: 'stdout', line: '==> Adding the Harness Skills marketplace and plugin to Codex' },
+  { stream: 'stdout', line: '==> Registering the harness-useful-skills MCP server' },
+  { stream: 'stdout', line: `==> Harness Skills ${CODEX_SKILLS_VERSION} installed. Restart Codex to load them.` },
+];
+
+const CODEX_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
+  { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
+  { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
 ];
 
 const OPENCODE_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
@@ -76,10 +91,19 @@ const OPENCODE_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
   { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
 ];
 
-const MCP_FILE: Record<HarnessId, string> = { omp: '~/.omp/agent/mcp.json', pi: '~/.pi/agent/mcp.json', opencode: '~/.config/opencode/opencode.json' };
+/** Each harness's user MCP file. Claude Code's and Codex's are only read, their CLIs write them. */
+const MCP_FILE: Record<HarnessId, string> = {
+  omp: '~/.omp/agent/mcp.json',
+  pi: '~/.pi/agent/mcp.json',
+  opencode: '~/.config/opencode/opencode.json',
+  claude: '~/.claude.json',
+  codex: '~/.codex/config.toml',
+};
 /** OpenCode's config when it has comments: the app never rewrites it. */
 const OPENCODE_COMMENTED_FILE = '~/.config/opencode/opencode.jsonc';
 const SKILLS_TARGET = 'harness-useful-skills@harness-useful-skills';
+/** The Harness Skills plugin of Claude Code: since Harness Skills 0.4.0 its marketplace and plugin carry the OMP names. */
+const CLAUDE_SKILLS_TARGET = SKILLS_TARGET;
 
 const OUTPUT_OK: InstallLogLine[] = [
   { stream: 'stdout', line: 'Downloading harness-dashboard 0.9.4 for linux-x86_64' },
@@ -118,22 +142,31 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
-  if (harness === 'opencode') {
-    return nodeFound ? OPENCODE_SKILLS : OPENCODE_SKILLS_NO_NODE;
-  }
-
-  if (harness === 'pi') {
-    return { type: 'manual', command: 'pi install git:github.com/MSpiechowicz/harness-useful-skills', note: 'Installing the skills as a PI package has not been verified yet.' };
-  }
-
+/** The marketplace and plugin of the Harness Skills in a harness that installs them from a marketplace. */
+function marketplaceSkills(target: string): SkillsSetup {
   return {
     type: 'install',
     actions: [
       { type: 'marketplaceAdd', source: 'MSpiechowicz/harness-useful-skills' },
-      { type: 'pluginInstall', target: SKILLS_TARGET, scope: 'user' },
+      { type: 'pluginInstall', target, scope: 'user' },
     ],
   };
+}
+
+/** What `setup_status` offers for each harness's skills, as the backend's `companion_setup` decides it. */
+function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
+  switch (harness) {
+    case 'omp':
+      return marketplaceSkills(SKILLS_TARGET);
+    case 'claude':
+      return marketplaceSkills(CLAUDE_SKILLS_TARGET);
+    case 'pi':
+      return { type: 'manual', command: 'pi install git:github.com/MSpiechowicz/harness-useful-skills', note: 'Installing the skills as a PI package has not been verified yet.' };
+    case 'opencode':
+      return nodeFound ? OPENCODE_SKILLS : SKILLS_NO_NODE;
+    case 'codex':
+      return nodeFound ? CODEX_SKILLS : SKILLS_NO_NODE;
+  }
 }
 
 /** One companion installer of the mock: what it prints and reports. */
@@ -170,6 +203,15 @@ const OPENCODE_SKILLS_INSTALLER: MockInstaller = {
   command: OPENCODE_SKILLS_COMMAND,
   output: OPENCODE_SKILLS_OUTPUT_OK,
   failedOutput: OPENCODE_SKILLS_OUTPUT_FAILED,
+  failedSummary: 'error: could not download the Harness Skills package',
+};
+
+const CODEX_SKILLS_INSTALLER: MockInstaller = {
+  binary: 'Harness Skills for Codex',
+  version: CODEX_SKILLS_VERSION,
+  command: CODEX_SKILLS_COMMAND,
+  output: CODEX_SKILLS_OUTPUT_OK,
+  failedOutput: CODEX_SKILLS_OUTPUT_FAILED,
   failedSummary: 'error: could not download the Harness Skills package',
 };
 
@@ -228,15 +270,13 @@ export function setupHandlers(
     if (scenario() === 'configured') {
       dashboardInstalled = true;
       memoryInstalled = true;
-      (['omp', 'pi', 'opencode'] as const).forEach((id) => {
+
+      HARNESS_IDS.forEach((id) => {
         skills.add(id);
         mcp.add(id);
         memoryMcp.add(id);
         desktopMcp.add(id);
       });
-      mcp.add('opencode');
-      memoryMcp.add('opencode');
-      desktopMcp.add('opencode');
     }
 
     if (scenario() === 'memory') {
@@ -253,6 +293,10 @@ export function setupHandlers(
 
   /** The dashboard's entry (`registered` holds `mcp`), the memory server's (`memoryMcp`) or the app's own (`desktopMcp`) in a harness's MCP file. */
   function mcpState(harness: HarnessId, registered: Set<HarnessId> = mcp): McpState {
+    if (MCP_FILE[harness] === '') {
+      return { type: 'refused', file: '', reason: 'unreadable' };
+    }
+
     if (registered.has(harness)) {
       return { type: 'configured', file: MCP_FILE[harness], name: entryName(registered) };
     }
@@ -268,8 +312,9 @@ export function setupHandlers(
     return { type: 'missing', file: MCP_FILE[harness], exists: harness !== 'pi' };
   }
 
-  /** OpenCode's skills come from their own installer, which records its own version. */
-  const installedSkills = (harness: HarnessId): SkillsSetup => ({ type: 'installed', version: harness === 'opencode' ? OPENCODE_SKILLS_VERSION : '0.2.36' });
+  /** The skills of OpenCode and Codex come from their own installer, which records its own version. */
+  const SCRIPT_VERSIONS: Partial<Record<HarnessId, string>> = { opencode: OPENCODE_SKILLS_VERSION, codex: CODEX_SKILLS_VERSION };
+  const installedSkills = (harness: HarnessId): SkillsSetup => ({ type: 'installed', version: SCRIPT_VERSIONS[harness] ?? '0.2.36' });
 
   /** A harness of the `many` roster: its own starting state, moved by what a run did to it. */
   function rosterSetup(entry: RosterEntry): HarnessSetup {
@@ -359,6 +404,19 @@ export function setupHandlers(
         return result;
       },
 
+      setup_install_codex_skills: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
+        const result = await install(CODEX_SKILLS_INSTALLER, confirmed, onLog);
+
+        if (result.ok) {
+          skills.add('codex');
+        }
+
+        return result;
+      },
+
+      // The browser preview has no install under the old names.
+      skills_migrate_names: async () => ({ migrated: [], failed: [] }),
+
       setup_register_mcp: async ({ harness }): Promise<McpState> => {
         start();
         await delay(LINE_MS);
@@ -426,7 +484,7 @@ export function setupHandlers(
     memoryServer,
 
     actionApplied: (harness, action) => {
-      if (action.type === 'pluginInstall' && action.target === SKILLS_TARGET) {
+      if (action.type === 'pluginInstall' && (action.target === SKILLS_TARGET || action.target === CLAUDE_SKILLS_TARGET)) {
         skills.add(harness);
       }
     },

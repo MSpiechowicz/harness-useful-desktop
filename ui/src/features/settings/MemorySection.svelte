@@ -13,6 +13,7 @@
 
   import ManualRemovalNote from './ManualRemovalNote.svelte';
   import MemoryGuardsSections from './MemoryGuardsSections.svelte';
+  import MemorySearchRows from './MemorySearchRows.svelte';
   import RemoteMemoryPanel from './RemoteMemoryPanel.svelte';
   import { readsRemote } from './routing-change';
   import SettingRow from './SettingRow.svelte';
@@ -101,6 +102,8 @@
       <ManualRemovalNote removals={prefs.memoryManualRemovals} ondismiss={() => prefs.dismissMemoryManualRemovals()} />
     </div>
   {/if}
+
+  <MemorySearchRows />
 
   <SettingRow title={t('settings.memoryRemote.title')} description={t('settings.memoryRemote.description')}>
     {#snippet control()}

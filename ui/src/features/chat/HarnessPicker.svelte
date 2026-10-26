@@ -2,12 +2,12 @@
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
   import type { ChatSession } from '$lib/chat/session.svelte';
-  import HarnessBadge from '$lib/components/HarnessBadge.svelte';
   import Popover from '$lib/components/Popover.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
   import { harness } from '$lib/stores/harness.svelte';
+  import { cx } from '$lib/utils/cx';
 
   import { switchHarness } from '../shell/actions';
   import MenuItem from './MenuItem.svelte';
@@ -17,6 +17,17 @@
   }
 
   let { session }: Props = $props();
+
+  /** The dot takes the harness accent (`currentColor`), like its badge elsewhere. */
+  const DOT: Record<string, string> = {
+    omp: 'text-omp',
+    pi: 'text-pi',
+    opencode: 'text-opencode',
+    claude: 'text-claude',
+    codex: 'text-codex',
+  };
+  /** A harness without accent tokens of its own gets a neutral dot. */
+  const NEUTRAL = 'text-fg-3';
 
   const current = $derived(harness.get(session.info.harness));
   // While the chat moves to another harness, the button already shows it, a spinner in the chevron's place.
@@ -49,18 +60,25 @@
 {#if current && shown}
   <Popover label={t('chat.harness.label')} kind="menu" side="top" class="w-max min-w-52 max-w-md!">
     {#snippet trigger({ props })}
+      <!-- A live dot in the harness's colour and its full name. A narrow composer keeps only the dot. The chevron's own
+           space stands in for most of the right padding, so the gaps between the composer controls match. -->
       <button
         type="button"
         {...props}
         aria-label={t('chat.harness.aria', { name: shown.info.name })}
-        class="inline-flex h-control min-w-0 items-center gap-1.5 rounded-md px-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg"
+        class="group inline-flex h-control min-w-0 items-center gap-1.5 rounded-md pr-1 pl-2 text-sm text-fg-3 transition-colors duration-[var(--dur-fast)] hover:bg-hover hover:text-fg aria-expanded:bg-hover aria-expanded:text-fg"
       >
-        <HarnessBadge info={shown.info} size="xs" />
-        <span class="whitespace-nowrap [text-box:trim-both_cap_alphabetic] @max-[460px]:hidden">{shown.info.shortName}</span>
+        <!-- In an icon-sized box, so the gaps match the icon controls beside it. -->
+        <span aria-hidden="true" class="grid size-4 shrink-0 place-items-center"><span class={cx('live-dot', DOT[shown.info.id] ?? NEUTRAL)}></span></span>
+        <span class="whitespace-nowrap [text-box:trim-both_cap_alphabetic] @max-[460px]:hidden">{shown.info.name}</span>
         {#if session.switchingTo}
           <span class="grid size-4 shrink-0 place-items-center @max-[460px]:hidden"><Spinner size={14} class="text-accent-text" label={t('chat.tabs.starting')} /></span>
         {:else}
-          <ChevronDown size={16} aria-hidden="true" class="shrink-0 text-fg-3 @max-[460px]:hidden" />
+          <ChevronDown
+            size={16}
+            aria-hidden="true"
+            class="shrink-0 text-fg-3 transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-expo)] group-aria-expanded:rotate-180 @max-[460px]:hidden"
+          />
         {/if}
       </button>
     {/snippet}

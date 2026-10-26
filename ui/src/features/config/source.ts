@@ -2,46 +2,12 @@ import { childrenOf, matchIndices } from '$lib/components/config-tree';
 import type { ConfigField } from '$lib/ipc/bindings/ConfigField';
 import type { ConfigFormat } from '$lib/ipc/bindings/ConfigFormat';
 import type { ConfigValue } from '$lib/ipc/bindings/ConfigValue';
-import type { SecretKind } from '$lib/ipc/bindings/SecretKind';
+import { toTomlLines } from './source-toml';
+import { clip, MAX_TEXT_CHARS, type SourceLine, type ValueKind } from './source-line';
 
-/** What a line shows after its key; `close` is a closing brace or bracket on a line of its own. */
-export type ValueKind = 'null' | 'bool' | 'number' | 'text' | 'secret' | 'map' | 'list' | 'close';
-
-export interface SourceLine {
-  /** 1-based line number in the file as printed here. */
-  no: number;
-  depth: number;
-  /** The key as written in the config, without quotes. */
-  key?: string;
-  /** The key as printed in the file's format, which is what the line shows and what a search matches. */
-  shownKey?: string;
-  valueKind: ValueKind;
-  /** The value as printed, quoted where the format quotes it; empty where the value is only its children. */
-  text: string;
-  /** The value without quoting. Scalars only; never a secret. A search matches `text`, the printed form. */
-  plain?: string;
-  /** Which kind of secret sits here: the chip shows this, never a value. */
-  secret?: SecretKind;
-  /** A YAML list item marker (`- `) comes first. */
-  bullet?: boolean;
-  /** A JSON line followed by a sibling ends in a comma. */
-  comma?: boolean;
-  /** Set on a line that opens a block with entries: the block's id. */
-  foldStart?: string;
-  /** Entries in the block. */
-  foldCount?: number;
-  /** Index (in the returned array) of the last line of the block. */
-  foldEnd?: number;
-}
-
-/** Longest text printed on a line before it is clipped with an ellipsis. */
-export const MAX_TEXT_CHARS = 200;
+export { MAX_TEXT_CHARS, type SourceLine, type ValueKind };
 
 const RESERVED_WORDS = new Set(['true', 'false', 'null', 'yes', 'no', 'on', 'off', 'y', 'n', '~']);
-
-function clip(text: string): string {
-  return text.length > MAX_TEXT_CHARS ? `${text.slice(0, MAX_TEXT_CHARS)}…` : text;
-}
 
 /** Whether YAML would read the text back as the same string without quotes. */
 function plainSafe(text: string): boolean {
@@ -101,10 +67,14 @@ interface Entry {
 }
 
 /**
- * The redacted tree as the lines of a file: JSON with braces and quoted keys for `json` and `jsonc`, YAML for every other
- * format. Secrets are lines that carry only their kind, so no value can reach the screen from here.
+ * The redacted tree as the lines of a file: JSON with braces and quoted keys for `json` and `jsonc`, TOML tables for `toml`,
+ * YAML for every other format. Secrets are lines that carry only their kind, so no value can reach the screen from here.
  */
 export function toLines(fields: ConfigField[], format: ConfigFormat): SourceLine[] {
+  if (format === 'toml') {
+    return toTomlLines(fields);
+  }
+
   const json = isJson(format);
   const lines: SourceLine[] = [];
 

@@ -14,7 +14,8 @@
 //!    ([`pi_family`], including saved sessions on disk); running agent chat sessions over that
 //!    protocol, or over OpenCode's local server API ([`agent`], with the loopback client, route
 //!    allowlist and event mapper in [`opencode_server`], and for OpenCode 2 in
-//!    [`opencode_server_v2`]); the project repository through the git CLI ([`git`]); diff review
+//!    [`opencode_server_v2`]; Claude Code's stream-json frames in [`claude_stream`], Codex's
+//!    app-server frames in [`codex_rpc`]); the project repository through the git CLI ([`git`]); diff review
 //!    prompts ([`review`]); the companion tools and the dashboard's data ([`ecosystem`]); the
 //!    in-app updater's key check and progress reporting ([`update`]); sharing a setup between
 //!    machines ([`sync`]).
@@ -26,6 +27,8 @@
 pub mod agent;
 pub mod app_dirs;
 pub mod attachments;
+pub mod claude_stream;
+pub mod codex_rpc;
 pub mod dropped;
 pub mod ecosystem;
 pub mod env;

@@ -45,4 +45,10 @@ queuedCount: number,
 /**
  * Context window usage, when known.
  */
-contextUsage: ContextUsage | null, };
+contextUsage: ContextUsage | null, 
+/**
+ * Whether the chat's own memory guards apply now, from a harness that can learn it only
+ * later (Codex reads its MCP servers again for every new thread). Without it the session's
+ * `AgentSessionInfo.memory_guards` holds.
+ */
+memoryGuards?: boolean, };

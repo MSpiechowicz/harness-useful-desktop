@@ -3,4 +3,4 @@
 /**
  * Why an item is left out of an export.
  */
-export type SyncExcludedReason = "containsSecret" | "credentials" | "localPath" | "projectScope" | "unsupported" | "invalid" | "tooMany";
+export type SyncExcludedReason = "containsSecret" | "credentials" | "localPath" | "projectScope" | "unsupported" | "invalid" | "tooMany" | "switchedOff";

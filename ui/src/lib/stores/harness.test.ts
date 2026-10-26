@@ -140,7 +140,7 @@ describe('HarnessStore', () => {
       await store.rescan();
 
       expect(store.get('pi')?.detection.installed).toBe(true);
-      expect(store.summaries).toHaveLength(3);
+      expect(store.summaries).toHaveLength(5);
       expect(toasts.items).toEqual([]);
     });
 

@@ -1,0 +1,144 @@
+name: Business tests
+
+# Called by ci.yml, once per OS. The tests are compiled once (build job), packed into a nextest archive and then
+# run in shards that only download the archive, so no shard recompiles anything. Because `needs` only sees the
+# jobs of this one call, each OS builds and tests independently of the others (a slow Windows build never
+# holds back the Linux shards).
+on:
+  workflow_call:
+    inputs:
+      os:
+        description: Runner label (ubuntu-latest, macos-latest or windows-latest)
+        type: string
+        required: true
+      shards:
+        description: JSON array with one entry per test shard, e.g. [1,2,3]
+        type: string
+        required: true
+      bindings:
+        description: Also check that the generated TypeScript bindings and mock fixtures are fresh
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Windows only (the variable is ignored on other targets): link with the rust-lld that ships in the pinned
+  # toolchain. Linking the many test executables with link.exe is the slowest part of the Windows build.
+  # Set here and not in .cargo/config.toml so release bundles and local builds keep the MSVC linker.
+  CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld.exe
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build tests
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      # One cache per OS for the dependencies of the test build. Only main writes it (a pull request reads the
+      # newest one from main), so concurrent pull requests cannot evict each other's entries. rust-lint and the
+      # Tauri check use their own keys: they build different artifacts (clippy metadata, the Tauri stack), and a
+      # key is saved by whichever job gets there first, so sharing one key would leave the other job cold.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: business-${{ runner.os }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with:
+          tool: cargo-nextest
+      # Archives every test binary and the non-test binaries the tests spawn (fake_agent).
+      - run: cargo nextest archive -p harness_business --archive-file nextest.tar.zst
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nextest-archive-${{ runner.os }}
+          path: nextest.tar.zst
+          retention-days: 1
+          compression-level: 0 # already zstd-compressed
+          if-no-files-found: error
+
+  test:
+    name: Test ${{ matrix.shard }}/${{ strategy.job-total }}
+    needs: build
+    runs-on: ${{ inputs.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.shards) }}
+    env:
+      # insta finds stored snapshots through the workspace root, which it asks `cargo metadata` for when this is
+      # unset. These jobs install no Rust toolchain, so name the root (otherwise every snapshot reads as new).
+      INSTA_WORKSPACE_ROOT: ${{ github.workspace }}
+    steps:
+      # The checkout supplies fixtures and test sources (CARGO_MANIFEST_DIR); nothing is compiled here, and no
+      # Rust toolchain is installed (cargo-nextest does not call cargo when it runs an archive).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with:
+          tool: cargo-nextest
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nextest-archive-${{ runner.os }}
+      # The tests bake in the absolute path of fake_agent (env!("CARGO_BIN_EXE_fake_agent")). The workspace sits
+      # at the same path on the build and the test job of one OS, so extracting the archive into the workspace
+      # (binaries land in ./target, exactly where the build put them) keeps that path valid.
+      - name: Run this shard
+        run: >
+          cargo-nextest nextest run
+          --archive-file nextest.tar.zst
+          --extract-to "$GITHUB_WORKSPACE"
+          --workspace-remap "$GITHUB_WORKSPACE"
+          --partition count:${{ matrix.shard }}/${{ strategy.job-total }}
+          --no-tests=pass --no-fail-fast
+
+  # Generated TypeScript bindings and mock fixtures must match what the Rust tests emit. Runs the export tests
+  # from the archive of the build above, so it costs a download instead of a second compile.
+  bindings:
+    name: Bindings and fixtures are fresh
+    if: ${{ inputs.bindings }}
+    needs: build
+    runs-on: ${{ inputs.os }}
+    env:
+      # `.cargo/config.toml` sets this for cargo runs. Spell it out so the archive run does not depend on
+      # nextest applying cargo's [env] table.
+      TS_RS_EXPORT_DIR: ${{ github.workspace }}/ui/src/lib/ipc/bindings
+      INSTA_WORKSPACE_ROOT: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
+        with:
+          tool: cargo-nextest
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nextest-archive-${{ runner.os }}
+      # No --no-tests=pass: a filter that matches nothing must fail instead of "verifying" an empty set.
+      - name: Regenerate bindings and fixtures
+        run: >
+          cargo-nextest nextest run
+          --archive-file nextest.tar.zst
+          --extract-to "$GITHUB_WORKSPACE"
+          --workspace-remap "$GITHUB_WORKSPACE"
+          --no-fail-fast
+          export_
+      - name: Fail on modified generated files
+        run: git diff --exit-code -- ui/src/lib/ipc/bindings ui/src/lib/ipc/mock/fixtures
+      - name: Fail on untracked generated files
+        run: |
+          untracked="$(git status --porcelain -- ui/src/lib/ipc/bindings ui/src/lib/ipc/mock/fixtures)"
+          if [ -n "$untracked" ]; then
+            echo "Generated files are out of date or untracked:"
+            echo "$untracked"
+            exit 1
+          fi

@@ -4,7 +4,9 @@
 //! `plugins`) of every user config layer, its servers by name in the `mcp` object (OpenCode 2:
 //! `mcp.servers` and the legacy `mcp`) of the global config file and the files OpenCode also reads,
 //! and, at apply time only, in the names OpenCode reports merging from all its layers
-//! ([`with_merged`]).
+//! ([`with_merged`]). Claude Code's marketplaces and plugins come from its registries (a plugin
+//! installed for the user or by the organization counts), its servers from the user scope of its
+//! global file.
 //!
 //! Everything read here stays in process: local sources, plugin versions that are not display-safe
 //! and existing MCP definitions (env values included) are only compared, never returned. The only
@@ -23,10 +25,12 @@ use crate::ecosystem::Shape;
 use crate::ecosystem::mcp_merge::{existing_entry, read_only_entry};
 use crate::env::Env;
 use crate::harness::Harness;
+use crate::harnesses::claude::{self, PluginScope};
+use crate::harnesses::codex;
 use crate::harnesses::omp::{PluginOrigin, marketplace_records, user_plugin_records};
 use crate::harnesses::opencode::user_npm_plugins;
 use crate::harnesses::pi::user_package_records;
-use crate::model::McpRefusal;
+use crate::model::{HarnessId, McpRefusal};
 
 /// How a shared item relates to what is installed here.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,13 +61,20 @@ pub(super) struct Machine {
 
 impl Machine {
     /// Reads the registries of `harness` (missing or unreadable files contribute nothing). OpenCode
-    /// has only plugins: the npm plugins of every user config layer.
+    /// has only plugins: the npm plugins of every user config layer. Claude Code and Codex have
+    /// marketplaces and plugins.
     pub fn read(env: &Env, harness: &dyn Harness) -> Self {
         if let Some(generation) = harness.opencode_generation() {
             return Self {
                 plugins: user_npm_plugins(env, generation),
                 ..Self::default()
             };
+        }
+
+        match harness.id() {
+            HarnessId::Claude => return Self::claude(env),
+            HarnessId::Codex => return Self::codex(env),
+            HarnessId::Omp | HarnessId::Pi | HarnessId::OpenCode => {}
         }
 
         let paths = harness.paths(env, None);
@@ -88,6 +99,53 @@ impl Machine {
             marketplaces,
             plugins,
             packages,
+        }
+    }
+
+    /// Claude Code's registered marketplaces (source as recorded) and the plugins that apply
+    /// everywhere: installed for the user or by the organization.
+    fn claude(env: &Env) -> Self {
+        let marketplaces = claude::known_marketplaces(env)
+            .into_iter()
+            .map(|known| {
+                let source = Some(known.source).filter(|source| !source.is_empty());
+                (known.name, source)
+            })
+            .collect();
+
+        let plugins = claude::plugin_records(env)
+            .into_iter()
+            .filter(|record| record.scope != PluginScope::Project)
+            .map(|record| (record.id, record.version))
+            .collect();
+
+        Self {
+            marketplaces,
+            plugins,
+            packages: Vec::new(),
+        }
+    }
+
+    /// Codex's marketplaces and plugins of its `config.toml` (source as written), every plugin
+    /// there being the user's.
+    fn codex(env: &Env) -> Self {
+        let marketplaces = codex::marketplace_records(env)
+            .into_iter()
+            .map(|record| {
+                let source = Some(record.source).filter(|source| !source.is_empty());
+                (record.name, source)
+            })
+            .collect();
+
+        let plugins = codex::plugin_records(env)
+            .into_iter()
+            .map(|record| (record.id, record.version))
+            .collect();
+
+        Self {
+            marketplaces,
+            plugins,
+            packages: Vec::new(),
         }
     }
 
@@ -181,6 +239,14 @@ pub(super) struct McpFiles {
     pub shape: Shape,
 }
 
+impl McpFiles {
+    /// Whether servers are added through the harness's CLI (Claude Code's global file), never
+    /// merged by the app.
+    pub fn via_cli(&self) -> bool {
+        !self.shape.app_writes()
+    }
+}
+
 /// A server is present when every file holding a server of that name (the target file and the
 /// `also_read` files) defines the same transport, command, arguments and URL; env, headers and
 /// other fields do not count (the import writes none of them). Any other definition in any of them
@@ -205,7 +271,7 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
     }
 
     let same = match files.shape {
-        Shape::McpServers => same_server,
+        Shape::McpServers | Shape::ClaudeCli | Shape::CodexCli => same_server,
         Shape::OpenCode | Shape::OpenCodeV2 => same_opencode_server,
     };
 

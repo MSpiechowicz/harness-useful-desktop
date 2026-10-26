@@ -20,7 +20,7 @@ export interface RunSteps {
  * skills need neither installer, so they start right away. A harness's MCP entry waits only for its own server's
  * installer, and its entries go into the same file, so the memory server's waits for the dashboard's.
  *
- * A harness whose skills come from an installer script (OpenCode) is the exception to "the skills do not matter to the
+ * A harness whose skills come from an installer script (OpenCode, Codex) is the exception to "the skills do not matter to the
  * MCP entries": the script rewrites the very file the entries are written to, so its entries wait until the script has
  * ended, however it ended.
  */

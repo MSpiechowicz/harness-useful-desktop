@@ -87,12 +87,15 @@ pub enum SkillsSetup {
         note: String,
     },
     /// Installable by the Harness Skills' own installer, which the app runs once the user confirms
-    /// (`setup_install_opencode_skills`).
+    /// (`setup_install_opencode_skills`, `setup_install_codex_skills`).
     Script {
         /// The installer as a copyable command for this OS.
         command: String,
         /// What the installer changes on this machine, one line each.
         side_effects: Vec<String>,
+        /// The version of an install that is too old for the harness (the installer then updates
+        /// it), null when nothing is installed.
+        outdated_from: Option<String>,
     },
     /// The skills cannot be installed for this harness (they do not exist for it, or something
     /// they need is missing).
@@ -111,6 +114,30 @@ pub enum SkillsSetup {
 pub enum SkillsUnavailableCode {
     /// Their installer needs Node.js 22 or newer, and `node` was not found.
     NodeMissing,
+}
+
+/// What the launch migration of the Harness Skills names did (`skills_migrate_names`): the
+/// harnesses whose install moved from the names before Harness Skills 0.4.0, and the ones that
+/// failed with the reason (tried again at a later launch).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SkillsMigrationReport {
+    /// Migrated harnesses.
+    pub migrated: Vec<HarnessId>,
+    /// Harnesses whose migration failed.
+    pub failed: Vec<SkillsMigrationFailure>,
+}
+
+/// A harness whose Harness Skills could not be migrated.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct SkillsMigrationFailure {
+    /// The harness.
+    pub harness: HarnessId,
+    /// Why, in English, redacted: a short line from the installer or the CLI.
+    pub reason: String,
 }
 
 /// A companion's MCP server (`harness-dashboard`, `harness-memory` or the app's own
@@ -175,7 +202,7 @@ pub enum McpRefusal {
     Symlink,
     /// The path is not a regular file (a directory, a FIFO, ...).
     NotRegularFile,
-    /// The file is larger than 2 MiB.
+    /// The file is larger than the app reads (2 MiB, 32 MiB for Claude Code's global file).
     TooLarge,
     /// The file could not be read (permissions, an I/O error, ...).
     Unreadable,
@@ -183,6 +210,16 @@ pub enum McpRefusal {
     /// (permissions, a full disk, ...), or the file kept changing while it was being updated.
     /// Nothing was changed.
     WriteFailed,
+    /// The harness's CLI changes this file (Claude Code: `claude mcp add-json` and `remove`), and
+    /// that run failed, timed out or could not start. The file was read again afterwards and still
+    /// needs the change. Nothing is retried.
+    CliFailed,
+    /// Changing the app's entry through the harness's CLI removed it, and adding it back failed
+    /// (the new and the old definition both). The entry is gone until Recommended setup runs again.
+    CliRemovedEntry,
+    /// The harness's CLI is a Windows batch shim (Claude Code installed through npm), which cannot
+    /// take the server's JSON argument safely. Nothing ran.
+    CliBatchShim,
 }
 
 /// Outcome of running a companion installer (`setup_install_dashboard`, `setup_install_memory`).

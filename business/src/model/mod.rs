@@ -23,6 +23,7 @@ mod git;
 mod harness;
 mod hook;
 mod ipc_error;
+mod memory_embedder;
 mod memory_guards;
 mod memory_import;
 mod memory_notes;
@@ -76,7 +77,8 @@ pub use git::{
     MAX_BRANCHES, MAX_FILE_DIFF_BYTES, MAX_TOTAL_DIFF_BYTES, MAX_UNTRACKED_FILE_BYTES, StatusEntry,
 };
 pub use harness::{
-    Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallCommand, InstallHint, VersionSupport,
+    Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallCommand, InstallHint, NativeApprovalMode,
+    VersionSupport,
 };
 pub use hook::{
     Hook, HookAction, HookApproval, HookAuthor, HookDraft, HookEvent, HookFamilyEntry, HookFamilyStatus, HookListing,
@@ -84,6 +86,7 @@ pub use hook::{
     TeamHooks,
 };
 pub use ipc_error::{IpcError, IpcErrorCode};
+pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 pub use memory_guards::{
     GlobalKindGuard, HeldItem, HeldKind, HeldSaved, HeldTool, KindGuard, MemoryChatGuards, MemoryChatGuardsSet,
     MemoryChatStart, MemoryGuardKind, MemoryGuards, MemoryGuardsPatch, MemoryHeldEvent,
@@ -94,8 +97,8 @@ pub use memory_import::{
     NotesImportResult, NotesImportRow,
 };
 pub use memory_notes::{
-    MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLink, NoteLinkDirection, NoteSort,
-    NoteSummary, SortOrder,
+    MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLangFilter, NoteLink, NoteLinkDirection,
+    NoteSort, NoteSummary, SortOrder,
 };
 pub use memory_notes_copy::{
     LocalNoteIds, MemoryCopyKind, NoteIdsWord, NotesCopyAction, NotesCopyCounts, NotesCopyFailure, NotesCopyFilter,
@@ -137,7 +140,8 @@ pub use session::{
 };
 pub use setup::{
     DashboardInstallResult, DashboardSetup, HarnessSetup, InstallLogLine, InstallStream, ManualRemoval, McpRefusal,
-    McpState, MemorySwitchResult, RecommendedSetup, SkillsSetup, SkillsUnavailableCode,
+    McpState, MemorySwitchResult, RecommendedSetup, SkillsMigrationFailure, SkillsMigrationReport, SkillsSetup,
+    SkillsUnavailableCode,
 };
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use sync::{

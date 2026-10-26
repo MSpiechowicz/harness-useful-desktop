@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "plugins": {
+    "useful-skills@useful-skills-local": [
+      {
+        "scope": "user",
+        "installPath": "~/.claude/plugins/cache/useful-skills-local/useful-skills/0.3.1",
+        "version": "0.3.1",
+        "installedAt": "2026-09-02T08:00:00.000Z",
+        "lastUpdated": "2026-10-01T10:00:00.000Z"
+      }
+    ],
+    "lint-tools@demo-market": [
+      {
+        "scope": "user",
+        "installPath": "~/.claude/plugins/cache/demo-market/lint-tools/1.0.0",
+        "version": "1.0.0",
+        "installedAt": "2026-09-10T08:00:00.000Z",
+        "lastUpdated": "2026-09-10T08:00:00.000Z"
+      }
+    ],
+    "release-notes@demo-market": [
+      {
+        "scope": "project",
+        "projectPath": "/home/demo/Projects/elsewhere",
+        "installPath": "~/.claude/plugins/cache/demo-market/release-notes/2.0.0",
+        "version": "2.0.0",
+        "installedAt": "2026-09-12T08:00:00.000Z",
+        "lastUpdated": "2026-09-12T08:00:00.000Z"
+      }
+    ],
+    "escaping@demo-market": [
+      {
+        "scope": "user",
+        "installPath": "~/.claude/agents",
+        "version": "0.0.1",
+        "installedAt": "2026-09-12T08:00:00.000Z",
+        "lastUpdated": "2026-09-12T08:00:00.000Z"
+      }
+    ]
+  }
+}

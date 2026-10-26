@@ -107,9 +107,11 @@ impl AuthorizedFolder {
     }
 }
 
+/// Starts a chat the user opened. A project the user trusted once in this run is trusted once
+/// again ([`TrustMemory`](harness_business::agent::TrustMemory)), routine runs never are.
 pub(crate) async fn start(
     state: &AppState,
-    request: AgentStartRequest,
+    mut request: AgentStartRequest,
     channel: Channel<AgentEnvelope>,
 ) -> CommandResult<AgentSessionInfo> {
     let agents = &state.agents;
@@ -118,7 +120,7 @@ pub(crate) async fn start(
         return Err(shutting_down().into());
     }
 
-    find(state, request.harness)?;
+    let harness = find(state, request.harness)?;
 
     // A resumed session of a global routine runs again in the routine's own folder.
     let folder = match &request.resume {
@@ -129,13 +131,19 @@ pub(crate) async fn start(
         None => AuthorizedFolder(authorized_project(state, request.project.clone()).await?),
     };
 
+    request.project.clone_from(&folder.0);
+    agents.trust().apply(harness, &mut request);
+
     let sink = Arc::new(ChannelSink::new(
         channel,
         request.harness,
         stop_when_closed(agents, &state.hooks),
     ));
 
-    start_with(state, request, sink, folder).await
+    let info = start_with(state, request, sink, folder).await?;
+    agents.trust().remember(harness, &info);
+
+    Ok(info)
 }
 
 /// Starts a session of `request.harness` in `folder` (the request's project is replaced) whose
@@ -267,6 +275,9 @@ fn stop_when_closed(agents: &Arc<Agents>, hooks: &Arc<HookRuntime>) -> OnClosed 
         }
     })
 }
+
+#[cfg(test)]
+mod trust_tests;
 
 #[cfg(test)]
 mod tests {

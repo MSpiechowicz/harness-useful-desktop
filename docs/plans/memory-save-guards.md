@@ -172,8 +172,9 @@ harness-memory MCP child was read from `/proc/<pid>/environ`.
 | OMP | installed `omp` | yes | MCP child started with the RPC session |
 | PI | installed `pi` | yes | MCP child started with the RPC session |
 | OpenCode | 1.19.3 | yes | MCP children start lazily (first `/mcp` or session use). Two servers at once each had their own child and value |
+| Codex | 0.154.0 | only when named | Codex starts stdio MCP servers with a cleared environment plus the server's `env_vars`/`env`. After the handshake a chat with a memory identity asks Codex for the project's effective servers (`config/read{cwd}`: every layer Codex loads there, trust, profiles and managed settings included) and sends `"mcp_servers.<name>.env_vars": [<its own…>, "HARNESS_MEMORY_SESSION"]` in the `config` of every `thread/start`, `thread/resume` and `thread/fork` for each enabled harness-memory stdio server it listed (read again before each new, resumed or forked thread). Real CLI: the server started for that thread sees the variable. Nothing goes on the command line (so `codex.cmd` works too) and nothing is written to `config.toml`. A server Codex did not list is never named (Codex fails such a thread with `invalid transport`). A server with a dotted name or a non-list `env_vars` gets nothing: the chat then reports `memoryGuards: false`, hides the Memory button and shows a notice. Plan `codex.md` decision 11 |
 
-All three keep `memoryChatGuards: true`. Not tested: OpenCode 2.x, macOS, Windows.
+All four keep `memoryChatGuards: true`. Per chat, `AgentSessionInfo.memoryGuards` says whether the key reached Harness Memory (false for a chat without one, and for a Codex chat whose servers could not be told), and the Memory button shows only then. Not tested: OpenCode 2.x, macOS, Windows.
 
 ## Review round 1 repairs (contract changes)
 

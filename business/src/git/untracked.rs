@@ -11,8 +11,9 @@ use std::io::Read;
 use std::path::Path;
 
 use super::diff_parse::{DiffBudget, empty_file};
+use super::is_denied_in;
 use crate::model::{DiffLine, DiffLineKind, FileDiff, GitFileStatus, Hunk, MAX_UNTRACKED_FILE_BYTES};
-use crate::security::{SafeReader, canonical_within, is_denied};
+use crate::security::{SafeReader, canonical_within};
 
 /// Bytes inspected for a NUL byte.
 const BINARY_SNIFF_BYTES: usize = 8 * 1024;
@@ -31,7 +32,7 @@ pub fn untracked_diff(project: &Path, relative: &str, budget: &mut DiffBudget) -
         fs::read_link(&full)
             .ok()
             .map(|target| target.to_string_lossy().into_owned().into_bytes())
-    } else if is_denied(Path::new(relative)).is_some() || metadata.len() > MAX_UNTRACKED_FILE_BYTES {
+    } else if is_denied_in(project, relative) || metadata.len() > MAX_UNTRACKED_FILE_BYTES {
         None
     } else {
         read_contained(project, &full)
@@ -65,7 +66,7 @@ pub fn untracked_diff(project: &Path, relative: &str, budget: &mut DiffBudget) -
 /// The bytes of `full` when it resolves inside `project` and is readable.
 pub(super) fn read_contained(project: &Path, full: &Path) -> Option<Vec<u8>> {
     let canonical = canonical_within(project, full).ok()?;
-    let reader = SafeReader::open(&canonical).ok()?;
+    let reader = SafeReader::open_in_project(project, &canonical).ok()?;
 
     let mut content = Vec::new();
     reader

@@ -1,0 +1,8 @@
+// An Always ask chat's hook callbacks: its own callback answers `ask` (the recorded shape,
+// tools.jsonl lines 27 and 28), another callback id gets no opinion.
+{"include": "claude_init_ask_all.jsonl"}
+{"replay": "../claude/stream/tools.jsonl", "from": 27, "to": 27, "replace": {"askall": "harness_ask_all"}}
+{"expect": "control_response", "match": {"/response/request_id": "f3258419-e209-447e-97d2-05b1ef3830c9", "/response/response": {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "ask"}}}}
+{"emit": {"type": "control_request", "request_id": "0e7e0c11-0000-4000-8000-000000000001", "request": {"subtype": "hook_callback", "callback_id": "someone_else", "input": {"hook_event_name": "PreToolUse", "tool_name": "Read"}}}}
+{"expect": "control_response", "match": {"/response/request_id": "0e7e0c11-0000-4000-8000-000000000001", "/response/response": {}}}
+{"emit": {"type": "system", "subtype": "session_title_changed", "title": "Marker", "session_id": "0a433744-8ef1-4d3c-861b-8ff5bc0e302c"}}

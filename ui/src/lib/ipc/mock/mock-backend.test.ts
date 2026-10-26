@@ -9,6 +9,7 @@ import { samplePrefs } from '../../../../tests/helpers';
 import { fixtures } from './fixtures';
 import { sampleScripts } from './memory-scripts-fixtures';
 import type { ScriptLanguage } from '../bindings/ScriptLanguage';
+import { MEMORY_EMBEDDER_ARGS } from './mock-backend-embedder-args';
 import { MEMORY_NOTE_ARGS } from './mock-backend-note-args';
 import { memoryGuardArgs } from './mock-backend-guard-args';
 
@@ -18,6 +19,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   prefs_get: undefined,
   prefs_set: { prefs: samplePrefs() },
   memory_set_enabled: { enabled: false },
+  ...MEMORY_EMBEDDER_ARGS,
   memory_remote_get: undefined,
   memory_remote_set: { enabled: true, kind: 'postgres', url: 'postgres://memory:pw@db.ok.example.com/harness_memory', token: null, repositoryNotes: 'remote', globalNotes: 'local', scripts: 'remote', trustTeamScripts: false },
   memory_remote_test: { kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok' },
@@ -84,6 +86,8 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   setup_install_dashboard: { confirmed: true, onLog: () => {} },
   setup_install_memory: { confirmed: true, onLog: () => {} },
   setup_install_opencode_skills: { confirmed: true, onLog: () => {} },
+  setup_install_codex_skills: { confirmed: true, onLog: () => {} },
+  skills_migrate_names: undefined,
   setup_register_mcp: { harness: 'omp' },
   setup_register_memory: { harness: 'omp' },
   setup_register_desktop_mcp: { harness: 'omp' },

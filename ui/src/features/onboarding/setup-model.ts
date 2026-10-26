@@ -7,6 +7,7 @@ import type { McpRefusal } from '$lib/ipc/bindings/McpRefusal';
 import type { McpState } from '$lib/ipc/bindings/McpState';
 import type { SkillsUnavailableCode } from '$lib/ipc/bindings/SkillsUnavailableCode';
 import type { OpenCodeGeneration } from '$lib/ipc/harness-ids';
+import { harness as harnesses } from '$lib/stores/harness.svelte';
 
 /** What one item of the step is doing: `idle` until a run reaches it. */
 export type ItemPhase = 'idle' | 'running' | 'done' | 'failed' | 'skipped';
@@ -23,8 +24,21 @@ export type SetupKey = Companion | `skills:${HarnessId}` | `${McpKind}:${Harness
 /** The companion each MCP entry runs, which has to be installed before the entry can be added. The app's own entry runs the app itself, so it waits for nothing. */
 export const MCP_COMPANION: Record<McpKind, Companion | null> = { mcp: 'dashboard', memoryMcp: 'memory', desktopMcp: null };
 
-/** Everything the step runs an installer script for: the two companions, and the Harness Skills of OpenCode. */
-export type Installer = Companion | 'opencodeSkills';
+/** The Harness Skills' installer script, one run per harness it installs for. */
+export type SkillsInstaller = 'opencodeSkills' | 'codexSkills';
+
+/** Everything the step runs an installer script for: the two companions, and the Harness Skills of OpenCode and Codex. */
+export type Installer = Companion | SkillsInstaller;
+
+/** The installer script that gives each harness its skills, for the harnesses whose skills come from one (`skills.type` is `script`). */
+const SKILLS_INSTALLERS: Record<HarnessId, SkillsInstaller | null> = { omp: null, pi: null, claude: null, opencode: 'opencodeSkills', codex: 'codexSkills' };
+
+/** The harnesses the skills installer script runs for, in the order their output is listed. */
+export const SKILLS_INSTALLER_HARNESSES: HarnessId[] = ['opencode', 'codex'];
+
+export function skillsInstallerOf(harness: HarnessId): SkillsInstaller | null {
+  return SKILLS_INSTALLERS[harness];
+}
 
 /** One line of what the confirmation lists. */
 export interface PlannedCommand {
@@ -90,7 +104,7 @@ export function mcpTitle(kind: McpKind): string {
 const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory', desktopMcp: 'harness-desktop' };
 
 /**
- * The JSON a person adds to an MCP file when the app leaves it alone, one key per line so it never wraps mid-token.
+ * The entry a person adds to an MCP file when the app leaves it alone (a `[mcp_servers.<name>]` table for Codex, JSON for the rest), one key per line so it never wraps mid-token.
  * OpenCode 1 keeps its servers under "mcp" with `enabled`. OpenCode 2 keeps them under "mcp.servers" and has no `enabled`.
  * Either way the command is one list.
  */
@@ -122,6 +136,12 @@ export function mcpSnippet(kind: McpKind, harness?: HarnessId, generation: OpenC
 }`;
   }
 
+  if (harness === 'codex') {
+    return `[mcp_servers.${server}]
+command = "${server}"
+args = ["mcp"]`;
+  }
+
   return `{
   "mcpServers": {
     "${server}": {
@@ -132,8 +152,77 @@ export function mcpSnippet(kind: McpKind, harness?: HarnessId, generation: OpenC
 }`;
 }
 
+/**
+ * The `claude` line an action runs, exactly as `business/src/harnesses/claude/cli.rs` builds it: always with `--json`,
+ * and `--scope user` wherever the CLI takes one. An action Claude Code cannot run (a package) has no line.
+ */
+function claudeCommand(action: ExtensionAction): string | null {
+  switch (action.type) {
+    case 'pluginInstall':
+      return `claude plugin install ${action.target} --scope ${action.scope} --json`;
+    case 'pluginUninstall':
+      return `claude plugin uninstall ${action.name} --scope user --json`;
+    case 'pluginEnable':
+      return `claude plugin enable ${action.name} --scope user --json`;
+    case 'pluginDisable':
+      return `claude plugin disable ${action.name} --scope user --json`;
+    case 'pluginUpgrade':
+      return action.name ? `claude plugin update ${action.name} --scope user --json` : null;
+    case 'marketplaceAdd':
+      return `claude plugin marketplace add ${action.source} --scope user --json`;
+    case 'marketplaceRemove':
+      return `claude plugin marketplace remove ${action.name} --scope user --json`;
+    case 'marketplaceUpdate':
+      return action.name ? `claude plugin marketplace update ${action.name} --json` : 'claude plugin marketplace update';
+    default:
+      return null;
+  }
+}
+
+/**
+ * The `codex` line an action runs, exactly as `business/src/harnesses/codex/cli.rs` builds it: plugins by
+ * `name@marketplace` for the user, marketplaces upgraded rather than updated. An action Codex cannot run (switching or
+ * updating a plugin, a package) has no line.
+ */
+function codexCommand(action: ExtensionAction): string | null {
+  switch (action.type) {
+    case 'pluginInstall':
+      return `codex plugin add ${action.target}`;
+    case 'pluginUninstall':
+      return `codex plugin remove ${action.name}`;
+    case 'marketplaceAdd':
+      return `codex plugin marketplace add ${action.source}`;
+    case 'marketplaceRemove':
+      return `codex plugin marketplace remove ${action.name}`;
+    case 'marketplaceUpdate':
+      return action.name ? `codex plugin marketplace upgrade ${action.name}` : 'codex plugin marketplace upgrade';
+    default:
+      return null;
+  }
+}
+
+/** The line of a harness whose CLI the app words its own way, or null for one that takes the generic form. */
+function ownCommand(harness: HarnessId, action: ExtensionAction): string | null {
+  switch (harness) {
+    case 'claude':
+      return claudeCommand(action);
+    case 'codex':
+      return codexCommand(action);
+    case 'omp':
+    case 'pi':
+    case 'opencode':
+      return null;
+  }
+}
+
 /** The harness CLI line an action stands for, as shown in the confirmation. */
 export function commandOf(harness: HarnessId, action: ExtensionAction): string {
+  const own = ownCommand(harness, action);
+
+  if (own) {
+    return own;
+  }
+
   switch (action.type) {
     case 'pluginInstall':
       return `${harness} plugin install ${action.target} --scope ${action.scope}`;
@@ -160,11 +249,27 @@ const REFUSAL_KEYS: Record<McpRefusal, MessageKey> = {
   tooLarge: 'onboarding.setup.refused.tooLarge',
   unreadable: 'onboarding.setup.refused.unreadable',
   writeFailed: 'onboarding.setup.refused.writeFailed',
+  cliFailed: 'onboarding.setup.refused.cliFailed',
+  cliRemovedEntry: 'onboarding.setup.refused.cliRemovedEntry',
+  cliBatchShim: 'onboarding.setup.refused.cliBatchShim',
 };
 
-/** Why the app leaves an MCP file alone, in a sentence. */
-export function refusalText(reason: McpRefusal): string {
-  return t(REFUSAL_KEYS[reason]);
+/** Codex keeps its servers in a TOML file, so two refusals read differently for it. */
+const CODEX_REFUSAL_KEYS: Partial<Record<McpRefusal, MessageKey>> = {
+  unparsable: 'onboarding.setup.refused.unparsableToml',
+  serversNotAnObject: 'onboarding.setup.refused.serversNotATable',
+};
+
+/** True for a refusal of a file only the harness's CLI changes, where an entry to paste would be wrong advice. */
+export function isCliRefusal(reason: McpRefusal): boolean {
+  return reason === 'cliFailed' || reason === 'cliRemovedEntry' || reason === 'cliBatchShim';
+}
+
+/** Why the app leaves an MCP file of `harness` alone, in a sentence; a failed CLI run names that harness's `mcp` command, a batch shim the harness itself. */
+export function refusalText(reason: McpRefusal, harness: HarnessId): string {
+  const key = (harness === 'codex' ? CODEX_REFUSAL_KEYS[reason] : undefined) ?? REFUSAL_KEYS[reason];
+
+  return t(key, { command: `${harness} mcp`, harness: harnesses.get(harness)?.info.name ?? harness });
 }
 
 /** The chip of a running or finished item, or null while it shows the state read from the machine. */
@@ -196,8 +301,10 @@ export function skillsChip(setup: HarnessSetup, phase: ItemPhase, waiting: boole
       case 'installed':
         return { tone: 'success', label: t('onboarding.setup.chip.installed') };
       case 'install':
-      case 'script':
         return { tone: 'warning', label: t('onboarding.setup.chip.missing') };
+      case 'script':
+        // An install too old for the harness is updated by the same installer.
+        return { tone: 'warning', label: skills.outdatedFrom === null ? t('onboarding.setup.chip.missing') : t('onboarding.setup.chip.outdated') };
       case 'manual':
         return { tone: 'neutral', label: t('onboarding.setup.chip.manual') };
       case 'unavailable':

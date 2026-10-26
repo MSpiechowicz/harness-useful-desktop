@@ -138,6 +138,13 @@ impl ProcessIdentity {
     }
 }
 
+/// True unless no process runs under `pid` (see the module docs): a pid the OS cannot tell about,
+/// or one it gave to another program since, counts as running. For a pid another program
+/// recorded, where no [`ProcessIdentity`] is known.
+pub(crate) fn pid_may_be_running(pid: u32) -> bool {
+    !matches!(observe(pid), Observation::Gone)
+}
+
 /// A failed read about a process: gone when it does not exist, else unknown.
 #[cfg(any(target_os = "linux", test))]
 fn unreadable(error: &std::io::Error) -> Observation {

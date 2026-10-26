@@ -1,0 +1,4 @@
+// The handshake of a chat without the Always ask hook (Write mode, or no override): `initialize`
+// must carry nothing but its subtype, answered with the recorded reply (controls.jsonl line 5).
+{"expect": "control_request", "subtype": "initialize", "hold": true, "match": {"request": {"subtype": "initialize"}}}
+{"replay": "../claude/stream/controls.jsonl", "from": 5, "to": 5, "replace": {"req_1": "$initialize"}}

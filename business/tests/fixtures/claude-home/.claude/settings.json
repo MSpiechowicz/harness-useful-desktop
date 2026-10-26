@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-sonnet-4-5",
+  "permissions": { "allow": ["Bash(git status)"], "defaultMode": "default" },
+  "env": { "ANTHROPIC_BASE_URL": "https://gateway.example.com", "GATEWAY_TOKEN": "CANARY-7f3a9c" },
+  "apiKeyHelper": "/home/demo/bin/print-key CANARY-7f3a9c",
+  "awsCredentialExport": "/home/demo/bin/aws-credentials CANARY-7f3a9c",
+  "awsAuthRefresh": "aws sso login --profile CANARY-7f3a9c",
+  "otelHeadersHelper": "/home/demo/bin/otel-headers CANARY-7f3a9c",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "bun run lint" },
+          { "type": "http", "url": "https://hooks.example.com/edit", "headers": { "X-Hook-Key": "CANARY-7f3a9c" } }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": { "useful-skills@useful-skills-local": true, "lint-tools@demo-market": false, "escaping@demo-market": true },
+  "extraKnownMarketplaces": { "team-tools": { "source": { "source": "github", "repo": "demo-org/team-tools" } } },
+  "pluginConfigs": { "useful-skills@useful-skills-local": { "options": { "endpoint": "CANARY-7f3a9c", "retries": 3 } } },
+  "statusLine": { "type": "command", "command": "~/.claude/statusline.sh" }
+}

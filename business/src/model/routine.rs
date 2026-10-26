@@ -104,6 +104,11 @@ pub struct RoutineModel {
     pub provider: String,
     /// 1 to 200 characters.
     pub id: String,
+    /// The thinking level to set after the model (a level the harness lists for it), 1 to 200
+    /// characters; `None` keeps the model's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub thinking: Option<String>,
 }
 
 /// What a routine does.
@@ -121,7 +126,8 @@ pub enum RoutineAction {
         prompt: String,
         /// OMP and OpenCode only: the chat's approval mode; `None` keeps the harness's setting.
         approval_mode: Option<ApprovalMode>,
-        /// PI only: trust the project's local resources for this launch.
+        /// PI and Claude Code only: trust the project's local resources for this launch (a Claude
+        /// Code run in a folder it does not trust yet is refused without it).
         trust_once: bool,
         /// 1 to 240; `None` means 30. The run is stopped after that long.
         max_minutes: Option<u32>,
@@ -144,14 +150,16 @@ pub enum RoutineAction {
 
 impl RoutineAction {
     /// True for an agent action that runs tools without asking: OMP or OpenCode
-    /// `approvalMode: "yolo"`, or PI `trustOnce: true`.
+    /// `approvalMode: "yolo"`, Claude Code `approvalMode: "auto"` (its classifier approves what it
+    /// judges safe), or `trustOnce: true` (PI, Claude Code: the project's own resources and hooks
+    /// run unasked).
     pub fn runs_unattended(&self) -> bool {
         match self {
             Self::Agent {
                 approval_mode,
                 trust_once,
                 ..
-            } => *approval_mode == Some(ApprovalMode::Yolo) || *trust_once,
+            } => matches!(approval_mode, Some(ApprovalMode::Yolo | ApprovalMode::Auto)) || *trust_once,
             Self::Command { .. } | Self::Script { .. } => false,
         }
     }
@@ -236,7 +244,8 @@ pub struct RoutineView {
     pub approved: Option<Routine>,
     /// A local file or a team routine.
     pub origin: HookOrigin,
-    /// The agent action runs tools without asking (`approvalMode: "yolo"` or `trustOnce: true`).
+    /// The agent action runs tools without asking (`approvalMode: "yolo"` or `"auto"`, or
+    /// `trustOnce: true`).
     pub runs_unattended: bool,
     /// "Run now" may start it: valid and approved (a team routine: turned on here, trusted or
     /// approved, and its folder there).

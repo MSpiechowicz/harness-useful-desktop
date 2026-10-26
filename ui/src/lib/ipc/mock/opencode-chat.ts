@@ -38,11 +38,22 @@ export function capabilitiesOf(harness: HarnessId): Capabilities | undefined {
   return summary && withOpenCodeChat(summary).capabilities;
 }
 
-/** The session info of a new chat of `harness`: the recorded one, else (OpenCode) an OMP one with no configured approval mode. */
+/** What Codex reports with no settings of its own: it asks on request in a workspace-write sandbox, which is the app's Write mode. */
+const CODEX_DEFAULT_MODE: Pick<AgentSessionInfo, 'configuredApprovalMode' | 'nativeApprovalMode'> = {
+  configuredApprovalMode: 'write',
+  nativeApprovalMode: { name: 'on-request / workspace-write', unattended: false },
+};
+
+/** The session info of a new chat of `harness`: the recorded one, else (Codex) an OMP one with Codex's default mode, else (OpenCode) one with no configured approval mode. */
 export function baseSessionInfo(harness: HarnessId): AgentSessionInfo {
   const recorded = (fixtures.agent.sessionInfo as Partial<Record<HarnessId, AgentSessionInfo>>)[harness];
   if (recorded) {
     return structuredClone(recorded);
+  }
+
+  // A Codex project usually has no .codex layer of its own to trust, so the real app offers no trust button.
+  if (harness === 'codex') {
+    return { ...structuredClone(fixtures.agent.sessionInfo.omp), harness, ...CODEX_DEFAULT_MODE, protocolVersion: null, trustOffered: false };
   }
 
   // OpenCode keeps its approval rules in its own settings, which the app does not read.

@@ -1,0 +1,10 @@
+{
+ "basic": "c1262da3-a66b-42b5-a9ee-32bb98f2045d",
+ "tools": "0a433744-8ef1-4d3c-861b-8ff5bc0e302c",
+ "interrupt": "69ce10e5-90b0-4195-bc8c-e22d8d8141da",
+ "controls": "e3e8d4ad-b257-4fdb-83a3-973cd8a3af62",
+ "bash": "d5ef9b67-4fda-4682-aac2-8f9f5966c2d5",
+ "clone": "acf5e683-2293-45ef-a9ac-d3016775fdbc",
+ "fork_at": "44b8b4df-227b-4f61-98d1-c42cf465a870",
+ "queue2": "e52c9fea-232a-48d5-a135-a564fe56012e"
+}

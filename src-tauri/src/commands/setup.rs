@@ -1,16 +1,18 @@
 //! The "Recommended setup" onboarding step: what is set up (`setup_status`), the official
 //! installers of the dashboard (`setup_install_dashboard`), of the memory server
 //! (`setup_install_memory`) and of the Harness Skills for OpenCode
-//! (`setup_install_opencode_skills`), and the dashboard's and the memory server's MCP servers in a
+//! and Codex (`setup_install_opencode_skills`, `setup_install_codex_skills`), and the dashboard's and the memory server's MCP servers in a
 //! harness's user MCP file (`setup_register_mcp`, `setup_register_memory`).
 //!
 //! The webview sends no command line and no path: the installer is fixed per OS and the MCP file
 //! follows from the harness id (its user agent directory, the active OMP profile's when one is
-//! set, or OpenCode's global config file). The UI confirms each action with the user first.
+//! set, OpenCode's global config file, or Claude Code's user scope, changed through its CLI). The
+//! UI confirms each action with the user first.
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
-    Companion, mcp_target, register_dashboard_mcp, resolve_dashboard, run_installer, setup_status as status,
+    Companion, mcp_target, register_dashboard_mcp, register_dashboard_mcp_cli, resolve_dashboard, run_installer,
+    setup_status as status,
 };
 use harness_business::model::{DashboardInstallResult, HarnessId, InstallLogLine, McpState, RecommendedSetup};
 use harness_business::process::{ProcessSpawner, TokioSpawner};
@@ -22,6 +24,8 @@ use super::blocking;
 use super::harness::{ensure_detected, find, find_in, installed_binary, summaries};
 use crate::error::CommandResult;
 use crate::hooks::after_member_install;
+use crate::mcp_cli::CliContext;
+use crate::memory_embedder::reconcile;
 use crate::memory_setup::{after_install, register_in};
 use crate::state::AppState;
 
@@ -63,6 +67,7 @@ pub async fn setup_install_memory(
 
     if result.ok {
         after_install(&state).await;
+        reconcile(&state).await;
     }
 
     Ok(result)
@@ -83,6 +88,18 @@ pub async fn setup_install_opencode_skills(
     install(&state, &TokioSpawner, Companion::OpenCodeSkills, confirmed, &on_log).await
 }
 
+/// Runs the Harness Skills' Codex installer like [`setup_install_opencode_skills`] (its own lock).
+/// `ok` once their install record holds a version; Codex and its running chats load them after a
+/// restart.
+#[tauri::command]
+pub async fn setup_install_codex_skills(
+    state: State<'_, AppState>,
+    confirmed: bool,
+    on_log: Channel<InstallLogLine>,
+) -> CommandResult<DashboardInstallResult> {
+    install(&state, &TokioSpawner, Companion::CodexSkills, confirmed, &on_log).await
+}
+
 async fn install(
     state: &AppState,
     spawner: &dyn ProcessSpawner,
@@ -94,10 +111,28 @@ async fn install(
         return Err(BusinessError::InvalidInput("the user has not confirmed the install".to_owned()).into());
     }
 
+    // A closed channel only means the page went away; the install goes on.
+    install_streaming(state, spawner, companion, |line| {
+        on_log.send(line).ok();
+    })
+    .await
+}
+
+/// Runs the installer of `companion` under its lock (`invalidInput` while it is already running),
+/// handing each output line to `on_line`. The caller has the user's consent: the command's
+/// `confirmed`, or for the launch migration of the Harness Skills names the install that already
+/// exists.
+pub(crate) async fn install_streaming(
+    state: &AppState,
+    spawner: &dyn ProcessSpawner,
+    companion: Companion,
+    mut on_line: impl FnMut(InstallLogLine),
+) -> CommandResult<DashboardInstallResult> {
     let lock = match companion {
         Companion::Dashboard => &state.dashboard_install,
         Companion::Memory => &state.memory_install,
         Companion::OpenCodeSkills => &state.opencode_skills_install,
+        Companion::CodexSkills => &state.codex_skills_install,
     };
     let Ok(_installing) = lock.try_lock() else {
         return Err(BusinessError::InvalidInput(format!("{} is already being installed", companion.name())).into());
@@ -108,8 +143,7 @@ async fn install(
     let mut lines = 0_usize;
     let result = run_installer(&state.env, companion, spawner, |line| {
         lines += 1;
-        // A closed channel only means the page went away; the install goes on.
-        on_log.send(line).ok();
+        on_line(line);
     })
     .await?;
 
@@ -142,10 +176,11 @@ pub async fn setup_register_mcp(state: State<'_, AppState>, harness: HarnessId) 
 
 async fn register(state: &AppState, harness: HarnessId) -> CommandResult<McpState> {
     find(state, harness)?;
-    installed_binary(state, harness).await?;
+    let binary = installed_binary(state, harness).await?;
 
     let env = state.env.clone();
     let registry = state.registry.clone();
+    let context = CliContext::of(state);
 
     let registered = blocking(move || {
         if resolve_dashboard(&env).is_none() {
@@ -157,7 +192,10 @@ async fn register(state: &AppState, harness: HarnessId) -> CommandResult<McpStat
             return Err(BusinessError::Unsupported(format!("{harness:?} has no user MCP file")).into());
         };
 
-        Ok(register_dashboard_mcp(&env, &file))
+        match context.cli_for(harness, &file, Some(&binary)) {
+            Some(cli) => Ok(block_on(register_dashboard_mcp_cli(cli, &file))),
+            None => Ok(register_dashboard_mcp(&env, &file)),
+        }
     })
     .await?;
 

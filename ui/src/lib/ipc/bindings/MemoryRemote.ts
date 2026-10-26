@@ -108,6 +108,21 @@ scriptsTeamAndLocalSupported: boolean,
  */
 saveGuardsSupported: boolean, 
 /**
+ * True when the installed Harness Memory lists `embedder` in `harness-memory features`: it
+ * runs the local embedder behind vector search.
+ */
+embedderSupported: boolean, 
+/**
+ * True when the installed Harness Memory lists `settings` in `harness-memory features`: it
+ * has `settings get|set` (the English notes setting).
+ */
+settingsSupported: boolean, 
+/**
+ * True when the installed Harness Memory lists `notes-lang` in `harness-memory features`:
+ * notes carry a `lang` and `notes list` filters by it.
+ */
+notesLangSupported: boolean, 
+/**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */
 configPath: string, 

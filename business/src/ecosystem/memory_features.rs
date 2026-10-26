@@ -11,7 +11,11 @@
 //! - `scripts-push-json`: `scripts push --json`, with the options of `push --json`;
 //! - `save-guards`: the server applies the save guards of each chat, repository and place, holds
 //!   saves for review (`held list|save|skip`), and saves the user's own notes and scripts through
-//!   `notes save|update` and `scripts save`, which agents cannot reach through MCP.
+//!   `notes save|update` and `scripts save`, which agents cannot reach through MCP;
+//! - `embedder`: the local embedder (`embedder run|enable|disable|status|remove-model`) behind
+//!   vector search;
+//! - `settings`: `settings get|set --json` (the English notes setting);
+//! - `notes-lang`: `notes list --json` rows carry `lang` and `--lang` filters by it.
 //!
 //! An older server does not know the command and exits non-zero. [`MemoryFeatures::support`] asks
 //! once per binary through a [`LineProbe`] (cached per binary, an older server cached as one
@@ -42,6 +46,15 @@ const SCRIPTS_PUSH_JSON: &str = "scripts-push-json";
 /// The line for save guards, held saves and the user's own saves.
 const SAVE_GUARDS: &str = "save-guards";
 
+/// The line for the local embedder behind vector search.
+const EMBEDDER: &str = "embedder";
+
+/// The line for `settings get|set`.
+const SETTINGS: &str = "settings";
+
+/// The line for the `lang` of a note and the `--lang` filter.
+const NOTES_LANG: &str = "notes-lang";
+
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeaturesSupport {
@@ -61,6 +74,12 @@ pub enum FeaturesSupport {
         scripts_push_json: bool,
         /// `save-guards` is listed.
         save_guards: bool,
+        /// `embedder` is listed.
+        embedder: bool,
+        /// `settings` is listed.
+        settings: bool,
+        /// `notes-lang` is listed.
+        notes_lang: bool,
     },
     /// It predates `features` (or failed it): none of them.
     Unsupported,
@@ -104,6 +123,21 @@ impl FeaturesSupport {
     pub fn save_guards(self) -> bool {
         matches!(self, Self::Listed { save_guards: true, .. })
     }
+
+    /// Whether the server runs a local embedder for vector search: `embedder` is listed.
+    pub fn embedder(self) -> bool {
+        matches!(self, Self::Listed { embedder: true, .. })
+    }
+
+    /// Whether the server has `settings get|set`: `settings` is listed.
+    pub fn settings(self) -> bool {
+        matches!(self, Self::Listed { settings: true, .. })
+    }
+
+    /// Whether notes carry a `lang` and `notes list` filters by `--lang`: `notes-lang` is listed.
+    pub fn notes_lang(self) -> bool {
+        matches!(self, Self::Listed { notes_lang: true, .. })
+    }
 }
 
 /// The probe of the installed server's features. See the module docs.
@@ -137,6 +171,9 @@ impl MemoryFeatures {
                 scripts_hide: answer.lists(SCRIPTS_HIDE),
                 scripts_push_json: answer.lists(SCRIPTS_PUSH_JSON),
                 save_guards: answer.lists(SAVE_GUARDS),
+                embedder: answer.lists(EMBEDDER),
+                settings: answer.lists(SETTINGS),
+                notes_lang: answer.lists(NOTES_LANG),
             },
             LineAnswer::Unsupported => FeaturesSupport::Unsupported,
             LineAnswer::NotInstalled => FeaturesSupport::NotInstalled,

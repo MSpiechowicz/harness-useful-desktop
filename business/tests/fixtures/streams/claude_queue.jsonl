@@ -1,0 +1,13 @@
+// queue2.jsonl: while a Bash call runs, two follow-ups are queued and the second is withdrawn
+// (cancel_async_message); the first runs as its own turn after the result.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/queue2.jsonl", "from": 7, "to": 24, "replace": {"1ce282ed-e2e7-435b-a239-06cebea7fa1e": "$prompt"}}
+{"expect": "user", "as": "first", "match": {"priority": "later", "/message/content": "Follow-up one: what is 2+2?"}}
+{"expect": "user", "as": "second", "match": {"priority": "later"}}
+{"expect": "control_request", "subtype": "cancel_async_message", "as": "cancel", "hold": true}
+{"replay": "../claude/stream/queue2.jsonl", "from": 30, "to": 32, "replace": {"c1926d4d-68ba-4b89-bc92-3688f30d49a3": "$first", "482f1e5c-db56-4e62-8c67-aabc0f67df7e": "$second"}}
+{"respond": "cancel", "reply": {"cancelled": true}}
+{"replay": "../claude/stream/queue2.jsonl", "from": 34, "to": 36}
+{"replay": "../claude/stream/queue2.jsonl", "from": 39, "to": 50}
+{"replay": "../claude/stream/queue2.jsonl", "from": 52, "to": 74, "replace": {"1ce282ed-e2e7-435b-a239-06cebea7fa1e": "$prompt", "c1926d4d-68ba-4b89-bc92-3688f30d49a3": "$first"}}

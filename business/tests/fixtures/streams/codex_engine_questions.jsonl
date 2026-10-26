@@ -1,0 +1,17 @@
+// Crafted requests (Verified fact 12): the model's questions, an MCP server's form, a URL
+// elicitation (declined), a dynamic tool call and a token refresh (both refused).
+{"include": "codex_engine_open.jsonl"}
+{"expect": "turn/start", "reply": {"turn": {"id": "turn-questions", "items": [], "itemsView": "notLoaded", "status": "inProgress", "error": null, "startedAt": null, "completedAt": null, "durationMs": null}}}
+{"emit": {"method": "turn/started", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-questions", "items": [], "status": "inProgress", "error": null}}, "emittedAtMs": 1}}
+{"emit": {"id": 5, "method": "item/tool/requestUserInput", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-questions", "itemId": "call-ask", "isBlocking": true, "questions": [{"id": "colour", "header": "Colour", "question": "Which colour?", "isOther": true, "isSecret": false, "options": [{"label": "red", "description": "Warm"}, {"label": "blue", "description": "Cool"}]}, {"id": "name", "header": "Name", "question": "Your name?", "isOther": true, "isSecret": false, "options": null}]}}}
+{"expect": "answer", "match": {"/id": 5, "/result/answers/colour/answers": ["blue"], "/result/answers/name/answers": ["Ada"]}}
+{"emit": {"method": "serverRequest/resolved", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "requestId": 5}, "emittedAtMs": 1}}
+{"emit": {"id": 6, "method": "mcpServer/elicitation/request", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-questions", "serverName": "tracker", "mode": "form", "message": "Create the ticket?", "requestedSchema": {"type": "object", "properties": {"count": {"type": "integer", "title": "Count"}, "urgent": {"type": "boolean", "title": "Urgent"}}}}}}
+{"expect": "answer", "match": {"/id": 6, "/result/action": "accept", "/result/content": {"count": 3, "urgent": true}}}
+{"emit": {"id": 7, "method": "mcpServer/elicitation/request", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-questions", "serverName": "tracker", "mode": "url", "message": "Sign in", "url": "https://example.invalid/login"}}}
+{"expect": "answer", "match": {"/id": 7, "/result/action": "decline"}}
+{"emit": {"id": 8, "method": "item/tool/call", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turnId": "turn-questions", "callId": "dyn-1", "tool": "lookup", "arguments": {}}}}
+{"expect": "answer", "match": {"/id": 8, "/error/code": -32601}}
+{"emit": {"id": 9, "method": "account/chatgptAuthTokens/refresh", "params": {"reason": "unauthorized"}}}
+{"expect": "answer", "match": {"/id": 9, "/error/code": -32601}}
+{"emit": {"method": "turn/completed", "params": {"threadId": "01a164a0-4c41-7613-9735-20de2a8016a8", "turn": {"id": "turn-questions", "items": [], "status": "completed", "error": null}}, "emittedAtMs": 1}}

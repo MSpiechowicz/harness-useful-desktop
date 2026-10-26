@@ -1,0 +1,3 @@
+// A helper chat whose MCP servers Codex does not list: it cannot switch them off, so it does not start.
+{"include": "codex_engine_handshake.jsonl"}
+{"expect": "config/read", "error": "config/read is not supported"}

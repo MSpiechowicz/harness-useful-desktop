@@ -5,6 +5,7 @@
 
   import { provideToolContext } from '$lib/chat/tool-context';
   import Button from '$lib/components/Button.svelte';
+  import NoticeBanner from '$lib/components/NoticeBanner.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
@@ -61,6 +62,9 @@
   {:else if chat.items.length === 0}
     <p class="grid size-full place-items-center p-8 text-center text-base text-fg-3" role="status">{t('sessions.transcript.empty')}</p>
   {:else}
+    {#if detail.truncated}
+      <div class="notice-band border-b border-line py-3"><NoticeBanner notices={[{ level: 'info', message: t('sessions.transcript.truncated') }]} /></div>
+    {/if}
     <VirtualList items={chat.items} variable estimate={ESTIMATED_ROW_PX} overscan={10} label={t('sessions.transcript.label')} key={(item) => item.key} class="min-h-0 flex-1">
       {#snippet row(item, index)}
         {@const userId = onfork ? userMessageId(index) : null}

@@ -27,24 +27,42 @@ export function groupOf(key: string): GroupId {
   return Object.hasOwn(KEY_GROUPS, key) ? KEY_GROUPS[key] : 'other';
 }
 
-const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+const THINKING_LEVELS = ['off', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
 
-/** Filled bars of the thinking meter; levels below "low" show an empty meter. */
-const METER_BARS: Readonly<Record<string, number>> = { low: 1, medium: 2, high: 3, xhigh: 4 };
+/** Filled bars of the thinking meter; levels below "low" show an empty meter, and Claude Code's "max" fills it like "xhigh". */
+const METER_BARS: Readonly<Record<string, number>> = { low: 1, medium: 2, high: 3, xhigh: 4, max: 4 };
 
 export const METER_SIZE = 4;
 
+/** A Claude Code model ID or alias, as Harness Skills accepts them in Claude Code's `models.yml`. */
+const CLAUDE_MODEL = /^(inherit|opus|sonnet|haiku|fable|claude-[a-z0-9][a-z0-9.-]{0,80})$/;
+
+const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+
+/**
+ * A Codex model ID, as Harness Skills accepts it in Codex's `models.yml`: any ID of word characters and `. : / @ + -`. A
+ * `:suffix` that is not one of {@link CODEX_EFFORTS} is part of the ID.
+ */
+const CODEX_MODEL = /^[A-Za-z0-9](?:[A-Za-z0-9._:/@+-]{0,198}[A-Za-z0-9._@+-])?$/;
+
+const CODEX_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+
 export interface ModelRef {
-  provider: string;
+  /** The provider, or null for a Claude Code selector, which names none. */
+  provider: string | null;
   model: string;
-  /** The thinking level, or null when the reference names none. */
+  /** The thinking level (a Claude Code effort), or null when the reference names none. */
   level: string | null;
 }
 
-/** Parses `provider/model[:level]`; null when the text does not have that shape. */
+/** Parses `provider/model[:level]`, or without a slash a Claude Code or Codex selector `model[:effort]`; null when the text has none of these shapes. */
 export function parseModelRef(text: string): ModelRef | null {
+  if (!text.includes('/')) {
+    return parseClaudeSelector(text) ?? parseCodexSelector(text);
+  }
+
   const slash = text.indexOf('/');
-  if (slash <= 0 || /\s/.test(text)) {
+  if (slash === 0 || /\s/.test(text)) {
     return null;
   }
 
@@ -62,6 +80,43 @@ export function parseModelRef(text: string): ModelRef | null {
   return model === '' ? null : { provider, model, level };
 }
 
+/** `model[:effort]` with a Claude model ID or alias (`opus`, `claude-opus-5-5:high`, `inherit`); null for anything else. */
+function parseClaudeSelector(text: string): ModelRef | null {
+  const [model, effort, extra] = text.split(':');
+
+  if (extra !== undefined || !CLAUDE_MODEL.test(model)) {
+    return null;
+  }
+
+  if (effort !== undefined && !(CLAUDE_EFFORTS as readonly string[]).includes(effort)) {
+    return null;
+  }
+
+  return { provider: null, model, level: effort ?? null };
+}
+
+/**
+ * `model[:effort]` with a Codex model ID (`gpt-5.5:high`), `inherit` (the Codex setting) or `inherit:effort`; null for
+ * anything else. Claude's own models and efforts are read by {@link parseClaudeSelector} first, so a Claude alias with an
+ * effort Claude Code does not know (`opus:extreme`) stays unparsed rather than turning into a Codex model ID.
+ */
+function parseCodexSelector(text: string): ModelRef | null {
+  const colon = text.lastIndexOf(':');
+  const suffix = colon > 0 ? text.slice(colon + 1) : '';
+  const level = (CODEX_EFFORTS as readonly string[]).includes(suffix) ? suffix : null;
+  const model = level === null ? text : text.slice(0, colon);
+
+  if (model === 'inherit') {
+    return { provider: null, model, level };
+  }
+
+  if (!CODEX_MODEL.test(model) || CLAUDE_MODEL.test(model.split(':')[0])) {
+    return null;
+  }
+
+  return { provider: null, model, level };
+}
+
 /** How many of the four bars a thinking level fills. */
 export function meterBars(level: string): number {
   return METER_BARS[level] ?? 0;
@@ -74,9 +129,11 @@ export interface RoleRow {
   text: string;
 }
 
-/** The pieces a role row shows, which are what a search matches and highlights: the role, `provider/`, the model, the level. */
+/** The pieces a role row shows, which are what a search matches and highlights: the role, `provider/` (when named), the model, the level. */
 export function roleSegments(row: RoleRow): string[] {
-  return [row.role, `${row.ref.provider}/`, row.ref.model, ...(row.ref.level === null ? [] : [row.ref.level])];
+  const provider = row.ref.provider === null ? [] : [`${row.ref.provider}/`];
+
+  return [row.role, ...provider, row.ref.model, ...(row.ref.level === null ? [] : [row.ref.level])];
 }
 
 /** Whether the (already normalized) needle is inside one of the pieces the row shows. */

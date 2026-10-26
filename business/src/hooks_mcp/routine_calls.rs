@@ -78,6 +78,7 @@ enum ModeArg {
     AlwaysAsk,
     Write,
     Yolo,
+    Auto,
     Default,
 }
 
@@ -87,6 +88,7 @@ impl ModeArg {
             Self::AlwaysAsk => Some(ApprovalMode::AlwaysAsk),
             Self::Write => Some(ApprovalMode::Write),
             Self::Yolo => Some(ApprovalMode::Yolo),
+            Self::Auto => Some(ApprovalMode::Auto),
             Self::Default => None,
         }
     }
@@ -413,6 +415,7 @@ fn parse_model(model: &str) -> Result<Option<RoutineModel>, String> {
         Some((provider, id)) => Ok(Some(RoutineModel {
             provider: provider.to_owned(),
             id: id.to_owned(),
+            thinking: None,
         })),
         None => Err("model must be provider/id, e.g. anthropic/claude-sonnet-4-5".to_owned()),
     }

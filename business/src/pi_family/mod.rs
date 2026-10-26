@@ -28,7 +28,7 @@ pub mod ui_request;
 
 pub use config_files::{
     Document, SectionText, first_existing, optional_section, parse_text, read_document, read_json, section,
-    section_from, source, string_list, text_field,
+    section_from, section_with, source, string_list, text_field,
 };
 pub use frontmatter::{parse_frontmatter, read_frontmatter};
 pub use mcp_config::{ParsedServer, parse_servers};
@@ -38,5 +38,6 @@ pub use resources::{
     extension_name, list_dir, origin_label, package_manifest, themes_in_dir, themes_in_dir_budgeted, tilde,
 };
 pub use skills::{
-    SKILL_FILE, SkillRoot, dedupe_skills, load_skill, project_ancestors, scan_roots, scan_skills, scan_skills_budgeted,
+    SKILL_FILE, SkillRoot, dedupe_skills, load_skill, project_ancestors, scan_plugin_skills, scan_project_skills,
+    scan_roots, scan_skills, scan_skills_budgeted,
 };

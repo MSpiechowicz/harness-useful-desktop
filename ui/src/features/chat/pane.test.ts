@@ -99,6 +99,62 @@ describe('PI trust', () => {
   });
 });
 
+describe('Codex trust', () => {
+  const codex = (info: { trustedOnce: boolean; trustOffered: boolean }) => chatSession([], { harness: 'codex', configuredApprovalMode: 'write', ...info }).session;
+
+  it('offers to trust a project whose .codex folder Codex ignores, in Codex\'s words', async () => {
+    render(ChatControls, { session: codex({ trustedOnce: false, trustOffered: true }) });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Trust project once' }));
+
+    expect(await screen.findByText(/Codex ignores this project's \.codex\/ settings, hooks and rules until you trust it/)).toBeInTheDocument();
+    expect(screen.getByText(/The app asks again the next time Codex starts/)).toBeInTheDocument();
+    expect(screen.queryByText(/extensions, skills and prompt templates/)).toBeNull();
+    expect(screen.queryByText(/\bPI\b/)).toBeNull();
+  });
+
+  it('offers nothing when the project has no .codex layer to trust', () => {
+    render(ChatControls, { session: codex({ trustedOnce: false, trustOffered: false }) });
+
+    expect(screen.queryByRole('button', { name: 'Trust project once' })).toBeNull();
+  });
+
+  it('still shows that the chat trusted the project once', () => {
+    render(ChatControls, { session: codex({ trustedOnce: true, trustOffered: false }) });
+
+    expect(screen.getByText('Project trusted for this session')).toBeInTheDocument();
+  });
+
+  it('words the PI warning with PI\'s name', async () => {
+    harness.summaries = fixtures.harnesses;
+    render(ChatControls, { session: chatSession([], { harness: 'pi', configuredApprovalMode: null, trustedOnce: false }).session });
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Trust project once' }));
+
+    expect(await screen.findByText(/PI skips this project's extensions, skills and prompt templates/)).toBeInTheDocument();
+    expect(screen.getByText(/the next time PI starts/)).toBeInTheDocument();
+  });
+});
+
+describe('Claude Code trust', () => {
+  it('offers nothing to trust in a running chat, which only starts in a trusted folder', () => {
+    const { session } = chatSession([], { harness: 'claude', configuredApprovalMode: null, trustedOnce: false });
+    render(ChatControls, { session });
+
+    expect(screen.queryByRole('button', { name: 'Trust project once' })).toBeNull();
+    expect(screen.queryByText('Project trusted for this session')).toBeNull();
+  });
+
+  it('shows that the chat trusted the folder until the app quits, never in the words PI uses', () => {
+    const { session } = chatSession([], { harness: 'claude', configuredApprovalMode: null, trustedOnce: true });
+    render(ChatControls, { session });
+
+    expect(screen.getByText('Folder trusted until you quit the app')).toBeInTheDocument();
+    expect(screen.queryByText('Project trusted for this session')).toBeNull();
+    expect(screen.queryByText(/applies to this session only/)).toBeNull();
+  });
+});
+
 describe('header controls', () => {
   it('lists models grouped by provider and switches the model from the composer', async () => {
     const { session, of } = await startedSession();

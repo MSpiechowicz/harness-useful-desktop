@@ -1,9 +1,11 @@
 //! Scripted OMP/PI RPC peer for the agent-session integration tests, scripted MCP server for the
-//! MCP client tests, and scripted `opencode serve` for the OpenCode chat tests ([`opencode`], OpenCode
-//! 2: [`opencode2`]).
+//! MCP client tests, scripted `opencode serve` for the OpenCode chat tests ([`opencode`], OpenCode
+//! 2: [`opencode2`]), scripted `claude` in stream-json mode for the Claude Code chat tests
+//! ([`claude`], its own step format) and scripted `codex app-server` for the Codex chat tests
+//! ([`codex`], its own step format; both replay recordings with [`recorded`]).
 //!
-//! `fake_agent --dialect omp|pi|mcp|opencode|opencode2 --scenario <file.jsonl>` plays a scenario: one JSON step per
-//! line (blank lines and `//` comments are skipped). With `--dialect omp` the OMP `ready` frame is
+//! `fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude|codex --scenario <file.jsonl>` plays a
+//! scenario: one JSON step per line (blank lines and `//` comments are skipped). With `--dialect omp` the OMP `ready` frame is
 //! sent first. With `--dialect mcp` messages are JSON-RPC 2.0: an `expect` names a `method`
 //! instead of a `type`, and replies are `{"jsonrpc":"2.0","id":…, ...reply}` (so `reply` holds
 //! `result` or `error`). Steps:
@@ -35,7 +37,7 @@
 //! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0. `harness-memory trust
 //! <id>=<sha256>… [--project <path>]` approves the stand-in's scripts, see [`memory::trust`].
 //! `harness-memory notes list|get|delete` and `harness-memory scripts list` answer from fixtures,
-//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`].
+//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`]; `harness-memory embedder …` and `settings …`, see [`memory_embedder`].
 //! `harness-memory hooks|routines config|list|put|delete` answer from files
 //! next to the copy, see [`memory_hooks`].
 
@@ -47,10 +49,16 @@ use std::time::Duration;
 
 use serde_json::{Map, Value, json};
 
+#[path = "fake_agent/claude.rs"]
+mod claude;
+#[path = "fake_agent/codex.rs"]
+mod codex;
 #[path = "fake_agent/memory.rs"]
 mod memory;
 #[path = "fake_agent/memory_cli.rs"]
 mod memory_cli;
+#[path = "fake_agent/memory_embedder.rs"]
+mod memory_embedder;
 #[path = "fake_agent/memory_hooks.rs"]
 mod memory_hooks;
 #[path = "fake_agent/memory_notes.rs"]
@@ -73,6 +81,8 @@ mod opencode2_http;
 mod opencode_config;
 #[path = "fake_agent/opencode_http.rs"]
 mod opencode_http;
+#[path = "fake_agent/recorded.rs"]
+mod recorded;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -100,6 +110,8 @@ fn main() {
                 memory_cli::scripts(&args[2..])
             }
             Some("features") => memory_push::features(),
+            Some("embedder") if memory_push::lists("embedder") => memory_embedder::embedder(&args[2..]),
+            Some("settings") if memory_push::lists("settings") => memory_embedder::settings(&args[2..]),
             Some("push") => memory_push::push(&args[2..]),
             Some(plural @ ("hooks" | "routines")) => memory_hooks::docs(plural, &args[2..]),
             _ => {}
@@ -121,11 +133,11 @@ fn main() {
     let (Some(dialect), Some(scenario)) = (option("--dialect"), option("--scenario")) else {
         fail(
             2,
-            "usage: fake_agent --dialect omp|pi|mcp|opencode|opencode2 --scenario <file.jsonl>",
+            "usage: fake_agent --dialect omp|pi|mcp|opencode|opencode2|claude|codex --scenario <file.jsonl>",
         );
     };
 
-    if !["omp", "pi", "mcp", "opencode", "opencode2"].contains(&dialect.as_str()) {
+    if !["omp", "pi", "mcp", "opencode", "opencode2", "claude", "codex"].contains(&dialect.as_str()) {
         fail(2, &format!("unknown dialect: {dialect}"));
     }
 
@@ -137,6 +149,14 @@ fn main() {
 
     if dialect == "opencode2" {
         opencode2::serve(&args, &steps, Path::new(&scenario));
+    }
+
+    if dialect == "claude" {
+        claude::serve(&steps, Path::new(&scenario));
+    }
+
+    if dialect == "codex" {
+        codex::serve(&steps, Path::new(&scenario));
     }
 
     let mut agent = Agent {
@@ -293,14 +313,8 @@ impl Agent {
             let id = self.ids.get(name).cloned().unwrap_or(Value::Null);
             let command = field("command").and_then(Value::as_str).unwrap_or(name);
             self.reply(id, command, field("reply"));
-        } else if let Some(code) = field("exit").and_then(Value::as_i64) {
-            std::process::exit(i32::try_from(code).unwrap_or(1));
-        } else if field("hang").is_some() {
-            loop {
-                std::thread::sleep(Duration::from_secs(60));
-            }
         } else {
-            fail(2, &format!("unknown step: {step}"));
+            run_end_step(step);
         }
     }
 
@@ -322,21 +336,7 @@ impl Agent {
         let name = step.get("as").and_then(Value::as_str).unwrap_or(kind).to_owned();
         let id = frame.get("id").cloned().unwrap_or(Value::Null);
 
-        if let Some(Value::Object(expected)) = step.get("match") {
-            for (key, value) in expected {
-                // A key starting with `/` is a JSON pointer into the frame.
-                let actual = if key.starts_with('/') {
-                    frame.pointer(key)
-                } else {
-                    frame.get(key)
-                };
-
-                if actual != Some(value) {
-                    fail(4, &format!("{kind}.{key} was {actual:?}, expected {value}"));
-                }
-            }
-        }
-
+        check_match(kind, &frame, step);
         self.ids.insert(name, id.clone());
 
         let hold = step.get("hold").and_then(Value::as_bool).unwrap_or(false);
@@ -395,6 +395,43 @@ impl Agent {
     }
 }
 
+/// Runs an `exit` or `hang` step, which never returns; any other step is unknown (exit 2).
+fn run_end_step(step: &Value) -> ! {
+    if let Some(code) = step.get("exit").and_then(Value::as_i64) {
+        std::process::exit(i32::try_from(code).unwrap_or(1));
+    }
+
+    if step.get("hang").is_some() {
+        loop {
+            std::thread::sleep(Duration::from_secs(60));
+        }
+    }
+
+    fail(2, &format!("unknown step: {step}"));
+}
+
+/// Exits 4 unless `frame` (of `kind`) carries every field of the step's `match`: keys starting with
+/// `/` are JSON pointers into the frame. A `null` field matches a field that is null or absent.
+fn check_match(kind: &str, frame: &Value, step: &Value) {
+    let Some(Value::Object(expected)) = step.get("match") else {
+        return;
+    };
+
+    for (key, value) in expected {
+        let actual = if key.starts_with('/') {
+            frame.pointer(key)
+        } else {
+            frame.get(key)
+        };
+
+        let absent = value.is_null() && actual.is_none_or(Value::is_null);
+
+        if !absent && actual != Some(value) {
+            fail(4, &format!("{kind}.{key} was {actual:?}, expected {value}"));
+        }
+    }
+}
+
 /// Runs a `sleep`, `stderr` or `stderrRepeat` step (the same in every dialect); false for any
 /// other step.
 fn run_output_step(step: &Value) -> bool {
@@ -420,9 +457,15 @@ fn run_output_step(step: &Value) -> bool {
 }
 
 /// Replaces every string `"$name"` in `value` for which `lookup(name)` has a value.
+/// The longest `"$pad:<bytes>"` string (a frame over the app's 4 MiB limit).
+const MAX_PAD_BYTES: usize = 8 * 1024 * 1024;
+
 fn substitute(value: &Value, lookup: &dyn Fn(&str) -> Option<Value>) -> Value {
     match value {
-        Value::String(text) => text.strip_prefix('$').and_then(lookup).unwrap_or_else(|| value.clone()),
+        Value::String(text) => match text.strip_prefix("$pad:").and_then(|bytes| bytes.parse::<usize>().ok()) {
+            Some(bytes) => Value::String("x".repeat(bytes.min(MAX_PAD_BYTES))),
+            None => text.strip_prefix('$').and_then(lookup).unwrap_or_else(|| value.clone()),
+        },
         Value::Array(items) => Value::Array(items.iter().map(|item| substitute(item, lookup)).collect()),
         Value::Object(map) => Value::Object(
             map.iter()

@@ -10,7 +10,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Take};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Take};
 use std::path::Path;
 
 use serde_json::Value;
@@ -99,6 +99,24 @@ impl Iterator for Lines {
 
         None
     }
+}
+
+/// The whole lines in the last `max_bytes` of the file at `path` (read through [`SafeReader`]):
+/// the first line is dropped as cut unless the tail starts the file. `None` when unreadable.
+pub fn tail_bytes(path: &Path, max_bytes: u64) -> Option<Vec<u8>> {
+    let mut file = SafeReader::open(path).ok()?;
+    let length = file.metadata().ok()?.len();
+    file.seek(SeekFrom::Start(length.saturating_sub(max_bytes))).ok()?;
+
+    let mut bytes = Vec::new();
+    file.take(max_bytes).read_to_end(&mut bytes).ok()?;
+
+    if length > max_bytes {
+        let start = bytes.iter().position(|byte| *byte == b'\n')? + 1;
+        bytes.drain(..start);
+    }
+
+    Some(bytes)
 }
 
 /// One logical session entry with its parent resolved past hidden entries.

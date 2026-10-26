@@ -10,6 +10,7 @@
     dashboard: 'onboarding.setup.confirm.effects.dashboard',
     memory: 'onboarding.setup.confirm.effects.memory',
     opencodeSkills: 'onboarding.setup.confirm.effects.skills',
+    codexSkills: 'onboarding.setup.confirm.effects.codexSkills',
   };
 
   interface Props {

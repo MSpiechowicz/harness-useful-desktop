@@ -99,5 +99,8 @@ fn a_failed_prompt_stops_the_agent_a_window_shows() {
 
     assert_eq!(run.record.status, RunStatus::Failed);
     assert_eq!(run.record.message.as_deref(), Some(AGENT_FAILED));
+    // The harness's own error text says why (here a provider's rate limit).
+    let error = run.record.error_excerpt.as_deref().unwrap_or_default();
+    assert!(error.contains("429 Too Many Requests"), "{error:?}");
     wait_until("the agent to stop", || fixture.chats().is_empty());
 }

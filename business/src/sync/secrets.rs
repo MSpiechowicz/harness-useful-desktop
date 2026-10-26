@@ -12,7 +12,7 @@
 use serde_json::Value;
 
 use super::validate::has_credentials;
-use crate::harnesses::omp::{GITHUB_REPO, is_word_like};
+use crate::harnesses::plugin_registry::{GITHUB_REPO, is_word_like};
 use crate::model::{ConfigValue, SecretKind};
 use crate::security::{RedactionContext, Redactor, redact_text};
 

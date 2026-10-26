@@ -1,0 +1,4 @@
+// The handshake of claude_init.jsonl, answered only after 2 s.
+{"expect": "control_request", "subtype": "initialize", "hold": true}
+{"sleep": 2000}
+{"replay": "../claude/stream/controls.jsonl", "from": 5, "to": 5, "replace": {"req_1": "$initialize"}}

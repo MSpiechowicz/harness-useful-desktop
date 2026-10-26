@@ -172,6 +172,81 @@ const OPENCODE_RULES: readonly Rule[] = [
   },
 ];
 
+// A flag followed by its value: `--flag=value`, `--flag value`, or two argv tokens (`"--flag", "value"`).
+function flagValue(flag: string, value: string): RegExp {
+  return new RegExp(String.raw`${flag}(?:=|\s+|${QUOTE}\s*,\s*${QUOTE})${value}\b`);
+}
+
+// The Claude Code chat engine: the stream-json wire, the session engine and the harness wiring (`--bare` is a
+// valid git flag elsewhere).
+const CLAUDE_ENGINE = [
+  'business/src/claude_stream/**',
+  'business/src/agent/claude/**',
+  'business/src/harnesses/claude/**',
+] as const;
+
+// The Claude Code flags and modes the app must never use (plan docs/plans/claude-code.md, "Terms" and
+// "Decisions"): approvals stay with the user and no login method may be stripped.
+const CLAUDE_RULES: readonly Rule[] = [
+  {
+    id: 'claude-bare',
+    reason: 'never pass --bare to Claude Code (it strips login methods, which its terms forbid)',
+    pattern: /["'`]--bare(?:["'`]|=)/,
+    extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'claude-bypass-mode',
+    reason: 'never start or switch Claude Code to the bypassPermissions mode; approvals stay with the user',
+    pattern: flagValue('--permission-mode', 'bypassPermissions'),
+    extensions: SOURCE,
+    optOut: false,
+  },
+  {
+    id: 'claude-permission-mode',
+    reason: 'the Claude Code engine starts Claude Code only in its default or auto mode; approvals stay with the user',
+    pattern: new RegExp(String.raw`--permission-mode(?:=|\s+|${QUOTE}\s*,\s*${QUOTE})(?!\s|(?:default|auto)\b)`),
+    extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'claude-permission-mode',
+    reason: 'the Claude Code engine never switches the permission mode over the control protocol',
+    pattern: /"set_permission_mode"/,
+    extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
+    optOut: false,
+  },
+  {
+    id: 'claude-no-prompts',
+    reason: 'never pass --permission-prompts none to Claude Code; permission prompts must reach the user',
+    pattern: flagValue('--permission-prompts', 'none'),
+    extensions: SOURCE,
+    optOut: false,
+  },
+  {
+    id: 'claude-prompt-tool',
+    reason: 'Claude Code permission prompts go only to the app (--permission-prompt-tool stdio), never to another tool',
+    // Over the whole file: the value may be the next argv token on its own line.
+    pattern: new RegExp(String.raw`--permission-prompt-tool(?:=|[ \t]+|${QUOTE}\s*,\s*${QUOTE})(?![ \t]|stdio\b)`, 'g'),
+    extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
+    scope: 'file',
+    optOut: false,
+  },
+  {
+    id: 'claude-settings-flags',
+    reason:
+      'never pass --settings, --setting-sources, --allowedTools or --add-dir to Claude Code; rules, folders and settings stay the user\'s',
+    pattern: /["'`]--(?:settings|setting-sources|allowedTools|allowed-tools|add-dir)(?:["'`]|=)/,
+    extensions: ['.rs'],
+    only: CLAUDE_ENGINE,
+    optOut: false,
+  },
+];
+
 const RULES: readonly Rule[] = [
   ...OPENCODE_RULES,
   {
@@ -197,11 +272,13 @@ const RULES: readonly Rule[] = [
   },
   {
     id: 'skip-permissions-flag',
-    reason: 'never pass --dangerously-skip-permissions to a harness; approvals stay with the user',
-    pattern: /--dangerously-skip-permissions/,
+    reason:
+      'never pass --dangerously-skip-permissions (or Claude Code\'s --allow-dangerously-skip-permissions) to a harness; approvals stay with the user',
+    pattern: /--(?:allow-)?dangerously-skip-permissions/,
     extensions: SOURCE,
     optOut: false,
   },
+  ...CLAUDE_RULES,
   {
     id: 'login-argv',
     reason: 'never run a harness login command ("auth" or "providers" followed by "login"); credentials are a non-goal',

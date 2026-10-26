@@ -1,0 +1,6 @@
+// Claude Code crashes mid-turn (basic.jsonl up to the first delta) with a line on stderr.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/basic.jsonl", "from": 9, "to": 14, "replace": {"c3ffc375-3f53-4214-acb4-665d7431545c": "$prompt"}}
+{"stderr": "fatal: the model stream broke"}
+{"exit": 3}

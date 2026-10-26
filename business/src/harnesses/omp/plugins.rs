@@ -10,7 +10,8 @@
 //!   `.omp/plugin-overrides.json` (`disabled`, `features`).
 //!
 //! `installPath` comes from a file, so a plugin directory is only read after it passes
-//! `canonical_within` the plugins directory (or the project's `.omp/plugins`).
+//! `canonical_within` the plugins directory (or the project's `.omp/plugins`). The registry format
+//! is shared with Claude Code ([`crate::harnesses::plugin_registry`]).
 
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -21,9 +22,9 @@ use serde_json::{Map, Value};
 use super::paths::plugins_dir;
 use crate::env::Env;
 use crate::harness::HarnessPaths;
+use crate::harnesses::plugin_registry::{Registered, install_path, read_registry, split_id, verified_dir};
 use crate::model::{ExtensionScope, Notice, NoticeLevel, PluginFeature, PluginInfo};
 use crate::pi_family::{Document, package_manifest, read_json, string_list, text_field};
-use crate::security::canonical_within;
 
 static PACKAGE_NAME: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(?:@[A-Za-z0-9][A-Za-z0-9._~-]*/)?[A-Za-z0-9][A-Za-z0-9._~-]*$").expect("static regex is valid")
@@ -131,21 +132,22 @@ struct Installs<'a> {
 
 impl Installs<'_> {
     fn collect(&self, registry: &Path, found: &mut InstalledPlugins) {
-        let document = read_json(registry);
+        let registered = match read_registry(registry) {
+            Ok(registered) => registered,
+            Err(summary) => {
+                found
+                    .notices
+                    .push(warning(format!("Installed plugins could not be read: {summary}")));
+                return;
+            }
+        };
 
-        if let Document::Invalid(summary) = &document {
-            found
-                .notices
-                .push(warning(format!("Installed plugins could not be read: {summary}")));
-            return;
-        }
-
-        for (id, entries) in object(document.get("plugins")) {
-            let Some(entry) = entries.as_array().and_then(|entries| entries.first()) else {
+        for plugin in registered {
+            let Some(entry) = plugin.installs.first() else {
                 continue;
             };
 
-            let install = self.plugin(&id, entry);
+            let install = self.plugin(&plugin.id, entry);
             if install.info.enabled
                 && let Some(root) = install.root
             {
@@ -158,13 +160,13 @@ impl Installs<'_> {
     }
 
     fn plugin(&self, id: &str, entry: &Value) -> Install {
-        let (id_name, marketplace) = match id.rsplit_once('@') {
-            Some((name, marketplace)) if !name.is_empty() => (name, Some(marketplace.to_owned())),
-            _ => (id, None),
-        };
+        let (id_name, marketplace) = split_id(id);
+        let marketplace = marketplace.map(str::to_owned);
 
-        let install_path = text_field(entry, "installPath").map(|raw| self.env.expand_home(&raw));
-        let verified = install_path.as_deref().and_then(|dir| self.verify(dir));
+        let install_path = install_path(self.env, entry);
+        let verified = install_path
+            .as_deref()
+            .and_then(|dir| verified_dir(self.allowed_roots, dir));
         let package = verified
             .as_deref()
             .and_then(|dir| read_json(&dir.join("package.json")).value().cloned());
@@ -200,14 +202,6 @@ impl Installs<'_> {
             package: package_name,
         }
     }
-
-    /// The canonical plugin directory when it lies inside an allowed root.
-    fn verify(&self, dir: &Path) -> Option<PathBuf> {
-        self.allowed_roots
-            .iter()
-            .find_map(|root| canonical_within(root, dir).ok())
-            .filter(|dir| dir.is_dir())
-    }
 }
 
 /// A user plugin as recorded on disk, for "Share setup" ([`crate::sync`]). Nothing is redacted:
@@ -237,12 +231,11 @@ pub(crate) enum PluginOrigin {
 /// files contribute nothing.
 pub(crate) fn user_plugin_records(paths: &HarnessPaths) -> Vec<PluginRecord> {
     let plugins_dir = plugins_dir(paths);
-    let registry = read_json(&plugins_dir.join("installed_plugins.json"));
+    let registered = read_registry(&plugins_dir.join("installed_plugins.json")).unwrap_or_default();
     let mut records = Vec::new();
 
-    for (id, entries) in object(registry.get("plugins")) {
-        let entries = entries.as_array().cloned().unwrap_or_default();
-        let user = entries.iter().find(|entry| {
+    for Registered { id, installs } in registered {
+        let user = installs.iter().find(|entry| {
             let scope = entry.get("scope").and_then(Value::as_str);
             entry.is_object() && scope.is_none_or(|scope| scope == "user")
         });

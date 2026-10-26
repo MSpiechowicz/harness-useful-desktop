@@ -9,6 +9,7 @@ use tauri::async_runtime::block_on;
 use super::blocking;
 use crate::error::CommandResult;
 use crate::hooks::seed_available;
+use crate::memory_embedder::reconcile;
 use crate::memory_setup::{register, unregister_all};
 use crate::state::AppState;
 
@@ -55,6 +56,9 @@ async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<MemorySwi
         seed_available(&state.hooks).await;
     }
 
+    // Vector search runs only while project memory is on.
+    reconcile(state).await;
+
     let env = state.env.clone();
     let runner = state.runner;
     let server = blocking(move || Ok(block_on(memory_server_setup(&env, &runner)))).await?;
@@ -87,6 +91,8 @@ mod tests {
         cache_detection(&state, HarnessId::Omp, Some(&dir.path().join("missing-omp")));
         cache_detection(&state, HarnessId::Pi, None);
         cache_detection(&state, HarnessId::OpenCode, None);
+        cache_detection(&state, HarnessId::Claude, None);
+        cache_detection(&state, HarnessId::Codex, None);
 
         state
     }
@@ -143,6 +149,8 @@ mod tests {
         cache_detection(&state, HarnessId::Omp, None);
         cache_detection(&state, HarnessId::Pi, None);
         cache_detection(&state, HarnessId::OpenCode, Some(&dir.path().join("missing-opencode")));
+        cache_detection(&state, HarnessId::Claude, None);
+        cache_detection(&state, HarnessId::Codex, None);
 
         let file = dir.path().join("home/.config/opencode/opencode.jsonc");
         std::fs::create_dir_all(file.parent().expect("config dir")).expect("config dir");

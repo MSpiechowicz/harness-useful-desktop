@@ -44,6 +44,9 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}) {
     teamAndLocalSupported: true,
     scriptsTeamAndLocalSupported: true,
     saveGuardsSupported: false,
+    embedderSupported: false,
+    settingsSupported: false,
+    notesLangSupported: false,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);
@@ -131,7 +134,7 @@ describe('The routines row of the remote database settings', () => {
     const trust = await screen.findByRole('switch', { name: TRUST });
 
     expect(trust).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText(/Routines from the remote database run without asking you first\. Anyone who can write to the remote database can then run code on this computer\./)).toBeInTheDocument();
+    expect(screen.getByText(/Routines from the remote database run without asking you first\. This also lets PI and Claude Code routines trust their folder once\. Anyone who can write to the remote database can then run code on this computer\./)).toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: TRUST_HOOKS })).not.toBeInTheDocument();
   });
 

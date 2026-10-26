@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use harness_business::agent::AgentManager;
+use harness_business::agent::{AgentManager, SessionOptions, TrustMemory};
 use harness_business::process::{ChildRegistry, ProcessSpawner, TokioSpawner, TrackedSpawner, sweep_orphans};
 use tauri::async_runtime::{self, JoinHandle};
 
@@ -21,6 +21,8 @@ use tauri::async_runtime::{self, JoinHandle};
 pub struct Agents {
     manager: AgentManager,
     spawner: Arc<dyn ProcessSpawner>,
+    /// The projects the user trusted once in this run (Claude Code), never saved.
+    trust: TrustMemory,
     /// Where the started children are recorded; `None` when they are not.
     children_dir: Option<PathBuf>,
     background: Mutex<Vec<JoinHandle<()>>>,
@@ -39,19 +41,24 @@ impl Agents {
     }
 
     /// Production sessions whose processes are recorded in `children_dir` (when given and the
-    /// system supports it), so a later launch can stop what a crash left behind.
-    pub fn tracked(children_dir: Option<PathBuf>) -> Self {
+    /// system supports it), so a later launch can stop what a crash left behind. Chats that hand
+    /// images to the agent as files (Codex) save them in `attachments_dir`.
+    pub fn tracked(children_dir: Option<PathBuf>, attachments_dir: PathBuf) -> Self {
+        let manager = AgentManager::with_options(SessionOptions {
+            attachments_dir: Some(attachments_dir),
+            ..SessionOptions::default()
+        });
         let registry = children_dir.as_ref().and_then(ChildRegistry::open);
 
         let Some(registry) = registry else {
-            return Self::new();
+            return Self::with(manager, Arc::new(TokioSpawner));
         };
 
         let spawner = Arc::new(TrackedSpawner::new(Arc::new(TokioSpawner), registry));
 
         Self {
             children_dir,
-            ..Self::with(AgentManager::new(), spawner)
+            ..Self::with(manager, spawner)
         }
     }
 
@@ -60,6 +67,7 @@ impl Agents {
         Self {
             manager,
             spawner,
+            trust: TrustMemory::new(),
             children_dir: None,
             background: Mutex::new(Vec::new()),
             phase: AtomicU8::new(RUNNING),
@@ -69,6 +77,11 @@ impl Agents {
     /// The running sessions.
     pub fn manager(&self) -> &AgentManager {
         &self.manager
+    }
+
+    /// The projects the user trusted once in this run.
+    pub fn trust(&self) -> &TrustMemory {
+        &self.trust
     }
 
     /// Starts agent processes.

@@ -206,3 +206,75 @@ describe('rules that already cover OpenCode files', () => {
     expectViolation(HARNESS, `let args = vec![${['"account"'].join(', ')}];\n`, 'private-store-argv');
   });
 });
+
+describe('Claude Code permission-mode rules', () => {
+  const CLAUDE_LAUNCH = 'business/src/harnesses/claude/sample.rs';
+  const CLAUDE_SESSION = 'business/src/agent/claude/sample.rs';
+  const flag = ['--permission', 'mode'].join('-');
+
+  test.each(['bypassPermissions', 'dontAsk', 'acceptEdits', 'plan', 'manual', 'autoEdits'])(
+    'starting in the %s mode is forbidden in the engine',
+    (mode) => {
+      expectViolation(CLAUDE_LAUNCH, argv(flag, mode), 'claude-permission-mode');
+      expectViolation(CLAUDE_SESSION, `let arg = "${flag}=${mode}";\n`, 'claude-permission-mode');
+      expectViolation(CLAUDE_SESSION, `//! runs \`${flag}  ${mode}\`\n`, 'claude-permission-mode');
+    },
+  );
+
+  test('switching the mode over the control protocol is forbidden in the engine', () => {
+    const subtype = ['set', 'permission', 'mode'].join('_');
+
+    expectViolation('business/src/claude_stream/sample.rs', `fn s() -> &'static str { "${subtype}" }\n`, 'claude-permission-mode');
+  });
+
+  test.each(['default', 'auto'])('the %s mode passes', (mode) => {
+    const allowed = [
+      argv(flag, mode),
+      `let arg = "${flag}=${mode}";\n`,
+      `fn a() -> Vec<String> { flag_with("${flag}", WIRE_DEFAULT) }\n`,
+      `//! starts in \`${flag} ${mode}\`\n`,
+    ].join('');
+
+    expectClean(CLAUDE_LAUNCH, allowed);
+    expectClean(CLAUDE_SESSION, allowed);
+  });
+
+  test('the rules stay out of the rest of the code', () => {
+    expectClean('business/src/other/sample.rs', argv(flag, 'plan'));
+  });
+});
+
+describe('Claude Code settings and prompt-tool rules', () => {
+  const CLAUDE_LAUNCH = 'business/src/harnesses/claude/sample.rs';
+  const CLAUDE_SESSION = 'business/src/agent/claude/sample.rs';
+  const flag = (...parts: string[]) => ['-', '-', parts.join('-')].join('');
+  const promptTool = flag('permission', 'prompt', 'tool');
+
+  test.each([flag('settings'), flag('setting', 'sources'), flag('allowedTools'), flag('allowed', 'tools'), flag('add', 'dir')])(
+    '%s is forbidden in the engine',
+    (name) => {
+      expectViolation(CLAUDE_LAUNCH, argv(name, '/tmp'), 'claude-settings-flags');
+      expectViolation(CLAUDE_SESSION, `let arg = format!("${name}={value}");\n`, 'claude-settings-flags');
+    },
+  );
+
+  test('a prompt tool other than stdio is forbidden in the engine', () => {
+    expectViolation(CLAUDE_LAUNCH, argv(promptTool, 'mcp__approve__ask'), 'claude-prompt-tool');
+    expectViolation(CLAUDE_LAUNCH, `const ARGS: [&str; 2] = [\n    "${promptTool}",\n    "mcp__x",\n];\n`, 'claude-prompt-tool');
+    expectViolation(CLAUDE_SESSION, `let arg = "${promptTool}=mcp__x";\n`, 'claude-prompt-tool');
+  });
+
+  test('stdio as the prompt tool passes', () => {
+    const allowed = [
+      `const ARGS: [&str; 2] = [\n    "${promptTool}",\n    "stdio",\n];\n`,
+      `let arg = "${promptTool}=stdio";\n`,
+      `//! prompts arrive as control requests (\`${promptTool} stdio\`)\n`,
+    ].join('');
+
+    expectClean(CLAUDE_LAUNCH, allowed);
+  });
+
+  test('the rules stay out of the rest of the code', () => {
+    expectClean('business/src/other/sample.rs', argv(flag('add', 'dir'), '/tmp'));
+  });
+});

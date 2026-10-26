@@ -8,8 +8,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::app_dirs::{child_processes_dir, local_data_dir};
 use harness_business::ecosystem::{
-    ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, MemoryFeatures, MemoryKinds, MemoryScripts,
-    NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport,
+    ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor, MemoryFeatures, MemoryKinds,
+    MemoryScripts, NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -27,6 +27,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::agents::Agents;
 use crate::drops::DropSink;
 use crate::hooks::HookRuntime;
+use crate::memory_embedder::EmbedderWatch;
 use crate::memory_held::HeldWatcher;
 use crate::memory_requests::ScriptRequests;
 use crate::routines::RoutineRuntime;
@@ -62,6 +63,11 @@ pub struct AppState {
     /// What else the installed Harness Memory can do (`harness-memory features`, probed once per
     /// binary).
     pub memory_features: MemoryFeatures,
+    /// The embedder behind vector search (`harness-memory embedder run`), kept running while project
+    /// memory and vector search are on.
+    pub memory_embedder: Arc<EmbedderSupervisor>,
+    /// The page told when the embedder's state changes.
+    pub embedder_watch: EmbedderWatch,
     /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
     pub script_requests: Arc<ScriptRequests>,
     /// The page told when the saves Harness Memory holds for review change.
@@ -83,6 +89,8 @@ pub struct AppState {
     pub memory_install: async_runtime::Mutex<()>,
     /// Held while the Harness Skills' OpenCode installer runs, so only one runs at a time.
     pub opencode_skills_install: async_runtime::Mutex<()>,
+    /// Held while the Harness Skills' Codex installer runs, so only one runs at a time.
+    pub codex_skills_install: async_runtime::Mutex<()>,
     /// The latest "Share setup" import review, kept until it is applied or replaced by a newer one.
     pub sync_plan: Mutex<Option<StoredPlan>>,
     /// Held while a "Share setup" import is applied, so only one runs at a time.
@@ -114,11 +122,13 @@ impl AppState {
     pub fn from_app<R: Runtime>(app: &AppHandle<R>) -> Result<Self, Box<dyn Error>> {
         let config_dir = app.path().app_config_dir()?;
         let env = Env::from_process()?;
-        let agents = Agents::tracked(child_processes_dir(&env));
+        let attachments_dir = app.path().app_cache_dir()?.join("attachments");
+        let agents = Agents::tracked(child_processes_dir(&env), attachments_dir.clone());
 
         Ok(Self {
             updates: Updates::from_config(app.config()),
-            attachments_dir: app.path().app_cache_dir()?.join("attachments"),
+            attachments_dir,
+            memory_embedder: Arc::new(EmbedderSupervisor::new(agents.spawner())),
             agents: Arc::new(agents),
             ..Self::new(config_dir, env)
         })
@@ -151,6 +161,8 @@ impl AppState {
             memory_scripts,
             memory_kinds: MemoryKinds::new(),
             memory_features: MemoryFeatures::new(),
+            memory_embedder: Arc::new(EmbedderSupervisor::new(Arc::new(TokioSpawner))),
+            embedder_watch: EmbedderWatch::default(),
             script_requests: Arc::new(ScriptRequests::default()),
             memory_held: Arc::new(HeldWatcher::default()),
             memory_chat_writes: Arc::new(ChatGuardWrites::default()),
@@ -161,6 +173,7 @@ impl AppState {
             dashboard_install: async_runtime::Mutex::new(()),
             memory_install: async_runtime::Mutex::new(()),
             opencode_skills_install: async_runtime::Mutex::new(()),
+            codex_skills_install: async_runtime::Mutex::new(()),
             sync_plan: Mutex::new(None),
             sync_apply: async_runtime::Mutex::new(()),
             notes_import: Mutex::new(None),
