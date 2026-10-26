@@ -205,3 +205,13 @@ describe('UserMessage with text added by hooks', () => {
     expect(screen.getByRole('article')).toHaveTextContent('What does');
   });
 });
+
+describe('UserMessage with fenced code', () => {
+  it('shows a fenced block as code, without the fence lines', () => {
+    const { container } = render(UserMessage, { item: userItem('Why?\n\n```jsx\n  <div className="a">\n```\n\nThanks') });
+
+    expect(screen.getByText('Why?')).toBeInTheDocument();
+    expect(container.textContent).toContain('<div className="a">');
+    expect(container.textContent).not.toContain('```');
+  });
+});

@@ -7,6 +7,9 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageItem } from '$lib/chat/types';
 
+  import CodeBlock from '$lib/components/CodeBlock.svelte';
+  import { splitFences } from '$lib/chat/fences';
+
   import HookCard from './HookCard.svelte';
   import RecallCard from './RecallCard.svelte';
 
@@ -25,6 +28,7 @@
   const message = $derived(splitFileNote(hooks.text));
   const text = $derived(message.text);
   const imageTypes = $derived(item.blocks.flatMap((block) => (block.type === 'image' ? [block.mimeType] : [])));
+  const parts = $derived(splitFences(text));
 </script>
 
 <div class="flex flex-col gap-3">
@@ -40,7 +44,7 @@
   <!-- A message a hook sent is only its card: there are no words of the user's to show. -->
   {#if hooks.followUp.length === 0}
     <div class="flex justify-end">
-      <article aria-label={t('chat.user.label')} class="border-card chat-radius flex max-w-[85%] flex-col gap-2 border-accent/30 bg-accent-wash bg-clip-padding px-4 py-2.5 text-base break-words whitespace-pre-wrap text-fg">
+      <article aria-label={t('chat.user.label')} class="border-card chat-radius flex max-w-[85%] flex-col gap-2 border-accent/30 bg-accent-wash bg-clip-padding px-4 py-2.5 text-base break-words text-fg">
         {#if images && images.length > 0}
           <ul class="flex flex-wrap gap-2" aria-label={t('chat.user.images')}>
             {#each images as url, index (index)}
@@ -65,7 +69,13 @@
             {/each}
           </ul>
         {/if}
-        {#if text !== ''}{text}{/if}
+        {#each parts as part, index (index)}
+          {#if part.type === 'code'}
+            <CodeBlock code={part.code} lang={part.lang} />
+          {:else}
+            <div class="whitespace-pre-wrap">{part.text}</div>
+          {/if}
+        {/each}
       </article>
     </div>
   {/if}
