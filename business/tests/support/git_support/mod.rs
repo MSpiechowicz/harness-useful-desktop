@@ -27,11 +27,16 @@ pub struct GitHome {
     pub runner: TokioRunner,
 }
 
-/// A fresh home with an empty global git configuration.
+/// The global configuration of every test home. Git for Windows sets `core.autocrlf=true` in its system
+/// configuration, so files that stash, rebase or checkout write back would get CRLF endings (and look modified to a
+/// later switch). The global setting overrides it, so the tests see the bytes they wrote on every OS.
+pub const BASE_CONFIG: &str = "[core]\n\tautocrlf = false\n";
+
+/// A fresh home with a global git configuration that only keeps line endings as written.
 pub fn git_home() -> GitHome {
     let dir = tempfile::tempdir().expect("temp home");
     let home = dunce::canonicalize(dir.path()).expect("canonical home");
-    fs::write(home.join(".gitconfig"), "").expect("empty global config");
+    fs::write(home.join(".gitconfig"), BASE_CONFIG).expect("base global config");
 
     let path = std::env::var("PATH").unwrap_or_default();
     let env = Env::for_tests(&home).with_var("PATH", path);
@@ -125,7 +130,7 @@ impl GitHome {
     pub fn with_identity(self) -> Self {
         fs::write(
             self.home.join(".gitconfig"),
-            "[user]\n\tname = Demo User\n\temail = demo@example.com\n",
+            format!("{BASE_CONFIG}[user]\n\tname = Demo User\n\temail = demo@example.com\n"),
         )
         .expect("identity in the global config");
         self

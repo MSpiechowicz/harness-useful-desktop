@@ -8,7 +8,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use git_support::{WithPath, World, world};
+use git_support::{BASE_CONFIG, WithPath, World, world};
 use harness_business::git::git_fetch;
 use pretty_assertions::assert_eq;
 
@@ -142,7 +142,7 @@ async fn a_background_fetch_never_starts_an_ext_transport() {
     // The user allows `ext::` in the global configuration: only the background fetch overrides it.
     fs::write(
         home.home.join(".gitconfig"),
-        "[user]\n\tname = Demo User\n\temail = demo@example.com\n[protocol \"ext\"]\n\tallow = always\n",
+        format!("{BASE_CONFIG}[user]\n\tname = Demo User\n\temail = demo@example.com\n[protocol \"ext\"]\n\tallow = always\n"),
     )
     .unwrap();
     work.git(&["config", "remote.origin.url", &format!("ext::{}", command.display())]);
