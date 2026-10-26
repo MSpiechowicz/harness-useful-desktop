@@ -113,7 +113,9 @@ async fn wanted(state: &AppState) -> bool {
 
 /// Stops the embedder for good (app exit), within [`EXIT_STOP_LIMIT`].
 pub fn stop_for_exit(state: &AppState) {
-    let stopping = tokio::time::timeout(EXIT_STOP_LIMIT, state.memory_embedder.stop());
+    // `timeout` registers its timer when created, so it must be built inside the runtime
+    // (on the exit event's thread there is none and creating it there panics).
+    let stopping = async { tokio::time::timeout(EXIT_STOP_LIMIT, state.memory_embedder.stop()).await };
 
     if async_runtime::block_on(stopping).is_err() {
         tracing::warn!("the embedder did not stop in time");
