@@ -18,6 +18,7 @@ import { routines } from './routines';
 import { memoryEditor } from './memory-editor';
 import { memoryImport } from './memory-import';
 import { memoryGuards } from './memory-guards';
+import { branch } from './branch';
 
 export const en = {
   ...common,
@@ -40,6 +41,7 @@ export const en = {
   ...memoryEditor,
   ...memoryImport,
   ...memoryGuards,
+  ...branch,
 } satisfies Record<string, string>;
 
 /** Every message key of the app; the other languages must have exactly these. */

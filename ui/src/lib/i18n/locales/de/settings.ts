@@ -23,7 +23,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.startup': 'intro start splash',
   'settings.keywords.harnesses': 'programmdatei binary omp pi opencode pfad einrichtung harness',
   'settings.keywords.memory': 'gedächtnis speicher remote entfernt team datenbank postgres postgresql mongodb mongo sqlite libsql turso geteilt gemeinsam harness-memory mcp merken repository projekt abruf notizen global neuer chat documentdb aws amazon pausieren vor dem speichern fragen prüfen wartend schutz agenten speichern vektorsuche semantisch bedeutung embedding modell herunterladen englisch notizen sprache umschreiben',
-  'settings.keywords.projects': 'zuletzt geöffnet ordner',
+  'settings.keywords.projects': 'zuletzt geöffnet ordner git fetch abrufen remote branch',
   'settings.keywords.updates': 'version update aktualisierung release installieren suchen neu',
   'settings.keywords.privacy': 'daten telemetrie diagnose löschen datenschutz',
   'settings.keywords.sync': 'export import teilen sichern kopieren code datei erweiterungen plugins pakete marktplätze mcp server rechner',
@@ -156,6 +156,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.recents.title': 'Zuletzt geöffnete Projekte merken',
   'settings.recents.description': 'Behalte eine Liste der Ordner, die du geöffnet hast. Beim Ausschalten wird die Liste geleert.',
 
+  'settings.fetch.title': 'Das geöffnete Projekt im Hintergrund abrufen',
+  'settings.fetch.description': 'Prüft alle paar Minuten den Remote des geöffneten Projekts, solange das Fenster sichtbar ist, damit das Branch-Menü merkt, wenn main weitergezogen ist. Aus: Git greift nur auf das Netzwerk zu, wenn du auf eine Schaltfläche klickst.',
+
   'settings.updates.version': 'Version {version}',
   'settings.updates.check': 'Jetzt suchen',
   'settings.updates.policy.title': 'Beim Start der App',
@@ -203,7 +206,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Konfigurationswerte, die wie Geheimnisse aussehen, erscheinen verborgen: API-Schlüssel und Tokens, Umgebungsvariablen und Header von MCP-Servern, Auth- und OAuth-Felder, !command-Werte (werden nie ausgeführt) und Zugangsdaten in URLs. Umgebungsverweise wie $NAME zeigen nur den Namen. Fehlerausgaben von Agenten und Shell-Ausgaben werden geschwärzt, bevor sie auf den Bildschirm gelangen.',
   'settings.privacy.network.title': 'Netzwerk',
   'settings.privacy.network.text':
-    'Die App selbst stellt zwei Arten von Anfragen, beide an GitHub, und beide lassen sich ausschalten. Die Update-Prüfung lädt die Release-Datei latest.json; das geschieht nur, wenn dieser Build einen Update-Schlüssel hat, und folgt deiner Update-Einstellung. Die Prüfung der Harness-Familie fragt GitHub nach der neuesten Release-Nummer von Harness Dashboard, Skills, Memory und Sidebar, wenn du Ecosystem öffnest, höchstens alle sechs Stunden, solange die App läuft (eine fehlgeschlagene Prüfung wird nach einigen Minuten wiederholt). Sie fragt immer nach allen vieren und verrät so nicht, welche du hast; GitHub sieht nur deine IP-Adresse und die App-Version. Links öffnen sich nur in deinem Browser, wenn du sie anklickst, und nur für Projekt- und Harness-Seiten, es sei denn, du erlaubst unten jeden https-Link. Die Widgets von Harness Dashboard nutzen einen lokalen Prozess über stdio, ohne Netzwerk. Harness-CLIs sprechen mit ihren Anbietern wie in deinem Terminal, und Erweiterungsaktionen führen die CLI aus, die dabei Pakete herunterladen kann, aber erst nach deiner Bestätigung.',
+    'Die App selbst stellt drei Arten von Anfragen. Zwei gehen an GitHub, und beide lassen sich ausschalten. Die Update-Prüfung lädt die Release-Datei latest.json; das geschieht nur, wenn dieser Build einen Update-Schlüssel hat, und folgt deiner Update-Einstellung. Die Prüfung der Harness-Familie fragt GitHub nach der neuesten Release-Nummer von Harness Dashboard, Skills, Memory und Sidebar, wenn du Ecosystem öffnest, höchstens alle sechs Stunden, solange die App läuft (eine fehlgeschlagene Prüfung wird nach einigen Minuten wiederholt). Sie fragt immer nach allen vieren und verrät so nicht, welche du hast; GitHub sieht nur deine IP-Adresse und die App-Version. Die dritte ist Git, das mit den Remotes deines eigenen Projekts spricht: Das geöffnete Projekt wird im Hintergrund alle fünf Minuten abgerufen, solange das Fenster sichtbar ist (ausschaltbar unter Einstellungen, Projekte), und ein Push oder Pull geschieht nur, wenn du darauf klickst. Der Abruf im Hintergrund fragt nie nach einem Passwort oder Host-Schlüssel. Links öffnen sich nur in deinem Browser, wenn du sie anklickst, und nur für Projekt- und Harness-Seiten, es sei denn, du erlaubst unten jeden https-Link. Die Widgets von Harness Dashboard nutzen einen lokalen Prozess über stdio, ohne Netzwerk. Harness-CLIs sprechen mit ihren Anbietern wie in deinem Terminal, und Erweiterungsaktionen führen die CLI aus, die dabei Pakete herunterladen kann, aber erst nach deiner Bestätigung.',
   'settings.privacy.telemetry.title': 'Keine Telemetrie',
   'settings.privacy.telemetry.text': 'Keine Analysen, kein Tracking, keine Konten, keine Anmeldung.',
   'settings.privacy.agents.title': 'Agenten',
@@ -211,7 +214,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Agenten laufen auf deinem Rechner mit deiner Umgebung und Konfiguration. Harness Desktop ändert nie die Einstellungen deines Harness; eine Freigabe-Entscheidung, die du für einen Chat triffst, gilt nur für diesen Chat, und der aktive Modus erscheint im Chat-Kopf, wenn das Harness einen hat. Shell-Befehle aus der Chat-Eingabe fragen immer nach einer Bestätigung. Diese App lädt nichts hoch.',
   'settings.privacy.git.title': 'Git',
   'settings.privacy.git.text':
-    'Die Ansicht „Änderungen“ führt dein lokales Git nur lesend aus (Status, Diff, Branch-Liste), mit ausgeschalteten Pagern, externen Diff-Programmen und Dateisystem-Monitoren und mit deaktivierten Abfragen von Zugangsdaten.',
+    'Git läuft mit ausgeschalteten Pagern, externen Diff-Programmen und Dateisystem-Monitoren und mit deaktivierten Abfragen von Zugangsdaten. Die Ansicht „Änderungen“ liest nur (Status, Diff, Branch-Liste). Das Branch-Menü ruft zusätzlich im Hintergrund ab und ändert dein Repository nur, wenn du klickst: Push, Veröffentlichen, Pull, Rebase, Merge, Abbrechen, Fortsetzen, Wechseln, neuer Branch und Stash. Die Hooks deines Repositorys laufen dafür wie in einem Terminal. Fehlertexte werden geschwärzt, bevor sie angezeigt werden.',
   'settings.privacy.logs.title': 'Logs',
   'settings.privacy.logs.text':
     'Eine lokale Logdatei im Log-Ordner deines Betriebssystems hält fest, was die App tut, nie, was du sagst. Sie enthält keine Prompts, Chat-Inhalte oder Dateiinhalte und wird bei 1 MiB rotiert.',

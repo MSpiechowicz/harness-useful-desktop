@@ -23,7 +23,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.startup': 'intro start uruchamianie ekran powitalny',
   'settings.keywords.harnesses': 'plik wykonywalny binarka omp pi opencode ścieżka konfiguracja harness',
   'settings.keywords.memory': 'pamięć zdalna zespół baza danych postgres postgresql mongodb mongo sqlite libsql turso współdzielona harness-memory mcp zapamiętywanie repozytorium projekt przywoływanie notatki globalne nowy czat documentdb aws amazon wstrzymaj pytaj przed zapisem sprawdź oczekujące zabezpieczenia agenci zapisywanie wyszukiwanie wektorowe semantyczne znaczenie embedding model pobierz angielski notatki język przepisz',
-  'settings.keywords.projects': 'ostatnie foldery',
+  'settings.keywords.projects': 'ostatnie foldery git fetch pobieranie zdalne gałąź',
   'settings.keywords.updates': 'wersja aktualizacja nowa wydanie instalacja sprawdź',
   'settings.keywords.privacy': 'dane telemetria diagnostyka wyczyść prywatność',
   'settings.keywords.sync': 'eksport import udostępnianie kopia kod plik rozszerzenia wtyczki pakiety marketplace mcp serwery komputer',
@@ -156,6 +156,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.recents.title': 'Zapamiętuj ostatnie projekty',
   'settings.recents.description': 'Przechowuj listę otwieranych folderów. Wyłączenie czyści listę.',
 
+  'settings.fetch.title': 'Pobieraj otwarty projekt w tle',
+  'settings.fetch.description': 'Sprawdza zdalne repozytorium otwartego projektu co kilka minut, gdy okno jest widoczne, żeby menu gałęzi wiedziało, kiedy main poszedł do przodu. Wyłączone: git korzysta z sieci tylko po kliknięciu przycisku.',
+
   'settings.updates.version': 'Wersja {version}',
   'settings.updates.check': 'Sprawdź teraz',
   'settings.updates.policy.title': 'Przy uruchomieniu aplikacji',
@@ -203,7 +206,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Wartości konfiguracji wyglądające na sekrety są ukryte: klucze API i tokeny, zmienne środowiskowe i nagłówki serwerów MCP, pola uwierzytelniania i OAuth, wartości !command (nigdy nie uruchamiane) oraz dane logowania w adresach URL. Odwołania do środowiska, takie jak $NAME, pokazują tylko nazwę. Komunikaty błędów agentów i wyjście powłoki są zamazywane, zanim trafią na ekran.',
   'settings.privacy.network.title': 'Sieć',
   'settings.privacy.network.text':
-    'Sama aplikacja wysyła dwa rodzaje zapytań, oba do GitHuba, i oba można wyłączyć. Sprawdzanie aktualizacji pobiera plik wydania latest.json; dzieje się to tylko wtedy, gdy ta kompilacja ma klucz aktualizacji, i zależy od Twojego ustawienia aktualizacji. Sprawdzanie rodziny Harness pyta GitHuba o numer najnowszego wydania Harness Dashboard, Skills, Memory i Sidebar po otwarciu Ecosystem, najwyżej co sześć godzin, gdy aplikacja działa (nieudane sprawdzenie jest ponawiane po kilku minutach). Zawsze pyta o wszystkie cztery, więc nie zdradza, których używasz; GitHub widzi tylko Twój adres IP i wersję aplikacji. Linki otwierają się w przeglądarce tylko po kliknięciu i tylko dla stron projektów i harnessów, chyba że poniżej zezwolisz na każdy link https. Widżety Harness Dashboard korzystają z lokalnego procesu przez stdio, bez sieci. CLI harnessów łączą się z ich dostawcami tak jak w Twoim terminalu, a akcje rozszerzeń uruchamiają CLI, które może pobierać pakiety, dopiero po Twoim potwierdzeniu.',
+    'Sama aplikacja wysyła trzy rodzaje zapytań. Dwa idą do GitHuba i oba można wyłączyć. Sprawdzanie aktualizacji pobiera plik wydania latest.json; dzieje się to tylko wtedy, gdy ta kompilacja ma klucz aktualizacji, i zależy od Twojego ustawienia aktualizacji. Sprawdzanie rodziny Harness pyta GitHuba o numer najnowszego wydania Harness Dashboard, Skills, Memory i Sidebar po otwarciu Ecosystem, najwyżej co sześć godzin, gdy aplikacja działa (nieudane sprawdzenie jest ponawiane po kilku minutach). Zawsze pyta o wszystkie cztery, więc nie zdradza, których używasz; GitHub widzi tylko Twój adres IP i wersję aplikacji. Trzecie to git rozmawiający ze zdalnymi repozytoriami Twojego projektu: otwarty projekt jest pobierany w tle co pięć minut, gdy okno jest widoczne (wyłączysz to w Ustawieniach, w sekcji Projekty), a push lub pull zdarza się tylko po kliknięciu. Pobieranie w tle nigdy nie pyta o hasło ani o klucz hosta. Linki otwierają się w przeglądarce tylko po kliknięciu i tylko dla stron projektów i harnessów, chyba że poniżej zezwolisz na każdy link https. Widżety Harness Dashboard korzystają z lokalnego procesu przez stdio, bez sieci. CLI harnessów łączą się z ich dostawcami tak jak w Twoim terminalu, a akcje rozszerzeń uruchamiają CLI, które może pobierać pakiety, dopiero po Twoim potwierdzeniu.',
   'settings.privacy.telemetry.title': 'Bez telemetrii',
   'settings.privacy.telemetry.text': 'Bez analityki, bez śledzenia, bez kont, bez logowania.',
   'settings.privacy.agents.title': 'Agenci',
@@ -211,7 +214,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Agenci działają na Twoim komputerze, z Twoim środowiskiem i konfiguracją. Harness Desktop nigdy nie zmienia ustawień Twojego harnessa; wybór zatwierdzania dla czatu dotyczy tylko tego czatu, a aktywny tryb widać w nagłówku czatu, jeśli harness go ma. Polecenia powłoki z pola wiadomości zawsze wymagają potwierdzenia. Ta aplikacja niczego nie wysyła.',
   'settings.privacy.git.title': 'Git',
   'settings.privacy.git.text':
-    'Widok Zmiany uruchamia Twój lokalny git tylko do odczytu (status, diff, lista gałęzi), z wyłączonymi pagerami, zewnętrznymi programami diff i monitorami systemu plików oraz z wyłączonymi pytaniami o dane logowania.',
+    'Git działa z wyłączonymi pagerami, zewnętrznymi programami diff i monitorami systemu plików oraz z wyłączonymi pytaniami o dane logowania. Widok Zmiany tylko czyta (status, diff, lista gałęzi). Menu gałęzi dodatkowo pobiera zmiany w tle i zmienia Twoje repozytorium tylko po kliknięciu: push, publikacja, pull, rebase, merge, przerwanie, kontynuacja, przełączenie, nowa gałąź i stash. Hooki Twojego repozytorium działają przy tych akcjach tak jak w terminalu. Teksty błędów są zamazywane, zanim je pokażemy.',
   'settings.privacy.logs.title': 'Logi',
   'settings.privacy.logs.text':
     'Lokalny plik logu w folderze logów systemu zapisuje, co robi aplikacja, nigdy to, co mówisz. Nie zawiera promptów, treści czatów ani zawartości plików i jest rotowany przy 1 MiB.',

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-sync-action"
+description = "Enables the git_sync_action command without any pre-configured scope."
+commands.allow = ["git_sync_action"]
+
+[[permission]]
+identifier = "deny-git-sync-action"
+description = "Denies the git_sync_action command without any pre-configured scope."
+commands.deny = ["git_sync_action"]

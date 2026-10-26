@@ -46,7 +46,9 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "vectorSearch": true,
             "keepRunningInTray": false,
             "memoryNotesAskDefault": false,
-            "memoryScriptsAskDefault": false
+            "memoryScriptsAskDefault": false,
+            "backgroundFetch": true,
+            "mainBranches": []
         })
     );
 }

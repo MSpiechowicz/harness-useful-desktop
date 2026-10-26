@@ -7,6 +7,8 @@ import type { AppInfo } from './bindings/AppInfo';
 import type { AppPrefs } from './bindings/AppPrefs';
 import type { BashOutput } from './bindings/BashOutput';
 import type { Branch } from './bindings/Branch';
+import type { BranchPage } from './bindings/BranchPage';
+import type { BranchSync } from './bindings/BranchSync';
 import type { CliResult } from './bindings/CliResult';
 import type { CommandSpec as CatalogCommand } from './bindings/CommandSpec';
 import type { ComposedReview } from './bindings/ComposedReview';
@@ -24,6 +26,7 @@ import type { EcosystemStatus } from './bindings/EcosystemStatus';
 import type { ExtensionAction } from './bindings/ExtensionAction';
 import type { ExtensionsView } from './bindings/ExtensionsView';
 import type { FileDiff } from './bindings/FileDiff';
+import type { GitActionResult } from './bindings/GitActionResult';
 import type { GitStatus } from './bindings/GitStatus';
 import type { HarnessId } from './bindings/HarnessId';
 import type { HarnessSummary } from './bindings/HarnessSummary';
@@ -58,6 +61,8 @@ import type { SessionSummary } from './bindings/SessionSummary';
 import type { SessionTotals } from './bindings/SessionTotals';
 import type { SessionTree } from './bindings/SessionTree';
 import type { SkillsMigrationReport } from './bindings/SkillsMigrationReport';
+import type { SwitchRequest } from './bindings/SwitchRequest';
+import type { SyncAction } from './bindings/SyncAction';
 import type { SyncExported } from './bindings/SyncExported';
 import type { SyncExportPreview } from './bindings/SyncExportPreview';
 import type { SyncImportPlan } from './bindings/SyncImportPlan';
@@ -125,6 +130,12 @@ export const commands = {
   git_file_lines: cmd<{ project: string; path: string; staged: boolean }, string[]>(),
   git_discard_all: cmd<{ project: string }, null>(),
   git_discard_files: cmd<{ project: string; paths: string[] }, null>(),
+  git_sync_state: cmd<{ project: string }, BranchSync>(),
+  git_fetch: cmd<{ project: string; background: boolean }, BranchSync>(),
+  git_sync_action: cmd<{ project: string; action: SyncAction }, GitActionResult>(),
+  git_switch: cmd<{ project: string; request: SwitchRequest }, GitActionResult>(),
+  git_branch_search: cmd<{ project: string; query: string; limit: number }, BranchPage>(),
+  git_set_main_branch: cmd<{ project: string; branch: string | null }, BranchSync>(),
   review_compose: cmd<{ request: ReviewRequest }, ComposedReview>(),
   ecosystem_status: cmd<undefined, EcosystemStatus>(),
   ecosystem_releases: cmd<{ installed: EcosystemInstalled[] }, EcosystemRelease[]>(),

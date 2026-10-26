@@ -11,7 +11,8 @@ use serde::de::IgnoredAny;
 
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::replace_atomically;
-use crate::model::{AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES};
+use crate::git::validate_branch_name;
+use crate::model::{AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MainBranchChoice};
 use crate::security::SafeReader;
 
 /// File name inside the store directory.
@@ -19,6 +20,9 @@ pub const PREFS_FILE: &str = "prefs.json";
 
 /// Maximum number of remembered recent projects.
 pub const MAX_RECENT_PROJECTS: usize = 12;
+
+/// Maximum number of per-project main branch picks.
+pub const MAX_MAIN_BRANCHES: usize = 200;
 
 /// Size cap for reading the prefs file.
 const MAX_PREFS_BYTES: u64 = 256 * 1024;
@@ -154,7 +158,7 @@ impl PrefsStore {
 }
 
 /// Defaults standing in for an unusable prefs file, with the background network switches
-/// (`autoUpdateExtensions`, `autoRefreshCatalogs`) off: the file may hold the user's "off", so
+/// (`autoUpdateExtensions`, `autoRefreshCatalogs`, `backgroundFetch`) off: the file may hold the user's "off", so
 /// the app fails closed, like the companion release lookup does. Nothing is written here. The
 /// Settings view shows both switches off, so a later save (from the UI or from a server-managed
 /// change through [`PrefsStore::update`]) stores them off unless the user turns them back on.
@@ -162,6 +166,7 @@ fn unusable_defaults() -> AppPrefs {
     AppPrefs {
         auto_update_extensions: false,
         auto_refresh_catalogs: false,
+        background_fetch: false,
         ..AppPrefs::default()
     }
 }
@@ -197,7 +202,9 @@ fn carry_catalog_refresh_choice(mut prefs: AppPrefs, text: &str) -> AppPrefs {
 /// - `binaryOverrides`: absolute paths only, one per harness (the last entry wins, keeping its
 ///   position among the survivors);
 /// - `chatDefaults`: one per harness (the last entry wins), each value at most
-///   [`MAX_CHAT_DEFAULT_LEN`] bytes and free of control characters (anything else is dropped).
+///   [`MAX_CHAT_DEFAULT_LEN`] bytes and free of control characters (anything else is dropped);
+/// - `mainBranches`: absolute projects and valid branch names only, one per project (the last entry
+///   wins, keeping its position among the survivors), at most [`MAX_MAIN_BRANCHES`] (the newest).
 pub fn normalize(mut prefs: AppPrefs) -> AppPrefs {
     prefs.version = AppPrefs::VERSION;
     prefs.language = normalize_language(&prefs.language);
@@ -220,6 +227,7 @@ pub fn normalize(mut prefs: AppPrefs) -> AppPrefs {
     prefs.active_project = prefs.active_project.filter(|project| is_absolute(project));
     prefs.binary_overrides = normalize_overrides(prefs.binary_overrides);
     prefs.chat_defaults = normalize_chat_defaults(prefs.chat_defaults);
+    prefs.main_branches = normalize_main_branches(prefs.main_branches);
 
     prefs
 }
@@ -271,6 +279,22 @@ fn normalize_chat_defaults(defaults: Vec<ChatDefaults>) -> Vec<ChatDefaults> {
         });
     }
 
+    kept.reverse();
+    kept
+}
+
+fn normalize_main_branches(choices: Vec<MainBranchChoice>) -> Vec<MainBranchChoice> {
+    let mut kept: Vec<MainBranchChoice> = Vec::new();
+
+    for choice in choices.into_iter().rev() {
+        let duplicate = kept.iter().any(|existing| existing.project == choice.project);
+
+        if is_absolute(&choice.project) && validate_branch_name(&choice.branch).is_ok() && !duplicate {
+            kept.push(choice);
+        }
+    }
+
+    kept.truncate(MAX_MAIN_BRANCHES);
     kept.reverse();
     kept
 }

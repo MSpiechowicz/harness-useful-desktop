@@ -5,8 +5,10 @@ use std::path::{Path, PathBuf};
 
 use harness_business::env::OsKind;
 use harness_business::error::BusinessError;
-use harness_business::model::{AppPrefs, BinaryOverride, HarnessId, MotionPref, ThemePref, UpdatePolicy};
-use harness_business::prefs::PrefsStore;
+use harness_business::model::{
+    AppPrefs, BinaryOverride, HarnessId, IpcErrorCode, MainBranchChoice, MotionPref, ThemePref, UpdatePolicy,
+};
+use harness_business::prefs::{MAX_MAIN_BRANCHES, PREFS_FILE, PrefsStore};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
@@ -57,6 +59,7 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         keep_running_in_tray: true,
         memory_notes_ask_default: true,
         memory_scripts_ask_default: true,
+        background_fetch: false,
         ..base
     }
 }
@@ -226,4 +229,146 @@ fn binary_override_requires_an_existing_file() {
         "{directory:?}"
     );
     assert!(store.load().binary_overrides.is_empty());
+}
+
+fn pick(project: &str, branch: &str) -> MainBranchChoice {
+    MainBranchChoice {
+        project: abs(project),
+        branch: branch.to_owned(),
+    }
+}
+
+#[test]
+fn save_ui_cannot_change_the_picked_main_branches() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+    store
+        .set_main_branch(Path::new(&abs("project")), Some("develop"))
+        .unwrap();
+
+    let saved = store
+        .save_ui(&AppPrefs {
+            main_branches: vec![pick("project", "evil"), pick("other", "main")],
+            ..AppPrefs::default()
+        })
+        .unwrap();
+    assert_eq!(saved.main_branches, [pick("project", "develop")]);
+
+    let cleared = store.save_ui(&AppPrefs::default()).unwrap();
+    assert_eq!(cleared.main_branches, [pick("project", "develop")]);
+}
+
+#[test]
+fn save_ui_stores_the_background_fetch_switch() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    let off = store
+        .save_ui(&AppPrefs {
+            background_fetch: false,
+            ..AppPrefs::default()
+        })
+        .unwrap();
+    assert!(!off.background_fetch);
+    assert!(!store.load().background_fetch);
+
+    assert!(store.save_ui(&AppPrefs::default()).unwrap().background_fetch);
+}
+
+#[test]
+fn set_main_branch_replaces_a_pick_clears_it_and_validates_its_input() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+    let project = PathBuf::from(abs("project"));
+
+    store.set_main_branch(&project, Some("develop")).unwrap();
+    store.set_main_branch(Path::new(&abs("other")), Some("main")).unwrap();
+    let replaced = store.set_main_branch(&project, Some("trunk")).unwrap();
+    assert_eq!(
+        replaced.main_branches,
+        [pick("other", "main"), pick("project", "trunk")]
+    );
+
+    let cleared = store.set_main_branch(&project, None).unwrap();
+    assert_eq!(cleared.main_branches, [pick("other", "main")]);
+    assert_eq!(store.load().main_branches, cleared.main_branches);
+
+    for branch in ["-x", "", "a b", "HEAD"] {
+        let error = store.set_main_branch(&project, Some(branch)).unwrap_err();
+        assert_eq!(error.code(), IpcErrorCode::InvalidInput, "{branch:?}");
+    }
+
+    let relative = store.set_main_branch(Path::new("relative"), Some("main")).unwrap_err();
+    assert_eq!(relative.code(), IpcErrorCode::InvalidInput);
+    assert_eq!(store.load().main_branches, cleared.main_branches);
+}
+
+#[test]
+fn save_keeps_one_valid_main_branch_per_project() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    let saved = store
+        .save(&AppPrefs {
+            main_branches: vec![
+                pick("one", "develop"),
+                pick("two", "main"),
+                pick("one", "trunk"),
+                pick("three", "-evil"),
+                pick("four", "a..b"),
+                MainBranchChoice {
+                    project: "relative/path".to_owned(),
+                    branch: "main".to_owned(),
+                },
+            ],
+            ..AppPrefs::default()
+        })
+        .unwrap();
+
+    // The last entry per project wins and keeps its position among the survivors.
+    assert_eq!(saved.main_branches, [pick("two", "main"), pick("one", "trunk")]);
+    assert_eq!(saved.picked_main_branch(&abs("one")), Some("trunk"));
+    assert_eq!(saved.picked_main_branch(&abs("nowhere")), None);
+    assert_eq!(store.load().main_branches, saved.main_branches);
+}
+
+#[test]
+fn main_branch_picks_are_capped_keeping_the_newest() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+    let picks: Vec<MainBranchChoice> = (0..MAX_MAIN_BRANCHES + 5)
+        .map(|number| pick(&format!("project-{number}"), "main"))
+        .collect();
+
+    let saved = store
+        .save(&AppPrefs {
+            main_branches: picks.clone(),
+            ..AppPrefs::default()
+        })
+        .unwrap();
+
+    assert_eq!(saved.main_branches.len(), MAX_MAIN_BRANCHES);
+    assert_eq!(saved.main_branches.first(), Some(&picks[5]));
+    assert_eq!(saved.main_branches.last(), picks.last());
+}
+
+/// The prefs loaded from a `prefs.json` holding `json`.
+fn load_file(json: &str) -> AppPrefs {
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join(PREFS_FILE), json).unwrap();
+
+    PrefsStore::new(dir.path().to_path_buf()).load()
+}
+
+#[test]
+fn background_fetch_is_on_for_a_fresh_install_and_for_a_file_without_the_key() {
+    let dir = TempDir::new().unwrap();
+    assert!(
+        PrefsStore::new(dir.path().join("never-created"))
+            .load()
+            .background_fetch
+    );
+
+    assert!(load_file(r#"{"version":1,"theme":"dark"}"#).background_fetch);
+    assert!(!load_file(r#"{"version":1,"backgroundFetch":false}"#).background_fetch);
 }

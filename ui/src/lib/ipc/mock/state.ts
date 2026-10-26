@@ -1,5 +1,6 @@
 import type { AppPrefs } from '../bindings/AppPrefs';
 import type { BinaryOverride } from '../bindings/BinaryOverride';
+import type { MainBranchChoice } from '../bindings/MainBranchChoice';
 import type { ProjectInfo } from '../bindings/ProjectInfo';
 import { IpcFailure } from '../transport';
 import { fixtures } from './fixtures';
@@ -46,6 +47,8 @@ export function defaultPrefs(): AppPrefs {
     keepRunningInTray: false,
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
+    backgroundFetch: true,
+    mainBranches: [],
   };
 }
 
@@ -60,6 +63,8 @@ export class MockState {
   overrides: BinaryOverride[] = [];
   memoryEnabled = true;
   vectorSearch = true;
+  /** The main branch picked per project: only `git_set_main_branch` changes it. */
+  mainBranches: MainBranchChoice[] = [];
   recents: ProjectInfo[] = structuredClone(fixtures.recentProjects);
   active: ProjectInfo | null = null;
 
@@ -94,6 +99,7 @@ export class MockState {
       binaryOverrides: structuredClone(this.overrides),
       memoryEnabled: this.memoryEnabled,
       vectorSearch: this.vectorSearch,
+      mainBranches: structuredClone(this.mainBranches),
     };
   }
 

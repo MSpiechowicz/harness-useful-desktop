@@ -5,15 +5,17 @@
 //! app reads and which executables it runs, so only Rust changes them: through the native pickers
 //! and the dedicated project/harness commands, never through `prefs_set`. Project memory
 //! (`memory_enabled`) writes to the harnesses' MCP files when switched, and vector search (`vector_search`) starts or
-//! stops the embedder, so each has its own command too.
+//! stops the embedder, so each has its own command too. The main branch picked per project
+//! (`main_branches`) is written by `git_set_main_branch` only, after validating the name.
 
 use std::path::Path;
 
 use super::PrefsStore;
 use crate::env::OsKind;
 use crate::error::{BusinessError, Result};
+use crate::git::validate_branch_name;
 use crate::harness::override_name_matches;
-use crate::model::{AppPrefs, BinaryOverride, HarnessId};
+use crate::model::{AppPrefs, BinaryOverride, HarnessId, MainBranchChoice};
 
 impl PrefsStore {
     /// Loads the stored prefs, applies `change`, then normalizes and saves them; returns what was
@@ -51,6 +53,34 @@ impl PrefsStore {
         })
     }
 
+    /// Makes `branch` the main branch of `project` (replacing any earlier pick), or clears the pick
+    /// with `None`.
+    ///
+    /// `project` must be an absolute path and `branch` a valid branch name, otherwise
+    /// `InvalidInput`.
+    pub fn set_main_branch(&self, project: &Path, branch: Option<&str>) -> Result<AppPrefs> {
+        let project = project
+            .to_str()
+            .filter(|_| project.is_absolute())
+            .ok_or_else(|| BusinessError::InvalidInput("the project path must be absolute".to_owned()))?
+            .to_owned();
+
+        if let Some(branch) = branch {
+            validate_branch_name(branch)?;
+        }
+
+        self.update(|prefs| {
+            prefs.main_branches.retain(|choice| choice.project != project);
+
+            if let Some(branch) = branch {
+                prefs.main_branches.push(MainBranchChoice {
+                    project,
+                    branch: branch.to_owned(),
+                });
+            }
+        })
+    }
+
     /// Removes the binary override of `harness`, if any.
     pub fn clear_binary_override(&self, harness: HarnessId) -> Result<AppPrefs> {
         self.update(|prefs| prefs.binary_overrides.retain(|entry| entry.harness != harness))
@@ -85,12 +115,14 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         keep_running_in_tray,
         memory_notes_ask_default,
         memory_scripts_ask_default,
+        background_fetch,
         // Server-managed: kept from `stored`.
         active_project: _,
         recent_projects: _,
         binary_overrides: _,
         memory_enabled: _,
         vector_search: _,
+        main_branches: _,
     } = ui.clone();
 
     AppPrefs {
@@ -115,6 +147,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         keep_running_in_tray,
         memory_notes_ask_default,
         memory_scripts_ask_default,
+        background_fetch,
         ..stored
     }
 }

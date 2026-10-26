@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
@@ -115,6 +115,8 @@ pub struct AppState {
     pub routines: Arc<RoutineRuntime>,
     /// The Harness Memory repository key of each project, for the session (`project_scopes`).
     pub project_keys: ProjectKeys,
+    /// The locks that let one git write (fetch, push, rebase, switch...) run at a time per project.
+    pub git_writes: GitWriteLocks,
 }
 
 impl AppState {
@@ -185,6 +187,7 @@ impl AppState {
             hooks: Arc::new(hooks),
             routines: Arc::new(routines),
             project_keys: ProjectKeys::default(),
+            git_writes: GitWriteLocks::default(),
         }
     }
 
@@ -192,6 +195,23 @@ impl AppState {
     /// while the installed Harness Memory lists `save-guards`, else through MCP.
     pub async fn save_route(&self) -> SaveRoute {
         SaveRoute::of(self.memory_features.support(&self.env, &self.runner).await)
+    }
+}
+
+/// One async lock per repository, held while a git command that changes the repository (or fetches
+/// into it) runs, so two clicks or a click and a background fetch never overlap. The key is the
+/// repository's common git directory, so projects in a subdirectory of one repository, or in
+/// linked work trees of it, share the lock.
+#[derive(Default)]
+pub struct GitWriteLocks(Mutex<HashMap<PathBuf, Arc<async_runtime::Mutex<()>>>>);
+
+impl GitWriteLocks {
+    /// The lock of the repository whose common git directory (or, outside a repository, whose
+    /// project directory) is `key`, created on first use.
+    pub fn of(&self, key: &Path) -> Arc<async_runtime::Mutex<()>> {
+        let mut locks = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+
+        locks.entry(key.to_path_buf()).or_default().clone()
     }
 }
 

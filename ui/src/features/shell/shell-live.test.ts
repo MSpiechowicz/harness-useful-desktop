@@ -3,9 +3,10 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { ipc } from '$lib/ipc/client';
+import { branchSync } from '$lib/stores/branch-sync.svelte';
 import { git } from '$lib/stores/git.svelte';
 import { harness } from '$lib/stores/harness.svelte';
-import { GIT_POLL_MS, HARNESS_FOCUS_GAP_MS, RETRY_BACKOFF_MS } from '$lib/stores/live';
+import { BRANCH_FETCH_MS, GIT_POLL_MS, HARNESS_FOCUS_GAP_MS, RETRY_BACKOFF_MS } from '$lib/stores/live';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
@@ -24,6 +25,8 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   git.activate(null);
+  branchSync.follow(null, null);
+  prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'omp', onboardingCompleted: true });
   nav.go('chat');
 });
 
@@ -101,5 +104,51 @@ describe('the shell keeps what it shows current', () => {
     window.dispatchEvent(new Event('focus'));
 
     await waitFor(() => expect(harness.get('pi')?.detection.installed).toBe(true));
+  });
+
+  describe('the branch of the open project', () => {
+    const calls = (name: string) => vi.mocked(ipc.invoke).mock.calls.filter(([called]) => called === name).length;
+    // The mock backend answers after a real 30 ms, which the faked clock does not cover.
+    const answered = () => new Promise((resolve) => setTimeout(resolve, 150));
+
+    it('fetches the remote every few minutes while the user allows it, and not once they switch it off', async () => {
+      backendWith((_name, reply) => reply);
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+      render(Shell);
+      await waitFor(() => expect(branchSync.state?.isRepo).toBe(true));
+      expect(calls('git_fetch')).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(BRANCH_FETCH_MS);
+      expect(calls('git_fetch')).toBe(1);
+      await answered();
+
+      await vi.advanceTimersByTimeAsync(BRANCH_FETCH_MS);
+      expect(calls('git_fetch')).toBe(2);
+      await answered();
+
+      prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'omp', onboardingCompleted: true, backgroundFetch: false });
+      await vi.advanceTimersByTimeAsync(BRANCH_FETCH_MS * 2);
+      expect(calls('git_fetch')).toBe(2);
+    });
+
+    it('reads the branch again when a commit made in a terminal moves the head', async () => {
+      let committed = false;
+      backendWith((name, reply) => (name === 'git_status' && committed ? { ...(reply as typeof fixtures.git.status), head: 'abc1234', ahead: 3 } : reply));
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      render(Shell);
+      await waitFor(() => expect(git.status).not.toBeNull());
+      await answered();
+      const before = calls('git_sync_state');
+
+      await vi.advanceTimersByTimeAsync(GIT_POLL_MS);
+      await answered();
+      expect(calls('git_sync_state')).toBe(before);
+
+      committed = true;
+      await vi.advanceTimersByTimeAsync(GIT_POLL_MS);
+      await answered();
+
+      expect(calls('git_sync_state')).toBe(before + 1);
+    });
   });
 });

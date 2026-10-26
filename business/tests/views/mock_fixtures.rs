@@ -483,3 +483,18 @@ fn update_progress_downloads_everything_before_installing() {
     assert!(update.is_some_and(|update| update.notes.is_some()));
     assert!(none.is_none());
 }
+
+#[test]
+fn sync_state_fixture_agrees_with_the_status_fixture() {
+    let (status, sync) = (fixture("git/git_status.json"), fixture("git/git_sync_state.json"));
+    let entries = status["entries"].as_array().expect("entries");
+    let untracked = entries.iter().filter(|entry| entry["unstaged"] == "untracked").count();
+
+    for key in ["branch", "head", "upstream", "ahead", "behind"] {
+        assert_eq!(sync[key], status[key], "{key}");
+    }
+    assert_eq!(sync["untracked"], untracked);
+    assert_eq!(sync["trackedChanges"], entries.len() - untracked);
+    assert_eq!(sync["main"]["reference"], "origin/main");
+    assert_eq!((&sync["operation"], &sync["lastFetched"]), (&Value::Null, &Value::Null));
+}

@@ -19,6 +19,7 @@ import { routines } from './routines';
 import { memoryEditor } from './memory-editor';
 import { memoryImport } from './memory-import';
 import { memoryGuards } from './memory-guards';
+import { branch } from './branch';
 
 export const de: Dict = {
   ...common,
@@ -41,4 +42,5 @@ export const de: Dict = {
   ...memoryEditor,
   ...memoryImport,
   ...memoryGuards,
+  ...branch,
 };

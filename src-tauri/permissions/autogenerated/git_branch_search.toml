@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-branch-search"
+description = "Enables the git_branch_search command without any pre-configured scope."
+commands.allow = ["git_branch_search"]
+
+[[permission]]
+identifier = "deny-git-branch-search"
+description = "Denies the git_branch_search command without any pre-configured scope."
+commands.deny = ["git_branch_search"]

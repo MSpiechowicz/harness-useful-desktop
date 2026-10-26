@@ -7,9 +7,10 @@
   import { saveWorkspaceWhenReady } from '$lib/stores/workspace.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
+  import { branchSync } from '$lib/stores/branch-sync.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { nav } from '$lib/stores/nav.svelte';
-  import { GIT_POLL_MS, HARNESS_FOCUS_GAP_MS } from '$lib/stores/live';
+  import { BRANCH_FETCH_MS, GIT_POLL_MS, HARNESS_FOCUS_GAP_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
   import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
@@ -117,6 +118,20 @@
   $effect(() =>
     project.active ? autoRefresh(() => git.refresh({ quiet: true, statusOnly: nav.current !== 'changes' }), GIT_POLL_MS, { failing: git.loadStatus === 'error' }) : undefined,
   );
+
+  // The branch menu and the chip know where the branch stands against its remote and main. They read again whenever the
+  // status shows the branch moved, so a commit or a checkout made in a terminal shows up within a poll.
+  $effect(() => {
+    const path = project.active?.path ?? null;
+    const status = git.activeProject === path ? git.status : null;
+
+    untrack(() => branchSync.follow(path, status));
+  });
+
+  // While the user allows it, the open project's remote is fetched every few minutes, and when the window gets focus back
+  // (the poll also runs then). Never more often than the store's gap, and never an inactive project. The tick does not wait
+  // for the fetch: it can take longer than a poll waits for a read.
+  $effect(() => (project.active && prefs.value?.backgroundFetch ? autoRefresh(() => void branchSync.fetchRemote(), BRANCH_FETCH_MS) : undefined));
 
   // An agent working in the open project edits files and writes its session as it goes: the Changes count and the
   // sessions list follow in the background instead of waiting for their views to be opened again.

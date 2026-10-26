@@ -24,7 +24,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.startup': 'introdução abertura início',
   'settings.keywords.harnesses': 'binário omp pi opencode caminho configuração harness',
   'settings.keywords.memory': 'memória remoto equipe time banco de dados postgres postgresql mongodb mongo sqlite libsql turso compartilhado harness-memory mcp lembrar repositório projeto notas global novo chat documentdb aws amazon pausar perguntar antes de salvar revisar bloqueios permitir agentes salvando pesquisa vetorial semântica significado embedding modelo baixar inglês notas idioma reescrever',
-  'settings.keywords.projects': 'pastas recentes',
+  'settings.keywords.projects': 'pastas recentes git fetch buscar remoto branch',
   'settings.keywords.updates': 'versão atualizar upgrade lançamento instalar verificar nova',
   'settings.keywords.privacy': 'dados telemetria diagnóstico limpar',
   'settings.keywords.sync': 'exportar importar compartilhar backup copiar código arquivo extensões plugins pacotes marketplaces servidores mcp máquina',
@@ -156,6 +156,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.recents.title': 'Lembrar projetos recentes',
   'settings.recents.description': 'Mantém uma lista das pastas que você abriu. Desativar isso limpa a lista.',
 
+  'settings.fetch.title': 'Buscar o projeto aberto em segundo plano',
+  'settings.fetch.description': 'Verifica o remoto do projeto aberto a cada poucos minutos enquanto a janela está visível, para que o menu de branches saiba quando o main avançou. Desligado: o git só usa a rede quando você clica em um botão.',
+
   'settings.updates.version': 'Versão {version}',
   'settings.updates.check': 'Verificar agora',
   'settings.updates.policy.title': 'Quando o app inicia',
@@ -203,7 +206,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Valores de configuração com aparência de segredo aparecem ocultos: chaves de API e tokens, env e cabeçalhos de servidores MCP, campos de autenticação e OAuth, valores !command (nunca executados) e credenciais dentro de URLs. Referências de ambiente como $NAME mostram só o nome. A saída de erros de agentes e a saída do shell são censuradas antes de chegar à tela.',
   'settings.privacy.network.title': 'Rede',
   'settings.privacy.network.text':
-    'O próprio app faz dois tipos de requisição, ambas ao GitHub, e ambas podem ser desativadas. A verificação de atualização busca o arquivo de lançamento latest.json. Isso só acontece quando esta versão tem uma chave de atualização e segue a sua configuração de atualização. A verificação da família Harness pergunta ao GitHub o número da última versão do Harness Dashboard, Skills, Memory e Sidebar quando você abre o Ecossistema, no máximo a cada seis horas enquanto o app roda (uma verificação com falha tenta de novo após alguns minutos). Ela sempre pergunta pelas quatro, então não revela quais você tem, e o GitHub vê só o seu endereço IP e a versão do app. Os links só abrem no seu navegador quando você clica, e só para sites de projetos e de harnesses, a menos que você permita todos os links https abaixo. Os widgets do Harness Dashboard usam um processo local via stdio, sem rede. As CLIs dos harnesses falam com os provedores delas como no seu terminal, e as ações de extensões executam a CLI, que pode baixar pacotes, somente depois que você confirma.',
+    'O próprio app faz três tipos de requisição. Duas vão ao GitHub e ambas podem ser desativadas. A verificação de atualização busca o arquivo de lançamento latest.json. Isso só acontece quando esta versão tem uma chave de atualização e segue a sua configuração de atualização. A verificação da família Harness pergunta ao GitHub o número da última versão do Harness Dashboard, Skills, Memory e Sidebar quando você abre o Ecossistema, no máximo a cada seis horas enquanto o app roda (uma verificação com falha tenta de novo após alguns minutos). Ela sempre pergunta pelas quatro, então não revela quais você tem, e o GitHub vê só o seu endereço IP e a versão do app. A terceira é o git falando com os remotos do seu próprio projeto: o projeto aberto é buscado em segundo plano a cada cinco minutos enquanto a janela está visível (desative em Configurações, Projetos), e um push ou pull só acontece quando você clica. A busca em segundo plano nunca pede senha nem chave de host. Os links só abrem no seu navegador quando você clica, e só para sites de projetos e de harnesses, a menos que você permita todos os links https abaixo. Os widgets do Harness Dashboard usam um processo local via stdio, sem rede. As CLIs dos harnesses falam com os provedores delas como no seu terminal, e as ações de extensões executam a CLI, que pode baixar pacotes, somente depois que você confirma.',
   'settings.privacy.telemetry.title': 'Sem telemetria',
   'settings.privacy.telemetry.text': 'Sem análise de uso, sem rastreamento, sem contas, sem login.',
   'settings.privacy.agents.title': 'Agentes',
@@ -211,7 +214,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Os agentes rodam na sua máquina, com o seu ambiente e a sua configuração. O Harness Desktop nunca edita as configurações do seu harness. Uma escolha de aprovação que você faz para um chat vale só para esse chat, e o modo ativo aparece no cabeçalho do chat quando o harness tem um. Os comandos de shell do campo de mensagem sempre pedem confirmação. Este app não envia nada.',
   'settings.privacy.git.title': 'Git',
   'settings.privacy.git.text':
-    'A tela Alterações executa o seu git local somente para leitura (status, diff, lista de branches), com paginadores, programas de diff externos e monitores do sistema de arquivos desligados e com os pedidos de credenciais desativados.',
+    'O git roda com paginadores, programas de diff externos e monitores do sistema de arquivos desligados e com os pedidos de credenciais desativados. A tela Alterações só lê (status, diff, lista de branches). O menu de branches também busca em segundo plano e só altera o seu repositório quando você clica: push, publicar, pull, rebase, merge, abortar, continuar, trocar de branch, novo branch e stash. Os hooks do seu repositório rodam nessas ações, como em um terminal. Os textos de erro são exibidos censurados.',
   'settings.privacy.logs.title': 'Logs',
   'settings.privacy.logs.text':
     'Um arquivo de log local na pasta de logs do seu sistema registra o que o app faz, nunca o que você diz. Ele não contém prompts, conteúdo de chats nem conteúdo de arquivos, e é rotacionado em 1 MiB.',

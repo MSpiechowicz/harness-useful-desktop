@@ -55,7 +55,8 @@ export const PRIVACY_FACTS: PrivacyFact[] = [
   {
     // business/src/update.rs, src-tauri/src/commands/updates.rs (https only), tauri.conf.json CSP (connect-src ipc only),
     // src-tauri/src/access.rs link allowlist, ui/src/lib/ipc/actions.ts, the ecosystem_releases command (companion
-    // release lookups, gated by checkCompanionUpdates). Same facts as docs/security-privacy.md#network.
+    // release lookups, gated by checkCompanionUpdates), business/src/git/sync.rs and branch-sync.svelte.ts (the background
+    // fetch, gated by backgroundFetch). Same facts as docs/security-privacy.md#network.
     id: 'network',
     icon: Globe,
     get title() {
@@ -87,7 +88,7 @@ export const PRIVACY_FACTS: PrivacyFact[] = [
     },
   },
   {
-    // business/src/git/cli.rs, business/src/git/mod.rs.
+    // business/src/git/cli.rs, business/src/git/mod.rs, business/src/git/sync.rs, business/src/git/branch_ops.rs.
     id: 'git',
     icon: GitBranch,
     get title() {

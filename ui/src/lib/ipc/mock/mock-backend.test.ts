@@ -10,6 +10,7 @@ import { fixtures } from './fixtures';
 import { sampleScripts } from './memory-scripts-fixtures';
 import type { ScriptLanguage } from '../bindings/ScriptLanguage';
 import { MEMORY_EMBEDDER_ARGS } from './mock-backend-embedder-args';
+import { BRANCH_SYNC_ARGS } from './mock-backend-branch-args';
 import { MEMORY_NOTE_ARGS } from './mock-backend-note-args';
 import { memoryGuardArgs } from './mock-backend-guard-args';
 
@@ -76,6 +77,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   git_file_lines: { project: fixtures.recentProjects[0].path, path: 'src/lib.rs', staged: false },
   git_discard_all: { project: fixtures.recentProjects[0].path },
   git_discard_files: { project: fixtures.recentProjects[0].path, paths: ['src/lib.rs'] },
+  ...BRANCH_SYNC_ARGS,
   review_compose: { request: { comments: [{ path: 'src/lib.rs', side: 'new', startLine: 3, endLine: 3, body: 'Why?', snippet: ['mod error;'] }], note: null } },
   ecosystem_status: undefined,
   ecosystem_releases: { installed: [{ id: 'skills', version: '0.2.36' }] },

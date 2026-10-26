@@ -28,6 +28,7 @@ fn unusable_defaults() -> AppPrefs {
     AppPrefs {
         auto_update_extensions: false,
         auto_refresh_catalogs: false,
+        background_fetch: false,
         ..AppPrefs::default()
     }
 }
@@ -453,6 +454,7 @@ fn unusable_prefs_turn_the_background_network_switches_off() {
         assert_eq!(origin, PrefsOrigin::Unusable);
         assert!(!loaded.auto_update_extensions, "{text}");
         assert!(!loaded.auto_refresh_catalogs, "{text}");
+        assert!(!loaded.background_fetch, "{text}");
 
         // Still off on the next load (the file was moved aside), and nothing was written.
         assert_eq!(store.load(), unusable_defaults());

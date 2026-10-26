@@ -1,10 +1,10 @@
-//! Repository fixtures (`git/`): real `git_status`, `git_branches` and `git_diff` output over a
+//! Repository fixtures (`git/`): real `git_status`, `git_branches`, `git_sync_state` and `git_diff` output over a
 //! temporary copy of the demo project on a feature branch with a modified, an added, a renamed,
 //! a binary and an untracked file. Identities and dates are fixed, so the shas are stable.
 
 use std::sync::OnceLock;
 
-use harness_business::git::{git_branches, git_diff, git_status};
+use harness_business::git::{git_branches, git_diff, git_status, git_sync_state};
 use harness_business::model::{DiffRequest, DiffScope};
 use serde_json::Value;
 
@@ -135,10 +135,13 @@ fn export() -> Vec<(&'static str, Value)> {
         paths: Vec::new(),
     };
 
-    let (status, branches, diff) = runtime.block_on(async {
+    let (status, branches, sync, diff) = runtime.block_on(async {
         (
             git_status(env, runner, project).await.expect("git status"),
             git_branches(env, runner, project).await.expect("git branches"),
+            git_sync_state(env, runner, project, None)
+                .await
+                .expect("git sync state"),
             git_diff(env, runner, project, &request).await.expect("git diff"),
         )
     });
@@ -146,6 +149,7 @@ fn export() -> Vec<(&'static str, Value)> {
     vec![
         ("git/git_status.json", exported(status, &home.home, project)),
         ("git/git_branches.json", exported(branches, &home.home, project)),
+        ("git/git_sync_state.json", exported(sync, &home.home, project)),
         ("git/git_diff.json", exported(diff, &home.home, project)),
     ]
 }

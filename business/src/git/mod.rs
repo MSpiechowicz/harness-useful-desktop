@@ -1,5 +1,5 @@
-//! The project repository through the `git` CLI: status, branches, working-tree diffs and
-//! discarding changes.
+//! The project repository through the `git` CLI: status, branches, working-tree diffs,
+//! discarding changes and branch sync (fetch, push, pull, rebase, merge, switch).
 //!
 //! Every command runs through [`GitCli`] (shell-free, hardened, time- and size-limited). Paths
 //! in results are relative to the project, which may be a subdirectory of the work tree; a
@@ -12,17 +12,30 @@
 //! pagers, but a repository's own `.git/config` can still name clean/smudge `filter` drivers in
 //! `.gitattributes`, and git may run them while `status` or `diff` re-reads a changed file, as
 //! in a terminal. Only open repositories you trust.
+//!
+//! The branch sync actions (`git_fetch`, `git_sync_action`, `git_switch`) are writes the user
+//! clicks. They run git as a terminal would, so the repository's own hooks (`pre-push`,
+//! `post-checkout`, `post-merge`, `pre-rebase`, `pre-commit` ...) and its configuration
+//! (`core.sshCommand`, `url.*.insteadOf`, `remote.*.uploadpack` ...) run with them. A background
+//! fetch, which nobody clicked, runs no hook, no `ext::` transport and no prompt, and does not run
+//! at all while the repository's own configuration names a program (see `sync`).
 
+mod branch_ops;
 mod branches;
 mod cli;
 mod diff_parse;
 mod discard;
 mod file_lines;
+mod main_branch;
+mod repo_state;
+mod stash;
 mod status;
+mod sync;
 mod untracked;
 
+pub use branch_ops::validate_branch_name;
 pub use branches::parse_branches;
-pub use cli::{GIT_OUTPUT_CAP, GIT_TIMEOUT, GitCli};
+pub use cli::{GIT_OUTPUT_CAP, GIT_TIMEOUT, GitCli, NETWORK_TIMEOUT, RunOpts, WRITE_CONFIG};
 pub use diff_parse::{DiffBudget, parse_diff, unquote};
 pub use file_lines::git_file_lines;
 pub use status::{not_a_repo, parse_status};
@@ -31,7 +44,10 @@ use std::path::{Component, Path};
 
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{Branch, DiffRequest, DiffScope, FileDiff, GitStatus};
+use crate::model::{
+    Branch, BranchPage, BranchSync, DiffRequest, DiffScope, FileDiff, GitActionResult, GitStatus, SwitchRequest,
+    SyncAction,
+};
 use crate::process::ProcessRunner;
 use crate::security::deny::is_denied_under_private_root;
 use crate::security::is_denied;
@@ -63,6 +79,87 @@ pub async fn git_discard_all(env: &Env, runner: &dyn ProcessRunner, project: &Pa
 /// `git_discard_files` for the canonical project directory `project` and its project-relative `paths`.
 pub async fn git_discard_files(env: &Env, runner: &dyn ProcessRunner, project: &Path, paths: &[String]) -> Result<()> {
     discard::git_discard_files(&GitCli::new(env, runner, project)?, paths).await
+}
+
+/// `git_sync_state` for the canonical project directory `project`: local reads only.
+/// `picked_main` is the main branch the user picked for the project, if any.
+pub async fn git_sync_state(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    project: &Path,
+    picked_main: Option<&str>,
+) -> Result<BranchSync> {
+    repo_state::sync_state(&GitCli::new(env, runner, project)?, picked_main).await
+}
+
+/// `git_fetch` for the canonical project directory `project`: fetches its remote (and the remote of
+/// the main branch) and returns the state afterwards. `background` marks a fetch the user did not
+/// ask for just now: it runs hardened (no hook, submodule, `ext::` transport, garbage collection or
+/// prompt) and is skipped, returning the unchanged state, while the repository's own configuration
+/// names a program. `InvalidInput` outside a repository or without a remote.
+pub async fn git_fetch(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    project: &Path,
+    picked_main: Option<&str>,
+    background: bool,
+) -> Result<BranchSync> {
+    sync::git_fetch(&GitCli::new(env, runner, project)?, picked_main, background).await
+}
+
+/// The directory all work trees of the repository around `project` share (`git rev-parse
+/// --git-common-dir`, absolute and canonical): the key to serialize writes by. `None` outside a
+/// repository or when git cannot tell.
+pub async fn git_common_dir(env: &Env, runner: &dyn ProcessRunner, project: &Path) -> Option<std::path::PathBuf> {
+    let git = GitCli::new(env, runner, project).ok()?;
+    let output = git
+        .run(["rev-parse", "--path-format=absolute", "--git-common-dir"])
+        .await
+        .ok()?;
+
+    if !output.success() {
+        return None;
+    }
+
+    let dir = Path::new(output.stdout.trim_end_matches(['\n', '\r']));
+
+    dir.is_absolute().then(|| dunce::canonicalize(dir).ok()).flatten()
+}
+
+/// `git_sync_action` for the canonical project directory `project`. `InvalidInput` outside a
+/// repository or when the action does not apply to the state.
+pub async fn git_sync_action(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    project: &Path,
+    picked_main: Option<&str>,
+    action: SyncAction,
+) -> Result<GitActionResult> {
+    sync::git_sync_action(&GitCli::new(env, runner, project)?, picked_main, action).await
+}
+
+/// `git_switch` for the canonical project directory `project`: switches to or creates a branch.
+/// `InvalidInput` for an invalid name or outside a repository.
+pub async fn git_switch(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    project: &Path,
+    picked_main: Option<&str>,
+    request: &SwitchRequest,
+) -> Result<GitActionResult> {
+    branch_ops::git_switch(&GitCli::new(env, runner, project)?, picked_main, request).await
+}
+
+/// `git_branch_search` for the canonical project directory `project`: at most `limit` branches
+/// (1 to 100) whose name contains `query`, local ones first; empty outside a repository.
+pub async fn git_branch_search(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    project: &Path,
+    query: &str,
+    limit: u32,
+) -> Result<BranchPage> {
+    branch_ops::git_branch_search(&GitCli::new(env, runner, project)?, query, limit).await
 }
 
 /// `git_diff` for the canonical project directory `project`: staged, then unstaged, then

@@ -17,6 +17,10 @@
   /* A segmented group (Structured / Source, the layout switch): the padding between its frame and the segments, and the gap between two segments. */
   --segment-pad: 2px;
   --segment-gap: 4px;
+  /* The composer footer's padding above and below its chips: whole pixels, so it is the same on both sides (a 14px root makes the 4px step 3.5px). */
+  --footer-pad: 4px;
+  /* The branch popover in the composer footer: wide enough for the remote and main rows on one line each. */
+  --branch-popover-w: 384px;
 
   /* Canvas and layered surfaces (each step is one elevation higher). */
   --canvas: #0f0f11;

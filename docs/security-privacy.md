@@ -8,9 +8,15 @@ not guaranteed, it says so under [Limits](#limits).
 - Local only. No telemetry, no analytics, no accounts, no sign-in. The one credential the app ever writes is the team
   database URL and token you enter for Harness Memory, into that server's own config file; it is never shown again or
   logged. See [Team database](#team-database).
-- The app itself makes two kinds of network request, both to GitHub and both possible to turn off: the update check and
+- The app itself makes three kinds of network request. Two go to GitHub and both can be turned off: the update check and
   download (only when the build carries an updater key), and the companion release lookup (Harness Memory's included).
-  See [Network](#network).
+  The third is `git fetch` and, when you click it, `git push` or `git pull` to the remotes of your own project. The
+  open project is fetched in the background every 5 minutes by default (switch in Settings → Projects). That
+  background fetch is set up not to prompt (ssh, askpass or credential manager), runs no repository hook (neither a script in `.git/hooks` nor a config-based `hook.<name>.command`, whether the
+  repository's or yours), no
+  submodule fetch and only the `https`, `http`, `ssh`, `git` and `file` transports, and does not run at all while the
+  repository's own config sets a key that names a program, a proxy or a redirect (see
+  [Process spawning](#process-spawning)). See [Network](#network).
 - The app runs your own, unmodified `claude`, signed in the way you signed in. It offers no Claude login and never
   reads Claude Code's login store or tokens. See [Claude Code](#claude-code).
 - The same holds for Codex: the app runs your own `codex`, offers no login (sign in from a terminal with `codex login`),
@@ -67,7 +73,7 @@ not guaranteed, it says so under [Limits](#limits).
 
 | Threat | Defence |
 | --- | --- |
-| A project (cloned repository, hostile files) tries to make the app read secrets or run code | Deny-list and `SafeReader`; hardened git (see [Limits](#limits) for filter drivers); project paths only from the native picker; the app executes no project file itself |
+| A project (cloned repository, hostile files) tries to make the app read secrets or run code | Deny-list and `SafeReader`; hardened git (see [Limits](#limits) for filter drivers); project paths only from the native picker; the app runs the repository's git hooks for the git actions you click (as a terminal would), and a clicked git action can run programs your repository or user config names (hooks, a credential helper, `core.sshCommand`). The background fetch skips a repository whose own config names one, but may still consult a program from your global config (such as a credential helper, non-interactively). The app starts no project file itself |
 | Content shown in the UI (agent output, Markdown, config text) tries to script the webview or reach the network | Strict CSP, DOMPurify-sanitized Markdown, no `eval`, no `fetch`; the webview can only call allow-listed commands |
 | The webview (or a compromised dependency) tries to escape through Tauri | ACL grants only app commands; no `core:*`, no plugin permissions; navigation and pop-up guards |
 | A UI bug passes a path or URL the user did not choose | Rust re-validates: active/recent project check, `canonical_within`, link allowlist (any `https` URL, or `http` to localhost, without credentials when `openAnyLink` is on), argv charset |
@@ -98,6 +104,7 @@ itself, and only after consent. The one more download, the search model, is made
 | Harness Skills installer download | Only when the user confirms the install of the Harness Skills for OpenCode or Codex in Recommended setup. It is never part of the automatic family updates. The one exception is the launch migration of the Harness Skills names (below), which reruns it for an install found only under the names before Harness Skills 0.4.0. | The same as the dashboard installer, from `https://raw.githubusercontent.com/MSpiechowicz/harness-useful-skills/main/` (`install.sh` fetched by a `curl` held to HTTPS and TLS 1.2 or newer, `install.ps1` by `irm`). The script needs Node.js 22 or newer and downloads the skills' release tarball from `codeload.github.com`, checks its entries, sizes and manifests, and runs `useful-skills install --host opencode --scope user`, or `--host codex` when the app sets `HARNESS_SKILLS_HOST=codex` for the Codex install (that run also needs the `codex` command, adds the skills' marketplace and plugin with it and registers the `harness-useful-skills` MCP server through `codex mcp add`). There is no checksum: the trust model is that of the skills' own updater. GitHub sees the IP address and the request. |
 | Search model download (by `harness-memory`) | Only while vector search is on (the `vectorSearch` pref, on by default, and project memory on), when the embedder first starts without the model files, and again when a Harness Memory release names a newer model | The app opens no connection itself. `harness-memory embedder run`, which the app starts, fetches two files, `model_quantized.onnx` and `tokenizer.json` (about 135 MB together), from one GitHub release of `MSpiechowicz/harness-useful-memory`. Each file's SHA-256 and size are compiled into `harness-memory`, and a file that does not match is not used. Nothing is sent but the request itself, so GitHub sees the IP address and when the model was fetched. It reads nothing from Hugging Face. `HARNESS_MEMORY_MODEL_BASE_URL` can move the base URL (HTTPS, or HTTP to localhost), the hashes stay pinned. With vector search off, nothing is fetched. |
 | Extension catalog refresh | While **Refresh catalogs automatically** (`autoRefreshCatalogs`, on by default) is on: the first look 30 s after start, then every 30 minutes. With **Update extensions automatically** on, the catalogs are refreshed on the same schedule even with this switch off, never more often than every 30 minutes (see below). | The app opens no connection itself. For each OMP catalog it runs `omp plugin marketplace update <name>`, and OMP clones or fetches that catalog's repository from the git or `https` URL it was added with: hosts you chose when adding the catalog (GitHub for the Harness Skills). The host sees the IP address and the request. |
+| Git fetch, push and pull | The open project, in the background every 5 minutes while the window is visible, when the window gets focus and when the branch popover opens (never more often than every 60 s), only while **Fetch the open project in the background** (`backgroundFetch` in prefs, on by default; a prefs file that cannot be read counts as off) is on. `git push`, `git pull` and the other branch actions run only when the user clicks them, with the switch on or off. | The app opens no connection itself. It runs `git fetch` (and, on a click, `git push` or `git pull --ff-only`), and git talks to the remotes of that repository (`origin`, the upstream's remote, `upstream`) over whatever URL the repository names, with your credential helper and ssh setup. The remote host sees the IP address and the request. Only the open project is fetched, never an inactive one. The background run is hardened (hooks off, only the `https`, `http`, `ssh`, `git` and `file` transports, no submodule fetch, prompts switched off), sets `GIT_SSH_COMMAND="ssh -o BatchMode=yes"` unless `core.sshCommand` is configured, so it fails instead of asking, and does not run while the repository's own config sets a key that names a program, a proxy or a redirect. Clicked actions use your normal ssh, hooks and credential helpers. Failure text is redacted before it is shown. See [Process spawning](#process-spawning). |
 | Opening a link | Only when the user clicks one | `open_external` hands an allowlisted `https` URL (any `https` URL, or `http` to localhost, with **Open any web link** on) to the OS browser. The app itself does not fetch it. |
 
 - **AI chat names** (`aiChatNames`, off by default). When on, after the first message of a new chat the app starts one
@@ -586,10 +593,64 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   --no-optional-locks` and `-c core.fsmonitor=false -c core.untrackedCache=false -c diff.external= -c core.pager=cat
   -c color.ui=false -c core.quotepath=off`, a 15 s timeout and a 16 MiB output cap per stream. It sets
   `GIT_TERMINAL_PROMPT=0`, `GIT_OPTIONAL_LOCKS=0`, `LC_ALL=C`, and `HOME`/`XDG_CONFIG_HOME` from the injected `Env`.
+  Every read, and the discards, also get `GIT_NO_LAZY_FETCH=1` (git 2.44 and newer) and
+  `GIT_ALLOW_PROTOCOL=https:http:ssh:git:file`. The clicked network and write actions and the background fetch run
+  through `run_with` without them (the background fetch has its own transport list and config check, below). A read (status, diff, `show`, branch list, `rev-parse`, ...)
+  therefore never fetches a missing object lazily, so a crafted partial clone cannot make it start a program: not an
+  `ext::` or `<helper>::` remote, nor `core.sshCommand`, `remote.<name>.uploadpack` or `core.gitProxy` behind an
+  allowed transport. On git older than 2.44 only the transport list applies. In a real partial clone, a file that is not
+  downloaded yet makes the read fail with "Some files of this partial clone are not downloaded yet. Pull or fetch to get
+  them." until you pull or fetch. Clicked fetch, push, publish, pull, rebase, merge, switch, stash, abort and continue
+  run with your full git setup and its remote helpers.
   Every inherited `GIT_*` variable is dropped (`GIT_DIR`, `GIT_CONFIG_*`, `GIT_EXTERNAL_DIFF`, `GIT_SSH*`,
   `GIT_ASKPASS`, `GIT_TRACE*`, ...). Diffs use `--no-ext-diff --no-textconv`. Git reads status, diffs and the branch
-  list; its only writes are `git_discard_all` and `git_discard_files` (one file and, for a rename, its old name), which the UI runs only after the user confirms: `restore --source=HEAD
-  --staged --worktree` and `clean -f -d` (no `-x`, so ignored files stay), both limited to the project directory.
+  list. Its writes are the discards and the branch actions, each started by a click. `git_discard_all` and `git_discard_files` (one file and, for a rename, its old name) run only after the user confirms: `restore --source=HEAD
+  --staged --worktree` and `clean -f -d` (no `-x`, so ignored files stay), both limited to the project directory. The
+  branch popover adds `git_fetch`, `git_sync_action` and `git_switch`: `fetch`, `push`, publish (`push -u`), `pull
+  --ff-only --no-rebase`, `rebase --autostash`, `merge --autostash --no-edit`, abort and continue of a stopped rebase or
+  merge, `stash apply` of the app's own stash (only when the top stash carries the app's message or is an autostash),
+  `switch`, `switch --no-track -c` for a new branch, and `stash push --include-untracked` right before a stash-and-switch
+  the user confirmed. The stash is applied by its commit id (`stash apply --end-of-options <id>`), never by position, so a
+  stash another program pushed meanwhile is never applied in its place. After a clean apply, the entry is dropped by a
+  verified drop: the id git prints for `stash drop stash@{n}` must be the app's, else the dropped entry is put back with
+  `stash store` and the drop is retried (three times at most, then the app's stash stays in the list). The same applies
+  when a failed stash-and-switch puts the changes back. When a re-apply ends in conflicts (an autostash after rebase
+  or merge, or `ApplyStash`), the entry is replaced by the same commit stored under `Harness Desktop: applied with
+  conflicts` (verified drop, then `stash store -m <message> -- <id>`, the id checked as a full hex object id), so the
+  changes already in the tree are not offered again: `ApplyStash` is refused for it, and `DropStash` drops exactly that
+  entry by its id, by the same verified drop, only once no unmerged file is left. If the relabelling fails the entry
+  stays as it was. Writes add `-c core.editor=true -c sequence.editor=true`, so git never opens an editor. The
+  timeout is 120 s for these writes and network commands (a kill in the middle of a checkout could leave
+  `index.lock` behind) and stays 15 s for reads. Git runs the repository's hooks for these commands (`pre-push`, `post-merge`,
+  `pre-rebase` and the like), as in a terminal. Failure text of every git write or network command is cut to git's first `fatal:` or `error:` line (else the first
+  stderr line), URL userinfo (`https://user:token@host`) is stripped, then `redact_text` runs. Output of a hook can still
+  appear after that. The git write and network commands (not the two discard commands, which take no lock) are serialized by a
+  write lock keyed by the canonical `git rev-parse --git-common-dir`, so worktrees and subfolders of one repository share
+  it, else by the project folder. Branch and remote names are validated by the branch-name rules (no leading `-`, no `..`,
+  control characters or reserved ref characters), and the app ignores a remote with an invalid name. Every revision or ref
+  argument follows `--end-of-options`. The `head-name` of a rebase in progress is validated, and its `onto` is used only
+  as a full hex object id. A stash-and-switch records the oid of the stash it made and restores only that stash, and
+  only while it is still the newest. `ApplyStash` pops the top stash only when it is the app's (message `Harness
+  Desktop:`) or an autostash, and refuses while unmerged files exist or when that stash is already marked applied.
+  `DropStash` drops only a top stash marked applied, never a foreign one.
+  **Background fetch.** `fetch --no-recurse-submodules --multiple --end-of-options <remotes>` with `-c gc.auto=0 -c
+  maintenance.auto=false -c protocol.ext.allow=never -c credential.interactive=false -c core.hooksPath=/dev/null -c hook.reference-transaction.enabled=false` (`NUL`
+  on Windows), and the env `GIT_ASKPASS=` (empty), `GCM_INTERACTIVE=never`, `GIT_ALLOW_PROTOCOL=https:http:ssh:git:file`,
+  `SSH_ASKPASS_REQUIRE=never`, `GIT_TERMINAL_PROMPT=0` and, only when `core.sshCommand` is unset,
+  `GIT_SSH_COMMAND="ssh -o BatchMode=yes"`. It runs no hook (`core.hooksPath` switches off the scripts, `hook.reference-transaction.enabled=false` the
+  config-based `hook.<name>.command` hooks that git 2.54 and later run on that event, the only one a fetch fires, and
+  the repository's own `hook.*` keys also stop it), no remote helper outside those transports (`ext::`,
+  `<helper>::` URLs) and no submodule fetch. It does not run (the state comes back unchanged, no error) while the
+  repository-local config (`--local`, and `--worktree` when `extensions.worktreeConfig` is on) sets any of
+  `core.sshCommand`, `core.askPass`, `core.hooksPath`, `core.gitProxy`, `core.alternateRefsCommand`, `credential.*`,
+  `remote.*.uploadpack`, `remote.*.receivepack`, `remote.*.vcs`, `remote.*.proxy`, `remote.*.proxyAuthMethod`, `http.*`,
+  `url.*.insteadOf`, `url.*.pushInsteadOf`, `protocol.*`, `hook.*`, `include.*` or `includeIf.*`, or when git cannot read that
+  config. It can still run programs named in your global config: a global credential helper is consulted, and a global
+  `core.sshCommand` replaces the `BatchMode` ssh (an askpass it starts is then up to that command). A locked system
+  keyring may still ask to be unlocked. Triggers: every 5 minutes while the window is visible, on window focus and when the
+  popover opens, never more often than every 60 s, for the active project only. **Conflict prompt.** The prompt sent
+  to the harness after a stopped rebase or merge carries the file names as escaped data in a fenced block. The main branch you pick in the popover is
+  stored in prefs (`mainBranches`), written only by `git_set_main_branch` in the backend, never by the UI's prefs write.
 - **Children.** Each child gets `kill_on_drop` and, on Unix, its own process group, which is killed with it. On Windows
   a kill of a child that has not been reaped yet ends its process tree (`taskkill /T /F`, no window). Agents stop by
   closing stdin, waiting 3 s, then killing the group. Output of run-to-completion commands has a time limit and a size
@@ -1697,7 +1758,14 @@ command is not granted). Process errors name only the program's file name (`Exec
   (see [Save guards](#save-guards)).
 - **Chat content is not redacted** (see above).
 - **Git filters.** A repository's `.git/config` can name clean/smudge `filter` drivers; git may run them while `status`
-  or `diff` re-reads a changed file, as in a terminal (`business/src/git/mod.rs`). Open only repositories you trust.
+  or `diff` re-reads a changed file, as in a terminal (`business/src/git/mod.rs`). Open only repositories you trust. Read commands never lazy-fetch a missing object (git 2.44 and newer, older git
+  only gets the `https`, `http`, `ssh`, `git` and `file` transport list, which still lets a crafted partial clone
+  reach `core.sshCommand`, `remote.<name>.uploadpack` or `core.gitProxy`), while the clicked actions use your full git
+  setup (including `persistent-https::` style helpers and anything your config allows).
+- **Git hooks and prompts.** The branch actions run the repository's hooks (a `pre-push` or `pre-rebase` hook can do
+  anything the repository's author wrote), and a hook, a GPG signing pinentry or an ssh prompt can block until the 120 s
+  timeout (15 s for reads) ends the command. The background fetch avoids prompts and runs no hook (config-based ones included), and skips a repository whose own config names a program, but a
+  program named in your global config (a credential helper) can still run. Clone only repositories you trust.
 - **Windows.** A kill ends the child's process tree with `taskkill /T` (no job object: it needs `unsafe` code). The tree
   is found by parent process id, so a process whose parent already exited, and what a child left running after it
   exited, may outlive it.

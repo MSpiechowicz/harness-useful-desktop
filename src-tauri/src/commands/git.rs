@@ -107,14 +107,12 @@ async fn file_lines(state: &AppState, project: String, path: String, staged: boo
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
-    use std::process::Command;
+    use std::path::Path;
 
-    use harness_business::env::Env;
     use harness_business::model::{DiffScope, GitFileStatus, IpcErrorCode};
 
     use super::*;
-    use crate::test_support::{TempDir, state_with_project};
+    use crate::test_support::{TempDir, open_git_project, setup_git, stranger_beside};
 
     struct Setup {
         state: AppState,
@@ -137,12 +135,11 @@ mod tests {
         std::fs::write(project.join("code.txt"), "two\n").expect("write");
         std::fs::write(project.join("new.txt"), "new\n").expect("write");
 
-        let path = std::env::var("PATH").unwrap_or_default();
-        let state = state_with_project(&dir, Env::for_tests(&home).with_var("PATH", path), &project);
+        let (state, project) = open_git_project(&dir, &home, &project);
 
         Setup {
             state,
-            project: project.to_string_lossy().into_owned(),
+            project,
             _dir: dir,
         }
     }
@@ -164,21 +161,8 @@ mod tests {
         std::fs::read_to_string(path).expect("read").replace("\r\n", "\n")
     }
 
-    /// A setup git command with an empty home, no system configuration and a fixed identity.
     fn git(home: &Path, dir: &Path, args: &[&str]) {
-        let status = Command::new("git")
-            .args(args)
-            .current_dir(dir)
-            .env("HOME", home)
-            .env("GIT_CONFIG_NOSYSTEM", "1")
-            .env("GIT_AUTHOR_NAME", "Demo User")
-            .env("GIT_AUTHOR_EMAIL", "demo@example.com")
-            .env("GIT_COMMITTER_NAME", "Demo User")
-            .env("GIT_COMMITTER_EMAIL", "demo@example.com")
-            .status()
-            .expect("git runs");
-
-        assert!(status.success(), "git {args:?}");
+        setup_git(home, dir, args);
     }
 
     fn request(scope: DiffScope, paths: &[&str]) -> DiffRequest {
@@ -233,9 +217,7 @@ mod tests {
     fn unknown_projects_and_escaping_paths_are_refused() {
         let setup = setup();
         let state = &setup.state;
-        let stranger: PathBuf = Path::new(&setup.project).parent().unwrap().join("stranger");
-        std::fs::create_dir_all(&stranger).expect("create stranger");
-        let stranger = stranger.to_string_lossy().into_owned();
+        let stranger = stranger_beside(&setup.project);
 
         let refused = [
             block_on(status(state, stranger.clone())).map(drop),
@@ -337,10 +319,9 @@ mod tests {
         std::fs::write(repo.join("stray.txt"), "new\n").expect("write");
         std::fs::write(project.join("inside.txt"), "two\n").expect("write");
 
-        let path = std::env::var("PATH").unwrap_or_default();
-        let state = state_with_project(&dir, Env::for_tests(&home).with_var("PATH", path), &project);
+        let (state, project_arg) = open_git_project(&dir, &home, &project);
 
-        block_on(discard_all(&state, project.to_string_lossy().into_owned())).expect("discard");
+        block_on(discard_all(&state, project_arg)).expect("discard");
 
         assert_eq!(read_lf(&project.join("inside.txt")), "one\n");
         assert_eq!(read_lf(&repo.join("outside.txt")), "two\n");

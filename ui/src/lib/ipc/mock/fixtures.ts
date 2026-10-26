@@ -2,6 +2,7 @@ import type { AgentEnvelope } from '../bindings/AgentEnvelope';
 import type { AgentReply } from '../bindings/AgentReply';
 import type { AgentSessionInfo } from '../bindings/AgentSessionInfo';
 import type { Branch } from '../bindings/Branch';
+import type { BranchSync } from '../bindings/BranchSync';
 import type { CommandSpec } from '../bindings/CommandSpec';
 import type { ConfigView } from '../bindings/ConfigView';
 import type { ExtensionsView } from '../bindings/ExtensionsView';
@@ -43,6 +44,7 @@ import extensionsPi from './fixtures/extensions_view.pi.json';
 import gitBranches from './fixtures/git/git_branches.json';
 import gitDiff from './fixtures/git/git_diff.json';
 import gitStatus from './fixtures/git/git_status.json';
+import gitSyncState from './fixtures/git/git_sync_state.json';
 import harnessList from './fixtures/harness_list.json';
 import projectRecent from './fixtures/project_recent.json';
 import sessionFilesTouched from './fixtures/sessions/session_files_touched.omp.json';
@@ -90,6 +92,7 @@ export const fixtures = {
     status: gitStatus as unknown as GitStatus,
     branches: gitBranches as unknown as Branch[],
     diff: gitDiff as unknown as FileDiff[],
+    sync: gitSyncState as unknown as BranchSync,
   },
 };
 

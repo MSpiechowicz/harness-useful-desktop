@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-set-main-branch"
+description = "Enables the git_set_main_branch command without any pre-configured scope."
+commands.allow = ["git_set_main_branch"]
+
+[[permission]]
+identifier = "deny-git-set-main-branch"
+description = "Denies the git_set_main_branch command without any pre-configured scope."
+commands.deny = ["git_set_main_branch"]

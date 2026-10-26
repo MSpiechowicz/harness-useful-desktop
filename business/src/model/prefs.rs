@@ -72,6 +72,17 @@ pub struct ChatDefaults {
     pub thinking_level: Option<String>,
 }
 
+/// The main branch the user picked for one project (see `PrefsStore::set_main_branch`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MainBranchChoice {
+    /// Absolute path of the project directory.
+    pub project: String,
+    /// Short name of the branch (`main`).
+    pub branch: String,
+}
+
 /// UI language codes the app ships translations for.
 pub const LANGUAGES: [&str; 6] = ["en", "de", "es", "fr", "pl", "pt"];
 
@@ -155,11 +166,25 @@ pub struct AppPrefs {
     pub memory_notes_ask_default: bool,
     /// Whether a new chat starts with "Ask before saving" on for scripts (default off).
     pub memory_scripts_ask_default: bool,
+    /// Whether the app fetches the open project's remote in the background (every few minutes while
+    /// the window is visible, default on). Off: git only reaches the network when a button is clicked.
+    pub background_fetch: bool,
+    /// The main branch picked per project (at most one entry per project). Server-managed: only
+    /// `git_set_main_branch` changes it.
+    pub main_branches: Vec<MainBranchChoice>,
 }
 
 impl AppPrefs {
     /// Current schema version written by this build.
     pub const VERSION: u32 = 1;
+
+    /// The main branch picked for `project`, if any.
+    pub fn picked_main_branch(&self, project: &str) -> Option<&str> {
+        self.main_branches
+            .iter()
+            .find(|choice| choice.project == project)
+            .map(|choice| choice.branch.as_str())
+    }
 }
 
 impl Default for AppPrefs {
@@ -192,6 +217,8 @@ impl Default for AppPrefs {
             keep_running_in_tray: false,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,
+            background_fetch: true,
+            main_branches: Vec::new(),
         }
     }
 }

@@ -23,7 +23,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.startup': 'intro inicio arranque presentación',
   'settings.keywords.harnesses': 'ejecutable binario omp pi opencode ruta configuración harness',
   'settings.keywords.memory': 'memoria remota equipo base de datos postgres postgresql mongodb mongo sqlite libsql turso compartida harness-memory mcp recuerdo repositorio proyecto recuperar notas globales chat nuevo documentdb aws amazon pausar preguntar antes de guardar revisar pendientes protección agentes guardar búsqueda vectorial semántica significado embedding modelo descargar inglés notas idioma reescribir',
-  'settings.keywords.projects': 'recientes carpetas',
+  'settings.keywords.projects': 'recientes carpetas git fetch remoto rama',
   'settings.keywords.updates': 'versión actualizar actualización release instalar buscar nueva',
   'settings.keywords.privacy': 'datos telemetría diagnóstico borrar privacidad',
   'settings.keywords.sync': 'exportar importar compartir copia código archivo extensiones plugins paquetes marketplaces mcp servidores equipo',
@@ -156,6 +156,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.recents.title': 'Recordar proyectos recientes',
   'settings.recents.description': 'Guarda una lista de las carpetas que abriste. Al desactivarlo, se borra la lista.',
 
+  'settings.fetch.title': 'Consultar el proyecto abierto en segundo plano',
+  'settings.fetch.description': 'Comprueba el remoto del proyecto abierto cada pocos minutos mientras la ventana está visible, para que el menú de ramas sepa cuándo avanzó main. Desactivado: Git solo usa la red cuando haces clic en un botón.',
+
   'settings.updates.version': 'Versión {version}',
   'settings.updates.check': 'Buscar ahora',
   'settings.updates.policy.title': 'Al iniciar la app',
@@ -203,7 +206,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Los valores de configuración que parecen secretos aparecen ocultos: claves de API y tokens, variables de entorno y cabeceras de servidores MCP, campos de autenticación y OAuth, valores !command (nunca se ejecutan) y credenciales dentro de URL. Las referencias de entorno como $NAME muestran solo el nombre. La salida de errores de los agentes y la salida del shell se censuran antes de llegar a la pantalla.',
   'settings.privacy.network.title': 'Red',
   'settings.privacy.network.text':
-    'La propia app hace dos tipos de solicitudes, ambas a GitHub, y ambas se pueden desactivar. La búsqueda de actualizaciones descarga el archivo de versión latest.json; solo ocurre si esta compilación tiene una clave de actualización y sigue tu ajuste de actualización. La comprobación de la familia Harness pide a GitHub el número de la última versión de Harness Dashboard, Skills, Memory y Sidebar al abrir Ecosystem, como máximo cada seis horas mientras la app está en marcha (si falla, se reintenta pasados unos minutos). Siempre pregunta por los cuatro, así que no revela cuáles tienes; GitHub solo ve tu dirección IP y la versión de la app. Los enlaces se abren en tu navegador solo cuando haces clic en ellos, y solo para sitios de proyectos y harnesses, salvo que permitas abajo todos los enlaces https. Los widgets de Harness Dashboard usan un proceso local mediante stdio, sin red. Las CLI de los harnesses hablan con sus proveedores como en tu terminal, y las acciones de las extensiones ejecutan la CLI, que puede descargar paquetes, solo después de que lo confirmes.',
+    'La propia app hace tres tipos de solicitudes. Dos van a GitHub y ambas se pueden desactivar. La búsqueda de actualizaciones descarga el archivo de versión latest.json; solo ocurre si esta compilación tiene una clave de actualización y sigue tu ajuste de actualización. La comprobación de la familia Harness pide a GitHub el número de la última versión de Harness Dashboard, Skills, Memory y Sidebar al abrir Ecosystem, como máximo cada seis horas mientras la app está en marcha (si falla, se reintenta pasados unos minutos). Siempre pregunta por los cuatro, así que no revela cuáles tienes; GitHub solo ve tu dirección IP y la versión de la app. La tercera es Git hablando con los remotos de tu propio proyecto: el proyecto abierto se consulta en segundo plano cada cinco minutos mientras la ventana está visible (se desactiva en Ajustes, Proyectos), y un push o un pull solo ocurre cuando haces clic. La consulta en segundo plano nunca pide una contraseña ni una clave de host. Los enlaces se abren en tu navegador solo cuando haces clic en ellos, y solo para sitios de proyectos y harnesses, salvo que permitas abajo todos los enlaces https. Los widgets de Harness Dashboard usan un proceso local mediante stdio, sin red. Las CLI de los harnesses hablan con sus proveedores como en tu terminal, y las acciones de las extensiones ejecutan la CLI, que puede descargar paquetes, solo después de que lo confirmes.',
   'settings.privacy.telemetry.title': 'Sin telemetría',
   'settings.privacy.telemetry.text': 'Sin analíticas, sin seguimiento, sin cuentas, sin inicio de sesión.',
   'settings.privacy.agents.title': 'Agentes',
@@ -211,7 +214,7 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Los agentes se ejecutan en tu equipo con tu entorno y tu configuración. Harness Desktop nunca edita los ajustes de tu harness; la opción de aprobación que eliges para un chat se aplica solo a ese chat, y el modo activo aparece en la cabecera del chat cuando el harness lo tiene. Los comandos de shell desde la entrada del chat siempre piden confirmación. Esta app no sube nada.',
   'settings.privacy.git.title': 'Git',
   'settings.privacy.git.text':
-    'La vista Cambios ejecuta tu Git local en modo de solo lectura (estado, diff, lista de ramas), con paginadores, programas de diff externos y monitores del sistema de archivos desactivados, y con las solicitudes de credenciales deshabilitadas.',
+    'Git se ejecuta con paginadores, programas de diff externos y monitores del sistema de archivos desactivados, y con las solicitudes de credenciales deshabilitadas. La vista Cambios solo lee (estado, diff, lista de ramas). El menú de ramas también consulta en segundo plano y solo modifica tu repositorio cuando haces clic: push, publicar, pull, rebase, merge, abortar, continuar, cambiar de rama, rama nueva y stash. Los hooks de tu repositorio se ejecutan para esas acciones, como en un terminal. Los textos de error se muestran censurados.',
   'settings.privacy.logs.title': 'Registros',
   'settings.privacy.logs.text':
     'Un archivo de registro local en la carpeta de registros de tu sistema anota lo que hace la app, nunca lo que dices. No contiene prompts, contenido de chats ni contenido de archivos, y se rota al llegar a 1 MiB.',

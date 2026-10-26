@@ -7,6 +7,7 @@ import { agentHandlers } from './agent-handlers';
 import { ecosystemHandlers } from './ecosystem-handlers';
 import { extensionActionHandlers } from './extension-action-handlers';
 import { gitHandlers } from './git-handlers';
+import { gitSyncHandlers } from './git-sync-handlers';
 import { harnessHandlers } from './harness-handlers';
 import { hooksHandlers } from './hooks-handlers';
 import { hookScenarioFromLocation, MockHooks } from './hooks-state';
@@ -68,6 +69,8 @@ export function defaultScenario(): Scenario {
     },
     ...sessionHandlers(state, routines),
     ...gitHandlers(state),
+    // `?sync=behind|dirty|clash|conflict|merge|resolved|onmain|unpublished|nomain|noremote|detached|offline|stash` changes what the branch popover finds, `?branches=1500` adds branches.
+    ...gitSyncHandlers(state),
   };
 
   const actions = extensionActionHandlers(state, base.extensions_view);

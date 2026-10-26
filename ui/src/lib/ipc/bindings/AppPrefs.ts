@@ -2,6 +2,7 @@
 import type { BinaryOverride } from "./BinaryOverride";
 import type { ChatDefaults } from "./ChatDefaults";
 import type { HarnessId } from "./HarnessId";
+import type { MainBranchChoice } from "./MainBranchChoice";
 import type { MotionPref } from "./MotionPref";
 import type { ThemePref } from "./ThemePref";
 import type { UpdatePolicy } from "./UpdatePolicy";
@@ -133,4 +134,14 @@ memoryNotesAskDefault: boolean,
 /**
  * Whether a new chat starts with "Ask before saving" on for scripts (default off).
  */
-memoryScriptsAskDefault: boolean, };
+memoryScriptsAskDefault: boolean, 
+/**
+ * Whether the app fetches the open project's remote in the background (every few minutes while
+ * the window is visible, default on). Off: git only reaches the network when a button is clicked.
+ */
+backgroundFetch: boolean, 
+/**
+ * The main branch picked per project (at most one entry per project). Server-managed: only
+ * `git_set_main_branch` changes it.
+ */
+mainBranches: Array<MainBranchChoice>, };

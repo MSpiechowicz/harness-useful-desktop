@@ -20,6 +20,7 @@ mod ecosystem;
 mod extension_action;
 mod extensions;
 mod git;
+mod git_sync;
 mod harness;
 mod hook;
 mod ipc_error;
@@ -76,6 +77,10 @@ pub use git::{
     Branch, CommitInfo, DiffLine, DiffLineKind, DiffRequest, DiffScope, FileDiff, GitFileStatus, GitStatus, Hunk,
     MAX_BRANCHES, MAX_FILE_DIFF_BYTES, MAX_TOTAL_DIFF_BYTES, MAX_UNTRACKED_FILE_BYTES, StatusEntry,
 };
+pub use git_sync::{
+    ActionOutcome, BranchPage, BranchRow, BranchStart, BranchSync, ConflictFile, GitActionResult, GitOperation,
+    GitOperationKind, MAX_BRANCH_QUERY_BYTES, MAX_BRANCH_SEARCH, MainBranch, MainSource, SwitchRequest, SyncAction,
+};
 pub use harness::{
     Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallCommand, InstallHint, NativeApprovalMode,
     VersionSupport,
@@ -118,7 +123,8 @@ pub use memory_scripts::{
     ScriptReviewCounts, ScriptScope, ScriptSort, ScriptSummary, ScriptTrustItem,
 };
 pub use prefs::{
-    AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MotionPref, ThemePref, UpdatePolicy,
+    AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MainBranchChoice, MotionPref, ThemePref,
+    UpdatePolicy,
 };
 pub use project::{ProjectInfo, ProjectScope};
 pub use review::{

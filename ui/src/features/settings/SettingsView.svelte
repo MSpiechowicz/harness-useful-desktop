@@ -295,6 +295,12 @@
                 />
               {/snippet}
             </SettingRow>
+
+            <SettingRow title={t('settings.fetch.title')} description={t('settings.fetch.description')}>
+              {#snippet control()}
+                <Switch label={t('settings.fetch.title')} bind:checked={() => prefs.value?.backgroundFetch ?? true, (backgroundFetch) => void prefs.update({ backgroundFetch })} />
+              {/snippet}
+            </SettingRow>
           </SettingsSection>
 
           <UpdatesSection id="updates" />

@@ -7,6 +7,7 @@ pub mod desktop_mcp;
 pub mod drops;
 pub mod ecosystem;
 pub mod git;
+pub mod git_sync;
 pub mod harness;
 pub mod hooks;
 pub mod memory;

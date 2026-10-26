@@ -7,6 +7,15 @@
 /** Git status of the open project: the Changes list, its diffs and the count in the rail. */
 export const GIT_POLL_MS = 4_000;
 
+/** Fetching the remote of the open project, while "Fetch the open project in the background" is on. The fetch is the one thing here that reaches the network. */
+export const BRANCH_FETCH_MS = 5 * 60_000;
+
+/** The least time between two fetches of the open project, however often a tick, a focus or the branch popover asks (the poll also runs when the window gets focus back). */
+export const BRANCH_FETCH_GAP_MS = 60_000;
+
+/** "Checked origin 3 min ago" in the branch menu counts on while the menu is open. */
+export const BRANCH_AGE_TICK_MS = 30_000;
+
 /** Saved sessions of the open project and the transcript on screen: sessions started or written in a terminal show up. */
 export const SESSIONS_POLL_MS = 5_000;
 

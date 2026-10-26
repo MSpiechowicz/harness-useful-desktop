@@ -21,7 +21,7 @@ export const settings = {
   'settings.keywords.startup': 'intro launch splash',
   'settings.keywords.harnesses': 'binary omp pi opencode path setup harness',
   'settings.keywords.memory': 'memory remote team database postgres postgresql mongodb mongo sqlite libsql turso shared harness-memory mcp remember repository project recall notes global new chat documentdb aws amazon pause ask before saving review held guards allow agents saving vector search semantic meaning embedding model download english notes language rewrite',
-  'settings.keywords.projects': 'recent folders',
+  'settings.keywords.projects': 'recent folders git fetch remote branch',
   'settings.keywords.updates': 'version upgrade release install check new',
   'settings.keywords.privacy': 'data telemetry diagnostics clear',
   'settings.keywords.sync': 'export import share backup copy code file extensions plugins packages marketplaces mcp servers machine',
@@ -154,6 +154,9 @@ export const settings = {
   'settings.recents.title': 'Remember recent projects',
   'settings.recents.description': 'Keep a list of the folders you opened. Turning this off clears the list.',
 
+  'settings.fetch.title': 'Fetch the open project in the background',
+  'settings.fetch.description': 'Check the remote of the open project every few minutes while the window is visible, so the branch menu knows when main moved. Off: git only reaches the network when you click a button.',
+
   'settings.updates.version': 'Version {version}',
   'settings.updates.check': 'Check now',
   'settings.updates.policy.title': 'When the app starts',
@@ -201,7 +204,7 @@ export const settings = {
     'Secret-looking configuration values appear hidden: API keys and tokens, MCP server env and headers, auth and OAuth fields, !command values (never run) and credentials inside URLs. Environment references like $NAME show the name only. Agent error output and shell output are redacted before they reach the screen.',
   'settings.privacy.network.title': 'Network',
   'settings.privacy.network.text':
-    'The app itself makes two kinds of request, both to GitHub, and both can be turned off. The update check fetches the release file latest.json; it happens only when this build has an update key and follows your update setting. The Harness family check asks GitHub for the latest release number of Harness Dashboard, Skills, Memory and Sidebar when you open Ecosystem, at most every six hours while the app runs (a failed check retries after a few minutes). It always asks about all four, so it does not reveal which ones you have; GitHub sees only your IP address and the app version. Links open in your browser only when you click them, and only for project and harness sites unless you allow every https link below. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
+    'The app itself makes three kinds of request. Two go to GitHub and both can be turned off. The update check fetches the release file latest.json; it happens only when this build has an update key and follows your update setting. The Harness family check asks GitHub for the latest release number of Harness Dashboard, Skills, Memory and Sidebar when you open Ecosystem, at most every six hours while the app runs (a failed check retries after a few minutes). It always asks about all four, so it does not reveal which ones you have; GitHub sees only your IP address and the app version. The third is git talking to the remotes of your own project: the open project is fetched in the background every five minutes while the window is visible (turn it off in Settings, under Projects), and a push or pull happens only when you click it. The background fetch never asks for a password or host key. Links open in your browser only when you click them, and only for project and harness sites unless you allow every https link below. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
   'settings.privacy.telemetry.title': 'No telemetry',
   'settings.privacy.telemetry.text': 'No analytics, no tracking, no accounts, no sign-in.',
   'settings.privacy.agents.title': 'Agents',
@@ -209,7 +212,7 @@ export const settings = {
     'Agents run on your machine with your environment and configuration. Harness Desktop never edits your harness’s settings; an approval choice you make for a chat applies to that chat only, and the active mode shows in the chat header when the harness has one. Shell commands from the composer always ask for confirmation. This app uploads nothing.',
   'settings.privacy.git.title': 'Git',
   'settings.privacy.git.text':
-    'The Changes view runs your local git read-only (status, diff, branch list) with pagers, external diff programs and filesystem monitors off, and with credential prompts disabled.',
+    'Git runs with pagers, external diff programs and filesystem monitors off, and with credential prompts disabled. The Changes view only reads (status, diff, branch list). The branch menu also fetches in the background, and changes your repository only when you click: push, publish, pull, rebase, merge, abort, continue, switch, new branch and stash. Your repository’s own hooks run for those, as in a terminal. Error text is redacted before it is shown.',
   'settings.privacy.logs.title': 'Logs',
   'settings.privacy.logs.text':
     'A local log file in your OS log folder records what the app does, never what you say. It holds no prompts, chat content or file contents, and is rotated at 1 MiB.',

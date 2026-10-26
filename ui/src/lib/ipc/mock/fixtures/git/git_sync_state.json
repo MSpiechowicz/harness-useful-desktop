@@ -1,0 +1,23 @@
+{
+  "isRepo": true,
+  "branch": "feat/empty-input",
+  "head": "de70abb",
+  "upstream": "origin/feat/empty-input",
+  "remote": "origin",
+  "ahead": 2,
+  "behind": 1,
+  "main": {
+    "name": "main",
+    "reference": "origin/main",
+    "source": "fallback",
+    "newCommits": 0,
+    "isCurrent": false
+  },
+  "operation": null,
+  "unmerged": [],
+  "trackedChanges": 4,
+  "untracked": 1,
+  "lastFetched": null,
+  "stashKept": false,
+  "stashApplied": false
+}
