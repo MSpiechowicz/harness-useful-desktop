@@ -1,3 +1,11 @@
+## [0.40.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.0...v0.40.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **chat:** stop listing the same subagents three times ([ab07f7a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/ab07f7a2ccdf25bce766045a0974c79f2d0ad285))
+* **deps:** bump happy-dom, jsdom, undici for audit advisories ([a2f296b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a2f296bd9a874bc320ca1d990034a93d9546d105))
+
 # [0.40.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.39.0...v0.40.0) (2026-10-23)
 
 
