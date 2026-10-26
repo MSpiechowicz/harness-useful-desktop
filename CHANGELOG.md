@@ -1,3 +1,11 @@
+## [0.40.4](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.3...v0.40.4) (2026-10-26)
+
+
+### Bug Fixes
+
+* **chat:** render fenced code blocks in user messages as code ([7ba18a9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7ba18a9518f7c6c0fba7538f96b7d8ba2e93f6b3))
+* **hooks:** send the Check Useful Skills first hook with every message ([#30](https://github.com/MSpiechowicz/harness-useful-desktop/issues/30)) ([fb17584](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fb175848b96e65fbfedc038a6ceea8ce08f64f45))
+
 ## [0.40.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.2...v0.40.3) (2026-10-26)
 
 
