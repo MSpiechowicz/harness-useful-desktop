@@ -27,18 +27,18 @@ function subagent(id: string, status: Subagent['status'], extra: Partial<Subagen
 }
 
 describe('subagent card', () => {
-  it('lists what a task call spawned, live, and expands a row to its recent work', async () => {
+  it('lists what a task call spawned once nothing runs, and expands a row to its recent work', async () => {
     const subagents = {
-      ParserScout: subagent('ParserScout', 'running', { index: 0, intent: 'Finding parse callers', tokens: 12_000, recentOutput: ['src/lib.rs:12: pub fn parse'] }),
-      DocsReviewer: subagent('DocsReviewer', 'completed', { index: 1, agent: 'reviewer' }),
-      Elsewhere: subagent('Elsewhere', 'running', { parentToolCallId: 'call_9' }),
+      ParserScout: subagent('ParserScout', 'completed', { index: 0, intent: 'Finding parse callers', tokens: 12_000, recentOutput: ['src/lib.rs:12: pub fn parse'] }),
+      DocsReviewer: subagent('DocsReviewer', 'failed', { index: 1, agent: 'reviewer' }),
+      Elsewhere: subagent('Elsewhere', 'completed', { parentToolCallId: 'call_9' }),
     };
 
-    render(ToolCard, { call, active: true, subagents });
+    render(ToolCard, { call, active: false, subagents });
 
     const list = screen.getByRole('region', { name: 'Subagents' });
-    expect(within(list).getByText(/1 running, 1 done/)).toBeInTheDocument();
-    expect(within(list).getByText('Finding parse callers')).toBeInTheDocument();
+    expect(within(list).getByText(/1 done, 1 failed/)).toBeInTheDocument();
+    expect(within(list).getByText('DocsReviewer')).toBeInTheDocument();
     expect(within(list).queryByText('Elsewhere')).toBeNull();
 
     await fireEvent.click(within(list).getByText('ParserScout'));
@@ -46,26 +46,23 @@ describe('subagent card', () => {
     expect(within(list).getByLabelText('Recent output')).toHaveTextContent('src/lib.rs:12: pub fn parse');
   });
 
-  it('shows no subagent list on other tools', () => {
-    render(ToolCard, { call: { ...call, name: 'read' }, active: true, subagents: { ParserScout: subagent('ParserScout', 'running') } });
+  it('leaves the list to the docked one while any subagent runs', () => {
+    render(ToolCard, { call, active: true, subagents: { ParserScout: subagent('ParserScout', 'running') } });
 
     expect(screen.queryByRole('region', { name: 'Subagents' })).toBeNull();
   });
 
-  it('lists the running subagents on a running wait call, and only those', () => {
-    const subagents = {
-      ParserScout: subagent('ParserScout', 'running', { intent: 'Finding parse callers' }),
-      DocsReviewer: subagent('DocsReviewer', 'completed', { index: 1 }),
-    };
+  it('shows no subagent list on other tools', () => {
+    render(ToolCard, { call: { ...call, name: 'read' }, active: false, subagents: { ParserScout: subagent('ParserScout', 'completed') } });
+
+    expect(screen.queryByRole('region', { name: 'Subagents' })).toBeNull();
+  });
+
+  it('shows no subagent list on a running wait call', () => {
     const wait: ToolCallState = { ...call, name: 'wait', args: {}, intent: null, status: 'running', resultText: null };
 
-    const { rerender } = render(ToolCard, { call: wait, active: true, subagents });
+    render(ToolCard, { call: wait, active: true, subagents: { ParserScout: subagent('ParserScout', 'running') } });
 
-    const list = screen.getByRole('region', { name: 'Subagents' });
-    expect(within(list).getByText('Finding parse callers')).toBeInTheDocument();
-    expect(within(list).queryByText('DocsReviewer')).toBeNull();
-
-    rerender({ call: { ...wait, status: 'ok' }, active: true, subagents });
     expect(screen.queryByRole('region', { name: 'Subagents' })).toBeNull();
   });
 });

@@ -40,9 +40,10 @@
   const Icon = $derived(TOOL_ICONS[kind]);
   const summary = $derived(primaryArg(call.args));
   const command = $derived(commandOf(call));
-  const waiting = $derived(call.name === 'wait' && call.status === 'running');
-  // A `task` call lists what it spawned; a running `wait` lists everything still going, since it names no task.
-  const spawned = $derived(kind === 'task' ? spawnedBy(subagents, call.id) : waiting ? Object.values(subagents).filter(isSubagentActive) : []);
+  // A `task` call lists what it spawned, but only once nothing is running: while any subagent is active the docked list
+  // above the composer already shows them all, and repeating it in every card triples the rows.
+  const docked = $derived(Object.values(subagents).some(isSubagentActive));
+  const spawned = $derived(kind === 'task' && !docked ? spawnedBy(subagents, call.id) : []);
   const argsJson = $derived(call.args === null || (isJsonObject(call.args) && Object.keys(call.args).length === 0) ? '' : JSON.stringify(call.args, null, 2));
 
   const label = $derived(call.status === 'pending' && !active ? t('chat.tool.notRun') : t(`chat.tool.status.${call.status}`));
