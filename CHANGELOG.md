@@ -1,3 +1,10 @@
+## [0.40.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.2...v0.40.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **exit:** build the embedder stop timeout inside the runtime so quitting no longer aborts ([618129c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/618129cb1de15dd7e8c67d2caefaa337ee8d082e))
+
 ## [0.40.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.1...v0.40.2) (2026-10-26)
 
 
