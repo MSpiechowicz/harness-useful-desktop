@@ -54,9 +54,10 @@ pub const SEED_DASHBOARD_LIMITS_TEXT: &str = "Before a long or expensive task, c
      with Harness Dashboard (limits, budget_status). Say so if a limit is close.";
 
 /// The `useful-skills` context.
-pub const SEED_USEFUL_SKILLS_TEXT: &str = "If Useful Skills are installed, read the ones that apply before you \
-     act: decide the workflow first (plan, implement, review), then read any other skill that fits the task \
-     and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.";
+pub const SEED_USEFUL_SKILLS_TEXT: &str = "If Useful Skills are installed, read the ones that apply to this \
+     message before you act. When it starts a new task, even late in the session, load the workflow skill and \
+     decide the workflow first (plan, implement, review) before the first edit. Then read any other skill that \
+     fits and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.";
 
 /// The `branch-sync` context.
 pub const SEED_BRANCH_SYNC_TEXT: &str = "At the start of the session, compare the branch you are working on with \
@@ -85,6 +86,8 @@ pub struct FamilyHook {
     /// The texts of its earlier catalog versions. A file still holding one of them word for word
     /// is stale, not edited, and automatic updates may replace it.
     pub earlier: &'static [&'static str],
+    /// The events of its earlier catalog versions, when one fired on another event.
+    pub earlier_events: &'static [HookEvent],
 }
 
 impl FamilyHook {
@@ -110,7 +113,9 @@ impl FamilyHook {
             HookAction::Command { .. } => return false,
         };
 
-        hook.name == self.name && hook.event == self.event && self.earlier.contains(&text)
+        let event = hook.event == self.event || self.earlier_events.contains(&hook.event);
+
+        hook.name == self.name && event && self.earlier.contains(&text)
     }
 
     /// A new file of this entry, created now with a fresh id.
@@ -161,6 +166,7 @@ pub const FAMILY: [FamilyHook; 5] = [
             "Before you start, search Harness Memory for notes about this task (note_search) and check the \
                     saved scripts (script_list). Reuse what fits.",
         ],
+        earlier_events: &[],
     },
     FamilyHook {
         seed: HookSeed::MemorySave,
@@ -180,6 +186,7 @@ pub const FAMILY: [FamilyHook; 5] = [
                     note_update). Save any command sequence you would run again as a script (script_save). \
                     Reply briefly, or say nothing needs saving.",
         ],
+        earlier_events: &[],
     },
     FamilyHook {
         seed: HookSeed::DashboardLimits,
@@ -189,15 +196,21 @@ pub const FAMILY: [FamilyHook; 5] = [
         event: HookEvent::SessionStart,
         text: SEED_DASHBOARD_LIMITS_TEXT,
         earlier: &[],
+        earlier_events: &[],
     },
     FamilyHook {
         seed: HookSeed::UsefulSkills,
         member: HookRequirement::HarnessMemory,
         name: "Check Useful Skills first",
-        description: "Seeded default. Asks the agent to read the installed Useful Skills and pick the workflow before it acts.",
-        event: HookEvent::SessionStart,
+        description: "Seeded default. Asks the agent, on every message, to read the installed Useful Skills and pick the workflow before it acts.",
+        event: HookEvent::PromptSubmit,
         text: SEED_USEFUL_SKILLS_TEXT,
-        earlier: &[],
+        earlier: &[
+            "If Useful Skills are installed, read the ones that apply before you act: decide the workflow \
+                    first (plan, implement, review), then read any other skill that fits the task and follow its \
+                    limits (for example the 500-line file maximum). Do not skip a matching skill.",
+        ],
+        earlier_events: &[HookEvent::SessionStart],
     },
     FamilyHook {
         seed: HookSeed::BranchSync,
@@ -207,6 +220,7 @@ pub const FAMILY: [FamilyHook; 5] = [
         event: HookEvent::SessionStart,
         text: SEED_BRANCH_SYNC_TEXT,
         earlier: &[],
+        earlier_events: &[],
     },
 ];
 

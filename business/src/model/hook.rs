@@ -139,7 +139,7 @@ pub enum HookSeed {
     MemorySave,
     /// Harness Dashboard: "Check limits before long work" (`sessionStart`).
     DashboardLimits,
-    /// Harness Memory: "Check Useful Skills first" (`sessionStart`).
+    /// Harness Memory: "Check Useful Skills first" (`promptSubmit`).
     UsefulSkills,
     /// Harness Memory: "Check the branch against main" (`sessionStart`).
     BranchSync,

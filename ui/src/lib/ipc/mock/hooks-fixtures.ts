@@ -54,9 +54,9 @@ export const CATALOG: readonly CatalogEntry[] = [
     seed: 'useful-skills',
     member: 'harness-memory',
     name: 'Check Useful Skills first',
-    event: 'sessionStart',
+    event: 'promptSubmit',
     type: 'addContext',
-    text: 'If Useful Skills are installed, read the ones that apply before you act: decide the workflow first (plan, implement, review), then read any other skill that fits the task and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.',
+    text: 'If Useful Skills are installed, read the ones that apply to this message before you act. When it starts a new task, even late in the session, load the workflow skill and decide the workflow first (plan, implement, review) before the first edit. Then read any other skill that fits and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.',
   },
   {
     seed: 'branch-sync',

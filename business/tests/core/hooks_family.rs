@@ -9,8 +9,8 @@ mod hooks_family {
         HookCapabilities, HookStore, apply_family, family_hook, family_status, restore_member, seed_defaults,
     };
     use harness_business::model::{
-        HookAction, HookApproval, HookAuthor, HookDraft, HookFamilyStatus, HookRequirement, HookSeed, HookStatus,
-        HookView,
+        HookAction, HookApproval, HookAuthor, HookDraft, HookEvent, HookFamilyStatus, HookRequirement, HookSeed,
+        HookStatus, HookView,
     };
     use pretty_assertions::assert_eq;
     use tempfile::TempDir;
@@ -75,6 +75,17 @@ mod hooks_family {
     }
 
     fn edit_text(store: &HookStore, seed: HookSeed, author: HookAuthor, text: &str) -> HookView {
+        rewrite(store, seed, author, None, text)
+    }
+
+    /// The seed's hook rewritten with `text`, on `event` when given.
+    fn rewrite(
+        store: &HookStore,
+        seed: HookSeed,
+        author: HookAuthor,
+        event: Option<HookEvent>,
+        text: &str,
+    ) -> HookView {
         let view = seeded(store, seed).unwrap();
         let hook = view.hook.clone().unwrap();
         let draft = HookDraft {
@@ -84,7 +95,7 @@ mod hooks_family {
             description: hook.description,
             scope: hook.scope,
             project: hook.project,
-            event: hook.event,
+            event: event.unwrap_or(hook.event),
             matcher: hook.matcher,
             action: match hook.action {
                 HookAction::FollowUp { .. } => HookAction::FollowUp { text: text.to_owned() },
@@ -193,6 +204,35 @@ mod hooks_family {
             (HookFamilyStatus::Outdated, false)
         );
         assert!(!entries[2].stale);
+    }
+
+    #[test]
+    fn the_session_start_useful_skills_hook_is_stale_and_updates_to_prompt_submit() {
+        let (_temp, store) = store();
+        seed_defaults(&store, MEMORY, at(0)).unwrap();
+        let entry = family_hook(HookSeed::UsefulSkills);
+        rewrite(
+            &store,
+            HookSeed::UsefulSkills,
+            HookAuthor::Desktop,
+            Some(HookEvent::SessionStart),
+            entry.earlier[0],
+        );
+
+        let found = |store: &HookStore| {
+            family_status(&store.list(MEMORY), MEMORY)
+                .into_iter()
+                .find(|found| found.seed == HookSeed::UsefulSkills)
+                .unwrap()
+        };
+        let before = found(&store);
+        assert_eq!((before.status, before.stale), (HookFamilyStatus::Outdated, true));
+
+        apply_family(&store, &[HookSeed::UsefulSkills], MEMORY, at(10)).unwrap();
+        let updated = seeded(&store, HookSeed::UsefulSkills).unwrap().hook.unwrap();
+
+        assert_eq!(found(&store).status, HookFamilyStatus::Installed);
+        assert_eq!(updated.event, HookEvent::PromptSubmit);
     }
 
     #[test]

@@ -2,14 +2,14 @@
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d70041",
   "name": "Check Useful Skills first",
-  "description": "Seeded default. Asks the agent to read the installed Useful Skills and pick the workflow before it acts.",
+  "description": "Seeded default. Asks the agent, on every message, to read the installed Useful Skills and pick the workflow before it acts.",
   "scope": "global",
   "project": null,
-  "event": "sessionStart",
+  "event": "promptSubmit",
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "If Useful Skills are installed, read the ones that apply before you act: decide the workflow first (plan, implement, review), then read any other skill that fits the task and follow its limits (for example the 500-line file maximum). Do not skip a matching skill."
+    "text": "If Useful Skills are installed, read the ones that apply to this message before you act. When it starts a new task, even late in the session, load the workflow skill and decide the workflow first (plan, implement, review) before the first edit. Then read any other skill that fits and follow its limits (for example the 500-line file maximum). Do not skip a matching skill."
   },
   "enabled": true,
   "createdAt": "2026-10-17T10:00:00Z",
