@@ -4,7 +4,7 @@ import type { SyncSkipReason } from "./SyncSkipReason";
 /**
  * The outcome of one item.
  */
-export type SyncOutcome = { "type": "done" } | { "type": "alreadyPresent" } | { "type": "conflict" } | { "type": "skipped", 
+export type SyncOutcome = { "type": "done" } | { "type": "replaced" } | { "type": "alreadyPresent" } | { "type": "conflict" } | { "type": "skipped", 
 /**
  * Why.
  */

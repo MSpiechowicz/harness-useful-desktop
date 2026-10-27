@@ -23,6 +23,7 @@ use serde_json::{Map, Value};
 use super::collect::{Found, excluded_reason, safe_label, source_problem};
 use super::collect_items::{MarketplacePlugin, marketplace_item, marketplace_plugins};
 use super::collect_mcp::{collect_servers, endpoint_problem, keys, list, not_shared, server_fields, text};
+use super::path_args::without_machine_paths;
 use super::schema::{Marketplace, McpServer, Transport};
 use super::secrets::exportable;
 use super::validate;
@@ -143,6 +144,7 @@ fn shared_codex_server(name: &str, server: &Value) -> Result<(McpServer, Vec<Syn
         (false, false) => return Err(SyncExcludedReason::Unsupported),
     };
 
+    let (args, trimmed) = without_machine_paths(args)?;
     endpoint_problem(command.as_deref(), &args, url.as_deref())?;
 
     let mut env_keys = keys(fields, "env")?;
@@ -180,7 +182,8 @@ fn shared_codex_server(name: &str, server: &Value) -> Result<(McpServer, Vec<Syn
         Transport::Http | Transport::Sse => &["args", "env", "env_vars", "cwd"],
     };
     let noted: &[(&[&str], SyncNote)] = &[(&["cwd"], SyncNote::CwdNotShared)];
-    let notes = not_shared(fields, &server, unused, KNOWN_FIELDS, noted);
+    let mut notes = not_shared(fields, &server, unused, KNOWN_FIELDS, noted);
+    notes.extend(trimmed.then_some(SyncNote::PathArgsNotShared));
 
     validate::codex_mcp_server(&server).map_err(excluded_reason)?;
 

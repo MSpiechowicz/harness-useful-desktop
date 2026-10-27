@@ -15,7 +15,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use harness_business::env::Env;
-use harness_business::harness::HarnessRegistry;
+use harness_business::harness::{HarnessRegistry, OpenCodeGeneration};
+use harness_business::harnesses::OpenCode;
 use harness_business::model::{
     HarnessId, SyncImportItem, SyncImportPlan, SyncImportResult, SyncItemOutcome, SyncItemStatus, SyncOutcome,
     SyncProgress,
@@ -288,6 +289,106 @@ pub fn outcome_of<'r>(result: &'r SyncImportResult, id: &str) -> &'r SyncItemOut
         .iter()
         .find(|item| item.id == id)
         .unwrap_or_else(|| panic!("no outcome for {id}"))
+}
+
+/// Applies the selectable items of `built` (confirmed) and checks that every one ended `replaced`.
+pub async fn apply_replaced(machine: &Machine, runner: &FakeCli, built: &BuiltPlan, ids: &[&str]) -> SyncImportResult {
+    let selected: Vec<String> = ids.iter().map(|id| (*id).to_owned()).collect();
+    let (result, _) = apply(machine, runner, &built.stored, &selected, true).await;
+    let result = result.expect("applied");
+
+    assert!(result.ok, "{result:?}");
+    for id in ids {
+        assert_eq!(outcome_of(&result, id).outcome, SyncOutcome::Replaced, "{id}");
+    }
+
+    result
+}
+
+/// The two OMP servers most replace tests share: `github` (stdio, needs a token) and `remote`
+/// (HTTP, needs a header).
+pub fn github_and_remote() -> Vec<Value> {
+    vec![
+        json!({ "name": "github", "transport": "stdio", "command": "npx",
+                "args": ["-y", "@modelcontextprotocol/server-github"], "envKeys": ["GITHUB_TOKEN"] }),
+        json!({ "name": "remote", "transport": "http", "url": "https://mcp.example.com/mcp",
+                "headerKeys": ["Authorization"] }),
+    ]
+}
+
+/// A bundle sharing `github` (stdio, needs a token) and `remote` (HTTP) with OpenCode.
+pub fn opencode_github_and_remote() -> Value {
+    bundle(json!({ "opencode": { "mcpServers": [
+        { "name": "github", "transport": "stdio", "command": "npx", "args": ["-y", "server-github"],
+          "envKeys": ["GITHUB_TOKEN"] },
+        { "name": "remote", "transport": "http", "url": "https://mcp.example.com/mcp" },
+    ]}}))
+}
+
+/// Checks that every item of `ids` of `plan` is a `differentDefinition` one.
+pub fn assert_different_definitions(plan: &SyncImportPlan, ids: &[&str]) {
+    for id in ids {
+        let row = plan
+            .sections
+            .iter()
+            .flat_map(|section| &section.items)
+            .find(|row| row.id == *id)
+            .unwrap_or_else(|| panic!("no item {id}"));
+
+        assert_eq!(row.status, SyncItemStatus::DifferentDefinition, "{id}");
+    }
+}
+
+/// The review on OpenCode 2 of a bundle sharing the `servers` (a JSON list) with OpenCode.
+pub fn plan_opencode_2(machine: &Machine, servers: Value) -> BuiltPlan {
+    machine.plan_in(
+        &registry_v2(),
+        &bundle(json!({ "opencode": { "mcpServers": servers } })),
+    )
+}
+
+/// An OpenCode 2 registry.
+pub fn registry_v2() -> HarnessRegistry {
+    HarnessRegistry::new(vec![Box::new(OpenCode::with_generation(OpenCodeGeneration::V2))])
+}
+
+/// [`apply_in`] of every selectable item of `built` (confirmed), checking that it all succeeded.
+pub async fn apply_selectable_in(
+    machine: &Machine,
+    runner: &FakeCli,
+    registry: &HarnessRegistry,
+    built: &BuiltPlan,
+) -> SyncImportResult {
+    let (result, _) = apply_in(machine, runner, registry, &built.stored, &selectable(&built.plan), true).await;
+    let result = result.expect("applied");
+
+    assert!(result.ok, "{result:?}");
+
+    result
+}
+
+/// An env value built at run time, so no source line looks like a credential.
+pub fn secret() -> String {
+    ["env", "-value-", "Z9mK"].concat()
+}
+
+/// A header value built at run time, so no source line looks like a credential.
+pub fn header() -> String {
+    ["Bearer ", "header", "-value-", "L3xT"].concat()
+}
+
+/// The keys of the JSON object `value`, in order.
+pub fn keys(value: &Value) -> Vec<&str> {
+    value.as_object().unwrap().keys().map(String::as_str).collect()
+}
+
+/// Checks that none of `needles` shows in the JSON of `shown` (a plan or a result).
+pub fn assert_no_leaks(shown: &impl serde::Serialize, needles: &[impl AsRef<str>]) {
+    let text = serde_json::to_string(shown).unwrap();
+
+    for needle in needles {
+        assert!(!text.contains(needle.as_ref()), "leaks {:?}", needle.as_ref());
+    }
 }
 
 pub fn assert_refused(result: Result<SyncImportResult>) {

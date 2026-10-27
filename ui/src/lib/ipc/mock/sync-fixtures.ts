@@ -132,7 +132,30 @@ const TYPICAL_OMP: SyncImportSection = {
       notes: ['envValuesNotShared', 'writtenDisabled'],
       steps: [{ type: 'mcpMerge', file: OMP_MCP, server: { name: 'local-files', transport: 'stdio', command: 'npx', args: ['-y', '@acme/files-mcp', '--root', 'docs'], url: null, enabled: false } }],
     }),
-    item({ id: 'omp:mcp:github', kind: 'mcpServer', label: 'github', status: { type: 'conflict' }, selectable: false, selectedByDefault: false }),
+    // A server of this name is already in the file with another definition: ticking it replaces its command or URL and keeps its other settings.
+    item({
+      id: 'omp:mcp:github',
+      kind: 'mcpServer',
+      label: 'github',
+      status: { type: 'differentDefinition' },
+      selectedByDefault: false,
+      headerKeys: ['Authorization'],
+      notes: ['headerValuesNotShared'],
+      steps: [{ type: 'mcpReplace', file: OMP_MCP, server: { name: 'github', transport: 'http', command: null, args: [], url: 'https://api.githubcopilot.com/mcp/', enabled: true } }],
+    }),
+    // A server of this name that the app cannot replace (it is in a layer it does not write): it stays as it is.
+    item({ id: 'omp:mcp:linear', kind: 'mcpServer', label: 'linear', status: { type: 'conflict' }, selectable: false, selectedByDefault: false }),
+    // The same, but its address changes: the entry cannot keep its saved values, so the row writes it whole, like a new server.
+    item({
+      id: 'omp:mcp:sentry',
+      kind: 'mcpServer',
+      label: 'sentry',
+      status: { type: 'differentDefinition' },
+      selectedByDefault: false,
+      headerKeys: ['X-Api-Key'],
+      notes: ['headerValuesNotShared', 'writtenDisabled'],
+      steps: [{ type: 'mcpMerge', file: OMP_MCP, server: { name: 'sentry', transport: 'http', command: null, args: [], url: 'https://mcp.sentry.example/mcp', enabled: false } }],
+    }),
   ],
 };
 

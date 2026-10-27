@@ -16,4 +16,13 @@ file: string,
 /**
  * The exact entry written.
  */
+server: SyncMcpPreview, } | { "type": "mcpReplace", 
+/**
+ * The file's home-relative display path (e.g. `"~/.omp/agent/mcp.json"`).
+ */
+file: string, 
+/**
+ * The fields written: `enabled` is always `true` here and is not written (the entry keeps
+ * its own switch).
+ */
 server: SyncMcpPreview, };

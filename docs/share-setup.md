@@ -28,7 +28,7 @@ Entry point: the Settings section only. Nothing is added to the Extensions menu.
 
 ## What an import can and cannot do
 
-An import only **adds**. These are the only actions it can produce, and only in the user scope:
+An import **adds**, and for MCP servers it can also **replace**. These are the only actions it can produce, and only in the user scope:
 
 | Item | What runs |
 | --- | --- |
@@ -38,13 +38,18 @@ An import only **adds**. These are the only actions it can produce, and only in 
 | Plugin (OpenCode) | `opencode plugin <name>[@<version>] -g` |
 | Marketplace (Claude Code) | `claude plugin marketplace add <source> --scope user --json` |
 | Plugin (Claude Code) | `claude plugin install <id> --scope user --json` |
-| MCP server | One atomic merge of the entry into the harness's user `mcp.json` (OpenCode: the `mcp` object of its global config file) |
-| MCP server (Claude Code) | `claude mcp add-json --scope user <name> <json>`, one run per server (the app never writes `~/.claude.json`) |
+| MCP server | One atomic merge of the entry into the harness's user `mcp.json` (OpenCode: the `mcp` object of its global config file). A server of the same name with another definition, if you tick it, is replaced in place by the same merge |
+| MCP server (Claude Code) | `claude mcp add-json --scope user <name> <json>`, one run per server (the app never writes `~/.claude.json`). A replace runs `claude mcp remove --scope user <name>` first |
+| MCP server (Codex) | `codex mcp add <name> …`, one run per server (the app never writes `config.toml`). A replace runs `codex mcp remove <name>` first |
 
-It never uninstalls, removes, upgrades, downgrades, overwrites, or touches project scope, app preferences or harness
-settings. Something already present is left alone. Versions in a bundle are informational: the latest version is
-installed (a PI source keeps any pin already written in the source string). Plugin enabled/disabled state is not
-copied.
+It never uninstalls, upgrades, downgrades, or touches project scope, app preferences or harness settings.
+Marketplaces, plugins and packages are **add-only**: something already present is left alone, and a marketplace of the
+same name with another source is a `conflict`. The one thing an import can overwrite is an MCP server you tick in the
+review (status `differentDefinition`): for an http/sse server at the same endpoint only its URL is replaced and its other settings
+are kept; otherwise (a stdio server, another endpoint) the whole entry is replaced and nothing of the old one is kept, see
+[MCP servers](#mcp-servers).
+Versions in a bundle are informational: the latest version is installed (a PI source keeps any pin already written in
+the source string). Plugin enabled/disabled state is not copied.
 
 An add can still run code: a CLI install of a marketplace, plugin or package may run install scripts (npm lifecycle
 scripts, a plugin's setup) with your privileges, and an MCP server entry is a program or a remote service the harness
@@ -136,7 +141,7 @@ OpenCode server uses the same fields as the others (`local` is shared as stdio, 
 | | `version` | string, optional | Informational. |
 | `packages` | `source` | string | `npm:…`, `git:…` or `https://…`, with any pin it had (see [Validation](#validation-of-every-item)). |
 | | `version` | string, optional | Informational. |
-| `mcpServers` | `name` | string | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, never `harness-dashboard`, `harness-memory` or `useful_skills` (reserved). |
+| `mcpServers` | `name` | string | `^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`, never `harness-dashboard`, `harness`, `harness-memory`, `harness-desktop`, `harness-useful-skills` or `useful_skills` (reserved, any case). |
 | | `transport` | `stdio`, `http`, `sse` | How the harness talks to it. |
 | | `command` | string | Stdio only: a bare program name (`^[A-Za-z0-9][A-Za-z0-9._+-]*$`: no directory, no flag, not a shell). |
 | | `args` | string array | Stdio only. |
@@ -179,10 +184,12 @@ is never echoed back. Besides the shapes above:
 - **Plugin ids:** `name@marketplace` or an npm package name, never a path or URL; `marketplace`, if present, matches the
   `@marketplace` part. Claude Code takes `name@marketplace` only: it would install a bare name from whichever
   registered marketplace lists it.
-- **MCP server names:** the pattern above. `harness-dashboard`, `harness-memory` and `useful_skills` (any case) are
-  reserved: Recommended setup installs and registers the first, the app installs and registers the second (project
-  memory), and the Harness Skills installer registers the third for OpenCode. None is ever exported, and an imported one
-  is refused (for every harness, as a bad name).
+- **MCP server names:** the pattern above. `harness-dashboard` (and `harness`, the dashboard's name before it was
+  registered under that one), `harness-memory`, `harness-desktop`, `harness-useful-skills` and `useful_skills` (its name
+  before Harness Skills 0.4.0), in any case, are reserved: Recommended setup installs and registers the first, the app
+  installs and registers the second (project memory) and the third (its hooks and routines server), and the Harness
+  Skills installer registers the last two (OpenCode, Codex). None is ever exported, and an imported one is refused (for
+  every harness, as a bad name).
 - **MCP commands:** a bare program name, never a path and never a shell interpreter (`sh`, `bash`, `zsh`, `dash`,
   `fish`, `cmd`, `pwsh`, `powershell`, with or without a directory or `.exe`). Never `harness-dashboard` or
   `harness-memory` either (any case, with or without `.exe`): together with the reserved names, an import can neither
@@ -197,7 +204,16 @@ is never echoed back. Besides the shapes above:
   off. A plain `$NAME` is passed on as written.
 - **MCP URLs:** `http://` or `https://` with a host, no whitespace, no user info, no `${…}` or `$NAME` (even a declared
   one), no secret query value (`?api_key=…`).
-- **Machine paths.** On export, an MCP server whose arguments or URL hold a path of this machine is left out whole: an
+- **Machine paths.** On export, an MCP argument that holds a path of this machine is dropped only in two cases, and the
+  item then carries the note "arguments with a path of this machine are not shared" (the importing machine uses the
+  program's default for that option): an argument with its own value (`--image-dir=/home/alice/x`) is dropped alone, and
+  a path on its own is dropped together with the `--option` right before it (`--image-dir /home/alice/x`) only when
+  that option name ends in `dir`, `directory`, `path`, `file`, `folder`, `root`, `home`, `cwd` or `config`. Any other
+  machine-path argument (a script, a positional path, a path after a flag that takes none) cannot be dropped without
+  changing what the server does, so the whole server is left out (reason `LocalPath`). A server whose URL or command
+  holds such a path is left out whole too. An import compares arguments exactly, so a server exported without its
+  paths differs from one a machine configured with its own: it is offered as `differentDefinition` and may be ticked
+  to replace it. The paths detected are: an
   absolute, home or drive path right after `=` (`--root=/home/alice`, `--config=~/x`), an absolute path right after
   `@`, a system or user directory (`home`, `users`, `root`, `mnt`, `var`, `tmp`, `opt`, `srv`, `media`, `private`)
   after `,` or `;` and slashes, or after `:` and one or three or more slashes (`PATH=/usr/bin:/home/alice/bin`,
@@ -224,11 +240,12 @@ Left out of the file and listed in the export dialog by name and reason (never b
 | --- | --- |
 | Values of `env`, `headers`, `auth`, `oauth` | Secrets. Only key names travel. This is structural: the values are never copied into a setup. |
 | MCP `cwd` and any field outside the allowlist (`type`, `command`, `args`, `url`, key names) | Paths and settings of this machine. |
-| MCP servers whose command, arguments or URL hold a secret, credentials or a machine path | The whole server is left out. Heuristics (see [Validation](#validation-of-every-item)), not a proof. |
+| MCP arguments that hold a machine path | An `--option=/path` argument is dropped alone; a path on its own is dropped with the `--option` before it when that name ends in `dir`, `directory`, `path`, `file`, `folder`, `root`, `home`, `cwd` or `config`. The server is still shared, with a note. Any other machine path (a script, a positional path, a path after a flag that takes none) leaves the whole server out. |
+| MCP servers whose command, arguments or URL hold a secret or credentials, or whose command or URL holds a machine path | The whole server is left out. Heuristics (see [Validation](#validation-of-every-item)), not a proof. |
 | MCP servers with an undeclared `${VAR}` / `$NAME` reference, a shell command, a non-bare command, or a `harness-dashboard` / `harness-memory` command under another name | Would hand an environment variable to the setup's author, run a shell, or shadow an app entry on the other machine. |
-| The `harness-dashboard` server (any letter case) | Recommended setup installs it. Skipped without a row in the list. |
+| The `harness-dashboard` server and its older name `harness`, and the `harness-desktop` server (any letter case) | Recommended setup and the app install them. Skipped without a row in the list; an import refuses these names. |
 | The `harness-memory` server (any letter case) and the project memory database | The app installs and registers the server itself, and the notes are local to this machine. Skipped without a row in the list; an import refuses that name. |
-| The `useful_skills` server (any letter case) | The Harness Skills server for OpenCode, registered by its installer. Skipped without a row in the list. An import refuses that name for every harness. |
+| The `harness-useful-skills` server and its name before Harness Skills 0.4.0, `useful_skills` (any letter case) | The Harness Skills MCP server, registered by its installer (OpenCode, Codex). Skipped without a row in the list. An import refuses both names for every harness. |
 | Local or unknown PI packages, local marketplaces, `file:` / `link:` plugin specs | Machine paths. |
 | OpenCode plugins that are local files, git, `github:` or URL specs, and `[spec, options]` entries | Machine paths, and options that may hold secrets. Only npm registry specs are shared. |
 | OpenCode servers with a `{env:...}` or `{file:...}` substitution in the command, arguments or URL | OpenCode would put this machine's variables or file contents there. An import refuses them as well. |
@@ -253,7 +270,8 @@ exported file always imports again with zero invalid items.
 | `new` | Not here yet; it would be added. | yes | yes, except stdio MCP servers |
 | `alreadyPresent` | Same marketplace name and source, same plugin id, same PI package source, or an MCP server of the same name and identical definition. | no | |
 | `differentVersion` | Installed here in another version (a plugin version, or a PI package with another pin). Informational; never upgraded or downgraded. | no | |
-| `conflict` | An MCP server or marketplace of the same name with a different definition. Left untouched. An MCP server is also a conflict when a config file the harness reads besides its user MCP file exists but cannot be read or parsed (see [MCP servers](#mcp-servers)). For OpenCode, a name already in its merged config is found only when you import (see [MCP servers](#mcp-servers)) and ends `conflict` then. | no | |
+| `differentDefinition` | An MCP server of the same name but another definition, in a file or scope the app writes. Ticking it replaces it: for an http/sse server at the same endpoint only its URL changes and its other settings (headers, on/off) are kept; otherwise (a stdio server, another endpoint) the whole entry is replaced (see [MCP servers](#mcp-servers)). | yes | no, http and stdio alike |
+| `conflict` | A marketplace of the same name with a different source. Left untouched. An MCP server is a `conflict` (not selectable) when its name is only in a file the harness reads besides the one the app writes, or in OpenCode's merged config, when such a file exists but cannot be read or parsed, or, for Codex, when the existing entry holds fields the CLI cannot carry over (see [MCP servers](#mcp-servers)). For OpenCode, a name already in its merged config is found only when you import and ends `conflict` then. | no | |
 | `blocked` | The harness is not installed here; it has no such kind of item or no user MCP file; or a plugin's marketplace is neither registered here nor in the bundle. | no | |
 | `invalid` | The item failed validation, with a typed reason. Never applied. | no | |
 
@@ -269,15 +287,35 @@ registered here.
   agent, and the tools' output goes into its context. It starts **ticked** like other items; check the URL in the review.
 - The entry that is written holds only: for stdio `command` and `args`; for http/sse `type` (`http` or `sse`) and
   `url`. Nothing else is copied.
-- A server that declares `envKeys` or `headerKeys` is written with `"enabled": false`. The review lists the names as
-  "needs KEY". Nothing is written for them: fill in the values in the harness's own configuration, then enable the
-  server. Only these declared names may be referenced in the arguments (`$NAME`, `${NAME}`).
+- A server that declares `envKeys` or `headerKeys` is written, when it is new, with `"enabled": false`. The review lists the names as
+  "needs KEY" (when it replaces an http/sse entry of the same endpoint: "Needs KEY. Values already set here are kept."). Nothing is written for them: fill in the values in the harness's own configuration, then enable the
+  server. A replace of the same http/sse endpoint never adds `"enabled": false` and never touches the values already there; any other replace is written like a new server, switched off. Only these declared names may be referenced in the arguments (`$NAME`, `${NAME}`).
 - The MCP merge is gated by the plan's installed state: a harness that was not installed at review time has no file, and
   its servers end `skipped` (`harnessNotInstalled`).
-- Merge rules: existing keys and servers keep their order and values; a name that already exists is never overwritten
-  (identical is `alreadyPresent`, different is `conflict`). The file is refused, and nothing written, if it is invalid
+- Merge rules: existing keys and servers keep their order and values. A name that already exists with the identical
+  definition is `alreadyPresent` (arguments are compared exactly, so an entry with a local path argument of its own differs). With
+  another definition it is `differentDefinition`, **unticked by default**; ticking it and confirming **replaces** it.
+  What a replace keeps depends on whether the existing entry is an http/sse server at the **same endpoint** as the
+  shared one (the same transport and the same scheme, host and port), read at review and again at apply time. The
+  settings of an entry belong to the server they were set up for, so they are only kept for that case. A stdio server
+  never counts: what it connects to hangs on its arguments (`mcp-remote <url>`, a docker image, `--api-url=...`), which
+  the shared entry controls.
+  - **Same http/sse endpoint:** the replace rewrites only the managed keys in place (`type`, `command`, `args`, `url`;
+    OpenCode: `type`, `command` as an array, `url`). Every other key (`env`, `environment`, `headers`, `enabled`,
+    `disabled`, `cwd`, `oauth`, and any other) keeps its value and its position, and no `enabled` is added. The review
+    shows the step (the file and the managed fields that would be written, never `enabled` or `disabled`) and the row
+    says "Replaces in <file>".
+  - **Anything else** (any stdio server, another host, scheme or port, any change of transport): the
+    whole entry is swapped in place (it keeps its position) for the entry a new add would write, including
+    `"enabled": false` (OpenCode 2: `"disabled": true`) when the bundle declares env or header keys. No `env`, `headers`,
+    `oauth`, bearer variable, `cwd` or other key of the old entry survives, so nothing set up for another server
+    reaches this one. The review shows that full entry, as for a new server.
+  The file is refused, and nothing written, if it is invalid
   JSON, a symlink, not a regular file, over 2 MiB, or changed while it was read. A missing file is created with `0600`.
   A refused target file makes its servers not selectable.
+- **Automatic conflict resolution.** There is no "changed since review" check. Right before it writes, the app reads the
+  target again: if the name now differs it is replaced, if it is now identical the item ends `alreadyPresent`, if it
+  is gone it is added as a new server (`done`), and if the name is now in a file the app only reads, or the file cannot be read, it ends `conflict` and nothing is written.
 - **Files the harness also reads.** Some harnesses read servers from more files than the one the merge writes (OpenCode's
   other config layers, OMP's `.mcp.json`). The app checks all of them for the name, not only the first match, and never
   writes them. A symlink there is followed (read-only). A file that exists but cannot be read or parsed makes the server
@@ -310,16 +348,31 @@ registered here.
   and each new server is added with `claude mcp add-json --scope user <name> <json>`, the command line the review
   shows. The JSON holds `type` and the `command` and `args` or the `url`, nothing else. Claude Code has no `enabled`
   field, so a server that declares `envKeys` or `headerKeys` is added switched on and without values: a stdio server
-  sees Claude Code's environment, and the values can be added in Claude Code afterwards. `add-json` refuses a name the
-  user scope has, and the file is checked again right before each run, so nothing is overwritten. Each run needs the
-  `claude` binary, like the CLI items.
-- **OpenCode config files with comments.** Such a file is never rewritten: its servers end `skipped` (`manualEdit`)
-  and the import's result shows the entry to paste.
+  sees Claude Code's environment, and the values can be added in Claude Code afterwards. Each run needs the
+  `claude` binary, like the CLI items. `add-json` refuses a name the user scope has, so a **replace** is two runs, shown as two steps:
+  `claude mcp remove --scope user <name>`, then `claude mcp add-json --scope user <name> <json>`. At apply time the
+  app reads the existing entry from `~/.claude.json`. For the same endpoint it builds the new JSON from it with only the
+  managed keys swapped, so `env`, `headers` and `oauth` are kept; for another endpoint the JSON is the fresh entry and
+  nothing of the old one is kept. If the add fails, the old entry is added back. Because kept `env` and `headers` values
+  go onto that command line, the process list on this machine shows them for the duration of the run; the result in the
+  app shows the command without values, and the values are never stored in the review or sent to the window. The CLI's
+  output is never logged for a replace.
+- **Codex.** Servers are added with `codex mcp add <name> …` (`--url` for http, `-- <command> <args>` for stdio), never by writing `config.toml`.
+  A **replace** is `codex mcp remove <name>` followed by `codex mcp add`. For the same http endpoint the add carries
+  the existing `bearer_token_env_var` through its flag; a stdio server or another endpoint is a plain `codex mcp add`
+  of the shared server, and nothing of the old entry (its `env` included) is carried over. If the add fails the old entry
+  is added back, with its `env` as `--env KEY=VALUE` on that command line for one run (visible in the local process
+  list, never stored or shown). So an existing entry that holds anything `codex mcp add` cannot write back (a timeout,
+  a tool list, another auth setting, `enabled`) stays a `conflict` and is not selectable, whatever it points to.
+- **OpenCode config files with comments.** Such a file is never rewritten: a new server there ends `skipped` (`manualEdit`)
+  and the import's result shows the entry to paste. A replace of the same http/sse endpoint there ends `skipped` (`manualReplace`) and shows the
+  managed fields only (`type`, `command`/`url`): replace those in the server's entry yourself and keep the others. A
+  replace of another endpoint ends `skipped` (`manualEdit`) with the whole entry: replace the server's entry with it.
 
 ## Applying
 
 Order: harnesses one after another; within a harness the CLI items in plan order (marketplaces, plugins, packages),
-then the MCP servers, written with one merge per file (Claude Code: one `claude mcp add-json` per server). Only one apply runs at a time.
+then the MCP servers, written with one merge per file (Claude Code and Codex: one CLI run, or a remove and an add for a replace, per server). Only one apply runs at a time.
 
 - Rust refuses the whole request (nothing runs) without `confirmed`, while another import is running, with an unknown or
   stale plan id, an empty selection, an id that is not a selectable item of that plan, or a plugin whose marketplace
@@ -334,8 +387,9 @@ then the MCP servers, written with one merge per file (Claude Code: one `claude 
 - Each item is re-checked against the machine right before its step. Applying the same setup twice therefore runs
   nothing the second time: items end `alreadyPresent`.
 - **Partial failure, no rollback.** A failed marketplace skips the plugins that depend on it ("dependency failed");
-  every other item still runs. What succeeded stays. The result lists each item's outcome (`done`, `alreadyPresent`,
-  `conflict`, `skipped`, `failed`) with the CLI's redacted one-line summary and the command line that ran.
+  every other item still runs. What succeeded stays. The result lists each item's outcome (`done`, `replaced`,
+  `alreadyPresent`, `conflict`, `skipped`, `failed`) with the CLI's redacted one-line summary and the command line that
+  ran. `replaced` counts as a success like `done`. For a Claude Code or Codex replace that carries values on the command line, the command shown has no values and the summary is a fixed text.
 
 ## Forward compatibility
 

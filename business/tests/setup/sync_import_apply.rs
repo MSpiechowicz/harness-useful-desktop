@@ -99,8 +99,9 @@ async fn applying_runs_marketplaces_plugins_packages_then_merges_mcp_files_and_t
 #[tokio::test]
 async fn refused_requests_run_nothing_and_change_nothing() {
     let machine = Machine::new(BOTH);
+    // A differing server in a file OMP only reads stays a conflict (one in its own file is replaceable).
     machine.write(
-        OMP_MCP,
+        ".omp/agent/.mcp.json",
         &json!({ "mcpServers": { "remote": { "url": "https://other.example.com" } } }),
     );
     let runner = fake(&machine);
@@ -118,6 +119,7 @@ async fn refused_requests_run_nothing_and_change_nothing() {
     let mcp_before = machine.text(OMP_MCP);
 
     assert_eq!(item(&built.plan, "omp:mcp:remote").status, SyncItemStatus::Conflict);
+    assert!(!item(&built.plan, "omp:mcp:remote").selectable);
     assert_eq!(
         item(&built.plan, "omp:plugin:#3").status,
         SyncItemStatus::Invalid {
@@ -281,7 +283,9 @@ async fn existing_mcp_files_keep_everything_and_existing_definitions_never_leave
     let runner = fake(&machine);
     let built = machine.plan(&typical());
 
-    assert_eq!(item(&built.plan, "omp:mcp:github").status, SyncItemStatus::Conflict);
+    let github = item(&built.plan, "omp:mcp:github");
+    assert_eq!(github.status, SyncItemStatus::DifferentDefinition);
+    assert!(github.selectable && !github.selected_by_default);
     assert_eq!(item(&built.plan, "pi:mcp:docs").status, SyncItemStatus::AlreadyPresent);
 
     let text = serde_json::to_string(&built.plan).unwrap();
@@ -302,7 +306,8 @@ async fn existing_mcp_files_keep_everything_and_existing_definitions_never_leave
     assert_eq!(servers, ["github", "keep", "remote"]);
     assert_eq!(
         written["mcpServers"]["github"],
-        json!({ "command": "other-cmd", "env": { "GITHUB_TOKEN": MCP_SECRET } })
+        json!({ "command": "other-cmd", "env": { "GITHUB_TOKEN": MCP_SECRET } }),
+        "not ticked, so not replaced"
     );
     assert_eq!(
         written["mcpServers"]["remote"],

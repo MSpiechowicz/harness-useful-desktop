@@ -1,6 +1,7 @@
 //! Export of "Share setup" leaves out the entries the app and Recommended setup write themselves
-//! (the dashboard's, the memory server's and the Harness Skills' server under its name since 0.4.0
-//! and the one before), without a row, in any case.
+//! (the dashboard's under both its names, the desktop app's hooks server, the memory server's and
+//! the Harness Skills' server under its name since 0.4.0 and the one before), without a row, in any
+//! case.
 
 use crate::sync_support;
 
@@ -18,6 +19,8 @@ fn the_dashboard_and_memory_entries_are_skipped_without_a_row() {
             "harness-memory": { "command": "/home/someone/.local/bin/harness-memory", "args": ["mcp"] },
             "Harness-Memory": { "command": "harness-memory", "args": ["mcp"] },
             "harness-dashboard": { "command": "harness-dashboard", "args": ["mcp"] },
+            "harness-desktop": { "type": "http", "url": "https://desktop.example.com/mcp" },
+            "Harness": { "type": "http", "url": "https://old-dashboard.example.com/mcp" },
             "docs": { "type": "http", "url": "https://docs.example.com/mcp" },
         }}),
     );

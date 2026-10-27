@@ -13,7 +13,7 @@ installed: string,
 /**
  * The version in the bundle.
  */
-shared: string, } | { "type": "conflict" } | { "type": "blocked", 
+shared: string, } | { "type": "conflict" } | { "type": "differentDefinition" } | { "type": "blocked", 
 /**
  * Why.
  */

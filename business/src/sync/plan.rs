@@ -18,8 +18,14 @@
 //!
 //! Status precedence: `invalid` (failed validation), `blocked` (the harness has no such kind or no
 //! user MCP file, is not installed, or a plugin's marketplace is neither registered nor shared), then
-//! what is here (`alreadyPresent`, `differentVersion`, `conflict`), else `new`. Only `new` items are
-//! selectable; they start ticked, except stdio MCP servers (they run a program). A plugin whose
+//! what is here (`alreadyPresent`, `differentVersion`, `differentDefinition`, `conflict`), else
+//! `new`. Only `new` items and `differentDefinition` MCP servers are selectable; `new` items start
+//! ticked, except stdio MCP servers (they run a program), and a `differentDefinition` one never
+//! does (ticking it replaces the existing entry: for an HTTP or SSE server at the same endpoint only its
+//! URL and it keeps its other settings, otherwise the whole entry, see [`super::endpoint`]). It is an
+//! MCP server of that name with another definition in the file the app writes (for Codex only when `codex mcp add` can write all its
+//! fields back) while no file the harness also
+//! reads has one; every other same-name case stays a `conflict`. A plugin whose
 //! marketplace the bundle shares with the same name but another source is a `conflict` (installing
 //! it would use the marketplace registered here). A repeated id keeps its first item. An MCP server
 //! whose target file cannot be read safely, or that a file the harness also reads might define but
@@ -36,7 +42,8 @@ use std::collections::HashSet;
 
 use super::codec::DecodedBundle;
 use super::collect::item_id;
-use super::plan_presence::{Machine, McpFiles, Presence, mcp_presence};
+use super::plan_presence::{Machine, McpFiles, Presence, Replace, mcp_presence};
+use super::plan_replace::{mcp_cli_replace_preview, mcp_replace_preview};
 use super::plan_rows::{
     Dependency, Row, SharedMarketplace, Step, StoredPlan, display_argv, mcp_cli_preview, mcp_preview,
 };
@@ -46,7 +53,7 @@ use crate::env::Env;
 use crate::harness::{Harness, HarnessRegistry, ShareSupport};
 use crate::model::{
     HarnessId, HarnessSummary, SyncBlockReason, SyncImportPlan, SyncImportSection, SyncItemKind, SyncItemStatus,
-    SyncNote,
+    SyncNote, SyncStep,
 };
 use crate::pi_family::tilde;
 
@@ -251,12 +258,18 @@ impl<'a> Context<'a> {
         let mut row = Row::valid(item_id(self.id, kind, &step.key()), self.id, &step, compared.status);
         row.item.notes.extend(compared.note);
 
-        if row.item.status == SyncItemStatus::New {
-            self.select(&mut row, step, compared.dependency);
+        match row.item.status {
+            SyncItemStatus::New => self.select(&mut row, step, compared.dependency),
+            SyncItemStatus::DifferentDefinition => {
+                self.select_replace(&mut row, step, compared.replace.unwrap_or(Replace::Whole));
+            }
+            _ => {}
         }
 
-        // Checked against OpenCode's merged configuration only when it is applied.
-        if self.id == HarnessId::OpenCode && kind == SyncItemKind::McpServer && row.item.selectable {
+        // Checked against OpenCode's merged configuration only when it is applied (a replaced
+        // server is in the file the app writes, so it is not merged from elsewhere).
+        let is_new = row.item.status == SyncItemStatus::New;
+        if self.id == HarnessId::OpenCode && kind == SyncItemKind::McpServer && row.item.selectable && is_new {
             row.item.notes.push(SyncNote::OpenCodeMergedCheck);
         }
 
@@ -293,7 +306,13 @@ impl<'a> Context<'a> {
                 note: Some(SyncNote::ConfigUnreadable),
                 ..Compared::status(SyncItemStatus::Conflict)
             },
-            (_, presence) => Compared::status(status_of(presence)),
+            (_, presence) => Compared {
+                replace: match presence {
+                    Presence::Replaceable(replace) => Some(replace),
+                    _ => None,
+                },
+                ..Compared::status(status_of(presence))
+            },
         }
     }
 
@@ -331,6 +350,41 @@ impl<'a> Context<'a> {
             _ => Compared::status(SyncItemStatus::Blocked {
                 reason: SyncBlockReason::MarketplaceMissing,
             }),
+        }
+    }
+
+    /// Makes a `differentDefinition` MCP row selectable with the steps that replace the server: the
+    /// managed fields only for the same endpoint, else the whole entry a new add would write.
+    fn select_replace(&self, row: &mut Row, step: Step, replace: Replace) {
+        let (Step::Mcp(server), Some(files)) = (&step, &self.mcp_files) else {
+            // Unreachable: only an MCP server in a known MCP file is replaceable.
+            row.item.status = SyncItemStatus::Conflict;
+            return;
+        };
+
+        let (steps, command) = if files.via_cli() {
+            let steps = mcp_cli_replace_preview(self.id, server, files.shape);
+            let command = match steps.last() {
+                Some(SyncStep::Cli { command }) => command.clone(),
+                _ => Vec::new(),
+            };
+
+            (steps, command)
+        } else if replace == Replace::Keep {
+            (
+                vec![mcp_replace_preview(tilde(self.env, &files.target), server)],
+                Vec::new(),
+            )
+        } else {
+            (vec![mcp_preview(tilde(self.env, &files.target), server)], Vec::new())
+        };
+
+        let disabled = matches!(&steps[..], [SyncStep::McpMerge { server, .. }] if !server.enabled);
+        let files = files.clone();
+        row.select_replace(step, steps, command, files);
+
+        if disabled {
+            row.item.notes.push(SyncNote::WrittenDisabled);
         }
     }
 
@@ -372,6 +426,8 @@ struct Compared {
     dependency: Option<Dependency>,
     /// A remark on the status (`configUnreadable` on a conflict).
     note: Option<SyncNote>,
+    /// What replacing a `differentDefinition` MCP server keeps.
+    replace: Option<Replace>,
 }
 
 impl Compared {
@@ -380,6 +436,7 @@ impl Compared {
             status,
             dependency: None,
             note: None,
+            replace: None,
         }
     }
 }
@@ -390,5 +447,6 @@ fn status_of(presence: Presence) -> SyncItemStatus {
         Presence::Present => SyncItemStatus::AlreadyPresent,
         Presence::DifferentVersion { installed, shared } => SyncItemStatus::DifferentVersion { installed, shared },
         Presence::Conflict | Presence::Unreadable => SyncItemStatus::Conflict,
+        Presence::Replaceable(_) => SyncItemStatus::DifferentDefinition,
     }
 }

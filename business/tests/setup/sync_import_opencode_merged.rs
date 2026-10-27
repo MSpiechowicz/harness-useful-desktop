@@ -75,7 +75,8 @@ fn a_server_already_in_the_config_is_present_without_the_note() {
     let built = machine.plan(&shared());
 
     assert_eq!(item(&built.plan, DOCS).status, SyncItemStatus::AlreadyPresent);
-    assert_eq!(item(&built.plan, GITHUB).status, SyncItemStatus::Conflict);
+    assert_eq!(item(&built.plan, GITHUB).status, SyncItemStatus::DifferentDefinition);
+    assert!(item(&built.plan, GITHUB).selectable);
     for id in [GITHUB, DOCS] {
         assert!(item(&built.plan, id).notes.is_empty(), "{id}");
     }

@@ -37,11 +37,15 @@ not guaranteed, it says so under [Limits](#limits).
   change only when the app runs `codex mcp add` and `codex mcp remove` (see [Codex](#codex)). An OpenCode config file that has comments is never rewritten
   (the app shows the entry to paste or the plugin to remove instead). Switching project memory off does not rewrite such a file either: the app's
   own `harness-memory` entry stays in it, and Settings names the file and the entry so you can remove it yourself. An
-  existing entry is never overwritten; the only change to one is the `command`
+  existing entry is not overwritten, with two kinds of exception. One is the `command`
   of the app's own `harness-memory` entry, which is re-pointed to whichever server the app resolves (the installer's
   folder first, then `PATH`), for example when the installed server replaces the copy older builds kept or another
   `harness-memory` takes over, and the `command` of the app's own `harness-desktop` entry, which follows the app's program
-  (a moved AppImage, an update); each such change is logged with the old and new path. See
+  (a moved AppImage, an update); each such change is logged with the old and new path. The other is an MCP server you tick
+  in a shared-setup review that has the same name but another definition: for the same http/sse endpoint its URL is
+  replaced and the rest of the entry is kept, otherwise (a stdio server, another endpoint) the whole entry is replaced and nothing of the old
+  one survives (in Claude Code and Codex by a `remove` and an `add`); the values already there are read only when
+  you confirm, never stored or sent to the window (see [Shared setups](#shared-setups)). See
   [Process spawning](#process-spawning), [Project memory](#project-memory) and [Shared setups](#shared-setups).
 - A shared setup carries references and the names (never the values) of environment variables and headers, and nothing
   in it runs until you have read the review and confirmed. Secret and path detection in free-form text is best effort,
@@ -78,7 +82,7 @@ not guaranteed, it says so under [Limits](#limits).
 | The webview (or a compromised dependency) tries to escape through Tauri | ACL grants only app commands; no `core:*`, no plugin permissions; navigation and pop-up guards |
 | A UI bug passes a path or URL the user did not choose | Rust re-validates: active/recent project check, `canonical_within`, link allowlist (any `https` URL, or `http` to localhost, without credentials when `openAnyLink` is on), argv charset |
 | A tampered or downgraded update | Signature check against the built-in key, signed version, HTTPS only, newer versions only |
-| A shared setup (pasted string or file) tries to run a command, install something unexpected or leak a secret | Every field validated in Rust; the webview sends only a plan id and item ids; only add-actions exist; review and explicit confirmation first; env and header values, `auth` and `oauth` never exported, secrets in free-form text caught by heuristics; see [Shared setups](#shared-setups) |
+| A shared setup (pasted string or file) tries to run a command, install something unexpected or leak a secret | Every field validated in Rust; the webview sends only a plan id and item ids; only add actions exist, plus the replace of an MCP server you tick; review and explicit confirmation first; env and header values, `auth` and `oauth` never exported, secrets in free-form text caught by heuristics; see [Shared setups](#shared-setups) |
 | An agent stores a secret in project memory, or a note written in one session misleads a later one | `redact_text` on every stored string, per-call size limits, notes are data the server only returns; see [Project memory](#project-memory) and [Limits](#limits) |
 | An agent writes a hook that runs a command or steers later prompts | A hook an agent writes is pending and never runs until you approve that exact version (SHA-256 of the file bytes in `hook-approvals.json`, written only by the window), the Hooks view shows the text or command and the change, an agent removes only hooks it created, and its edits and removals need the hash it read. Context and follow-ups are capped at 8 KiB and cannot forge their markers; see [Hooks](#hooks) and [Limits](#limits) |
 | A file planted in, or a link placed into, the hooks folder | Only regular files named `<id>.json` are read, symbolic links are skipped and never written through, and the folder is ignored while group or others can write to it; a planted file stays pending without an approval for its hash; see [Hooks](#hooks) |
@@ -458,10 +462,11 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   harness's settings, with exceptions that all concern MCP server entries in the user MCP file of a detected harness (the
   `mcp.json` of OMP and PI, the `mcp` object of OpenCode's global config file):
   Recommended setup adds a `harness-dashboard` entry (`setup_register_mcp`, `business/src/ecosystem/mcp_register.rs`),
-  importing a shared setup adds the MCP servers you ticked (see [Shared setups](#shared-setups)), and project memory
+  importing a shared setup adds the MCP servers you ticked and replaces the ones of the same name with another definition
+  that you ticked (only the URL of an http/sse server at the same endpoint, the whole entry otherwise; see [Shared setups](#shared-setups)), and project memory
   manages a `harness-memory` entry (see the next item), and the app registers its own `harness-desktop` entry (see
   **Hooks MCP server** below). The first two use one merge (`merge_servers`,
-  `business/src/ecosystem/mcp_merge.rs`), and import is limited to the strict-JSON `mcp.json` files. The webview sends only a harness id (Recommended setup) or a plan id and item
+  `business/src/ecosystem/mcp_merge.rs`, which only adds; the import's replace is a separate in-place change), and import is limited to the strict-JSON `mcp.json` files. The webview sends only a harness id (Recommended setup) or a plan id and item
   ids (import). The file is `<agent dir>/mcp.json` from the harness's own paths for OMP and PI, and for OpenCode the
   global config file it would edit itself (`opencode.jsonc` if there is one, else `opencode.json`, in
   `$XDG_CONFIG_HOME/opencode` or `~/.config/opencode`, created as `opencode.json` when neither exists), found by
@@ -494,18 +499,22 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   it (`Shape::CodexCli` refuses a file write). Recommended setup, project memory, the app's own `harness-desktop` entry and
   a Share import add a server by running `codex mcp add <name> -- <absolute path> mcp` (or `--url <url>`) and remove one with
   `codex mcp remove <name>` (`business/src/ecosystem/mcp_cli.rs`), with the same decisions, limits and no retry as for
-  Claude Code. `codex mcp add` takes only a command and its arguments, or a URL and a bearer token variable. A change whose
-  old or new entry holds anything else (`env` values, `http_headers`, `enabled`, timeouts) is refused as `CliFailed` before
-  anything runs, so an entry with literal secrets is never rewritten or copied.
+  Claude Code. `codex mcp add` takes only a command and its arguments, or a URL and a bearer token variable, plus `--env`. A change of one of the app's own entries
+  whose old or new entry holds anything else (`env` values, `http_headers`, `enabled`, timeouts) is refused as `CliFailed` before
+  anything runs, so an entry with literal secrets is never rewritten or copied. A Share import that replaces an
+  existing server reads the entry at apply time, runs `codex mcp remove <name>` and then `codex mcp add` with the shared definition (the bearer token variable of the old entry is kept only for the same http endpoint; its `env` is never carried over). If the add fails the old entry is added back, with its `env` as `--env KEY=VALUE`, so those values are on the command line for that one run and
+  visible in the machine's local process list. They are never stored in the plan, returned to the window or logged (the result shows
+  the command without values and a fixed summary). An existing entry that holds any field `codex mcp add` cannot write back (a timeout, a tool list, `http_headers`, `enabled`) is a `conflict` in the review and is not replaced, since a failed add could not be rolled back. The CLI's output is not logged for a replace.
 - **Claude Code MCP registration.** The user scope of Claude Code's global file is rewritten by every running `claude`,
   so the app never writes it (`Shape::ClaudeCli` refuses a file write, `business/src/ecosystem/mcp_merge.rs`). Recommended
   setup, project memory, the app's own `harness-desktop` entry and a Share import change it by running `claude mcp
   add-json --scope user <name> <json>` and `claude mcp remove --scope user <name>` (`business/src/ecosystem/mcp_cli.rs`).
   The decisions are the ones the file merge makes (an entry you own is never changed, a removed one is not added back,
-  `add-json` refuses a name the user scope has), made on a read of the file. The entry is `{"type": "stdio", "command":
+  `add-json` refuses a name the user scope has), made on a read of the file; a Share import replace is the exception, see
+  [Shared setups](#shared-setups). The entry is `{"type": "stdio", "command":
   "<absolute path>", "args": ["mcp"]}`. Moving an owned entry to a new program path is a remove and an add, and the old
   entry is added back when the add fails. Each run has a 60 s limit, no shell and no retry. A failed run is reported
-  as a refusal without the CLI's output, and logs hold the harness, the command, the server and the CLI's redacted last line.
+  as a refusal without the CLI's output, and logs hold the harness, the command, the server and the exit status, never the CLI's output.
 - **Project memory registration.** At every launch, in the background and only while `memoryEnabled` is on (the
   default) and the server is installed, the shell (`src-tauri/src/memory_setup.rs`) registers it in the user MCP file
   (`mcp.json`, or OpenCode's global config file) of every detected harness whose adapter has one (`register_memory_mcp`, `business/src/ecosystem/memory_register.rs`);
@@ -1017,6 +1026,8 @@ fork, clone, rename, compact, export, `!command`) work, and are described below.
   Claude Code server whose command, arguments or URL holds `${` is refused, because Claude Code expands it from this
   machine's environment. Claude Code has no way to write a server switched off, so a server that declares env or header
   keys is added switched on and without values: a stdio server runs with Claude Code's environment until you add them.
+  A server of the same name with another definition that you tick is replaced by `claude mcp remove --scope user` and an
+  `add-json` run (the values already set stay only for the same http/sse endpoint, see [Shared setups](#shared-setups)).
   See [Shared setups](#shared-setups) and [share-setup.md](share-setup.md).
 
 ## Codex
@@ -1117,7 +1128,9 @@ them below are the ones they follow.
   `https://` URL: local folders, Codex's bundled marketplaces, sources pinned to a ref or a sparse checkout, SSH URLs and
   sources with credentials are left out), the user's plugins as `name@marketplace`, and the MCP servers of `config.toml`
   with the key names of `env` and `env_vars` and the header names of `http_headers`, never a value. The import runs `codex
-  plugin marketplace add`, `codex plugin add` and `codex mcp add`. See [Shared setups](#shared-setups) and
+  plugin marketplace add`, `codex plugin add` and `codex mcp add`. A ticked server of the same name with another definition
+  is replaced by `codex mcp remove` and `codex mcp add` (its `env` and bearer token variable stay only for the same
+  endpoint, see [Shared setups](#shared-setups)). See [Shared setups](#shared-setups) and
   [share-setup.md](share-setup.md).
 
 ## Shared setups
@@ -1136,14 +1149,23 @@ credential files are never opened) on every preview and export, and the webview 
 **What an export leaves out** (listed by name and reason, never by value): MCP servers whose command, arguments or URL
 the redactor would change (`secrets.rs` builds on `Redactor` and `redact_text`), that carry a secret flag (`-p`/`-P` with
 a non-numeric value, `--password`, `--token`, `--key`, `--pat`, `user:password` after `-u`/`--user`/`--auth`, ...), a
-machine path (an absolute, home or drive path after `=` or `@`, or a system or user directory after `:`, `,`, `;` or
-`scheme:///`) or a `${VAR}`/`$NAME`
-reference the server does not declare, the dashboard's own `harness-dashboard` entry (Recommended setup installs it),
-the app's `harness-memory` entry (the app registers it; project memory itself is never exported) and the `harness-useful-skills`
-entry and its name before Harness Skills 0.4.0, `useful_skills` (the Harness Skills installer registers it for OpenCode and Codex),
+machine path in the command or URL or in an argument that cannot be dropped (see below), or a `${VAR}`/`$NAME`
+reference the server does not declare, the dashboard's own `harness-dashboard` entry and its older name `harness`
+(Recommended setup installs it), the app's `harness-memory` entry (the app registers it; project memory itself is never
+exported), the app's `harness-desktop` entry (its hooks and routines server) and the `harness-useful-skills` entry and
+its name before Harness Skills 0.4.0, `useful_skills` (the Harness Skills installer registers it for OpenCode and Codex),
 sources with credentials, local or unknown packages, local marketplaces, `file:`/`link:` plugin specs, project-scope
 items and anything over the limits. Export runs the same validators as import, so an exported file imports again without
 invalid items.
+
+**Machine paths in arguments.** A machine path is an absolute, home or drive path after `=` or `@`, or a system or user
+directory after `:`, `,`, `;` or `scheme:///`. An argument with its own value (`--image-dir=/home/me/x`) is dropped alone.
+A path on its own is dropped with the option before it only when that option is `--<name>` with a name ending in `dir`,
+`directory`, `path`, `file`, `folder`, `root`, `home`, `cwd` or `config`. Either way the server is exported with a note
+("arguments with a path of this machine are not shared") and the importing machine uses the program's default. Any
+other machine-path argument (a script, a positional path, a path after a flag that takes none) leaves the whole server
+out, because dropping it would change what the server does. An import compares arguments exactly: an existing
+server with a path argument of its own differs from the shared one (`differentDefinition`), and may be ticked to replace it.
 
 **OpenCode.** Its export has two kinds. Plugins are the npm registry specs in the `plugin` lists of the global config
 files, as the package name plus the version, range or tag they pin. Local files, git, `github:` and URL specs, and
@@ -1174,12 +1196,12 @@ then validated in Rust (`validate.rs`, `validate_source.rs`, `validate_mcp.rs`, 
   `https://` only for a URL). Specs that name a path (starting with `.`, `/`, `~`, `\` or a drive letter), a tarball or
   archive (`.tgz`, `.tar`, `.tar.gz`, `.zip`), `file:`, `link:`, `git+file:`, `http:`, `git+http:` or `git:` are
   refused. Every URL or git host must be a plain host name.
-- MCP: the server name pattern (`harness-dashboard`, `harness-memory`, `harness-useful-skills` and `useful_skills` are reserved, in any case, for every harness); the command must
+- MCP: the server name pattern (`harness-dashboard`, `harness`, `harness-memory`, `harness-desktop`, `harness-useful-skills` and `useful_skills` are reserved, in any case, for every harness); the command must
   be a bare program name, not a path, not a shell interpreter and not `harness-dashboard` or `harness-memory` (any case,
   with or without `.exe`), so an import can neither add nor shadow either app entry, by name or under another name; URLs are `http(s)` without user info; arguments and URLs may not reference environment
   variables unless the item declares the name in `envKeys` (URLs may hold none at all), because the harness expands
   `${VAR}` and `$NAME` on your machine and could send the value to the setup's author; secret flags in arguments are
-  refused. Machine paths in arguments and URLs are left out on export and, as free-form text, not checked on import:
+  refused. Machine paths in arguments are dropped on export (a URL or command with one leaves the server out) and, as free-form text, not checked on import:
   read them in the review.
 - Claude Code items: a plugin id is `name@marketplace` only (a bare name would install from whichever registered
   marketplace lists it), and a server's command, arguments and URL may hold no `${`, not even a declared `${NAME}`,
@@ -1195,11 +1217,13 @@ An invalid item is marked and never applied; one bad item does not stop the othe
 are ignored and only counted. Secret and machine-path detection in free-form arguments are heuristics, not proofs: the
 review lists the exact command line or `mcp.json` entry of every item so you can read what would run.
 
-**What an import can do.** Add only, in the user scope: `omp plugin marketplace add`, `omp plugin install --scope user`,
+**What an import can do.** Add, in the user scope: `omp plugin marketplace add`, `omp plugin install --scope user`,
 `pi install` (no `--local`), `opencode plugin <module> -g`, `claude plugin marketplace add <source> --scope user --json`, `claude plugin install <id> --scope user
---json`, `claude mcp add-json --scope user <name> <json>` (one run per server, and the app never writes `~/.claude.json`) and an atomic merge of MCP entries into the harness's user
-`mcp.json` (OpenCode: the `mcp` object of its global config file). It never uninstalls,
-upgrades, downgrades, overwrites or touches project scope, preferences or harness settings. Commands are built in Rust
+--json`, `claude mcp add-json --scope user <name> <json>` and `codex mcp add` (one run per server, and the app never writes `~/.claude.json` or `config.toml`) and an atomic merge of MCP entries into the harness's user
+`mcp.json` (OpenCode: the `mcp` object of its global config file). The only thing it can overwrite is an MCP server of
+the same name but another definition that you tick in the review (see **MCP servers** below). Marketplaces, plugins
+and packages are add-only: an existing one is left alone. It never uninstalls,
+upgrades, downgrades or touches project scope, preferences or harness settings. Commands are built in Rust
 from validated fields and go through `cli_target` and the harness's own `cli_action`; the webview sends only a plan id,
 item ids and `confirmed`. The command (`sync_import_apply`) fails with `invalidInput`, running and writing nothing,
 without `confirmed: true`, a valid plan id, and a selection of selectable items of that plan. The plan lives in memory
@@ -1214,16 +1238,31 @@ service offer tools to your agent; it is ticked by default like other items, so 
 only `command`/`args` or `type`/`url`; a server that declares env or header keys is written with `"enabled": false`, so
 nothing runs until you add the values and enable it. The file is the harness's user `mcp.json` from its own paths,
 never a path from the bundle. An OpenCode server is written as `{"type": "local", "command": [...]}` or
-`{"type": "remote", "url": ...}`, with `"enabled"` false under the same condition (true otherwise). An entry whose name exists is never
-overwritten: the same definition counts as already present, another one as a conflict. If the OpenCode config file has
-comments, nothing is written and the server is skipped as `manualEdit`, with the entry to paste. The merge is gated by the plan's installed state: a harness that was not installed at
+`{"type": "remote", "url": ...}`, with `"enabled"` false under the same condition (true otherwise). An entry whose name exists with the
+same definition counts as already present. With another definition it is offered as `differentDefinition`, **unticked by default** (stdio and http alike), and only
+ticking it and confirming replaces it. What it keeps depends on the **endpoint** of the existing entry, read in Rust at review and again at apply time: an http/sse server at the same scheme, host and port as the shared one. The settings of an entry belong to the server they were set up for, so a replace never carries credentials anywhere else; a stdio server never counts, since what it connects to hangs on arguments (`mcp-remote <url>`, a docker image, `--api-url=...`) that the shared entry controls. At the same http/sse endpoint the replace changes only the managed keys (`type`, `command`, `args`, `url`; OpenCode: `type`, `command` as an array, `url`) in place; every other key
+(`env`, `environment`, `headers`, `enabled`, `disabled`, `cwd`, `oauth`) keeps its value and position, and a replace never adds `"enabled": false`. For a stdio server, another endpoint or another transport the whole entry is swapped in place for what a new add writes (switched off when env or header keys are declared): no `env`, `headers`, `oauth`, bearer variable or `cwd` survives. Entries
+found only in a file the app reads but does not write, in OpenCode's merged config, in an unreadable file, or (Codex) entries holding fields the CLI cannot carry over stay a conflict and are never written.
+There is no changed-since-review check: right before writing, the app reads the target again and replaces if it still differs,
+reports `alreadyPresent` if it is now identical, adds it if it is now gone, and ends `conflict` without writing if the name is now in a read-only layer or the file cannot be read. If the OpenCode config file has
+comments, nothing is written: a new server is skipped as `manualEdit` with the entry to paste, a same-endpoint replace as `manualReplace` with the managed fields only to change yourself, a replace of another endpoint as `manualEdit` with the whole entry. The merge is gated by the plan's installed state: a harness that was not installed at
 review time has no file, so its servers are skipped.
 
 A Claude Code server is added with the JSON `type` and `command` and `args`, or `type` and `url`, nothing else. Claude Code has no
 `enabled` field, so a server that declares env or header keys is added switched on and without values, and a stdio server
 sees Claude Code's environment until you add them in Claude Code. The review checks only the user scope for the name: a
-local or project server of the same name shadows the imported one. `add-json` refuses a name the user scope has, so
-nothing is overwritten.
+local or project server of the same name shadows the imported one. `add-json` refuses a name the user scope has, so a
+replace is `claude mcp remove --scope user <name>` followed by `add-json`: at apply time the app reads the existing entry
+from `~/.claude.json`; for the same http/sse endpoint it builds the new JSON from it with only the managed keys swapped
+(`headers` and `oauth` kept), otherwise the JSON is the fresh entry, and it re-adds the old entry if the add fails. A Codex
+replace is `codex mcp remove <name>` then `codex mcp add`, with the bearer token variable carried over for the same http
+endpoint and a plain add otherwise (an entry the CLI cannot write back is not replaced).
+
+**Existing values at apply time.** The values of the entry being replaced (env, headers, tokens) are read only at apply
+time. They are never stored in the plan, never returned to the window (`argv`, summary and notes included), and never
+logged or shown by `Debug`. For Claude Code and Codex the new command line has to carry env values (Claude Code's
+`add-json` JSON, Codex's `--env KEY=VALUE`), so **for that one run they are visible in the machine's local process
+list** to anything that can read it. The result shows the command without the values and a fixed summary text.
 
 **Name clashes with other config layers.** OpenCode deep-merges its config layers by server name, so an imported server
 named like one from another layer could inherit that server's headers or env. The review therefore checks more than the
@@ -1696,7 +1735,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `prefs.json` | The OS app-config directory for the identifier `com.mspiechowicz.harness-useful-desktop` (Tauri `app_config_dir`) | `AppPrefs` only (below). Written atomically (temp file, `sync_all`, rename); directory `0700`, file `0600` on Unix. A corrupt file is renamed to `prefs.json.corrupt-<unix-seconds>` and defaults load. |
 | Window size and position | App state kept by `tauri-plugin-window-state` | Geometry only. |
 | UI choices | Webview `localStorage` | Rail expanded (`harness.railExpanded`), command-palette recents (`harness.paletteRecents`), diff layout. |
-| `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in four cases (a shared setup never reaches OpenCode, and an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; the `harness-desktop` entry (the app's own hooks server), added automatically at launch in release builds and by Recommended setup; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entries ever changed are the app's own `harness-memory` and `harness-desktop` ones. Not app data; nothing else in it is touched. |
+| `mcp.json` of a harness, OpenCode's global config | `<agent dir>/mcp.json` (for example `~/.omp/agent/mcp.json`), the harness's own file, and for OpenCode `opencode.jsonc` or `opencode.json` in `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) | Written by the app in four cases (an OpenCode file with comments is never written): the `harness-memory` entry, added automatically at launch while project memory is on and the server is installed, and removed when you switch it off; the `harness-desktop` entry (the app's own hooks server), added automatically at launch in release builds and by Recommended setup; Recommended setup (one `harness-dashboard` server, after you choose it); and importing a shared setup (the MCP servers you ticked, after you confirm, which also replaces a ticked server of the same name that has another definition: at the same endpoint only its command or URL, keeping its other keys, at another endpoint the whole entry). Entries are merged in (see [Process spawning](#process-spawning)); the only existing entries ever changed are the app's own `harness-memory` and `harness-desktop` ones, and a server you ticked for replacement in a shared-setup review. Not app data; nothing else in it is touched. |
 | Project memory database | `memory.sqlite3` (plus `-wal` and `-shm` while in use) in `<data>/harness-memory` (`HARNESS_MEMORY_DIR` overrides it), where `<data>` is `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS) or `%LOCALAPPDATA%` (Windows) | Written by the `harness-memory` server, never by the app, which does not open it. Notes the agents wrote (title, body, kind, tags, entity names, relation labels, timestamps, and per note the client name and the checkout path of its latest write), and per repository its normalized remote and its path. On its first run the server copies the file older app builds kept in `<local data>/com.mspiechowicz.harness-useful-desktop/memory` (same `<data>` folders); the old file is left untouched. See [Project memory](#project-memory). On Unix a folder the server creates is `0700` and the file `0600`. Unencrypted. |
 | Script approval files | `desktop.alive` and `requests/<id>.json`, `requests/<id>.decision` in the same folder as the project memory database | `desktop.alive` (empty) is touched by the app every 5 s while it runs and removed at exit. Run requests (the script's summary and body, its previous approved version, the arguments, the agent's client name) are written by the server and read by the app; the app writes only the one-word answer. The server removes a request and its answer within 45 s. See [Script approval](#script-approval). `0600` files in a `0700` folder on Unix. |
 | Search model | `models/<id>/` (`model_quantized.onnx`, `tokenizer.json`) in `<data>/harness-memory` | The int8 embedding model, about 135 MB, downloaded by `harness-memory` when vector search is on and checked against a pinned SHA-256. No user data. Deleted by `memory_embedder_remove_model` and by `harness-memory embedder remove-model`. |

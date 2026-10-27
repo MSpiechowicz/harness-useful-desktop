@@ -12,7 +12,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{HarnessId, McpRefusal, McpTransport};
+use super::{HarnessId, McpTransport};
 
 /// What a shared item is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -42,6 +42,8 @@ pub enum SyncNote {
     AuthNotShared,
     /// The server's working directory (`cwd`) is not shared (it is a path on this machine).
     CwdNotShared,
+    /// Arguments that held a path of this machine (and the option name before it) are not shared.
+    PathArgsNotShared,
     /// Other settings of the server are not shared (only command, args, url and key names are).
     OtherFieldsNotShared,
     /// The version is informational: importing installs the latest version.
@@ -240,9 +242,10 @@ pub struct SyncImportItem {
     pub version: Option<String>,
     /// What importing would do here.
     pub status: SyncItemStatus,
-    /// True when the user may tick it (`new` items only).
+    /// True when the user may tick it (`new` items, and `differentDefinition` MCP servers).
     pub selectable: bool,
-    /// True when it starts ticked (`new` items, except stdio MCP servers).
+    /// True when it starts ticked (`new` items, except stdio MCP servers; never a
+    /// `differentDefinition` one, which replaces something).
     pub selected_by_default: bool,
     /// The exact steps that run when it is applied, in order (empty when not selectable).
     pub steps: Vec<SyncStep>,
@@ -275,8 +278,14 @@ pub enum SyncItemStatus {
         shared: String,
     },
     /// Something with the same name but a different definition is here, or (note
-    /// `configUnreadable`) a file that could hold one cannot be read; left alone.
+    /// `configUnreadable`) a file that could hold one cannot be read; left alone and not selectable.
     Conflict,
+    /// An MCP server with this name but another definition is in a file or scope this app writes:
+    /// the user may tick it to replace it. For an HTTP or SSE server at the same scheme, host and
+    /// port only its URL changes and its other settings are kept (`mcpReplace`); for anything else
+    /// (a stdio server, another endpoint, another transport) the whole entry is replaced by what a
+    /// new add writes (`mcpMerge`), keeping none of the old one.
+    DifferentDefinition,
     /// Cannot be imported on this machine.
     Blocked {
         /// Why.
@@ -353,6 +362,16 @@ pub enum SyncStep {
         /// The exact entry written.
         server: SyncMcpPreview,
     },
+    /// The managed fields of an existing entry of the same name (HTTP or SSE, same endpoint) replaced in the
+    /// harness's user MCP file; every other key of the entry (env, headers, on/off switch, ...)
+    /// keeps its value.
+    McpReplace {
+        /// The file's home-relative display path (e.g. `"~/.omp/agent/mcp.json"`).
+        file: String,
+        /// The fields written: `enabled` is always `true` here and is not written (the entry keeps
+        /// its own switch).
+        server: SyncMcpPreview,
+    },
 }
 
 /// The MCP server entry an import writes: only these fields, nothing else.
@@ -387,108 +406,4 @@ pub struct SyncUnsupported {
     pub name: String,
     /// How many items it holds (its contents are never shown).
     pub item_count: u32,
-}
-
-// ---------------------------------------------------------------------------------------------
-// Apply
-// ---------------------------------------------------------------------------------------------
-
-/// What `sync_import_apply` did. There is no rollback: items that succeeded stay.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct SyncImportResult {
-    /// True when every selected item ended `done` or `alreadyPresent`.
-    pub ok: bool,
-    /// One entry per selected item, in the order they were applied.
-    pub items: Vec<SyncItemOutcome>,
-}
-
-/// How one selected item ended.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct SyncItemOutcome {
-    /// The item id from the plan.
-    pub id: String,
-    /// Its harness.
-    pub harness: HarnessId,
-    /// What it is.
-    pub kind: SyncItemKind,
-    /// Its label from the plan.
-    pub label: String,
-    /// The outcome.
-    pub outcome: SyncOutcome,
-    /// The CLI's short, redacted outcome line, when a command ran.
-    pub summary: Option<String>,
-    /// The command line that ran (program name first), when one ran.
-    pub argv: Vec<String>,
-    /// Remarks on the outcome (`configUnreadable` on a `conflict`).
-    pub notes: Vec<SyncNote>,
-}
-
-/// The outcome of one item.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
-#[ts(export)]
-pub enum SyncOutcome {
-    /// Installed or added.
-    Done,
-    /// Found already present when re-checked right before its step; nothing ran.
-    AlreadyPresent,
-    /// Something with the same name but a different definition appeared since the preview, or
-    /// (note `configUnreadable`) a file that could hold one cannot be read; left alone.
-    Conflict,
-    /// Not attempted.
-    Skipped {
-        /// Why.
-        reason: SyncSkipReason,
-    },
-    /// The step ran and failed (see `summary`).
-    Failed,
-}
-
-/// Why a selected item was not attempted.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
-#[ts(export)]
-pub enum SyncSkipReason {
-    /// The marketplace it depends on failed to register.
-    DependencyFailed,
-    /// The harness is no longer installed.
-    HarnessNotInstalled,
-    /// The harness's MCP file cannot be changed safely; nothing was written.
-    McpFileRefused {
-        /// Why.
-        refusal: McpRefusal,
-    },
-    /// The harness's config file has comments a rewrite would lose (OpenCode's JSONC), so nothing
-    /// was written: the user pastes `snippet` into its servers object (`mcp`).
-    ManualEdit {
-        /// The file's home-relative display path (e.g. `"~/.config/opencode/opencode.jsonc"`).
-        file: String,
-        /// The server entry to add, as text ready to paste (`"<name>": { … }`).
-        snippet: String,
-    },
-}
-
-/// Progress of `sync_import_apply`, streamed while it runs.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
-#[ts(export)]
-pub enum SyncProgress {
-    /// An item's step is starting.
-    Started {
-        /// The item id.
-        id: String,
-        /// Its position among the selected items, from 0.
-        index: u32,
-        /// How many items are selected.
-        total: u32,
-    },
-    /// An item finished.
-    Finished {
-        /// How it ended.
-        outcome: SyncItemOutcome,
-    },
 }

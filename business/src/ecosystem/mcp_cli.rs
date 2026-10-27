@@ -33,12 +33,15 @@
 //! - `codex mcp add` silently replaces a server of the same name, so the file is read again right
 //!   before each add: a server of that name that appeared meanwhile (the user, or a running
 //!   harness, wrote it) is never overwritten, the change stops there as a failed run.
+//! - Share setup replaces a server of another definition the same way ([`replace_entry`], the
+//!   `replace` module): remove, then add with the bundle's command or URL and the old entry's other
+//!   settings, the old entry added back when that fails.
 //! - A batch-shim CLI (`claude.cmd`, an npm install on Windows) cannot take the JSON argument of
 //!   `add-json`: such a change is refused as `CliBatchShim` before anything runs, so no entry is
 //!   removed and left out.
 //!
-//! Logs name the harness, the command and the server, with the CLI's redacted last line; never a
-//! file's contents.
+//! Logs name the harness, the command, the server and the exit status; never the CLI's output (an
+//! `add-json` failure may echo the entry it was given) nor a file's contents.
 
 use std::path::Path;
 use std::time::Duration;
@@ -58,6 +61,10 @@ use crate::security::{is_safe_arg, redact_text};
 
 /// Time limit of one `claude mcp` run (it only edits the file, so this is generous).
 pub const MCP_CLI_TIMEOUT: Duration = Duration::from_secs(60);
+
+mod replace;
+
+pub(crate) use replace::{CliReplace, codex_replaceable, replace_entry};
 
 /// [`super::register_dashboard_mcp`] through the CLI: the entry runs the resolved
 /// `harness-dashboard` by its absolute path (its name when it does not resolve).
@@ -225,15 +232,29 @@ fn done(ok: bool) -> Applied {
 /// Removes `name` and adds it as `new`; when the add fails, adds it back as `old`. A server of that
 /// name that appeared meanwhile is left as it is.
 async fn replace(cli: HarnessCli<'_>, file: &McpFile, name: &str, old: &Value, new: &Value) -> Applied {
+    let new = add_args(file.shape, name, new);
+    let old = add_args(file.shape, name, old);
+
+    replace_with(cli, file, name, new, old).await
+}
+
+/// [`replace`] with the arguments of the add of the new entry and of the old one.
+async fn replace_with(
+    cli: HarnessCli<'_>,
+    file: &McpFile,
+    name: &str,
+    new: Option<Vec<String>>,
+    old: Option<Vec<String>>,
+) -> Applied {
     if !remove(cli, file.shape, name).await {
         return Applied::Failed;
     }
 
-    if add(cli, file, name, new).await {
+    if add_run(cli, file, name, new).await {
         return Applied::All;
     }
 
-    if present(file, name) || add(cli, file, name, old).await {
+    if present(file, name) || add_run(cli, file, name, old).await {
         return Applied::Failed;
     }
 
@@ -327,22 +348,14 @@ fn is_cli_name(name: &str) -> bool {
 /// entry would lose it, and its values may be secrets.
 pub fn codex_add_args(name: &str, definition: &Value) -> Option<Vec<String>> {
     let fields = definition.as_object()?;
-    let text = |key: &str| fields.get(key).and_then(Value::as_str);
-    let mut args = vec!["mcp".to_owned(), "add".to_owned(), name.to_owned()];
+    let mut args = add_head(name);
 
-    match (text("command"), text("url")) {
+    match transport_of(fields) {
         (Some(command), None) => {
             let known = fields
                 .iter()
                 .all(|(key, value)| matches!(key.as_str(), "command" | "args") || (key == "type" && value == "stdio"));
-            let words: Vec<String> = match fields.get("args") {
-                None => Vec::new(),
-                Some(Value::Array(words)) => words
-                    .iter()
-                    .map(|word| word.as_str().map(str::to_owned))
-                    .collect::<Option<_>>()?,
-                Some(_) => return None,
-            };
+            let words = string_args(fields)?;
 
             if !known {
                 return None;
@@ -364,7 +377,7 @@ pub fn codex_add_args(name: &str, definition: &Value) -> Option<Vec<String>> {
 
             args.extend(["--url".to_owned(), url.to_owned()]);
 
-            if let Some(variable) = text("bearer_token_env_var") {
+            if let Some(variable) = text(fields, "bearer_token_env_var") {
                 args.extend(["--bearer-token-env-var".to_owned(), variable.to_owned()]);
             }
         }
@@ -374,9 +387,39 @@ pub fn codex_add_args(name: &str, definition: &Value) -> Option<Vec<String>> {
     Some(args)
 }
 
+/// `mcp add <name>`, the start of every `codex mcp add` command line.
+fn add_head(name: &str) -> Vec<String> {
+    vec!["mcp".to_owned(), "add".to_owned(), name.to_owned()]
+}
+
+/// The string field `key` of an entry.
+fn text<'a>(fields: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
+    fields.get(key).and_then(Value::as_str)
+}
+
+/// The `command` and the `url` of an entry: a stdio one has only the first, an HTTP one the second.
+fn transport_of(fields: &Map<String, Value>) -> (Option<&str>, Option<&str>) {
+    (text(fields, "command"), text(fields, "url"))
+}
+
+/// The `args` of an entry as words (none when it has no `args`); `None` when it is not a list of
+/// strings.
+fn string_args(fields: &Map<String, Value>) -> Option<Vec<String>> {
+    match fields.get("args") {
+        None => Some(Vec::new()),
+        Some(Value::Array(words)) => words.iter().map(|word| word.as_str().map(str::to_owned)).collect(),
+        Some(_) => None,
+    }
+}
+
 /// Adds `name` unless the file has such a server by now (see the module docs).
 async fn add(cli: HarnessCli<'_>, file: &McpFile, name: &str, definition: &Value) -> bool {
-    let Some(args) = add_args(file.shape, name, definition) else {
+    add_run(cli, file, name, add_args(file.shape, name, definition)).await
+}
+
+/// [`add`] with the arguments of the run (`None`: the CLI cannot write the entry).
+async fn add_run(cli: HarnessCli<'_>, file: &McpFile, name: &str, args: Option<Vec<String>>) -> bool {
+    let Some(args) = args else {
         return false;
     };
 
@@ -424,7 +467,6 @@ async fn run(cli: HarnessCli<'_>, args: Vec<String>, server: &str) -> bool {
                 server = %server,
                 exit_code = ?result.exit_code,
                 timed_out = result.timed_out,
-                summary = result.summary.unwrap_or_default(),
                 "MCP change through the CLI failed"
             );
             false

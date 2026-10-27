@@ -288,7 +288,7 @@ fn what_opencode_2_already_reads_is_present() {
             ("opencode:plugin:only-in-config-json".to_owned(), SyncItemStatus::New),
             ("opencode:mcp:github".to_owned(), SyncItemStatus::AlreadyPresent),
             ("opencode:mcp:docs".to_owned(), SyncItemStatus::AlreadyPresent),
-            ("opencode:mcp:other".to_owned(), SyncItemStatus::Conflict),
+            ("opencode:mcp:other".to_owned(), SyncItemStatus::DifferentDefinition),
             ("opencode:mcp:legacy-only".to_owned(), SyncItemStatus::New),
         ]
     );

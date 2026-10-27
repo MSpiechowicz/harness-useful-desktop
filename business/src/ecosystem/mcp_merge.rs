@@ -12,7 +12,11 @@
 //!   is created (mode `0600`, parent directories too); a blank file counts as `{}`.
 //! - An existing name is never overwritten: it is reported as `AlreadyPresent` when its definition
 //!   is identical, else as `Conflict`, and left as it was (on OpenCode 2 a legacy `mcp.<name>`
-//!   counts too). Nothing is written when no entry is added.
+//!   counts too). Nothing is written when no entry is added. The one exception is an entry given
+//!   as [`EntryChange::Replace`] (a reviewed replace of a server of Share setup): for the same
+//!   endpoint its managed keys (see [`Shape::managed_keys`]) are set in place and every other key
+//!   keeps its value and position, otherwise the whole entry is swapped in place; reported as
+//!   `Replaced`.
 //! - Refused, nothing written: invalid JSON, a root or servers object that is not an object (on
 //!   OpenCode 2 also a `mcp.servers` that is a server itself), a symlink, anything but a regular
 //!   file, more than 2 MiB, or a file that cannot be read.
@@ -45,8 +49,10 @@ use crate::model::{ConfigFormat, McpRefusal};
 use crate::pi_family::{jsonc, parse_text};
 use crate::security::SafeReader;
 
+mod replace;
 mod shape;
 
+pub(crate) use replace::{EntryChange, managed_text, replace_managed};
 pub use shape::Shape;
 pub(crate) use shape::{remove_server, server_mut, servers, servers_mut};
 
@@ -66,7 +72,7 @@ pub enum Blocked {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MergeOutcome {
     /// The file was read; one result per entry, in the order given. It was written only when at
-    /// least one entry is [`MergeResult::Added`].
+    /// least one entry is [`MergeResult::Added`] or [`MergeResult::Replaced`].
     Merged(Vec<MergedServer>),
     /// The file is left alone as a whole; no entry was added.
     Refused(McpRefusal),
@@ -84,6 +90,9 @@ pub struct MergedServer {
 pub enum MergeResult {
     /// Written to the file.
     Added,
+    /// The managed keys of the existing server of that name were replaced
+    /// ([`EntryChange::Replace`] only).
+    Replaced,
     /// A server of that name with an identical definition was already there.
     AlreadyPresent,
     /// A server of that name with another definition is there; it was left untouched.
@@ -95,7 +104,12 @@ pub enum MergeResult {
 ///
 /// `env` is unused for now; it keeps the signature in line with the other MCP file functions.
 pub fn merge_servers(_env: &Env, path: &Path, entries: &[(String, Value)]) -> MergeOutcome {
-    match merge_entries(path, Shape::McpServers, entries) {
+    let entries: Vec<(String, EntryChange<'_>)> = entries
+        .iter()
+        .map(|(name, definition)| (name.clone(), EntryChange::Add(definition.clone())))
+        .collect();
+
+    match merge_entries(path, Shape::McpServers, &entries) {
         Ok(results) => MergeOutcome::Merged(results),
         Err(Blocked::Refused(reason)) => MergeOutcome::Refused(reason),
         // A `mcpServers` file is strict JSON, so comments make it unparsable rather than this.
@@ -104,18 +118,21 @@ pub fn merge_servers(_env: &Env, path: &Path, entries: &[(String, Value)]) -> Me
 }
 
 /// [`merge_servers`] for a file of any `shape`: one result per entry, or why the file is left
-/// alone ([`Blocked::ManualEdit`] for a JSONC file with comments that needs a new entry).
+/// alone ([`Blocked::ManualEdit`] for a JSONC file with comments that needs a new entry or a
+/// replaced one).
 pub(crate) fn merge_entries(
     path: &Path,
     shape: Shape,
-    entries: &[(String, Value)],
+    entries: &[(String, EntryChange<'_>)],
 ) -> Result<Vec<MergedServer>, Blocked> {
     change_file(path, shape, |target| {
         let mut document = target.document();
         let results = insert(&mut document, shape, entries);
-        let added = results.iter().any(|server| server.result == MergeResult::Added);
+        let written = results
+            .iter()
+            .any(|server| matches!(server.result, MergeResult::Added | MergeResult::Replaced));
 
-        if added {
+        if written {
             Change::Write(document, results)
         } else {
             Change::Keep(results)
@@ -206,32 +223,54 @@ pub(crate) fn change_file<R>(
 }
 
 /// Inserts the entries whose names are free (every server the harness sees counts, see
-/// [`servers`]) and reports each one.
-fn insert(document: &mut Map<String, Value>, shape: Shape, entries: &[(String, Value)]) -> Vec<MergedServer> {
+/// [`servers`]), replaces the managed keys of the existing server of a [`EntryChange::Replace`]
+/// in place, and reports each one.
+fn insert(document: &mut Map<String, Value>, shape: Shape, entries: &[(String, EntryChange<'_>)]) -> Vec<MergedServer> {
     let mut known = servers(document, shape).unwrap_or_default();
-    let Some(target) = servers_mut(document, shape) else {
-        return Vec::new();
-    };
+    let mut results = Vec::with_capacity(entries.len());
 
-    entries
-        .iter()
-        .map(|(name, definition)| {
-            let result = match known.get(name) {
-                None => {
-                    target.insert(name.clone(), definition.clone());
-                    known.insert(name.clone(), definition.clone());
-                    MergeResult::Added
-                }
-                Some(existing) if existing == definition => MergeResult::AlreadyPresent,
-                Some(_) => MergeResult::Conflict,
-            };
+    for (name, change) in entries {
+        let definition = change.definition();
 
-            MergedServer {
-                name: name.clone(),
-                result,
+        let result = match (known.get(name), change) {
+            (None, _) => {
+                let Some(target) = servers_mut(document, shape) else {
+                    return Vec::new();
+                };
+
+                target.insert(name.clone(), definition.clone());
+                known.insert(name.clone(), definition.clone());
+                MergeResult::Added
             }
-        })
-        .collect()
+            (Some(existing), _) if existing == definition => MergeResult::AlreadyPresent,
+            (Some(_), EntryChange::Add(_)) => MergeResult::Conflict,
+            (Some(_), EntryChange::Replace { keeps, .. }) => match server_mut(document, shape, name) {
+                Some(entry) => {
+                    let changed = if keeps(entry) {
+                        replace_managed(entry, definition, shape)
+                    } else {
+                        *entry = definition.clone();
+                        true
+                    };
+
+                    if changed {
+                        known.insert(name.clone(), entry.clone());
+                        MergeResult::Replaced
+                    } else {
+                        MergeResult::AlreadyPresent
+                    }
+                }
+                None => MergeResult::Conflict,
+            },
+        };
+
+        results.push(MergedServer {
+            name: name.clone(),
+            result,
+        });
+    }
+
+    results
 }
 
 /// The target file as read.

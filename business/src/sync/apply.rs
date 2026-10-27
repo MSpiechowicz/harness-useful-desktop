@@ -8,13 +8,21 @@
 //! Harnesses run one after another, in plan order; per harness: marketplaces, plugins, packages,
 //! then MCP servers. Each item is checked against the machine again right before its step, so
 //! applying twice runs nothing the second time: an item found present ends `alreadyPresent`, a
-//! same-name item with another definition ends `conflict`, and neither runs anything. CLI steps go
+//! same-name item with another definition ends `conflict`, and neither runs anything; the one
+//! exception is an MCP server the review offered as `differentDefinition` (a replace item): its
+//! entry is read again right before the write, and when it still differs in the file the app writes
+//! (no file the harness also reads has one) the managed fields of that entry are replaced
+//! (`replaced`, every other key kept), when it is the shared one by now it ends `alreadyPresent`,
+//! when it is gone it is added (`done`), and anything else ends `conflict` with nothing written. CLI
+//! steps go
 //! through [`run_cli_action`] (fixed argv, no shell, ANSI stripped, output redacted and capped), in
 //! the user scope and without a project. The MCP servers of one file are written by one
 //! `merge_entries` call; a refused file skips all of them, and an OpenCode config file with
-//! comments skips them as `manualEdit`, each with the entry to paste. Claude Code's servers are
-//! never merged: each is added through `claude mcp add-json --scope user` ([`super::apply_mcp_cli`],
-//! which needs the binary like a CLI item). OpenCode servers are first
+//! comments skips them as `manualEdit` (a replace as `manualReplace`: the managed fields to set),
+//! each with what to paste. Claude Code's servers are
+//! never merged: each is added through `claude mcp add-json --scope user` (a replace removes the
+//! entry first and adds the old one back when the add fails; Codex's through `codex mcp add`;
+//! [`super::apply_mcp_cli`], which needs the binary like a CLI item). OpenCode servers are first
 //! checked against the names OpenCode merges from all its layers (`merged_mcp_names`: `opencode
 //! debug config`, on OpenCode 2 `opencode api --standalone GET /api/config`; run once per apply
 //! after OpenCode's CLI items and before any of its servers is written, and only when one of them
@@ -139,6 +147,7 @@ pub async fn apply_plan(
     tracing::info!(
         selected = result.items.len(),
         done = count(|outcome| matches!(outcome, SyncOutcome::Done)),
+        replaced = count(|outcome| matches!(outcome, SyncOutcome::Replaced)),
         already_present = count(|outcome| matches!(outcome, SyncOutcome::AlreadyPresent)),
         conflicts = count(|outcome| matches!(outcome, SyncOutcome::Conflict)),
         skipped = count(|outcome| matches!(outcome, SyncOutcome::Skipped { .. })),
@@ -230,7 +239,10 @@ fn by_file<'p>(servers: &[&'p StoredItem]) -> Vec<(Option<McpFiles>, Vec<&'p Sto
 }
 
 fn succeeded(outcome: &SyncOutcome) -> bool {
-    matches!(outcome, SyncOutcome::Done | SyncOutcome::AlreadyPresent)
+    matches!(
+        outcome,
+        SyncOutcome::Done | SyncOutcome::Replaced | SyncOutcome::AlreadyPresent
+    )
 }
 
 /// The state of one apply.
@@ -292,7 +304,9 @@ impl Run<'_> {
 
         match recheck(self.context.env, harness, step) {
             Presence::Absent => {}
-            Presence::Conflict | Presence::Unreadable => return outcome(item, SyncOutcome::Conflict),
+            Presence::Conflict | Presence::Replaceable(_) | Presence::Unreadable => {
+                return outcome(item, SyncOutcome::Conflict);
+            }
             Presence::Present | Presence::DifferentVersion { .. } => {
                 return outcome(item, SyncOutcome::AlreadyPresent);
             }

@@ -148,7 +148,7 @@ async fn apply_runs_exactly_the_reviewed_commands_once() {
 }
 
 #[tokio::test]
-async fn what_is_here_is_compared_and_never_overwritten() {
+async fn what_is_here_is_compared_and_only_a_ticked_different_server_is_replaced() {
     let config = "# Mine\n[marketplaces.kit]\nsource_type = \"git\"\nsource = \"someone-else/kit\"\n\n[mcp_servers.files]\ncommand = \"files-server\"\nargs = [\"--root\", \".\"]\nenv = { FILES_TOKEN = \"x\" }\n\n[mcp_servers.web]\nurl = \"https://elsewhere.example.com/mcp\"\n";
     let machine = Machine::new(CODEX);
     std::fs::create_dir_all(machine.home().join(".codex")).unwrap();
@@ -162,14 +162,37 @@ async fn what_is_here_is_compared_and_never_overwritten() {
             (MARKETPLACE.to_owned(), SyncItemStatus::Conflict),
             (PLUGIN.to_owned(), SyncItemStatus::Conflict),
             (FILES.to_owned(), SyncItemStatus::AlreadyPresent),
-            (WEB.to_owned(), SyncItemStatus::Conflict),
+            (WEB.to_owned(), SyncItemStatus::DifferentDefinition),
         ]
     );
-    assert!(selectable(&built.plan).is_empty());
+    assert_eq!(selectable(&built.plan), [WEB]);
+    assert!(!item(&built.plan, WEB).selected_by_default);
 
-    let _ = apply(&machine, &runner, &built.stored, &every_id(&built.plan), true).await;
+    let (refused, _) = apply(&machine, &runner, &built.stored, &every_id(&built.plan), true).await;
+    assert_refused(refused);
     assert!(runner.seen().is_empty());
     assert_eq!(machine.text(CODEX_CONFIG).as_deref(), Some(config));
+
+    let (result, _) = apply(&machine, &runner, &built.stored, &[WEB.to_owned()], true).await;
+    let result = result.expect("applied");
+
+    assert!(result.ok, "{result:?}");
+    assert_eq!(outcome_of(&result, WEB).outcome, SyncOutcome::Replaced);
+    assert_eq!(
+        runner.seen(),
+        [
+            argv(&["codex", "mcp", "remove", "web"]),
+            argv(&["codex", "mcp", "add", "web", "--url", "https://web.example.com/mcp"]),
+        ]
+    );
+
+    let servers = machine.toml(CODEX_CONFIG)["mcp_servers"].clone();
+    assert_eq!(servers["web"], json!({ "url": "https://web.example.com/mcp" }));
+    assert_eq!(
+        servers["files"]["env"],
+        json!({ "FILES_TOKEN": "x" }),
+        "the others are untouched"
+    );
 }
 
 #[tokio::test]

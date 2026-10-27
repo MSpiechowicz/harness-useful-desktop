@@ -59,6 +59,16 @@ impl Shape {
         }
     }
 
+    /// The keys of an entry that say what it runs or where it connects, the only ones an import
+    /// replaces in an existing entry (every other key, `env`, `headers`, an on/off switch, ..., is
+    /// left as it is). OpenCode has no `args` (they are part of the `command` array).
+    pub fn managed_keys(self) -> &'static [&'static str] {
+        match self {
+            Self::McpServers | Self::ClaudeCli | Self::CodexCli => &["type", "command", "args", "url"],
+            Self::OpenCode | Self::OpenCodeV2 => &["type", "command", "url"],
+        }
+    }
+
     /// Whether the app writes files of this shape itself. A [`Shape::ClaudeCli`] file is rewritten
     /// by every running Claude Code, and a [`Shape::CodexCli`] file is TOML with the user's
     /// formatting and comments, so only the harness's CLI changes them.

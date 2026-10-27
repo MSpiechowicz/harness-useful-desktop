@@ -33,11 +33,12 @@ version: string | null,
  */
 status: SyncItemStatus, 
 /**
- * True when the user may tick it (`new` items only).
+ * True when the user may tick it (`new` items, and `differentDefinition` MCP servers).
  */
 selectable: boolean, 
 /**
- * True when it starts ticked (`new` items, except stdio MCP servers).
+ * True when it starts ticked (`new` items, except stdio MCP servers; never a
+ * `differentDefinition` one, which replaces something).
  */
 selectedByDefault: boolean, 
 /**

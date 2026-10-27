@@ -43,6 +43,7 @@ mod session;
 mod setup;
 mod subagent;
 mod sync;
+mod sync_apply;
 mod ui_request;
 mod update;
 
@@ -152,9 +153,9 @@ pub use setup::{
 pub use subagent::{Subagent, SubagentStatus, SubagentTool};
 pub use sync::{
     SyncBlockReason, SyncExcluded, SyncExcludedReason, SyncExportItem, SyncExportPreview, SyncExportSection,
-    SyncExported, SyncImportItem, SyncImportPlan, SyncImportResult, SyncImportSection, SyncInput, SyncInvalidReason,
-    SyncItemKind, SyncItemOutcome, SyncItemStatus, SyncMcpPreview, SyncNote, SyncOutcome, SyncProgress, SyncSkipReason,
-    SyncStep, SyncUnsupported,
+    SyncExported, SyncImportItem, SyncImportPlan, SyncImportSection, SyncInput, SyncInvalidReason, SyncItemKind,
+    SyncItemStatus, SyncMcpPreview, SyncNote, SyncStep, SyncUnsupported,
 };
+pub use sync_apply::{SyncImportResult, SyncItemOutcome, SyncOutcome, SyncProgress, SyncSkipReason};
 pub use ui_request::{UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
 pub use update::{MAX_UPDATE_NOTES_BYTES, UpdateInfo, UpdatePhase, UpdateProgress};

@@ -14,6 +14,7 @@ use std::path::Path;
 use serde_json::{Map, Value};
 
 use super::collect::{CollectedItem, Entry, Found, excluded_reason, item_id, preview_row, safe_label};
+use super::path_args::without_machine_paths;
 use super::schema::{McpServer, Transport};
 use super::secrets::{args_exportable, exportable};
 use super::validate;
@@ -117,8 +118,10 @@ pub(super) fn shared_server(name: &str, server: &Value) -> Result<(McpServer, Ve
         Transport::Http | Transport::Sse => (None, Vec::new(), Some(text(fields, "url")?)),
     };
 
+    let (args, trimmed) = without_machine_paths(args)?;
     let server = checked_server(name, fields, transport, command, args, url, "env")?;
-    let notes = notes(fields, &server);
+    let mut notes = notes(fields, &server);
+    notes.extend(trimmed.then_some(SyncNote::PathArgsNotShared));
     validate::mcp_server(&server).map_err(excluded_reason)?;
 
     Ok((server, notes))

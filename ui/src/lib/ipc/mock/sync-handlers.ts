@@ -130,6 +130,10 @@ export function syncHandlers(scenario: () => SyncScenario = syncScenarioFromLoca
       return { outcome: { type: 'skipped', reason: { type: 'dependencyFailed' } }, summary: null, argv: [], notes: [] };
     }
 
+    if (item.status.type === 'differentDefinition') {
+      return { outcome: { type: 'replaced' }, summary: null, argv, notes: [] };
+    }
+
     return { outcome: { type: 'done' }, summary: null, argv, notes: [] };
   }
 
@@ -219,7 +223,7 @@ export function syncHandlers(scenario: () => SyncScenario = syncScenarioFromLoca
         onProgress({ type: 'finished', outcome: finished });
       }
 
-      return { ok: items.every((item) => item.outcome.type === 'done' || item.outcome.type === 'alreadyPresent'), items };
+      return { ok: items.every((item) => item.outcome.type === 'done' || item.outcome.type === 'alreadyPresent' || item.outcome.type === 'replaced'), items };
     },
   };
 }

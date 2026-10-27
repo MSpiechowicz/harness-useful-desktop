@@ -19,8 +19,9 @@ use crate::codex_support::{read_toml, write_toml};
 /// marketplace (named after `marketplace_names`), installs a user plugin, adds a PI package, adds an
 /// OpenCode plugin to `opencode.json` (`plugin <spec> -g` to `plugin`, OpenCode 2's `plugin add
 /// <spec>` to `plugins`), adds a server to the user scope of Claude Code's global file (`mcp
-/// add-json`, refused with exit code 1 for a name it has, as Claude Code does) or to Codex's
-/// `config.toml` (`mcp add`, which replaces a server of the same name).
+/// add-json`, refused with exit code 1 for a name it has, as Claude Code does; `mcp remove`) or to
+/// Codex's `config.toml` (`mcp add`, which replaces a server of the same name and takes `--env`;
+/// `mcp remove`).
 ///
 /// `opencode debug config` answers the machine's [`Probe`]; it is recorded in
 /// [`FakeCli::probes`], not in [`FakeCli::seen`].
@@ -239,15 +240,15 @@ impl FakeCli {
                     table(config, "plugins").insert((*id).to_owned(), json!({ "enabled": true }));
                 });
             }
-            ["codex", "mcp", "add", name, "--", command, args @ ..] => {
+            ["codex", "mcp", "add", name, rest @ ..] => {
+                let entry = codex_entry(rest);
                 self.change_codex(|config| {
-                    table(config, "mcp_servers")
-                        .insert((*name).to_owned(), json!({ "command": command, "args": args }));
+                    table(config, "mcp_servers").insert((*name).to_owned(), entry);
                 });
             }
-            ["codex", "mcp", "add", name, "--url", url] => {
+            ["codex", "mcp", "remove", name] => {
                 self.change_codex(|config| {
-                    table(config, "mcp_servers").insert((*name).to_owned(), json!({ "url": url }));
+                    table(config, "mcp_servers").shift_remove(*name);
                 });
             }
             _ => panic!("unexpected command {argv:?}"),
@@ -262,14 +263,39 @@ impl FakeCli {
         write_toml(&path, &config);
     }
 
-    /// `claude mcp add-json --scope user <name> <json>`: `None` for any other command line.
+    /// `claude mcp add-json --scope user <name> <json>` and `claude mcp remove --scope user
+    /// <name>` (exit code 1 for a name it does not have): `None` for any other command line.
     fn claude_mcp(&self, argv: &[String]) -> Option<ExecOutput> {
         let args: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let path = self.home.join(CLAUDE_GLOBAL);
+
+        if let ["claude", "mcp", "remove", "--scope", "user", name] = args.as_slice() {
+            let mut global = read_json(&path);
+            let removed = global["mcpServers"]
+                .as_object_mut()
+                .and_then(|servers| servers.shift_remove(*name));
+
+            return Some(match removed {
+                Some(_) => {
+                    write_json(&path, &global);
+                    ExecOutput {
+                        status: Some(0),
+                        stdout: format!("Removed MCP server {name} from user config"),
+                        ..ExecOutput::default()
+                    }
+                }
+                None => ExecOutput {
+                    status: Some(1),
+                    stderr: format!("No user-scoped MCP server found with name: {name}"),
+                    ..ExecOutput::default()
+                },
+            });
+        }
+
         let ["claude", "mcp", "add-json", "--scope", "user", name, definition] = args.as_slice() else {
             return None;
         };
 
-        let path = self.home.join(CLAUDE_GLOBAL);
         let mut global = read_json(&path);
         if global["mcpServers"].get(*name).is_some() {
             return Some(ExecOutput {
@@ -338,6 +364,38 @@ fn read_json(path: &Path) -> Value {
         .ok()
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_else(|| json!({}))
+}
+
+/// The entry `codex mcp add <name> <rest…>` writes: `[--env KEY=VALUE]… -- <command> <args…>`, or
+/// `--url <url> [--bearer-token-env-var <name>]`.
+fn codex_entry(rest: &[&str]) -> Value {
+    let mut env = serde_json::Map::new();
+    let mut entry = json!({});
+    let mut words = rest.iter();
+
+    while let Some(word) = words.next() {
+        match *word {
+            "--env" => {
+                let (key, value) = words.next().and_then(|pair| pair.split_once('=')).expect("KEY=VALUE");
+                env.insert(key.to_owned(), json!(value));
+            }
+            "--url" => entry["url"] = json!(words.next().expect("a url")),
+            "--bearer-token-env-var" => entry["bearer_token_env_var"] = json!(words.next().expect("a variable")),
+            "--" => {
+                let command = words.next().expect("a command");
+                entry["command"] = json!(command);
+                entry["args"] = json!(words.copied().collect::<Vec<_>>());
+                break;
+            }
+            other => panic!("unexpected codex add argument {other}"),
+        }
+    }
+
+    if !env.is_empty() {
+        entry["env"] = Value::Object(env);
+    }
+
+    entry
 }
 
 /// The table `key` of `config`, created when missing.

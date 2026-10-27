@@ -19,9 +19,11 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 use super::collect::{UNKNOWN_LABEL, is_safe_text, package_identity};
+use super::endpoint::same_endpoint;
 use super::schema::{Marketplace, McpServer, Package, Plugin, Transport};
 use super::validate;
 use crate::ecosystem::Shape;
+use crate::ecosystem::mcp_cli::codex_replaceable;
 use crate::ecosystem::mcp_merge::{existing_entry, read_only_entry};
 use crate::env::Env;
 use crate::harness::Harness;
@@ -43,9 +45,25 @@ pub(super) enum Presence {
     DifferentVersion { installed: String, shared: String },
     /// Something else with the same name is here.
     Conflict,
+    /// An MCP server of that name with another definition is in the file the app writes (or
+    /// changes through the harness's CLI), no file it only reads has one, and the entry can be
+    /// replaced: the user may choose to replace it.
+    Replaceable(Replace),
     /// A file that could hold a server of that name cannot be read or parsed: treated as a
     /// conflict (fail closed), reported with [`crate::model::SyncNote::ConfigUnreadable`].
     Unreadable,
+}
+
+/// What a replace of an MCP entry keeps, by whether the existing entry is an HTTP or SSE server at
+/// the shared server's endpoint (see [`super::endpoint`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Replace {
+    /// The same HTTP or SSE endpoint: only the managed fields change, the entry's other settings (env,
+    /// headers, OAuth, switch, ...) stay.
+    Keep,
+    /// Another endpoint, any stdio server, any change of transport: the whole entry is replaced by what a new add writes. Nothing of the
+    /// old entry stays, so no credential set up for another server reaches this one.
+    Whole,
 }
 
 /// The marketplaces, user plugins and user packages of one harness, read from its files.
@@ -258,14 +276,22 @@ impl McpFiles {
 /// [`Presence::Unreadable`], whatever the other files hold: the harness may merge a server of that
 /// name from it (OpenCode deep-merges its layers), and a new entry could then inherit that server's
 /// headers or env.
+///
+/// A differing entry that only the target file has is [`Presence::Replaceable`]: [`Replace::Keep`]
+/// for the same HTTP or SSE endpoint, else [`Replace::Whole`] (a Codex entry only when `codex mcp
+/// add` can write all its fields back, see [`codex_replaceable`]); one a file the app only reads
+/// has too is a conflict.
 pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Presence, McpRefusal> {
-    let mut existing: Vec<Value> = existing_entry(&files.target, files.shape, &shared.name)?
-        .into_iter()
-        .collect();
+    let target = existing_entry(&files.target, files.shape, &shared.name)?;
+    let mut existing: Vec<Value> = target.iter().cloned().collect();
+    let mut layered = false;
 
     for other in &files.also_read {
         match read_only_entry(other, files.shape, &shared.name) {
-            Ok(found) => existing.extend(found),
+            Ok(found) => {
+                layered |= found.is_some();
+                existing.extend(found);
+            }
             Err(_) => return Ok(Presence::Unreadable),
         }
     }
@@ -283,7 +309,27 @@ pub(super) fn mcp_presence(files: &McpFiles, shared: &McpServer) -> Result<Prese
         return Ok(Presence::Present);
     }
 
-    Ok(Presence::Conflict)
+    let replace = match (&target, layered) {
+        (Some(entry), false) => replace_of(files.shape, &shared.name, entry, shared),
+        _ => None,
+    };
+
+    Ok(replace.map_or(Presence::Conflict, Presence::Replaceable))
+}
+
+/// What replacing `entry` (the entry of `name` in a `shape` file) by `shared` keeps, `None` when it
+/// cannot be replaced. A Codex entry that `codex mcp add` cannot write back cannot be replaced
+/// either way (a failed add could not be rolled back).
+pub(super) fn replace_of(shape: Shape, name: &str, entry: &Value, shared: &McpServer) -> Option<Replace> {
+    if shape == Shape::CodexCli && !codex_replaceable(name, entry) {
+        return None;
+    }
+
+    Some(if same_endpoint(entry, shared, shape) {
+        Replace::Keep
+    } else {
+        Replace::Whole
+    })
 }
 
 /// The presence of an OpenCode server once the names OpenCode merges from all its layers are known

@@ -37,6 +37,7 @@ const NOTE_KEYS: Record<SyncNote, MessageKey> = {
   headerValuesNotShared: 'sync.note.headerValuesNotShared',
   authNotShared: 'sync.note.authNotShared',
   cwdNotShared: 'sync.note.cwdNotShared',
+  pathArgsNotShared: 'sync.note.pathArgsNotShared',
   filtersNotShared: 'sync.note.filtersNotShared',
   otherFieldsNotShared: 'sync.note.otherFieldsNotShared',
   versionInformational: 'sync.note.versionInformational',
@@ -98,6 +99,8 @@ export function statusChip(status: SyncItemStatus): Chip {
       return { tone: 'info', label: t('sync.status.differentVersion') };
     case 'conflict':
       return { tone: 'warning', label: t('sync.status.conflict') };
+    case 'differentDefinition':
+      return { tone: 'warning', label: t('sync.status.differentDefinition') };
     case 'blocked':
       return { tone: 'neutral', label: t('sync.status.blocked') };
     case 'invalid':
@@ -116,6 +119,8 @@ export function statusNote(status: SyncItemStatus, notes: SyncNote[] = []): stri
       return t('sync.statusNote.differentVersion', { installed: status.installed, shared: status.shared });
     case 'conflict':
       return conflictNote(notes);
+    case 'differentDefinition':
+      return t('sync.statusNote.differentDefinition');
     case 'blocked':
       return t(BLOCK_KEYS[status.reason]);
     case 'invalid':
@@ -130,6 +135,8 @@ export function outcomeChip(outcome: SyncOutcome): Chip {
       return { tone: 'success', label: t('sync.outcome.done') };
     case 'alreadyPresent':
       return { tone: 'success', label: t('sync.outcome.alreadyPresent') };
+    case 'replaced':
+      return { tone: 'success', label: t('sync.outcome.replaced') };
     case 'conflict':
       return { tone: 'warning', label: t('sync.outcome.conflict') };
     case 'skipped':
@@ -149,12 +156,14 @@ function skipText(reason: SyncSkipReason, harness: HarnessId): string {
       return t('sync.skip.mcpFileRefused', { reason: refusalText(reason.refusal, harness) });
     case 'manualEdit':
       return t('sync.skip.manualEdit', { file: reason.file });
+    case 'manualReplace':
+      return t('sync.skip.manualReplace', { file: reason.file });
   }
 }
 
-/** The entry a person has to add by hand because the app left the file alone, or null when the item was not skipped for that. */
+/** The entry a person has to put in by hand because the app left the file alone (to add it, or to replace the fields of the one there), or null when the item was not skipped for that. */
 export function manualEditOf(outcome: SyncOutcome): { file: string; snippet: string } | null {
-  if (outcome.type !== 'skipped' || outcome.reason.type !== 'manualEdit') {
+  if (outcome.type !== 'skipped' || (outcome.reason.type !== 'manualEdit' && outcome.reason.type !== 'manualReplace')) {
     return null;
   }
 
@@ -163,7 +172,7 @@ export function manualEditOf(outcome: SyncOutcome): { file: string; snippet: str
 
 /** Every item that did not end well was left for the user to add by hand: the run itself went as planned. */
 export function onlyManualEdits(result: SyncImportResult): boolean {
-  const open = result.items.filter((item) => item.outcome.type !== 'done' && item.outcome.type !== 'alreadyPresent');
+  const open = result.items.filter((item) => item.outcome.type !== 'done' && item.outcome.type !== 'alreadyPresent' && item.outcome.type !== 'replaced');
 
   return open.length > 0 && open.every((item) => manualEditOf(item.outcome) !== null);
 }
@@ -195,14 +204,15 @@ export function failedCliNote(item: Pick<SyncItemOutcome, 'kind' | 'outcome' | '
 
 /**
  * The command that adds an MCP server through the harness's CLI instead of writing a file (Claude Code's `claude mcp
- * add-json`, Codex's `codex mcp add`), or null for any other item.
+ * add-json`, Codex's `codex mcp add`), or null for any other item. A replace runs `remove` first and the add last, so
+ * the last command is the one named.
  */
 export function cliAddCommand(item: { kind: SyncItemKind; steps: SyncStep[] }): string | null {
   if (item.kind !== 'mcpServer') {
     return null;
   }
 
-  const step = item.steps.find((candidate) => candidate.type === 'cli');
+  const step = item.steps.filter((candidate) => candidate.type === 'cli').at(-1);
 
   return step?.type === 'cli' ? step.command.slice(0, 3).join(' ') : null;
 }
@@ -214,28 +224,37 @@ export function addedByCli(item: { kind: SyncItemKind; steps: SyncStep[] }): boo
 
 /**
  * The names of the variables and headers a server needs, for "Needs …", or null when it needs none. A server added through the CLI
- * of `cliHarness` (its name) has no file the person can edit, so the line says where its values go.
+ * of `cliHarness` (its name) has no file the person can edit, so the line says where its values go. A server that is replaced
+ * keeps the values it has, so its line says so instead.
  */
-export function keysLine(envKeys: string[], headerKeys: string[], cliHarness: string | null = null): string | null {
+export function keysLine(envKeys: string[], headerKeys: string[], cliHarness: string | null = null, replacing = false): string | null {
   const keys = [...envKeys, ...headerKeys];
 
   if (keys.length === 0) {
     return null;
   }
 
+  if (replacing) {
+    return t('sync.needsKeysReplace', { keys: keys.join(', ') });
+  }
+
   return cliHarness ? t('sync.needsKeysCli', { keys: keys.join(', '), harness: cliHarness }) : t('sync.needsKeys', { keys: keys.join(', ') });
 }
 
-/** The MCP entry an import writes, as it lands in the harness's servers object: exactly the fields the backend writes, arguments on one line. OpenCode's file has its own shape, and OpenCode 2's differs from OpenCode 1's. */
-export function mcpEntryJson(server: SyncMcpPreview, harness?: HarnessId, generation: OpenCodeGeneration = 1): string {
-  const fields = harness === 'opencode' ? opencodeFields(server, generation) : standardFields(server);
+/**
+ * The MCP entry an import writes, as it lands in the harness's servers object: exactly the fields the backend writes, arguments on
+ * one line. OpenCode's file has its own shape, and OpenCode 2's differs from OpenCode 1's. A replace (`keepSwitch`) writes only the
+ * fields that say what the server is: the entry keeps its own on/off switch.
+ */
+export function mcpEntryJson(server: SyncMcpPreview, harness?: HarnessId, generation: OpenCodeGeneration = 1, keepSwitch = false): string {
+  const fields = harness === 'opencode' ? opencodeFields(server, generation, keepSwitch) : standardFields(server, keepSwitch);
   const lines = fields.map(([key, value]) => `  ${JSON.stringify(key)}: ${JSON.stringify(value).replaceAll('","', '", "')}`);
 
   return `${JSON.stringify(server.name)}: {\n${lines.join(',\n')}\n}`;
 }
 
 /** OMP and PI: `command` and `args`, or `type` and `url`, and `enabled: false` only when values are missing. */
-function standardFields(server: SyncMcpPreview): [string, unknown][] {
+function standardFields(server: SyncMcpPreview, keepSwitch: boolean): [string, unknown][] {
   const fields: [string, unknown][] = [];
 
   if (server.transport === 'stdio') {
@@ -244,7 +263,7 @@ function standardFields(server: SyncMcpPreview): [string, unknown][] {
     fields.push(['type', server.transport], ['url', server.url ?? '']);
   }
 
-  if (!server.enabled) {
+  if (!server.enabled && !keepSwitch) {
     fields.push(['enabled', false]);
   }
 
@@ -252,13 +271,17 @@ function standardFields(server: SyncMcpPreview): [string, unknown][] {
 }
 
 /** OpenCode: `local` with the command and its arguments in one array, or `remote` with the url. OpenCode 1 always adds `enabled`, OpenCode 2 has none and writes `disabled: true` only for a server that is off. */
-function opencodeFields(server: SyncMcpPreview, generation: OpenCodeGeneration): [string, unknown][] {
+function opencodeFields(server: SyncMcpPreview, generation: OpenCodeGeneration, keepSwitch: boolean): [string, unknown][] {
   const fields: [string, unknown][] = [];
 
   if (server.transport === 'stdio') {
     fields.push(['type', 'local'], ['command', [server.command ?? '', ...server.args]]);
   } else {
     fields.push(['type', 'remote'], ['url', server.url ?? '']);
+  }
+
+  if (keepSwitch) {
+    return fields;
   }
 
   if (generation === 1) {

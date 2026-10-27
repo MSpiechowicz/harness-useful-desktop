@@ -238,40 +238,6 @@ fn excluded_items_are_named_with_a_reason_and_no_value() {
 }
 
 #[test]
-fn machine_paths_inside_mcp_args_or_urls_leave_the_server_out() {
-    let home = Home::empty();
-    home.write(
-        ".omp/agent/mcp.json",
-        &json!({ "mcpServers": {
-            "root-arg": { "command": "server", "args": ["--root=/home/alice/proj"] },
-            "tilde-arg": { "command": "server", "args": ["--config=~/x"] },
-            "drive-arg": { "command": "server", "args": ["--dir=C:/Users/x"] },
-            "path-url": { "type": "http", "url": "https://mcp.example.com/mcp?root=/home/alice" },
-            "fine": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-github", "--flag=value"] },
-            "fine-url": { "type": "http", "url": "https://mcp.example.com/home/mcp" },
-        }}),
-    );
-
-    let preview = export_preview(&home.collect(BOTH));
-
-    assert_eq!(ids(&preview), ["omp:mcp:fine", "omp:mcp:fine-url"]);
-    let excluded: Vec<(&str, SyncExcludedReason)> = preview
-        .excluded
-        .iter()
-        .map(|entry| (entry.label.as_str(), entry.reason))
-        .collect();
-    assert_eq!(
-        excluded,
-        [
-            ("root-arg", SyncExcludedReason::LocalPath),
-            ("tilde-arg", SyncExcludedReason::LocalPath),
-            ("drive-arg", SyncExcludedReason::LocalPath),
-            ("path-url", SyncExcludedReason::LocalPath),
-        ]
-    );
-}
-
-#[test]
 fn option_like_local_and_plain_http_package_specs_and_short_secret_flags_are_left_out() {
     let home = Home::empty();
     home.write(

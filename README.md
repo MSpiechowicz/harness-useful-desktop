@@ -61,7 +61,7 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 - **Share setup.** In Settings, export the marketplaces, plugins, packages and MCP servers of OMP, PI, OpenCode, Claude Code and Codex as a `hud1:`
   string or a `.json` file (references and key names, env and header values are never shared), and import one on another
   machine. For OpenCode that means npm plugins and MCP servers, for Codex marketplaces, plugins and MCP servers. An import always shows a review of
-  the exact commands and files, adds only what you tick after you confirm, and never removes or overwrites anything.
+  the exact commands and files and adds only what you tick after you confirm. Marketplaces, plugins and packages are never replaced or removed. An MCP server that exists under the same name with another definition is offered, unticked. Ticking it replaces it: for the same endpoint (same host and port, or same program and package) only its command or URL changes and its env, headers and on/off state are kept; for another endpoint the whole entry is replaced and nothing of the old one is kept.
   Format: [docs/share-setup.md](docs/share-setup.md).
 - **Command palette and shortcuts.** Keyboard-first navigation (`Ctrl/Cmd+K`, `Ctrl/Cmd+1..9`), plus a shortcuts
   overlay.

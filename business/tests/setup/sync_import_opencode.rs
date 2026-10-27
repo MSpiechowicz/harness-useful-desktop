@@ -187,8 +187,8 @@ fn shared_bundle() -> Value {
     }}))
 }
 
-#[test]
-fn what_any_user_layer_already_has_is_present_and_never_shown() {
+#[tokio::test]
+async fn what_any_user_layer_already_has_is_present_and_never_shown() {
     let machine = Machine::new(OPENCODE);
     let config = format!(
         "{{\n  // mine\n  \"mcp\": {{\n    \"github\": {{ \"type\": \"local\", \"command\": [\"npx\", \"-y\", \"server-github\"], \
@@ -219,16 +219,45 @@ fn what_any_user_layer_already_has_is_present_and_never_shown() {
             ),
             ("opencode:mcp:github".to_owned(), SyncItemStatus::AlreadyPresent),
             ("opencode:mcp:docs".to_owned(), SyncItemStatus::AlreadyPresent),
-            ("opencode:mcp:other".to_owned(), SyncItemStatus::Conflict),
+            ("opencode:mcp:other".to_owned(), SyncItemStatus::DifferentDefinition),
         ]
     );
-    assert!(selectable(&built.plan).is_empty());
+    assert_eq!(selectable(&built.plan), ["opencode:mcp:other"]);
+    assert!(!item(&built.plan, "opencode:mcp:other").selected_by_default);
 
     let shown = serde_json::to_string(&built.plan).unwrap();
     for leaked in [secret().as_str(), "mine.example.com", "0.9.0"] {
         assert!(!shown.contains(leaked), "the plan leaks {leaked:?}");
     }
     assert_eq!(machine.text(OPENCODE_JSONC).as_deref(), Some(config.as_str()));
+
+    // The file has comments: nothing is rewritten, and the server is at another host than the
+    // shared one, so the whole entry to put there is given (see `sync_import_replace_whole`).
+    let runner = fake(&machine);
+    let (result, _) = apply(&machine, &runner, &built.stored, &argv(&["opencode:mcp:other"]), true).await;
+    let result = result.expect("applied");
+
+    assert_eq!(
+        outcome_of(&result, "opencode:mcp:other").outcome,
+        SyncOutcome::Skipped {
+            reason: SyncSkipReason::ManualEdit {
+                file: "~/.config/opencode/opencode.jsonc".to_owned(),
+                snippet: format!(
+                    "\"other\": {}",
+                    serde_json::to_string_pretty(
+                        &json!({ "type": "remote", "url": "https://other.example.com/mcp", "enabled": true })
+                    )
+                    .unwrap()
+                ),
+            }
+        }
+    );
+    assert!(!result.ok);
+    assert_eq!(machine.text(OPENCODE_JSONC).as_deref(), Some(config.as_str()));
+    let shown = serde_json::to_string(&result).unwrap();
+    for leaked in [secret().as_str(), "mine.example.com"] {
+        assert!(!shown.contains(leaked), "the result leaks {leaked:?}");
+    }
 }
 
 #[tokio::test]

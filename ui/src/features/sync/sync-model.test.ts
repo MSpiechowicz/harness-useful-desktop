@@ -2,13 +2,14 @@ import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
 import type { SyncMcpPreview } from '$lib/ipc/bindings/SyncMcpPreview';
+import type { SyncItemOutcome } from '$lib/ipc/bindings/SyncItemOutcome';
 import type { SyncNote } from '$lib/ipc/bindings/SyncNote';
 import type { SyncStep } from '$lib/ipc/bindings/SyncStep';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { harness } from '$lib/stores/harness.svelte';
 
 import SyncNotices from './SyncNotices.svelte';
-import { addedByCli, cliAddCommand, failedCliNote, itemLabel, keysLine, mcpEntryJson, outcomeNote, showsVersion } from './sync-model';
+import { addedByCli, cliAddCommand, failedCliNote, itemLabel, keysLine, manualEditOf, mcpEntryJson, onlyManualEdits, outcomeChip, outcomeNote, showsVersion, statusChip, statusNote } from './sync-model';
 
 const stdio: SyncMcpPreview = { name: 'files', transport: 'stdio', command: 'npx', args: ['-y', 'files-mcp'], url: null, enabled: true };
 const remote: SyncMcpPreview = { name: 'docs', transport: 'http', command: null, args: [], url: 'https://docs.example/mcp', enabled: true };
@@ -145,5 +146,46 @@ describe('an MCP server that Claude Code adds through its CLI', () => {
     expect(cliAddCommand({ kind: 'mcpServer', steps: [codexStep] })).toBe('codex mcp add');
     expect(failedCliNote({ kind: 'mcpServer', outcome: { type: 'failed' }, argv: codexStep.command })).toBe('The “codex mcp” command failed.');
     expect(keysLine(['FILES_TOKEN'], [], 'Codex')).toBe('Needs FILES_TOKEN. Set the values in Codex after importing.');
+  });
+});
+
+describe('replacing an MCP server that has another definition', () => {
+  it('writes only the fields that say what the server is, and never its switch', () => {
+    const off = { ...stdio, enabled: false };
+
+    expect(mcpEntryJson(off, undefined, 1, true)).toBe('"files": {\n  "command": "npx",\n  "args": ["-y", "files-mcp"]\n}');
+    expect(mcpEntryJson({ ...remote, enabled: false }, 'omp', 1, true)).toBe('"docs": {\n  "type": "http",\n  "url": "https://docs.example/mcp"\n}');
+    expect(mcpEntryJson(off, 'opencode', 1, true)).toBe('"files": {\n  "type": "local",\n  "command": ["npx", "-y", "files-mcp"]\n}');
+    expect(mcpEntryJson(off, 'opencode', 2, true)).toBe('"files": {\n  "type": "local",\n  "command": ["npx", "-y", "files-mcp"]\n}');
+    expect(mcpEntryJson(remote, 'opencode', 1, true)).toBe('"docs": {\n  "type": "remote",\n  "url": "https://docs.example/mcp"\n}');
+  });
+
+  it('says Different, and that the other settings are kept', () => {
+    expect(statusChip({ type: 'differentDefinition' })).toEqual({ tone: 'warning', label: 'Different' });
+    expect(statusNote({ type: 'differentDefinition' })).toContain('kept only while the address of a remote server stays the same');
+    expect(outcomeChip({ type: 'replaced' })).toEqual({ tone: 'success', label: 'Replaced' });
+  });
+
+  it('keeps the values already set instead of asking for them again', () => {
+    expect(keysLine(['API_KEY'], ['Authorization'], null, true)).toBe('Needs API_KEY, Authorization. Values already set here are kept.');
+    expect(keysLine([], [], null, true)).toBeNull();
+  });
+
+  it('names the add command of a CLI replace, which runs remove first', () => {
+    const remove: SyncStep = { type: 'cli', command: ['claude', 'mcp', 'remove', '--scope', 'user', 'files'] };
+    const add: SyncStep = { type: 'cli', command: ['claude', 'mcp', 'add-json', '--scope', 'user', 'files', '{}'] };
+
+    expect(cliAddCommand({ kind: 'mcpServer', steps: [remove, add] })).toBe('claude mcp add-json');
+  });
+
+  it('hands the fields to replace over like an entry to add, and counts Replaced as in place', () => {
+    const reason = { type: 'manualReplace', file: '~/.config/opencode/opencode.jsonc', snippet: '"files": {}' } as const;
+    const skipped = { type: 'skipped', reason } as const;
+    const item: Omit<SyncItemOutcome, 'outcome'> = { id: 'opencode:mcp:files', harness: 'opencode', kind: 'mcpServer', label: 'files', summary: null, argv: [], notes: [] };
+
+    expect(manualEditOf(skipped)).toEqual({ file: reason.file, snippet: reason.snippet });
+    expect(outcomeNote(skipped, 'opencode')).toContain('replace these fields yourself and keep the others');
+    expect(onlyManualEdits({ ok: false, items: [{ ...item, outcome: skipped }, { ...item, id: 'omp:mcp:done', outcome: { type: 'replaced' } }] })).toBe(true);
+    expect(onlyManualEdits({ ok: false, items: [{ ...item, outcome: { type: 'conflict' } }] })).toBe(false);
   });
 });

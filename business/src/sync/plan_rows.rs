@@ -16,7 +16,7 @@ use crate::model::{
 
 /// The steps of a reviewed import, kept by Rust under [`StoredPlan::id`] and consumed by
 /// [`super::apply_plan`]. Built only from validated bundle fields; it never holds anything read from
-/// this machine besides the MCP file paths.
+/// this machine besides the MCP file paths: an existing MCP entry is read again when it is applied.
 #[derive(Debug, Clone)]
 pub struct StoredPlan {
     id: String,
@@ -33,7 +33,8 @@ impl StoredPlan {
         &self.id
     }
 
-    /// The ids of the items that may be applied (`new` items), in plan order.
+    /// The ids of the items that may be applied (`new` items and replaceable MCP servers), in plan
+    /// order.
     pub fn selectable_ids(&self) -> Vec<&str> {
         self.items
             .iter()
@@ -76,6 +77,9 @@ pub(crate) struct StoredItem {
     pub depends_on: Option<Dependency>,
     /// The MCP file of an MCP step.
     pub mcp_files: Option<McpFiles>,
+    /// True for an MCP step that replaces an existing server of another definition (the review's
+    /// `differentDefinition`) rather than adding one.
+    pub replace: bool,
 }
 
 /// A plugin's marketplace item of the same bundle.
@@ -258,6 +262,7 @@ fn stored(item: &SyncImportItem, harness: HarnessId) -> StoredItem {
         command: Vec::new(),
         depends_on: None,
         mcp_files: None,
+        replace: false,
     }
 }
 

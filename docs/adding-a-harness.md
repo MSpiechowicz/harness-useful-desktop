@@ -636,19 +636,25 @@ declare marketplaces, plugins and MCP servers.
   export reads, and the import merges into, the file `mcp_target_paths` returns for the harness (it returns `None` for
   any other target, so only strict-JSON `mcpServers` files are shared). `McpTarget::CodexCli` shares the
   `mcp_servers` of Codex's `config.toml` as key names only (`business/src/sync/collect_codex.rs`), and the import runs `codex mcp add`
-  per server. `McpTarget::ClaudeCli` shares the user scope
+  per server. Replacing a server of the same name is `codex mcp remove` then `codex mcp add`: for an http server at the **same endpoint**
+  (`business/src/sync/endpoint.rs`: the same transport and scheme, host and port; a stdio server never counts) the add
+  carries the existing bearer token variable; anything else is a plain add that carries nothing over. An existing entry
+  holding a field `codex mcp add` cannot write back stays a `conflict`, since a failed add could not be rolled back. `McpTarget::ClaudeCli` shares the user scope
   of Claude Code's global file: the import never merges it but runs `claude mcp add-json --scope user` per server
-  (`business/src/sync/apply_mcp_cli.rs`, the arguments of `ecosystem::mcp_cli::add_json_args`), and a server with a
+  (`business/src/sync/apply_mcp_cli.rs`, the arguments of `ecosystem::mcp_cli::add_json_args`); replacing a server of the
+  same name is `claude mcp remove --scope user` then `add-json`, with the existing entry's other keys kept at the same
+  endpoint and the fresh definition alone at another one. A server with a
   `${…}` substitution is left out and refused. Only user scope is shared. With
   `McpTarget::Unsupported` the harness's servers are blocked as not supported. `McpTarget::OpenCodeConfig` shares the
   `mcp` key of the global config file (`local` as stdio, `remote` as http), with key names only for `environment` and
   `headers`. A server whose command, arguments or URL hold a `{env:…}` or `{file:…}` substitution is left out on
   export and refused on import. A config file with comments is not rewritten: the import skips the servers as
-  `manualEdit` with the entry to paste.
+  `manualEdit` with the entry to paste, except a replace at the same http/sse endpoint, which is `manualReplace` with the managed fields only. A server of the same name with another definition is a
+  selectable `differentDefinition` row (unticked) wherever the app writes the entry. Ticking it replaces only the managed keys (`type`, `command`, `args`, `url`) at the same http/sse endpoint, and the whole entry for a stdio server, another endpoint or another transport, so credentials set up for another server never reach the new one; `conflict` stays for names only in a file the app reads or an unreadable file.
 - **`marketplaces`, `plugins`, `packages`** are CLI installs, and the import runs them through `cli_action`
   ([CLI actions](#8-cli-actions)). Every kind you declare must be supported there: `MarketplaceAdd { source }`
   for marketplaces, `PluginInstall { target, scope: User }` for plugins, `PackageInstall { source }` for packages
-  (PI also receives no `--local`). The import builds only these actions, never remove, upgrade or project scope. A step
+  (PI also receives no `--local`). The import builds only these actions, never remove, upgrade or project scope, and these kinds are add-only (no replace). A step
   the adapter refuses makes the item `blocked`, never offered. OpenCode shares only npm registry plugins of the global
   config files, as the package name plus the version or tag the config pins (`opencode plugin <name>@<version> -g`).
   Local files, git, `github:` and URL specs, and `[spec, options]` entries (options may hold secrets) are left out.
@@ -687,7 +693,7 @@ Follow the same pattern for the new harness.
 | CLI actions | `cli_actions.rs`, `claude_cli_actions.rs`, `codex_cli_actions.rs` | Argument construction, validation errors, dry run, failure line. |
 | Chat engine | `agent_session.rs`, `agent_manager.rs`, `agent_dialogs.rs`, `agent_failures.rs` | The real session engine against `fake_agent`. A non-RPC engine has its own set, for OpenCode `opencode_engine*.rs`, `opencode_launch.rs`, `opencode_http.rs` and the mapper tests, over recordings of the real server in `business/tests/fixtures/opencode/server/` and scenarios in `business/tests/fixtures/streams/opencode_*.jsonl`. For Claude Code: `claude_launch.rs`, `claude_wire*.rs`, `claude_mapper*.rs`, `claude_tools.rs`, `claude_stats.rs`, `claude_allow_list.rs` (the pure `claude_stream` code over the scrubbed recordings in `business/tests/fixtures/claude/stream/`), `claude_engine*.rs` (the engine against `fake_agent --dialect claude` and the scenarios in `business/tests/fixtures/streams/claude_*.jsonl`: approvals and questions in `claude_engine_asks.rs`, the approval modes in `claude_engine_modes.rs`, `!command` in `claude_engine_bash.rs`, session operations in `claude_engine_ops.rs`) and `claude_chat_start.rs` (the folder trust gate and the helper chat through the manager). For Codex: `codex_wire.rs`, `codex_mapper*.rs` (the pure `codex_rpc` code over the scrubbed recordings in `business/tests/fixtures/codex/app_server/`), `codex_engine*.rs` (the engine against `fake_agent --dialect codex` and the scenarios in `business/tests/fixtures/streams/codex_*.jsonl`) and `codex_trust.rs`. |
 | Recommended setup | `setup_status.rs`, `setup_mcp_register.rs` | `setup_status`: skills and MCP state of your harness on an empty machine, with the skills installed and with the MCP entry present (build the fixture files in a temp home). `setup_mcp_register.rs`: the `mcp.json` merge for your `also_read` files. `setup_mcp_register_opencode.rs`: the same for a JSONC file (a file with comments gives `ManualEdit`, nothing written). `setup_mcp_register_codex.rs`: the `codex mcp add` / `remove` runs of `McpTarget::CodexCli`. `setup_status_claude.rs` and `setup_mcp_register_claude.rs`: the marketplace skills state and the `claude mcp add-json` / `remove` runs of `McpTarget::ClaudeCli`, over a recording `ProcessRunner`. The installer itself is harness-independent (`setup_installer.rs`). |
-| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs`, `sync_export_claude.rs`, `sync_import_claude.rs`, `sync_export_codex.rs`, `sync_import_codex.rs` (helpers in `business/tests/support/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys and never overwrites. `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
+| Share setup | `sync_export.rs`, `sync_import.rs`, `sync_import_apply.rs`, `sync_export_claude.rs`, `sync_import_claude.rs`, `sync_export_codex.rs`, `sync_import_codex.rs` (helpers in `business/tests/support/sync_support/`) | Export: what your fixture home yields and what is excluded, with no secret literal in the code or file. Import: statuses on an empty machine and with items present, the exact CLI steps (recording `ProcessRunner`, zero runs for hostile values), idempotent second apply, MCP merge keeps other keys, and a replace of a different definition changes only the managed keys (the CLI harnesses show a remove and an add with no secret value in the result). `sync_codec.rs` and `sync_validate.rs` are harness-independent. |
 | Fixtures | `mock_fixtures.rs` | Add the harness's views and catalog to the exported mock fixtures. |
 
 **Fake agent.** `fake_agent --dialect opencode` is a scripted `opencode serve` (an HTTP server on `127.0.0.1` with its own

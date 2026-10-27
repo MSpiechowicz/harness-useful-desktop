@@ -220,7 +220,7 @@ fn busy_machine() -> Machine {
 }
 
 #[tokio::test]
-async fn what_is_here_is_compared_and_never_overwritten() {
+async fn what_is_here_is_compared_and_a_different_server_is_replaced_only_when_ticked() {
     let machine = busy_machine();
     let runner = fake_claude(&machine);
     let before = machine.text(CLAUDE_GLOBAL).unwrap();
@@ -262,12 +262,15 @@ async fn what_is_here_is_compared_and_never_overwritten() {
             ("claude:plugin:mine@other".to_owned(), SyncItemStatus::New),
             ("claude:plugin:org@other".to_owned(), SyncItemStatus::AlreadyPresent),
             (DOCS.to_owned(), SyncItemStatus::AlreadyPresent),
-            (SEARCH.to_owned(), SyncItemStatus::Conflict),
+            (SEARCH.to_owned(), SyncItemStatus::DifferentDefinition),
             ("claude:mcp:fresh".to_owned(), SyncItemStatus::New),
         ]
     );
+    assert!(item(&built.plan, SEARCH).selectable && !item(&built.plan, SEARCH).selected_by_default);
 
-    let (result, _) = apply(&machine, &runner, &built.stored, &selectable(&built.plan), true).await;
+    // Without the replace ticked, the different server stays as it is.
+    let without: Vec<String> = selectable(&built.plan).into_iter().filter(|id| id != SEARCH).collect();
+    let (result, _) = apply(&machine, &runner, &built.stored, &without, true).await;
     assert!(result.expect("applied").ok);
     assert_eq!(
         runner.seen(),

@@ -142,6 +142,25 @@ fn the_memory_entry_name_is_reserved() {
 }
 
 #[test]
+fn the_desktop_and_the_legacy_dashboard_entry_names_are_reserved() {
+    for reserved in ["harness-desktop", "Harness-Desktop", "harness", "HARNESS"] {
+        assert_eq!(
+            validate::mcp_name(reserved),
+            Err(SyncInvalidReason::BadName),
+            "{reserved}"
+        );
+        assert_eq!(
+            validate::mcp_server(&http(reserved, "https://c.example.com/mcp")),
+            Err(SyncInvalidReason::BadName),
+            "{reserved}"
+        );
+    }
+
+    assert_eq!(validate::mcp_name("harness-desktop-2"), Ok(()));
+    assert_eq!(validate::mcp_name("harnessx"), Ok(()));
+}
+
+#[test]
 fn the_skills_server_name_is_reserved_under_the_new_and_the_old_name() {
     for reserved in [
         "harness-useful-skills",

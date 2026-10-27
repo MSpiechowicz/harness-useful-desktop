@@ -100,7 +100,7 @@ describe('Import', () => {
     const dialog = await review();
 
     expect(within(dialog).getByText('omp plugin marketplace add MSpiechowicz/harness-useful-skills')).toBeInTheDocument();
-    expect(within(dialog).getAllByText(/Writes to ~\/\.omp\/agent\/mcp\.json/).length).toBe(2);
+    expect(within(dialog).getAllByText(/Writes to ~\/\.omp\/agent\/mcp\.json/).length).toBe(3);
 
     expect(box('local-files')).not.toBeChecked();
     expect(box('time')).not.toBeChecked();
@@ -118,7 +118,7 @@ describe('Import', () => {
   it('cannot tick what is not new, and says why', async () => {
     const dialog = await review();
 
-    for (const name of ['acme-tools', 'review-helper@acme-tools', 'orphan@unknown-market', 'github']) {
+    for (const name of ['acme-tools', 'review-helper@acme-tools', 'orphan@unknown-market', 'linear']) {
       expect(box(name)).toBeDisabled();
       expect(box(name)).not.toBeChecked();
     }

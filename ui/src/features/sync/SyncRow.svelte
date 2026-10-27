@@ -14,6 +14,8 @@
     label: string;
     /** A line of small print under the label. */
     sub?: string | null;
+    /** A second small-print line in code type (an address, a source), kept with the name so it sits as close as the line above. */
+    detail?: string | null;
     /** The state at the end of the row. */
     chip?: Chip;
     /** The tick box. A list without boxes passes `reserve` when it sits under one with boxes, so both line up. */
@@ -24,7 +26,7 @@
     children?: Snippet;
   }
 
-  let { kind, label, sub, chip, check, reserve = false, dim = false, children }: Props = $props();
+  let { kind, label, sub, detail, chip, check, reserve = false, dim = false, children }: Props = $props();
 
   const hasBox = $derived(!!check || reserve);
 </script>
@@ -44,6 +46,9 @@
     {#if sub}
       <p class="text-xs leading-4 text-fg-3 [overflow-wrap:anywhere]">{sub}</p>
     {/if}
+    {#if detail}
+      <p class="font-mono text-xs leading-4 text-fg-3 [overflow-wrap:anywhere]">{detail}</p>
+    {/if}
   </div>
 
   <span class="flex h-control items-center justify-end">
@@ -59,7 +64,7 @@
 
   <!-- Whatever else the row has to say runs under the name and the state, so a command is as wide as the room allows. -->
   {#if children}
-    <div class={cx('col-span-2 mt-1.5 self-start not-has-[*]:hidden flex min-w-0 flex-col gap-2 pb-1', hasBox ? 'col-start-3' : 'col-start-2', dim && 'opacity-60')}>
+    <div class={cx('col-span-2 self-start not-has-[*]:hidden flex min-w-0 flex-col gap-2 pb-1', sub || detail ? 'mt-1.5' : '-mt-0.5', hasBox ? 'col-start-3' : 'col-start-2', dim && 'opacity-60')}>
       {@render children()}
     </div>
   {/if}

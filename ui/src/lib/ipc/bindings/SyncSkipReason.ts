@@ -16,4 +16,13 @@ file: string,
 /**
  * The server entry to add, as text ready to paste (`"<name>": { … }`).
  */
+snippet: string, } | { "type": "manualReplace", 
+/**
+ * The file's home-relative display path.
+ */
+file: string, 
+/**
+ * The managed fields to set (`"type": …, "command": …`), as text ready to paste; no
+ * `enabled`/`disabled` and nothing read from the existing entry.
+ */
 snippet: string, };

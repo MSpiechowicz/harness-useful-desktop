@@ -29,6 +29,7 @@ use super::collect::{
     CollectedItem, Entry, Found, UNKNOWN_LABEL, excluded_reason, item_id, preview_row, safe_label, source_problem,
 };
 use super::collect_mcp::{checked_server, collect_servers, list, not_shared, text};
+use super::path_args::without_machine_paths;
 use super::schema::{McpServer, Plugin, Transport};
 use super::validate;
 use super::validate_source::{is_npm_registry_spec, split_npm_spec};
@@ -216,8 +217,10 @@ fn shared(name: &str, server: &Value, known: &[&str]) -> Result<(McpServer, Vec<
         _ => return Err(SyncExcludedReason::Unsupported),
     };
 
+    let (args, trimmed) = without_machine_paths(args)?;
     let server = checked_server(name, fields, transport, command, args, url, "environment")?;
-    let notes = notes(fields, &server, known);
+    let mut notes = notes(fields, &server, known);
+    notes.extend(trimmed.then_some(SyncNote::PathArgsNotShared));
     validate::opencode_mcp_server(&server).map_err(excluded_reason)?;
 
     Ok((server, notes))

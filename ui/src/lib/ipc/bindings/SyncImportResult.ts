@@ -6,7 +6,7 @@ import type { SyncItemOutcome } from "./SyncItemOutcome";
  */
 export type SyncImportResult = { 
 /**
- * True when every selected item ended `done` or `alreadyPresent`.
+ * True when every selected item ended `done`, `replaced` or `alreadyPresent`.
  */
 ok: boolean, 
 /**

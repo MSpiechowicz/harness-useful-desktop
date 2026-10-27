@@ -25,6 +25,10 @@
   const note = $derived(statusNote(item.status, item.notes));
   const sub = $derived([showsVersion(harness, item) && item.status.type !== 'differentVersion' ? t('sync.versionShared', { version: item.version }) : null, note].filter((part) => part !== null).join(' · '));
   const unavailable = $derived(item.status.type === 'blocked' || item.status.type === 'invalid');
+  const replaceRow = $derived(item.status.type === 'differentDefinition');
+  // A replace that keeps the entry's saved values has no full entry to write: when the address or program changes, the row writes
+  // the whole entry like a new server and is noted like one. A CLI row does not say which of the two it is, so it makes no promise.
+  const keepsValues = $derived(replaceRow && item.steps.some((step) => step.type === 'mcpReplace'));
   const viaCli = $derived.by(() => {
     const command = cliAddCommand(item);
 
@@ -32,27 +36,25 @@
   });
 </script>
 
-<SyncRow kind={item.kind} {label} sub={sub || null} chip={statusChip(item.status)} dim={unavailable} reserve>
+<SyncRow kind={item.kind} {label} sub={sub || null} detail={item.steps.length === 0 ? item.detail : null} chip={statusChip(item.status)} dim={unavailable} reserve>
   {#snippet check()}
     <Checkbox
-      label={t('sync.review.item', { name: label })}
+      label={t(replaceRow ? 'sync.review.replaceItem' : 'sync.review.item', { name: label })}
       checked={flow.isSelected(item.id)}
       disabled={disabled || flow.locked(item)}
       onchange={(on) => flow.toggle(item.id, on)}
     />
   {/snippet}
 
-  {#if item.detail && item.steps.length === 0}
-    <code class="block text-xs leading-snug text-fg-3 [overflow-wrap:anywhere]">{item.detail}</code>
-  {/if}
-
   {#each item.steps as step, index (index)}
     {#if step.type === 'cli'}
       <SyncCommand title={t('sync.review.runs')} text={commandLine(step.command)} />
+    {:else if step.type === 'mcpReplace'}
+      <SyncCommand title={t('sync.review.replaces', { file: step.file })} text={mcpEntryJson(step.server, harness, harnesses.openCodeGeneration, true)} />
     {:else}
       <SyncCommand title={t('sync.review.writes', { file: step.file })} text={mcpEntryJson(step.server, harness, harnesses.openCodeGeneration)} />
     {/if}
   {/each}
 
-  <SyncNotices runsProgram={item.runsProgram} envKeys={item.envKeys} headerKeys={item.headerKeys} notes={item.notes} {viaCli} />
+  <SyncNotices runsProgram={item.runsProgram} envKeys={item.envKeys} headerKeys={item.headerKeys} notes={item.notes} {viaCli} replacing={keepsValues} />
 </SyncRow>
