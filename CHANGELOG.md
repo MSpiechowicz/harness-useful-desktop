@@ -1,3 +1,10 @@
+# [0.42.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.41.2...v0.42.0) (2026-10-27)
+
+
+### Features
+
+* **share:** replace an existing MCP server from the import review; export keeps servers with a path option ([38f0740](https://github.com/MSpiechowicz/harness-useful-desktop/commit/38f0740685210369606340570d1359fb0dab0ef2))
+
 ## [0.41.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.41.1...v0.41.2) (2026-10-27)
 
 
