@@ -1,3 +1,10 @@
+## [0.41.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.41.0...v0.41.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **chat:** give the main branch picker room around its name ([288e0cd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/288e0cd03e360410bbec677633bf7913ef00a484))
+
 # [0.41.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.40.4...v0.41.0) (2026-10-26)
 
 
