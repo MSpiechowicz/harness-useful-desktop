@@ -68,6 +68,13 @@ pub const SEED_BRANCH_SYNC_TEXT: &str = "At the start of the session, compare th
      or the merge would conflict, then tell me what came in and whether it touches the files in the scope of \
      this work. Never discard local changes or rewrite history; ask me first when unsure.";
 
+/// The `memory-first` context.
+pub const SEED_MEMORY_FIRST_TEXT: &str = "Before you act on this message, search Harness Memory for notes about it \
+     with a few English keywords (note_search) and check the saved scripts (script_list). Reuse what fits, \
+     and say so if a note is outdated. Pass project_path on every Harness Memory call: the absolute path of \
+     the repository you are working in (its git root), so nothing is read from or saved to another \
+     repository. If the memory settings say saving is off, still search; just do not save.";
+
 /// One catalog entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FamilyHook {
@@ -148,7 +155,7 @@ impl FamilyHook {
 }
 
 /// The catalog, in the order the dialog lists it.
-pub const FAMILY: [FamilyHook; 5] = [
+pub const FAMILY: [FamilyHook; 6] = [
     FamilyHook {
         seed: HookSeed::MemorySearch,
         member: HookRequirement::HarnessMemory,
@@ -219,6 +226,16 @@ pub const FAMILY: [FamilyHook; 5] = [
         description: "Seeded default. Asks the agent to compare the current branch with the main branch and bring in its newer commits.",
         event: HookEvent::SessionStart,
         text: SEED_BRANCH_SYNC_TEXT,
+        earlier: &[],
+        earlier_events: &[],
+    },
+    FamilyHook {
+        seed: HookSeed::MemoryFirst,
+        member: HookRequirement::HarnessMemory,
+        name: "Check Memory first",
+        description: "Seeded default. Asks the agent, on every message, to search Harness Memory notes and scripts before it acts.",
+        event: HookEvent::PromptSubmit,
+        text: SEED_MEMORY_FIRST_TEXT,
         earlier: &[],
         earlier_events: &[],
     },

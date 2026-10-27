@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "1a2b3c4d5e6f70818293a4b5c6d70043",
+  "name": "Check Memory first",
+  "description": "Seeded default. Asks the agent, on every message, to search Harness Memory notes and scripts before it acts.",
+  "scope": "global",
+  "project": null,
+  "event": "promptSubmit",
+  "matcher": null,
+  "action": {
+    "type": "addContext",
+    "text": "Before you act on this message, search Harness Memory for notes about it with a few English keywords (note_search) and check the saved scripts (script_list). Reuse what fits, and say so if a note is outdated. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository. If the memory settings say saving is off, still search; just do not save."
+  },
+  "enabled": true,
+  "createdAt": "2026-10-17T10:00:00Z",
+  "createdBy": "desktop",
+  "updatedAt": "2026-10-17T10:00:00Z",
+  "updatedBy": "desktop",
+  "requires": [
+    "harness-memory"
+  ],
+  "seed": "memory-first"
+}

@@ -287,12 +287,13 @@ mod hooks_store_folder {
                 HookSeed::MemorySearch,
                 HookSeed::MemorySave,
                 HookSeed::UsefulSkills,
-                HookSeed::BranchSync
+                HookSeed::BranchSync,
+                HookSeed::MemoryFirst
             ]
         );
 
         let listed = folder.store.list(MEMORY);
-        assert_eq!(listed.hooks.len(), 4);
+        assert_eq!(listed.hooks.len(), 5);
 
         for view in &listed.hooks {
             let hook = view.hook.as_ref().unwrap();
@@ -319,7 +320,7 @@ mod hooks_store_folder {
         );
 
         assert_eq!(seed_defaults(&folder.store, MEMORY, at(1)).unwrap(), vec![]);
-        assert_eq!(folder.store.list(MEMORY).hooks.len(), 4);
+        assert_eq!(folder.store.list(MEMORY).hooks.len(), 5);
 
         for view in &listed.hooks {
             folder.store.delete(&view.id, DESKTOP, None).unwrap();
@@ -336,6 +337,6 @@ mod hooks_store_folder {
         std::fs::remove_file(folder.store.config_dir().join("hooks-state.json")).unwrap();
 
         assert_eq!(seed_defaults(&folder.store, MEMORY, at(1)).unwrap(), vec![]);
-        assert_eq!(folder.store.list(MEMORY).hooks.len(), 4);
+        assert_eq!(folder.store.list(MEMORY).hooks.len(), 5);
     }
 }

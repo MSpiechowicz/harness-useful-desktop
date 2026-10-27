@@ -66,6 +66,14 @@ export const CATALOG: readonly CatalogEntry[] = [
     type: 'addContext',
     text: "At the start of the session, compare the branch you are working on with the repository's main branch: main, master or prod, whichever exists (git symbolic-ref refs/remotes/origin/HEAD names the default). Run git fetch, find which of the two has the most recent commits, and list the commits of the main branch your branch does not contain (git log HEAD..origin/<main> --oneline). If there are any, pull them into your branch unless the work tree is dirty or the merge would conflict, then tell me what came in and whether it touches the files in the scope of this work. Never discard local changes or rewrite history; ask me first when unsure.",
   },
+  {
+    seed: 'memory-first',
+    member: 'harness-memory',
+    name: 'Check Memory first',
+    event: 'promptSubmit',
+    type: 'addContext',
+    text: 'Before you act on this message, search Harness Memory for notes about it with a few English keywords (note_search) and check the saved scripts (script_list). Reuse what fits, and say so if a note is outdated. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository. If the memory settings say saving is off, still search; just do not save.',
+  },
 ];
 
 /** The text the memory-save hook had before the catalog changed: the sample of an outdated family hook. */

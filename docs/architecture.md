@@ -385,8 +385,9 @@ flowchart LR
    end in `.json` are skipped). The first look only prunes. A change prunes, invalidates the cache and sends
    `HooksEvent::Changed` to the Hooks view, which loads the list again.
 7. **Harness family hooks.** `hooks/family.rs` holds the catalog (`FAMILY`): `memory-search` (`sessionStart`
-   `addContext`), `memory-save` (`turnEnd` `followUp`), `useful-skills` (`sessionStart` `addContext`, asks the agent
-   to read the installed Useful Skills) and `branch-sync` (`sessionStart` `addContext`, asks the agent to fetch and
+   `addContext`), `memory-save` (`turnEnd` `followUp`), `useful-skills` (`promptSubmit` `addContext`, asks the agent
+   to read the installed Useful Skills), `memory-first` (`promptSubmit` `addContext`, asks the agent to search Harness
+   Memory before it acts) and `branch-sync` (`sessionStart` `addContext`, asks the agent to fetch and
    compare its branch with the main branch) for Harness Memory, `dashboard-limits` (`sessionStart`
    `addContext`) for Harness Dashboard, each global, `requires` its member and written by the window (approved), marked
    by `seed`. Launch seeding (`hooks::spawn_on_launch`, and `seed_available` again when the memory switch is turned on)
