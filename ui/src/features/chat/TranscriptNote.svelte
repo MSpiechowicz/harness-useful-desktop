@@ -22,10 +22,14 @@
 
 {#if item.kind === 'notice'}
   {@const look = NOTICE_LOOKS[item.level]}
-  <p class="chat-radius flex items-start gap-2.5 border border-line px-3.5 py-2 text-sm text-fg {look.box}" role={item.level === 'error' ? 'alert' : 'status'}>
-    <look.icon size={16} class="mt-0.5 shrink-0 {look.color}" aria-hidden="true" />
-    <span class="break-words">{item.message}</span>
-  </p>
+  <!-- Same frame as a ChatRow (border-card, radius, 44px inner height) so notices and tool rows line up. -->
+  <div class="border-card chat-radius border-line bg-clip-padding {look.box}" role={item.level === 'error' ? 'alert' : 'status'}>
+    <p class="flex min-h-11 items-center gap-2.5 py-1.5 pr-3.5 pl-[18px] text-sm text-fg">
+      <look.icon size={16} class="shrink-0 {look.color}" aria-hidden="true" />
+      <span class="break-words">{item.message}</span>
+    </p>
+  </div>
+
 {:else if item.kind === 'output'}
   <TerminalBlock text={item.text} />
 {:else if item.kind === 'compaction' || item.kind === 'retry'}

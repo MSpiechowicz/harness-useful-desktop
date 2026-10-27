@@ -90,7 +90,7 @@
 </div>
 
 {#if creatable || creating}
-  <div class="mb-1 flex flex-col gap-1.5 border-b border-line px-1.5 pb-2">
+  <div class="mb-1 flex flex-col gap-1.5 border-b border-line px-2.5 pb-2">
     {#if creatable}
       <button
         type="button"
