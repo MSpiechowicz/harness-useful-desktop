@@ -1,3 +1,10 @@
+## [0.41.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.41.1...v0.41.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* **chat:** align notice and new-branch row sizing with neighbouring rows ([72bf5a4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/72bf5a4afd0759ca51c7bb414b599548c86f4f44))
+
 ## [0.41.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.41.0...v0.41.1) (2026-10-27)
 
 
