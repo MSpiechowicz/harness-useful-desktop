@@ -1,6 +1,6 @@
 <script lang="ts">
   import { pendingApproval } from '$lib/chat/approval';
-  import { activeSubagentCount } from '$lib/chat/subagents';
+  import { dockedSubagents } from '$lib/chat/subagents';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -26,8 +26,9 @@
 
   const chat = $derived(session.chat);
   const approval = $derived(pendingApproval(chat));
-  // Pinned while any subagent is pending or running, even after the turn that spawned them ended and scrolled away.
-  const subagents = $derived(activeSubagentCount(chat) > 0 ? Object.values(chat.subagents) : []);
+  // Pinned while a `task` call has a pending or running subagent, even after the turn that spawned them scrolled away.
+  // Calls whose subagents all finished drop out, so a new iteration does not pile onto the previous ones.
+  const subagents = $derived(dockedSubagents(chat.subagents));
 
   // The model list is read as soon as the chat opens, not when the picker does: a harness with no model at all has to be
   // known before the first message, not after it fails.

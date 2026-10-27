@@ -4,7 +4,7 @@ import type { Subagent } from '$lib/ipc/bindings/Subagent';
 
 import { applyEvent } from './reducer';
 import { initialChatState } from './state';
-import { activeSubagentCount, spawnedBy } from './subagents';
+import { activeSubagentCount, dockedSubagents, spawnedBy } from './subagents';
 
 function subagent(overrides: Partial<Subagent> = {}): Subagent {
   return {
@@ -53,5 +53,18 @@ describe('subagents', () => {
 
     expect(activeSubagentCount(state)).toBe(2);
     expect(spawnedBy(state.subagents, 'call_1').map((entry) => entry.id)).toEqual(['A', 'B']);
+  });
+
+  it('docks only the calls that still have a live subagent, not earlier finished iterations', () => {
+    let state = initialChatState('s');
+    for (const snapshot of [
+      subagent({ id: 'Scout1', parentToolCallId: 'call_1', status: 'completed' }),
+      subagent({ id: 'Review2', parentToolCallId: 'call_2', status: 'running' }),
+      subagent({ id: 'Security2', parentToolCallId: 'call_2', status: 'completed', index: 1 }),
+    ]) {
+      state = applyEvent(state, { type: 'subagent', subagent: snapshot });
+    }
+
+    expect(dockedSubagents(state.subagents).map((entry) => entry.id)).toEqual(['Review2', 'Security2']);
   });
 });

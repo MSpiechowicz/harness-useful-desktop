@@ -37,3 +37,16 @@ export function spawnedBy(subagents: Record<string, Subagent>, toolCallId: strin
     .filter((subagent) => subagent.parentToolCallId === toolCallId)
     .sort((left, right) => left.index - right.index);
 }
+
+/** Whether a `task` call has a pending or running subagent, i.e. its rows live in the docked list. */
+export function isDockedCall(subagents: Record<string, Subagent>, toolCallId: string): boolean {
+  return Object.values(subagents).some((subagent) => subagent.parentToolCallId === toolCallId && isSubagentActive(subagent));
+}
+
+/** What the docked list shows: every subagent of a `task` call that still has one running. Calls that finished stay out. */
+export function dockedSubagents(subagents: Record<string, Subagent>): Subagent[] {
+  const all = Object.values(subagents);
+  const live = new Set(all.filter(isSubagentActive).map((subagent) => subagent.parentToolCallId));
+
+  return all.filter((subagent) => live.has(subagent.parentToolCallId));
+}
