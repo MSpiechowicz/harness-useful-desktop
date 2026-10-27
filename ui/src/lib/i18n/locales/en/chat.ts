@@ -75,6 +75,7 @@ export const chat = {
   'chat.bash.run': 'Run command',
 
   'chat.bar.newChat': 'New chat',
+  'chat.menu.label': 'More actions',
 
   'chat.view.loading': 'Loading chat',
   'chat.view.starting.label': 'Starting chat',
@@ -217,7 +218,6 @@ export const chat = {
 
   'chat.slash.label': 'Slash commands',
 
-  'chat.stats.popover': 'Session statistics',
   'chat.stats.trigger': 'Stats',
   'chat.stats.heading': 'This session',
   'chat.stats.loading': 'Loading statistics…',

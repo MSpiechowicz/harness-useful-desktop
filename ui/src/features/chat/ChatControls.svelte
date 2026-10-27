@@ -5,9 +5,7 @@
 
   import ApprovalBadge from './ApprovalBadge.svelte';
   import MemoryButton from './MemoryButton.svelte';
-  import StatsPopover from './StatsPopover.svelte';
   import TrustOnce from './TrustOnce.svelte';
-  import ViewToggle from './ViewToggle.svelte';
 
   interface Props {
     session: ChatSession;
@@ -24,12 +22,9 @@
   );
 </script>
 
-<!-- The open chat's controls, in the top bar's right side: how it asks before acting, what it shows, what it used. -->
+<!-- The open chat's controls, in the top bar's right side: how it asks before acting, and Harness Memory. What it shows and what it used are in the "⋯" menu (ChatMenu). -->
 <div class="flex shrink-0 items-center gap-2">
   {#if capabilities?.approvalModes}<ApprovalBadge {session} />{/if}
   {#if showTrust}<TrustOnce {session} />{/if}
   <MemoryButton {session} />
-  <ViewToggle pref="showThinking" label={t('chat.thinking.toggle')} aria={t('chat.thinking.toggleAria')} hideTitle={t('chat.thinking.hide')} showTitle={t('chat.thinking.show')} />
-  <ViewToggle pref="showMessageUsage" label={t('chat.usage.toggle')} aria={t('chat.usage.toggleAria')} hideTitle={t('chat.usage.hide')} showTitle={t('chat.usage.show')} />
-  <StatsPopover {session} />
 </div>

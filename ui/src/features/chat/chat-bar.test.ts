@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('chat header bar', () => {
-  it('shows the open chat\'s harness, its name and its controls, with no tab strip and no new-chat button', () => {
+  it('shows the open chat\'s harness, its name and its controls, with no tab strip, and a new-chat button', () => {
     const { session } = chatSession([], { configuredApprovalMode: 'yolo', approvalOverride: null });
     const { session: other } = chatSession([], { key: 'second-chat' });
     agentSessions.sessions = [session, other];
@@ -29,10 +29,11 @@ describe('chat header bar', () => {
     expect(screen.getByRole('heading', { level: 1, name: agentSessions.title(session.key) })).toBeInTheDocument();
     expect(screen.getByText('OMP')).toBeInTheDocument();
     expect(screen.getByText('Approvals: yolo')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /thought process/i })).toBeInTheDocument();
-    expect(screen.getByText('Stats')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions' })).toBeInTheDocument();
+    expect(screen.queryByText('Stats')).toBeNull();
+    expect(screen.queryByText('Thinking')).toBeNull();
     expect(screen.queryByRole('tablist')).toBeNull();
-    expect(screen.queryByRole('button', { name: /New chat/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /New chat/ })).toBeInTheDocument();
   });
 
   it('names the page "Chat" before the first chat, with no controls', () => {

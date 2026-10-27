@@ -18,6 +18,7 @@ import { prefs } from '$lib/stores/prefs.svelte';
 import { chatSession, STREAMING, startedSession } from '../../../tests/chat-helpers';
 import { samplePrefs } from '../../../tests/helpers';
 import ChatControls from './ChatControls.svelte';
+import ChatMenu from './ChatMenu.svelte';
 import ChatPane from './ChatPane.svelte';
 import Composer from './Composer.svelte';
 import { chatStatus } from './chat-status';
@@ -193,9 +194,10 @@ describe('header controls', () => {
   it('loads statistics on demand', async () => {
     const { session } = await startedSession();
     session.apply((state) => ({ ...state, session: fixtures.agent.state.state }));
-    render(ChatControls, { session });
+    render(ChatMenu, { session });
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Session statistics' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await fireEvent.click(await screen.findByRole('menuitem', { name: 'Stats' }));
 
     expect(await screen.findByText('$0.0874')).toBeInTheDocument();
   });
@@ -293,14 +295,15 @@ describe('transcript', () => {
     try {
       const { session } = chatSession(replayed('basic'));
       render(ChatPane, { session });
-      render(ChatControls, { session });
+      render(ChatMenu, { session });
 
       expect(await screen.findByRole('button', { name: /Thought process/ })).toBeInTheDocument();
 
       prefs.value = samplePrefs({ showThinking: false });
 
       await waitFor(() => expect(screen.queryByRole('button', { name: /Thought process/ })).toBeNull());
-      expect(screen.getByRole('button', { name: 'Show thought process' })).toHaveAttribute('aria-pressed', 'false');
+      await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      expect(await screen.findByRole('menuitemcheckbox', { name: 'Show thought process' })).toHaveAttribute('aria-checked', 'false');
     } finally {
       prefs.value = null;
     }
@@ -311,14 +314,15 @@ describe('transcript', () => {
     try {
       const { session } = chatSession(replayed('basic'));
       render(ChatPane, { session });
-      render(ChatControls, { session });
+      render(ChatMenu, { session });
 
       expect((await screen.findAllByText(/ tokens/)).length).toBeGreaterThan(0);
 
       prefs.value = samplePrefs({ showMessageUsage: false });
 
       await waitFor(() => expect(screen.queryAllByText(/ tokens/)).toHaveLength(0));
-      expect(screen.getByRole('button', { name: 'Show model, tokens and cost under replies' })).toHaveAttribute('aria-pressed', 'false');
+      await fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+      expect(await screen.findByRole('menuitemcheckbox', { name: 'Show model, tokens and cost under replies' })).toHaveAttribute('aria-checked', 'false');
       expect(screen.queryByRole('button', { name: /Thought process/ })).not.toBeNull();
     } finally {
       prefs.value = null;

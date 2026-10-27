@@ -78,6 +78,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.bash.run': 'Ejecutar comando',
 
   'chat.bar.newChat': 'Nuevo chat',
+  'chat.menu.label': 'Más acciones',
 
   'chat.view.loading': 'Cargando el chat',
   'chat.view.starting.label': 'Iniciando el chat',
@@ -220,7 +221,6 @@ export const chat: AreaMessages<typeof enChat> = {
 
   'chat.slash.label': 'Comandos con barra',
 
-  'chat.stats.popover': 'Estadísticas de la sesión',
   'chat.stats.trigger': 'Estadísticas',
   'chat.stats.heading': 'Esta sesión',
   'chat.stats.loading': 'Cargando estadísticas…',
