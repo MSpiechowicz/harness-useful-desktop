@@ -28,7 +28,7 @@
      its controls. The open chats live in the rail, under Chat; a new one starts from the button here or with Ctrl+N. -->
 <ViewHeader title={heading} leading={runner ? badge : undefined} center={session?.routine ? routine : undefined}>
   {#snippet actions()}
-    <Button variant="ghost" onclick={() => void newChat()}>
+    <Button variant="primary" onclick={() => void newChat()}>
       {#snippet leading()}<Plus size={ICON.sm} aria-hidden="true" />{/snippet}
       {t('chat.bar.newChat')}
       {#snippet trailing()}<Kbd keys="mod+n" small />{/snippet}
