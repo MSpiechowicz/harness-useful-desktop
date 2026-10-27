@@ -55,7 +55,7 @@
         title={t('branch.main.change')}
         aria-label={t('branch.main.change') + ': ' + main.name}
         disabled={busy}
-        class="-mx-1.5 inline-flex max-w-full items-center gap-1 h-5 rounded-sm px-1.5 hover:bg-hover focus-visible:bg-hover disabled:cursor-not-allowed disabled:hover:bg-transparent"
+        class="-mx-2.5 inline-flex max-w-full items-center gap-1.5 h-6 rounded-md px-2.5 align-top hover:bg-hover focus-visible:bg-hover disabled:cursor-not-allowed disabled:hover:bg-transparent"
         onclick={onpick}
       >
         <span class="truncate">{main.name}</span>
