@@ -1,3 +1,17 @@
+# [0.43.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.42.0...v0.43.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **chat:** dock only subagents of task calls that still run ([4393503](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4393503011ad6c11bd9ee0e0ff4cddcccfccf464))
+
+
+### Features
+
+* **chat:** add a New chat button with its shortcut to the top bar ([cf70be4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cf70be4bacd8f7e9c8d10f2507826b0edc69d875))
+* **chat:** make the New chat button primary ([c0f392c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c0f392c129c97c6d115008b7518fdb6932bd6f68))
+* **hooks:** add the Check Memory first family hook so agents search Harness Memory on every message ([556d67a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/556d67adccae7a1c98aad014d1e18429b6a2ea3a))
+
 # [0.42.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.41.2...v0.42.0) (2026-10-27)
 
 
