@@ -118,9 +118,10 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      # One advisory is ignored (see package.json "audit"): GHSA-vfj7-8cjw-p6xm, braces <=3.0.3 DoS.
-      # It is dev-only (semantic-release -> micromatch -> braces), release tooling, not shipped,
-      # and no fixed release exists yet. Remove the ignore once braces > 3.0.3 ships.
+      # Two advisories are ignored (see package.json "audit"): GHSA-vfj7-8cjw-p6xm, braces <=3.0.3 DoS
+      # (semantic-release -> micromatch -> braces), and GHSA-gcqx-w48m-w2h4, deepmerge <=4.3.1 prototype
+      # poisoning (vite-plugin-svelte -> deepmerge). Both are dev-only build tooling, not shipped, and
+      # have no fixed release yet. Remove each ignore once a fixed release ships.
       - run: bun run audit
       - run: bun run guard
       - run: bun run dup

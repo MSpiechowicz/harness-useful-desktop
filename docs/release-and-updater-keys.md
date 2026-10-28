@@ -119,8 +119,13 @@ Files downloaded by the in-app updater are not quarantined, so later updates do 
 
 ## Known advisories
 
-`bun run audit` (used by CI) ignores one advisory: GHSA-vfj7-8cjw-p6xm (braces <=3.0.3, stack-exhaustion DoS via
+`bun run audit` (used by CI) ignores two advisories. GHSA-vfj7-8cjw-p6xm (braces <=3.0.3, stack-exhaustion DoS via
 deeply nested patterns). It is reachable only through dev dependencies (`semantic-release` and
 `@semantic-release/git` -> micromatch -> braces), runs only in the release CI job with repo-controlled patterns, and
 is not shipped in the app. No fixed braces release exists yet (3.0.3 is the latest). Remove the `--ignore` flag from
-the `audit` script in `package.json` once braces > 3.0.3 ships. Plain `bun audit` still reports it.
+the `audit` script in `package.json` once braces > 3.0.3 ships.
+
+GHSA-gcqx-w48m-w2h4 (deepmerge <=4.3.1, low: `mergeObject()` allows prototype poisoning of the returned object) is
+reachable only through `@sveltejs/vite-plugin-svelte` -> deepmerge, which runs in the UI build and is not shipped in
+the app. No fixed deepmerge release exists yet (4.3.1 is the latest). Remove its `--ignore` flag once deepmerge >
+4.3.1 ships. Plain `bun audit` still reports both.
