@@ -27,7 +27,7 @@ use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{ensure_private_dir, replace_atomically};
 use crate::model::{AgentReply, ChatMessage};
 use crate::opencode_server::export_html::{ExportPage, render};
-use crate::opencode_server::mapper::record_messages;
+use crate::opencode_server::mapper::history_messages;
 use crate::opencode_server::stats::{context_mark, last_context, last_reply_text, session_stats};
 use crate::opencode_server::wire::{Envelope, ModelRef};
 use crate::opencode_server::{Route, SessionId};
@@ -94,13 +94,13 @@ impl OpenCodeSession {
     /// `exportHtml` (see the module docs).
     pub(super) async fn export_html(&self) -> Result<AgentReply> {
         let chat = &self.chat;
-        let (session, title) = {
+        let (session, title, working) = {
             let live = chat.lock();
-            (live.session.clone(), live.title.clone())
+            (live.session.clone(), live.title.clone(), live.mapper.is_working())
         };
 
         let records = all_messages(chat, &session).await?;
-        let messages: Vec<ChatMessage> = records.iter().flat_map(record_messages).collect();
+        let messages: Vec<ChatMessage> = history_messages(&records, working);
         let exported_at = rfc3339(SystemTime::now());
         let page = ExportPage {
             title: title.as_deref().unwrap_or(UNTITLED),

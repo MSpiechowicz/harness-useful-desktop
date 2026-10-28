@@ -1,0 +1,15 @@
+// OMP history while a turn runs and the unpaged read is refused too (too large): the newest page degrades to an
+// empty history with a notice, a request for an older page fails. Played twice.
+{"include": "omp_startup.jsonl"}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages","reply":{"success":false,"error":"RPC frame exceeded the transport limit"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages","reply":{"success":false,"error":"RPC frame exceeded the transport limit"}}

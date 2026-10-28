@@ -12,6 +12,7 @@ use super::transcript::Transcript;
 use crate::error::{BusinessError, Result};
 use crate::model::{ChatBlock, ChatMessage, MessageRole};
 use crate::opencode_server::mapper::project_dir;
+use crate::opencode_server_v2::mapper::settled_history;
 use crate::opencode_server_v2::messages::SessionMessage;
 use crate::pi_family::sessions::StatsTally;
 
@@ -42,18 +43,18 @@ pub(super) fn parse(stdout: &str, id: &str, project: &Path) -> Result<Transcript
     let mut touched = BTreeSet::new();
 
     let records = export.get("messages").and_then(Value::as_array);
+    let parsed: Vec<SessionMessage> = records.into_iter().flatten().map(SessionMessage::parse).collect();
 
-    for record in records.into_iter().flatten() {
-        let message = SessionMessage::parse(record);
-
+    for message in &parsed {
         for call in message.tool_calls() {
             touched.extend(call.touched(project, &directory));
         }
+    }
 
-        for chat in message.chat_messages() {
-            note(&mut tally, &chat);
-            messages.push(chat);
-        }
+    // Another process may be running the newest reply, so it is not settled unless it ended.
+    for chat in settled_history(&parsed, true) {
+        note(&mut tally, &chat);
+        messages.push(chat);
     }
 
     Ok(Transcript {

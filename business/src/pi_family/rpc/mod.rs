@@ -225,6 +225,12 @@ pub trait RpcDialect: Send + Sync {
     /// True when [`RpcDialect::history_request`] returns pages.
     fn history_paged(&self) -> bool;
 
+    /// The command reading every message in one reply: the fallback when a paged read keeps being
+    /// refused. A reply too large for one frame is refused by the agent.
+    fn whole_history_request(&self, id: &str) -> Value {
+        command_frame("get_messages", id, Vec::<(&str, Value)>::new())
+    }
+
     /// The `bash` command.
     fn encode_bash(&self, command: &str, id: &str) -> Value {
         command_frame("bash", id, [("command", Value::from(command))])

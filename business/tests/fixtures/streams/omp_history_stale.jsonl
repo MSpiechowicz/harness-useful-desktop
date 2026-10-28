@@ -1,0 +1,7 @@
+// OMP history: a message is appended between the pages (stale_cursor on the second), so the read starts over
+// against the new snapshot of five messages. Nothing of the first snapshot may remain.
+{"include": "omp_startup.jsonl"}
+{"expect":"get_messages_page","match":{"cursor":null},"reply":{"success":true,"data":{"messages":[{"role":"user","content":"m1","timestamp":1791540000001},{"role":"user","content":"m2","timestamp":1791540000002}],"totalMessages":4,"nextCursor":"c-2"}}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"RPC message cursor is stale","code":"stale_cursor"}}
+{"expect":"get_messages_page","match":{"cursor":null},"reply":{"success":true,"data":{"messages":[{"role":"user","content":"m1","timestamp":1791540000001},{"role":"user","content":"m2","timestamp":1791540000002},{"role":"user","content":"m3","timestamp":1791540000003}],"totalMessages":5,"nextCursor":"c-3"}}}
+{"expect":"get_messages_page","match":{"cursor":"c-3"},"reply":{"success":true,"data":{"messages":[{"role":"user","content":"m4","timestamp":1791540000004},{"role":"user","content":"m5","timestamp":1791540000005}],"totalMessages":5}}}

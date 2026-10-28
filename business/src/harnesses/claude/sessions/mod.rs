@@ -33,6 +33,7 @@ mod entries;
 mod list;
 mod transcript;
 mod transcript_cache;
+mod transcript_text;
 
 pub(super) use delete::delete_session;
 pub(super) use entries::session_tree;

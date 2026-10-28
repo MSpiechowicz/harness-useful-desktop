@@ -10,7 +10,7 @@ use super::OpenCodeV2Session;
 use crate::error::Result;
 use crate::model::AgentReply;
 use crate::opencode_server::OpenCodeClient;
-use crate::opencode_server_v2::mapper::history;
+use crate::opencode_server_v2::mapper::settled_history;
 use crate::opencode_server_v2::messages::SessionMessage;
 use crate::opencode_server_v2::routes::MAX_MESSAGE_PAGE;
 pub(super) use crate::opencode_server_v2::stats::last_context;
@@ -25,11 +25,14 @@ impl OpenCodeV2Session {
     /// The history page ending before `cursor` (see the module docs).
     pub(super) async fn history(&self, cursor: Option<&str>, limit: u32) -> Result<AgentReply> {
         let chat = &self.chat;
-        let session = chat.lock().session.clone();
+        let (session, working) = {
+            let live = chat.lock();
+            (live.session.clone(), live.mapper.is_working())
+        };
         let records = all_messages(&chat.client, &session, &chat.directory).await?;
         let messages: Vec<SessionMessage> = records.iter().map(SessionMessage::parse).collect();
 
-        slice_history(history(&messages), cursor, limit)
+        slice_history(settled_history(&messages, working), cursor, limit)
     }
 }
 

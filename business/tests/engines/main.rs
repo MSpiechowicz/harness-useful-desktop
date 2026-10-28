@@ -113,4 +113,5 @@ mod opencode_wire;
 mod rpc_codec;
 mod rpc_commands;
 mod rpc_dialects;
+mod rpc_history;
 mod rpc_normalize;

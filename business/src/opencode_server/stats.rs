@@ -99,7 +99,7 @@ pub fn session_stats(records: &[Value], window: &dyn Fn(&ModelRef) -> Option<u64
             add_usage(&mut stats, info);
         }
 
-        for message in record_messages(record) {
+        for message in record_messages(record, false) {
             count_message(&mut stats, message.role, &message.blocks);
         }
     }
@@ -159,7 +159,7 @@ fn count_message(stats: &mut SessionStats, role: MessageRole, blocks: &[ChatBloc
 /// left out); `None` before the first one.
 pub fn last_reply_text(records: &[Value]) -> Option<String> {
     records.iter().rev().find_map(|record| {
-        let message = record_messages(record).into_iter().next()?;
+        let message = record_messages(record, false).into_iter().next()?;
 
         if message.role != MessageRole::Assistant {
             return None;

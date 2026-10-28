@@ -66,6 +66,7 @@ pub fn response(frame: &Value) -> RpcResponse {
         success: frame.get("success").and_then(Value::as_bool).unwrap_or(false),
         data: frame.get("data").cloned(),
         error: string(frame, "error"),
+        code: string(frame, "code"),
     }
 }
 

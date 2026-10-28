@@ -48,6 +48,8 @@ pub struct RpcResponse {
     pub data: Option<Value>,
     /// Failure message.
     pub error: Option<String>,
+    /// Machine-readable failure reason when the agent names one (OMP: `session_busy`, `stale_cursor`).
+    pub code: Option<String>,
 }
 
 /// What a waiting request was, so the reader can react to its response in stream order.

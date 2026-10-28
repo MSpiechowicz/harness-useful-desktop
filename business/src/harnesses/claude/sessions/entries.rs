@@ -242,6 +242,23 @@ impl Index {
         Some(position)
     }
 
+    /// The tool result entries off `path` whose parent is on it. A reply with parallel tool calls
+    /// hangs each result off the line of its own call, so only one of them is on the leaf's path.
+    pub(super) fn side_results(&self, path: &[usize]) -> Vec<usize> {
+        let on_path: HashSet<usize> = path.iter().copied().collect();
+
+        self.nodes
+            .iter()
+            .enumerate()
+            .filter(|(position, node)| {
+                node.kind == Kind::ToolResult
+                    && !on_path.contains(position)
+                    && node.parent.is_some_and(|parent| on_path.contains(&parent))
+            })
+            .map(|(position, _)| position)
+            .collect()
+    }
+
     /// The entries from the root to the leaf.
     pub(super) fn active_path(&self) -> Vec<usize> {
         let mut path = Vec::new();

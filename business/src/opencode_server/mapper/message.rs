@@ -6,19 +6,58 @@
 //!   image attachments (MIME type only), attached files as `@name` (a file mentioned in the text is
 //!   already there) and subtasks as `@agent prompt`.
 //! - An assistant message keeps text, reasoning and tool calls in order; each finished tool call
-//!   gets a tool-result message with its redacted output or error.
+//!   gets a tool-result message with its redacted output or error. A call left running or pending
+//!   in a settled message (its turn is over) fails with [`UNFINISHED_TOOL`], like the live chat
+//!   ends it; a message still in progress keeps such a call open ([`settled_records`]).
 //! - A compaction's summary (an assistant message marked `summary`) is a compaction-summary
 //!   message of its text.
 //! - Every other part (steps, snapshots, patches, retries, compaction markers) is skipped.
 
 use serde_json::{Value, json};
 
+use crate::claude_stream::mapper::UNFINISHED_TOOL;
 use crate::model::{ChatBlock, ChatMessage, MessageRole, TokenUsage};
 use crate::security::redact_text;
 
+/// The chat messages of every record, oldest first (see [`settled_records`] for `open_tail`).
+pub(crate) fn history_messages(records: &[Value], open_tail: bool) -> Vec<ChatMessage> {
+    let settled = settled_records(records, open_tail);
+
+    records
+        .iter()
+        .zip(settled)
+        .flat_map(|(record, settled)| record_messages(record, settled))
+        .collect()
+}
+
+/// Which records are settled: their turn is over, so a tool call left running or pending in them
+/// never finishes. A record is settled when it completed or failed (`time.completed`, `error`) or
+/// a later assistant record exists. The newest assistant record of a session whose turn may still
+/// run (`open_tail`, a busy chat or a session another process may be running) is not settled
+/// unless it completed. Later user messages (queued prompts) do not settle it.
+pub(crate) fn settled_records(records: &[Value], open_tail: bool) -> Vec<bool> {
+    let newest = records.iter().rposition(is_assistant);
+
+    records
+        .iter()
+        .enumerate()
+        .map(|(position, record)| {
+            let info = record.get("info").unwrap_or(&Value::Null);
+            let ended = info.pointer("/time/completed").is_some() || info.get("error").is_some();
+
+            ended || !open_tail || Some(position) != newest
+        })
+        .collect()
+}
+
+fn is_assistant(record: &Value) -> bool {
+    record.pointer("/info/role").and_then(Value::as_str) == Some("assistant")
+}
+
 /// The chat messages of one `{info, parts}` record: a user message, or an assistant message
-/// followed by the results of its finished tool calls; none when nothing in it is shown.
-pub(crate) fn record_messages(record: &Value) -> Vec<ChatMessage> {
+/// followed by the results of its finished tool calls (and, when `settled`, of the calls it left
+/// unfinished); none when nothing in it is shown.
+pub(crate) fn record_messages(record: &Value, settled: bool) -> Vec<ChatMessage> {
     let info = record.get("info").unwrap_or(&Value::Null);
     let parts = record
         .get("parts")
@@ -28,7 +67,7 @@ pub(crate) fn record_messages(record: &Value) -> Vec<ChatMessage> {
     match info.get("role").and_then(Value::as_str) {
         Some("user") => user_message(info, parts).into_iter().collect(),
         Some("assistant") if is_summary(info) => summary_message(info, parts).into_iter().collect(),
-        Some("assistant") => assistant_message(info, parts)
+        Some("assistant") => assistant_message(info, parts, settled)
             .map(|(message, results)| std::iter::once(message).chain(results).collect())
             .unwrap_or_default(),
         _ => Vec::new(),
@@ -73,8 +112,13 @@ pub(crate) fn user_message(info: &Value, parts: &[Value]) -> Option<ChatMessage>
 }
 
 /// The assistant message of `info` with `parts` and the tool-result messages of its finished tool
-/// calls; `None` when it has neither content nor an error.
-pub(crate) fn assistant_message(info: &Value, parts: &[Value]) -> Option<(ChatMessage, Vec<ChatMessage>)> {
+/// calls (and, when `settled`, of its unfinished ones); `None` when it has neither content nor an
+/// error.
+pub(crate) fn assistant_message(
+    info: &Value,
+    parts: &[Value],
+    settled: bool,
+) -> Option<(ChatMessage, Vec<ChatMessage>)> {
     let mut message = blank_message(info, MessageRole::Assistant);
     let mut results = Vec::new();
 
@@ -83,7 +127,7 @@ pub(crate) fn assistant_message(info: &Value, parts: &[Value]) -> Option<(ChatMe
             "text" => message.blocks.extend(text_block(part)),
             "reasoning" => message.blocks.push(reasoning_block(part)),
             "tool" => {
-                let (call, result) = tool_call(part);
+                let (call, result) = tool_call(part, settled);
                 message.blocks.push(call);
                 results.extend(result);
             }
@@ -226,8 +270,9 @@ pub(crate) fn tool_outcome(state: &Value) -> Option<(String, bool)> {
     Some((redact_text(&output), is_error))
 }
 
-/// The tool call of a `tool` part, and its result message once the call finished.
-fn tool_call(part: &Value) -> (ChatBlock, Option<ChatMessage>) {
+/// The tool call of a `tool` part, and its result message once the call finished (or, when
+/// `settled`, was left unfinished).
+fn tool_call(part: &Value, settled: bool) -> (ChatBlock, Option<ChatMessage>) {
     let id = tool_call_id(part);
     let name = text(part, "tool").unwrap_or_default();
     let state = part.get("state").unwrap_or(&Value::Null);
@@ -239,7 +284,9 @@ fn tool_call(part: &Value) -> (ChatBlock, Option<ChatMessage>) {
         intent: text(state, "title"),
     };
 
-    let Some((output, is_error)) = tool_outcome(state) else {
+    let outcome = tool_outcome(state).or_else(|| settled.then(|| (UNFINISHED_TOOL.to_owned(), true)));
+
+    let Some((output, is_error)) = outcome else {
         return (call, None);
     };
 

@@ -18,9 +18,9 @@ use super::process::{AgentProcess, ProcessTraits};
 use super::sink::PromptTaken;
 use crate::error::{BusinessError, Result};
 use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, MAX_ACTION_TEXT_BYTES, SessionState, UiResponse};
-use crate::pi_family::normalize::{chat_message, hidden_message, model_option, string};
+use crate::pi_family::normalize::{chat_message, hidden_message, model_option};
 use crate::pi_family::rpc::pending::DEFAULT_TIMEOUT;
-use crate::pi_family::rpc::shared::{items, parse_bash, parse_reply, slice_history};
+use crate::pi_family::rpc::shared::{parse_bash, parse_reply, slice_history};
 use crate::pi_family::rpc::{
     DecodeState, EncodeContext, RequestKind, RpcDialect, RpcResponse, await_response, encode_frame, timeout_for,
 };
@@ -29,9 +29,6 @@ use crate::security::redact_text;
 
 /// Time limit for a `bash` command.
 pub const BASH_TIMEOUT: Duration = Duration::from_secs(10 * 60);
-
-/// History pages read at most (256 messages each).
-const MAX_HISTORY_PAGES: usize = 64;
 
 /// How often a move is checked for (the agent answers the prompt before the file is in place).
 const MOVE_CHECKS: usize = 10;
@@ -111,11 +108,25 @@ impl RpcSession {
         kind: RequestKind,
         limit: Duration,
     ) -> Result<RpcResponse> {
-        let label = frame
-            .get("type")
-            .and_then(Value::as_str)
-            .unwrap_or("command")
-            .to_owned();
+        let response = self.request_any(frame, id, kind, limit).await?;
+
+        if !response.success {
+            return Err(refusal(frame, &response));
+        }
+
+        Ok(response)
+    }
+
+    /// Like [`RpcSession::request`], but a refusal comes back as a response (with its `code`) for
+    /// a caller that reacts to it. Transport failures and timeouts are still errors.
+    pub(super) async fn request_any(
+        &self,
+        frame: &Value,
+        id: &str,
+        kind: RequestKind,
+        limit: Duration,
+    ) -> Result<RpcResponse> {
+        let label = command_label(frame).to_owned();
         let receiver = self.shared.pending.register(id, kind)?;
 
         if self
@@ -136,13 +147,7 @@ impl RpcSession {
             self.shared.pending.forget(id);
         }
 
-        let response = response?;
-        if !response.success {
-            let error = redact_text(response.error.as_deref().unwrap_or("no reason given"));
-            return Err(BusinessError::Protocol(format!("{label} failed: {error}")));
-        }
-
-        Ok(response)
+        response
     }
 
     /// Encodes `action`, sends it and parses the reply (no side effects).
@@ -285,25 +290,11 @@ impl RpcSession {
         }
     }
 
-    /// Reads the whole history (paging when the dialect pages) and serves the requested page.
+    /// Serves the requested page of the history (read whole, see `session_history.rs`).
     async fn history(&self, cursor: Option<&str>, limit: u32) -> Result<AgentReply> {
-        let dialect = self.dialect;
-        let mut raw: Vec<Value> = Vec::new();
-        let mut page: Option<String> = None;
-
-        for _ in 0..MAX_HISTORY_PAGES {
-            let id = self.next_id();
-            let frame = dialect.history_request(page.as_deref(), &id);
-            let response = self.request(&frame, &id, RequestKind::Other, DEFAULT_TIMEOUT).await?;
-            let data = response.data.unwrap_or(Value::Null);
-
-            raw.extend(items(&data, "messages"));
-            page = string(&data, "nextCursor").filter(|_| dialect.history_paged());
-
-            if page.is_none() {
-                break;
-            }
-        }
+        let Some(raw) = self.read_history().await? else {
+            return self.unreadable_history(cursor);
+        };
 
         let shown = raw.iter().filter(|message| !hidden_message(message)).map(chat_message);
 
@@ -372,4 +363,16 @@ pub(super) fn check_command(command: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// The command's `type`, for messages.
+fn command_label(frame: &Value) -> &str {
+    frame.get("type").and_then(Value::as_str).unwrap_or("command")
+}
+
+/// The error for a refused `frame`.
+pub(super) fn refusal(frame: &Value, response: &RpcResponse) -> BusinessError {
+    let reason = redact_text(response.error.as_deref().unwrap_or("no reason given"));
+
+    BusinessError::Protocol(format!("{} failed: {reason}", command_label(frame)))
 }

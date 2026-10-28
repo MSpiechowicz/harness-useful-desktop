@@ -11,7 +11,9 @@
 //!   mention as `@name`. Attached skills it does not mention lead the text as `/id`, the command
 //!   that ran them, so a bare `/skill` still shows.
 //! - `assistant`: text, reasoning and tool calls in order, then a tool-result message per finished
-//!   call with its redacted output or error.
+//!   call with its redacted output or error. In a settled message (its turn is over, see
+//!   [`SessionMessage::chat_messages_settled`]) a call left streaming or running fails with
+//!   `UNFINISHED_TOOL`, like the live chat ends it.
 //! - `shell` (a `!command`): a command message `$ command` with the redacted output.
 //! - `compaction`: a compaction-summary message of its summary.
 //! - Nothing else is shown: `synthetic` and `system` context, loaded skills, agent, model and
@@ -21,6 +23,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 pub use super::tools::{ToolCall, ToolContent, ToolState};
+use crate::claude_stream::mapper::UNFINISHED_TOOL;
 use crate::model::{ChatBlock, ChatMessage, MessageRole, TokenUsage};
 use crate::security::redact_text;
 
@@ -281,11 +284,17 @@ impl SessionMessage {
         message
     }
 
-    /// The chat messages of this message (see the module docs).
+    /// The chat messages of this message, a reply still in progress (see the module docs).
     pub fn chat_messages(&self) -> Vec<ChatMessage> {
+        self.chat_messages_settled(false)
+    }
+
+    /// The chat messages of this message; `settled` when its turn is over, so a reply's calls
+    /// that never finished get a failed result.
+    pub fn chat_messages_settled(&self, settled: bool) -> Vec<ChatMessage> {
         match self {
             Self::User(user) => user_chat(user).into_iter().collect(),
-            Self::Assistant(reply) => assistant_chat(reply),
+            Self::Assistant(reply) => assistant_chat(reply, settled),
             Self::Shell(shell) => vec![shell_chat(shell)],
             Self::Compaction(compaction) => compaction_chat(compaction).into_iter().collect(),
             _ => Vec::new(),
@@ -306,9 +315,12 @@ impl SessionMessage {
     }
 }
 
-/// The result message of a finished tool call.
-pub fn tool_result_message(call: &ToolCall) -> Option<ChatMessage> {
-    let (output, is_error) = call.outcome()?;
+/// The result message of a finished tool call, or (`settled`) of one that never finished.
+pub fn tool_result_message(call: &ToolCall, settled: bool) -> Option<ChatMessage> {
+    let outcome = call
+        .outcome()
+        .or_else(|| settled.then(|| (UNFINISHED_TOOL.to_owned(), true)));
+    let (output, is_error) = outcome?;
 
     let mut result = blank(&call.id, MessageRole::ToolResult, call.time.completed);
     result.blocks = vec![text_block(output)];
@@ -395,9 +407,9 @@ fn with_skills(user: &UserMessage) -> String {
     words.join(" ")
 }
 
-/// The reply followed by the results of its finished tool calls; nothing when it has neither
-/// content nor an error.
-fn assistant_chat(reply: &AssistantMessage) -> Vec<ChatMessage> {
+/// The reply followed by the results of its finished tool calls (and, when `settled`, of the
+/// unfinished ones); nothing when it has neither content nor an error.
+fn assistant_chat(reply: &AssistantMessage, settled: bool) -> Vec<ChatMessage> {
     let mut message = blank(&reply.id, MessageRole::Assistant, reply.time.created);
     let mut results = Vec::new();
 
@@ -410,7 +422,7 @@ fn assistant_chat(reply: &AssistantMessage) -> Vec<ChatMessage> {
             }),
             AssistantContent::Tool(call) => {
                 message.blocks.push(call.block());
-                results.extend(tool_result_message(call));
+                results.extend(tool_result_message(call, settled));
             }
             _ => {}
         }

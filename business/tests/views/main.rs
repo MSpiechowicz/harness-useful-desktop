@@ -97,5 +97,7 @@ mod sessions_opencode2;
 mod sessions_opencode2_transcript;
 mod sessions_opencode_concurrency;
 mod sessions_opencode_transcript;
+mod sessions_opencode_unfinished;
+mod sessions_pi_side_results;
 mod sessions_store;
 mod sessions_totals;

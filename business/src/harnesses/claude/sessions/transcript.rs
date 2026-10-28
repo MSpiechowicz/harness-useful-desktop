@@ -11,7 +11,9 @@
 //!   `$ command` then its output, as the other harnesses show `!command` runs. Output on a line of
 //!   its own joins the run before it;
 //! - a command's output (`<local-command-stdout>`): a system message with the plain text;
-//! - tool results: one tool result message per result, named after the tool call they answer;
+//! - tool results: one tool result message per result, named after the tool call they answer. Parallel
+//!   tool calls hang each result off the line of its own call, so a result off the active path whose
+//!   parent is on it still counts when it answers a call no result answered yet;
 //! - a reply line: its blocks, added to the reply before when both are lines of one API reply
 //!   (tool results of that reply may come between);
 //! - the compaction summary: a compaction summary message.
@@ -25,10 +27,10 @@ use serde_json::{Value, json};
 
 use super::entries::{Index, Kind, command_text, kind, lines, tagged, text, text_kind};
 use super::transcript_cache;
+use super::transcript_text::{compaction_summary, local_output, shell_output};
 use crate::claude_stream::tools::touched_paths;
 use crate::error::Result;
 use crate::model::{ChatBlock, ChatMessage, MessageRole, SessionMessagesPage, TokenUsage};
-use crate::pi_family::normalize::plain_text;
 use crate::pi_family::sessions::{StatsTally, epoch_millis, page_range};
 
 /// Entries indexed at most when locating the active path.
@@ -96,19 +98,28 @@ pub(super) fn transcript(path: &Path) -> Result<Arc<Vec<ChatMessage>>> {
 
 fn read_transcript(path: &Path) -> Result<Vec<ChatMessage>> {
     let index = Index::read(path, MAX_INDEXED_ENTRIES)?;
-    let wanted: HashSet<usize> = index
-        .active_path()
-        .into_iter()
-        .flat_map(|position| index.nodes[position].lines.iter().copied())
-        .collect();
+    let active = index.active_path();
+    let lines_of = |positions: &[usize]| -> HashSet<usize> {
+        positions
+            .iter()
+            .flat_map(|position| index.nodes[*position].lines.iter().copied())
+            .collect()
+    };
+    let wanted = lines_of(&active);
+    let side_results = lines_of(&index.side_results(&active));
 
     let mut builder = Builder::default();
 
     // Lines on the path come in path order: an entry is only made after its parent's lines.
     for (ordinal, line) in lines(path)? {
-        if wanted.contains(&ordinal)
-            && let Some(kind) = kind(&line)
-        {
+        let Some(kind) = kind(&line) else {
+            continue;
+        };
+
+        let on_path = wanted.contains(&ordinal);
+        let side_result = side_results.contains(&ordinal) && builder.answers_open_calls(&line);
+
+        if on_path || side_result {
             builder.add(kind, &line);
         }
     }
@@ -124,6 +135,8 @@ struct Builder {
     api_ids: HashMap<usize, String>,
     /// Tool names by tool call id.
     tools: HashMap<String, String>,
+    /// Tool call ids that have a result message.
+    answered: HashSet<String>,
 }
 
 impl Builder {
@@ -169,6 +182,21 @@ impl Builder {
 
     fn push(&mut self, message: ChatMessage) {
         self.messages.push(message);
+    }
+
+    /// True when every result of the user `line` answers a call of a reply already added that has
+    /// no result yet (a side branch result that is not a retry of an answered call).
+    fn answers_open_calls(&self, line: &Value) -> bool {
+        let calls: Vec<&str> = blocks(line)
+            .iter()
+            .filter(|block| text(block, "type") == Some("tool_result"))
+            .filter_map(|block| text(block, "tool_use_id"))
+            .collect();
+
+        !calls.is_empty()
+            && calls
+                .iter()
+                .all(|call| self.tools.contains_key(*call) && !self.answered.contains(*call))
     }
 
     fn add_reply(&mut self, line: &Value, id: Option<String>, timestamp: Option<i64>) {
@@ -247,6 +275,11 @@ impl Builder {
                 timestamp,
             );
             result.tool_name = call.as_ref().and_then(|call| self.tools.get(call).cloned());
+
+            if let Some(call) = &call {
+                self.answered.insert(call.clone());
+            }
+
             result.tool_call_id = call;
             result.is_error = Some(block.get("is_error").and_then(Value::as_bool) == Some(true));
             self.push(result);
@@ -408,43 +441,6 @@ fn usage(value: &Value) -> TokenUsage {
     }
 }
 
-/// `stdout` then `stderr` of a shell run, each without terminal escapes, joined by a line break.
-fn shell_output(raw: &str) -> String {
-    let parts: Vec<String> = ["bash-stdout", "bash-stderr"]
-        .iter()
-        .filter_map(|tag| tagged(raw, tag))
-        .map(|part| plain_text(part.trim_end()))
-        .filter(|part| !part.is_empty())
-        .collect();
-
-    parts.join("\n")
-}
-
-/// The plain text of a command's output.
-fn local_output(raw: &str) -> String {
-    let inner = tagged(raw, "local-command-stdout")
-        .or_else(|| tagged(raw, "local-command-stderr"))
-        .unwrap_or(raw);
-
-    plain_text(inner.trim())
-}
-
-/// The summary of a compaction message: the part after its `Summary:` line when Claude Code's
-/// framing is there, else the whole text.
-fn compaction_summary(raw: &str) -> String {
-    const START: &str = "\nSummary:\n";
-    const END: &str = "\n\nIf you need specific details from before compaction";
-
-    let Some(start) = raw.find(START).map(|start| start + START.len()) else {
-        return raw.trim().to_owned();
-    };
-
-    let rest = &raw[start..];
-    let summary = rest.find(END).map_or(rest, |end| &rest[..end]);
-
-    summary.trim().to_owned()
-}
-
 /// Adds one message to the totals: tool results are not messages of their own.
 fn note(tally: &mut StatsTally, message: &ChatMessage) {
     if message.role == MessageRole::ToolResult {
@@ -471,26 +467,4 @@ fn note(tally: &mut StatsTally, message: &ChatMessage) {
     let context_tokens = message.usage.map(|usage| usage.total);
 
     tally.note_reply(tool_calls, message.model.as_deref(), None, context_tokens);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_summary_drops_claude_codes_framing() {
-        let raw = "This session is being continued.\n\n<tools-used-before-summary></tools-used-before-summary>\nSummary:\npong\nping\n\nIf you need specific details from before compaction, read the transcript.";
-        assert_eq!(compaction_summary(raw), "pong\nping");
-        assert_eq!(compaction_summary("  just a summary "), "just a summary");
-    }
-
-    #[test]
-    fn shell_output_joins_stdout_and_stderr() {
-        let raw = "<bash-stdout>out\n</bash-stdout><bash-stderr>\u{1b}[31merr\u{1b}[0m</bash-stderr>";
-        assert_eq!(shell_output(raw), "out\nerr");
-        assert_eq!(
-            shell_output("<bash-stdout></bash-stdout><bash-stderr></bash-stderr>"),
-            ""
-        );
-    }
 }

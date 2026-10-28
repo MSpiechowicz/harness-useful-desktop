@@ -358,3 +358,66 @@ fn later_pages_reuse_the_parse_until_the_file_changes() {
             .any(|message| texts(message).contains(&"A computer."))
     );
 }
+
+/// Parallel tool calls: Claude Code hangs each result off the line of its own call, so only the
+/// last result of a reply is on the leaf's path. Every call still gets its result in the
+/// transcript, and the `api-request-blob` lines repeating the request change nothing.
+#[test]
+fn every_parallel_tool_call_has_its_result() {
+    let home = claude_home();
+    let id = "7a1d2c3e-5b4f-4a6d-8e9f-0a1b2c3d4e5f";
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/claude/parallel-tools.jsonl");
+    std::fs::copy(fixture, home.file(id)).unwrap();
+
+    let page = page(&home, id);
+
+    let calls: Vec<&str> = page
+        .messages
+        .iter()
+        .flat_map(|message| &message.blocks)
+        .filter_map(|block| match block {
+            ChatBlock::ToolCall { id, .. } => Some(id.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        calls,
+        ["toolu_B", "toolu_S1", "toolu_S2", "toolu_L", "toolu_S3", "toolu_G"]
+    );
+
+    let results: Vec<(&str, &str, String)> = page
+        .messages
+        .iter()
+        .filter(|message| message.role == MessageRole::ToolResult)
+        .map(|message| {
+            (
+                message.tool_call_id.as_deref().unwrap(),
+                message.tool_name.as_deref().unwrap(),
+                texts(message).join(""),
+            )
+        })
+        .collect();
+
+    // Each call is answered once, in file order, by its own text.
+    assert_eq!(results.len(), 6);
+    for call in calls {
+        assert_eq!(
+            results.iter().filter(|(answered, ..)| *answered == call).count(),
+            1,
+            "{call}"
+        );
+    }
+    assert!(results.contains(&(
+        "toolu_S1",
+        "mcp__harness-memory__note_search",
+        "no matching notes".to_owned()
+    )));
+    assert!(results.contains(&(
+        "toolu_S3",
+        "mcp__harness-memory__note_search",
+        "#12 Hero chips never move".to_owned()
+    )));
+
+    // Replies stay whole: user, reply (thinking + 4 calls), 4 results, reply (thinking + 2 calls), 2 results, reply.
+    assert_eq!(page.messages.len(), 1 + 1 + 4 + 1 + 2 + 1);
+}

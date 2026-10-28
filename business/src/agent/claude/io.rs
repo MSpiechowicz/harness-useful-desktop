@@ -299,5 +299,6 @@ fn rpc_response(response: ControlResponse) -> RpcResponse {
         success,
         data,
         error,
+        code: None,
     }
 }

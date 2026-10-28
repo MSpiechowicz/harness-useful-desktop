@@ -24,6 +24,7 @@ use std::path::PathBuf;
 use serde_json::{Value, json};
 
 use super::Mapper;
+use crate::claude_stream::mapper::UNFINISHED_TOOL;
 use crate::model::{AgentEvent, ChatBlock};
 use crate::opencode_server_v2::events::{
     ToolCalled, ToolFailed, ToolInputDelta, ToolInputEnded, ToolInputStarted, ToolProgress, ToolSuccess,
@@ -34,9 +35,6 @@ use crate::security::redact_text;
 
 /// The tool whose calls run in a shell the engine reads (`metadata.shellID`).
 const SHELL_TOOL: &str = "shell";
-
-/// Result text of a call still running when its turn ended.
-const UNFINISHED_TOOL: &str = "The tool call did not finish.";
 
 /// The calls of the running turn (see the module docs).
 pub(super) struct Tools {

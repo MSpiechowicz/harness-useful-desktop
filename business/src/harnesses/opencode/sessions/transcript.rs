@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::error::{BusinessError, Result};
 use crate::model::{ChatBlock, ChatMessage, MessageRole, TranscriptStats};
-use crate::opencode_server::mapper::{part_touched, part_type, project_dir, record_messages};
+use crate::opencode_server::mapper::{part_touched, part_type, project_dir, record_messages, settled_records};
 use crate::pi_family::sessions::StatsTally;
 
 /// A parsed export.
@@ -56,8 +56,12 @@ pub(super) fn parse(stdout: &str, id: &str, project: &Path) -> Result<Transcript
 
     let records = export.get("messages").and_then(Value::as_array);
 
-    for record in records.into_iter().flatten() {
-        builder.add(record);
+    // Another process may be running the newest reply, so it is not settled unless it completed.
+    let records = records.map_or(&[][..], Vec::as_slice);
+    let settled = settled_records(records, true);
+
+    for (record, settled) in records.iter().zip(settled) {
+        builder.add(record, settled);
     }
 
     Ok(Transcript {
@@ -82,14 +86,14 @@ struct Builder<'a> {
 }
 
 impl Builder<'_> {
-    fn add(&mut self, record: &Value) {
+    fn add(&mut self, record: &Value, settled: bool) {
         let parts = record.get("parts").and_then(Value::as_array).into_iter().flatten();
 
         for part in parts.filter(|part| part_type(part) == "tool") {
             self.touched.extend(part_touched(self.project, &self.directory, part));
         }
 
-        for message in record_messages(record) {
+        for message in record_messages(record, settled) {
             if message.role != MessageRole::ToolResult {
                 self.tally.note_message();
                 self.tally.note_time(message.timestamp);

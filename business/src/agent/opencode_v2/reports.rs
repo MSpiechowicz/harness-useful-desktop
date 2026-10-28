@@ -27,7 +27,7 @@ use crate::fs_atomic::{ensure_private_dir, replace_atomically};
 use crate::model::AgentReply;
 use crate::opencode_server::export_html::{ExportPage, render};
 use crate::opencode_server_v2::SessionId;
-use crate::opencode_server_v2::mapper::history;
+use crate::opencode_server_v2::mapper::settled_history;
 use crate::opencode_server_v2::messages::SessionMessage;
 use crate::opencode_server_v2::stats::{last_reply_text, session_stats};
 use crate::opencode_server_v2::wire::ModelRef;
@@ -60,9 +60,9 @@ impl OpenCodeV2Session {
     /// `exportHtml` (see the module docs).
     pub(super) async fn export_html(&self) -> Result<AgentReply> {
         let chat = &self.chat;
-        let (session, title) = {
+        let (session, title, working) = {
             let live = chat.lock();
-            (live.session.clone(), live.title.clone())
+            (live.session.clone(), live.title.clone(), live.mapper.is_working())
         };
 
         let messages = self.messages(&session).await?;
@@ -73,7 +73,9 @@ impl OpenCodeV2Session {
             session_id: session.as_str(),
             exported_at: &exported_at,
         };
-        let html = chat.shared.mask(&render(&page, &history(&messages)), false);
+        let html = chat
+            .shared
+            .mask(&render(&page, &settled_history(&messages, working)), false);
 
         let dir = export_dir(chat.export_dir.as_ref())?;
         ensure_private_dir(&dir, "create the export folder")?;

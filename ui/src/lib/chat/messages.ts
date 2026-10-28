@@ -84,16 +84,42 @@ export function messageEnd(state: ChatState, messageId: string, message: ChatMes
   return { ...base, toolCalls, lastUserText, items: withoutAdoptedCards(base.items, blocks) };
 }
 
+/** Role and creation time of a message: the harness gives a message the same time in its live events and in its history. */
+function messageIdentity(role: MessageRole, timestamp: number | null): string | null {
+  return timestamp === null ? null : `${role}@${timestamp}`;
+}
+
+/** The identities of the messages the transcript shows already. */
+function shownMessages(state: ChatState): Set<string> {
+  const shown = new Set<string>();
+
+  for (const item of state.items) {
+    const identity = item.kind === 'message' && item.meta !== null ? messageIdentity(item.role, item.meta.timestamp) : null;
+    if (identity !== null) {
+      shown.add(identity);
+    }
+  }
+
+  return shown;
+}
+
 /**
  * Puts a page of older messages in front of the transcript. History items carry order -1 so the
  * list never animates them, and tool results fold into their cards like live ones do.
  */
 export function prependHistory(state: ChatState, messages: ChatMessage[], nextCursor: string | null, total: number | null): ChatState {
   let working: ChatState = { ...state, items: [] };
+  const shown = shownMessages(state);
 
   for (const message of messages) {
     if (message.role === 'toolResult') {
       working = absorbToolResult(working, message);
+      continue;
+    }
+
+    // A history read while a turn runs lists the turn's finished messages, which the live stream already showed.
+    const identity = messageIdentity(message.role, message.timestamp);
+    if (identity !== null && shown.has(identity)) {
       continue;
     }
 

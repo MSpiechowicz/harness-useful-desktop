@@ -1,0 +1,9 @@
+// OMP history while a turn runs: every page request is refused (the first and four retries), so the unpaged
+// get_messages, which OMP answers while busy, gives the three messages.
+{"include": "omp_startup.jsonl"}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages","reply":{"success":true,"data":{"messages":[{"role":"user","content":"m1","timestamp":1791540000001},{"role":"user","content":"m2","timestamp":1791540000002},{"role":"user","content":"m3","timestamp":1791540000003}]}}}

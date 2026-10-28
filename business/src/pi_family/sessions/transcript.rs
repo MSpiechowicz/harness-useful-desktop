@@ -30,7 +30,10 @@ const MAX_INDEXED_ENTRIES: usize = 500_000;
 /// to `1..=`[`MAX_SESSION_PAGE`](crate::model::MAX_SESSION_PAGE). An unknown cursor fails with `InvalidInput`. Only the first page
 /// carries `stats`.
 pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result<SessionMessagesPage> {
-    let transcript = transcript_entries(path)?;
+    let Transcript {
+        shown: transcript,
+        on_path,
+    } = transcript_entries(path)?;
     let total = transcript.len();
     let Range { start, end } = page_range(cursor, limit, total)?;
     let wanted: HashMap<usize, usize> = transcript[start..end]
@@ -42,20 +45,16 @@ pub fn session_messages(path: &Path, cursor: Option<&str>, limit: u32) -> Result
     let mut page: Vec<Option<ChatMessage>> = vec![None; end - start];
     let mut tally = cursor.is_none().then(StatsTally::default);
 
-    // Path ordinals ascend (parents precede children), so one index walks the path.
-    let mut next_on_path = 0;
-
     for (ordinal, entry) in Entries::open(path)?.enumerate() {
         if let Some(&slot) = wanted.get(&ordinal) {
             page[slot] = transcript_message(&entry);
         }
 
-        if transcript.get(next_on_path) == Some(&ordinal) {
-            next_on_path += 1;
-
-            if let Some(tally) = tally.as_mut() {
-                note_entry(tally, &entry);
-            }
+        // Results attached from a side branch are shown but not part of the path totals.
+        if on_path.contains(&ordinal)
+            && let Some(tally) = tally.as_mut()
+        {
+            note_entry(tally, &entry);
         }
     }
 
@@ -146,19 +145,52 @@ pub fn session_files_touched(path: &Path, project: &Path) -> Result<Vec<String>>
     Ok(touched.into_iter().collect())
 }
 
+/// The entries of a transcript, as file ordinals (among visible entries).
+struct Transcript {
+    /// The entries shown, in display order.
+    shown: Vec<usize>,
+    /// The shown entries that lie on the active path (the totals cover these).
+    on_path: HashSet<usize>,
+}
+
 /// The file ordinals (among visible entries) of the transcript messages on the active path, in
 /// path order.
-fn transcript_entries(path: &Path) -> Result<Vec<usize>> {
+///
+/// A tool call on the path whose result sits on a side branch (OMP re-parents the results when it
+/// replays a tool batch, and a foreign writer's entries stay as a side branch) keeps that result: it
+/// is shown right after the call's message, unless a result for the call is already on the path.
+fn transcript_entries(path: &Path) -> Result<Transcript> {
     let mut parents: Vec<Option<usize>> = Vec::new();
     let mut shown: Vec<bool> = Vec::new();
     let mut positions: HashMap<String, usize> = HashMap::new();
+    let mut calls: HashMap<usize, Vec<String>> = HashMap::new();
+    let mut results: HashMap<String, Vec<usize>> = HashMap::new();
 
     for entry in Entries::open(path)?.take(MAX_INDEXED_ENTRIES) {
         let parent = entry.parent_id.as_ref().and_then(|id| positions.get(id).copied());
+        let ordinal = parents.len();
+        let visible = is_transcript(&entry);
 
-        positions.insert(entry.id.clone(), parents.len());
+        if visible && let Some(message) = entry.message() {
+            match entry.role() {
+                Some("assistant") => {
+                    let ids = tool_call_ids(message);
+                    if !ids.is_empty() {
+                        calls.insert(ordinal, ids);
+                    }
+                }
+                Some("toolResult") => {
+                    if let Some(id) = message.get("toolCallId").and_then(Value::as_str) {
+                        results.entry(id.to_owned()).or_default().push(ordinal);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        positions.insert(entry.id.clone(), ordinal);
         parents.push(parent);
-        shown.push(is_transcript(&entry));
+        shown.push(visible);
     }
 
     let mut path_ordinals = Vec::new();
@@ -177,7 +209,48 @@ fn transcript_entries(path: &Path) -> Result<Vec<usize>> {
     }
 
     path_ordinals.reverse();
-    Ok(path_ordinals)
+
+    let on_path: HashSet<usize> = path_ordinals.iter().copied().collect();
+    let mut display = Vec::with_capacity(path_ordinals.len());
+    let mut answered: HashSet<&str> = HashSet::new();
+
+    for &ordinal in &path_ordinals {
+        display.push(ordinal);
+
+        let Some(ids) = calls.get(&ordinal) else {
+            continue;
+        };
+
+        for id in ids {
+            let Some(found) = results.get(id) else {
+                continue;
+            };
+
+            if found.iter().any(|result| on_path.contains(result)) || !answered.insert(id) {
+                continue;
+            }
+
+            display.extend(found.first().copied());
+        }
+    }
+
+    Ok(Transcript {
+        shown: display,
+        on_path,
+    })
+}
+
+/// The ids of the tool calls in an assistant `message` payload.
+fn tool_call_ids(message: &Value) -> Vec<String> {
+    let blocks = message.get("content").and_then(Value::as_array);
+
+    blocks
+        .into_iter()
+        .flatten()
+        .filter(|block| block.get("type").and_then(Value::as_str) == Some("toolCall"))
+        .filter_map(|block| block.get("id").and_then(Value::as_str))
+        .map(str::to_owned)
+        .collect()
 }
 
 /// True for entries shown in the transcript (see the module docs).

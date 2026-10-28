@@ -9,7 +9,7 @@ use serde_json::Value;
 use super::{Chat, OpenCodeSession};
 use crate::error::{BusinessError, Result};
 use crate::model::AgentReply;
-use crate::opencode_server::mapper::record_messages;
+use crate::opencode_server::mapper::history_messages;
 use crate::opencode_server::{Route, SessionId};
 use crate::pi_family::rpc::shared::slice_history;
 
@@ -22,9 +22,12 @@ const MAX_HISTORY_PAGES: usize = 64;
 impl OpenCodeSession {
     /// The history page ending before `cursor` (see the module docs).
     pub(super) async fn history(&self, cursor: Option<&str>, limit: u32) -> Result<AgentReply> {
-        let session = self.chat.lock().session.clone();
+        let (session, working) = {
+            let live = self.chat.lock();
+            (live.session.clone(), live.mapper.is_working())
+        };
         let records = all_messages(&self.chat, &session).await?;
-        let messages = records.iter().flat_map(record_messages).collect();
+        let messages = history_messages(&records, working);
 
         slice_history(messages, cursor, limit)
     }

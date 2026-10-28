@@ -21,12 +21,10 @@ use serde_json::Value;
 use super::Mapper;
 use super::message::{assistant_message, blank_message, part_type, text, tool_call_id, tool_outcome, user_message};
 use super::touched::part_touched;
+use crate::claude_stream::mapper::UNFINISHED_TOOL;
 use crate::model::{AgentEvent, MessageRole};
 use crate::pi_family::normalize::tool_result;
 use crate::security::redact_text;
-
-/// Result text of a call still running when its turn ended.
-const UNFINISHED_TOOL: &str = "The tool call did not finish.";
 
 /// Open messages and tool calls (see the module docs).
 pub(super) struct Messages {
@@ -258,7 +256,7 @@ impl Messages {
 
         let message = match track.role {
             MessageRole::User => user_message(&track.info, &parts),
-            _ => assistant_message(&track.info, &parts)
+            _ => assistant_message(&track.info, &parts, false)
                 .map(|(message, _)| message)
                 .or_else(|| {
                     track

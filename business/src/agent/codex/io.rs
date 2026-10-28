@@ -433,6 +433,7 @@ fn rpc_response(response: Response) -> RpcResponse {
         success,
         data,
         error,
+        code: None,
     }
 }
 

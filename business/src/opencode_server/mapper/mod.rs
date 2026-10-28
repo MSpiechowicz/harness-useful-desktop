@@ -28,7 +28,9 @@ use serde_json::Value;
 
 use self::asks::Asks;
 pub use self::asks::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
-pub(crate) use self::message::{is_summary, part_type, record_messages, text, tool_outcome};
+pub(crate) use self::message::{
+    history_messages, is_summary, part_type, record_messages, settled_records, text, tool_outcome,
+};
 use self::messages::Messages;
 use self::quiet::QuietRun;
 pub use self::quiet::{QuietKind, compaction_started};

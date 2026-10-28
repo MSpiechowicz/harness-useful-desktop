@@ -33,6 +33,7 @@ mod opencode;
 mod opencode_v2;
 mod process;
 mod session;
+mod session_history;
 mod sink;
 mod slots;
 mod startup;

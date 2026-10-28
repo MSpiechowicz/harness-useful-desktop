@@ -1,0 +1,5 @@
+// OMP history: the first page is refused with session_busy, the read starts over and gets all four messages.
+{"include": "omp_startup.jsonl"}
+{"expect":"get_messages_page","reply":{"success":false,"error":"Cannot page messages while the session is changing","code":"session_busy"}}
+{"expect":"get_messages_page","match":{"cursor":null},"reply":{"success":true,"data":{"messages":[{"role":"user","content":"m1","timestamp":1791540000001},{"role":"user","content":"m2","timestamp":1791540000002}],"totalMessages":4,"nextCursor":"c-2"}}}
+{"expect":"get_messages_page","match":{"cursor":"c-2"},"reply":{"success":true,"data":{"messages":[{"role":"user","content":"m3","timestamp":1791540000003},{"role":"user","content":"m4","timestamp":1791540000004}],"totalMessages":4}}}

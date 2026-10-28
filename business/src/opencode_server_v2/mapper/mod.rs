@@ -22,6 +22,7 @@
 mod asks;
 mod family;
 mod form;
+mod history;
 mod quiet;
 mod replies;
 mod tools;
@@ -34,6 +35,7 @@ use serde_json::Value;
 
 use self::asks::Asks;
 pub use self::asks::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
+pub use self::history::{history, settled_history};
 use self::quiet::QuietRun;
 pub use self::quiet::{QuietKind, ShellResult, compaction_started};
 use self::replies::{PartKind, Replies};
@@ -46,7 +48,7 @@ use super::events::{
 use super::messages::SessionMessage;
 use super::wire::{Form, ModelRef, PermissionRequest};
 use crate::error::Result;
-use crate::model::{AgentEvent, ChatMessage, UiResponse};
+use crate::model::{AgentEvent, UiResponse};
 use crate::opencode_server::wire::Outgoing;
 use crate::security::redact_text;
 
@@ -408,12 +410,6 @@ impl Mapper {
 
         self.tools.input(&source.id).cloned()
     }
-}
-
-/// The chat messages of `messages` (a session's messages, oldest first) as the chat shows them on
-/// resume: the conversion the CLI transcript uses.
-pub fn history(messages: &[SessionMessage]) -> Vec<ChatMessage> {
-    messages.iter().flat_map(SessionMessage::chat_messages).collect()
 }
 
 fn session_change(change: SessionChange) -> Vec<Mapped> {
