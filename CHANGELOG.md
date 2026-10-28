@@ -1,3 +1,10 @@
+# [0.46.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.45.0...v0.46.0) (2026-10-28)
+
+
+### Features
+
+* **chat:** subagent details panel ([#46](https://github.com/MSpiechowicz/harness-useful-desktop/issues/46)) ([c113044](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c11304473c7395bcdcc435a465be734f370d2e1b))
+
 # [0.45.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.44.0...v0.45.0) (2026-10-28)
 
 
