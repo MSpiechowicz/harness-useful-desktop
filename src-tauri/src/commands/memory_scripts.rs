@@ -274,15 +274,15 @@ async fn list(
 ) -> CommandResult<MemoryScriptsPage> {
     let project = project_root(state, project).await?;
 
-    Ok(state
-        .memory_scripts
-        .list(
-            &state.env,
-            &state.runner,
-            Repos::of(project.as_deref(), repos.as_ref())?,
-            query,
-        )
-        .await)
+    Ok(harness_business::ecosystem::memory_list_cache::list_scripts_cached(
+        &state.config_dir,
+        &state.env,
+        &state.memory_scripts,
+        &state.runner,
+        Repos::of(project.as_deref(), repos.as_ref())?,
+        query,
+    )
+    .await)
 }
 
 /// The repositories that have notes (`kind` notes) or scripts, by name, with their counts and how

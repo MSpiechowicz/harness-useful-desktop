@@ -6,6 +6,7 @@
   import { provideHeaderActions } from './HeaderActions.svelte';
   import { useScriptsData } from './memory-data.svelte';
   import MemoryHeader from './MemoryHeader.svelte';
+  import MemoryOfflineBanner from './MemoryOfflineBanner.svelte';
   import NotesCopyBanner from './NotesCopyBanner.svelte';
   import NotesCopyDialog from './NotesCopyDialog.svelte';
   import ScriptsSection from './ScriptsSection.svelte';
@@ -21,6 +22,8 @@
 
 <div class="flex size-full min-h-0 flex-col overflow-clip">
   <MemoryHeader view="scripts" slot={headerActions} addLabel={t('memory.editor.add.script')} {available} onadd={() => scriptEditor.create()} />
+
+  <MemoryOfflineBanner page={scriptList.data} />
 
   <NotesCopyBanner kind="scripts" oncopy={() => (copying = true)} />
 

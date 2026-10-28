@@ -476,3 +476,13 @@ fn usage() -> ! {
     eprintln!("usage: harness-memory [features | push --json | scripts push --json | notes hide|unhide|discard-local]");
     std::process::exit(2);
 }
+
+/// With `FAKE_MEMORY_OFFLINE` set (any value), makes list `answer` the one of a server whose team
+/// database is unreachable: no `field` entries, `"total": 0` and `"offline": true`.
+pub fn offline(answer: &mut Value, field: &str) {
+    if std::env::var_os("FAKE_MEMORY_OFFLINE").is_some() {
+        answer[field] = json!([]);
+        answer["total"] = json!(0);
+        answer["offline"] = json!(true);
+    }
+}

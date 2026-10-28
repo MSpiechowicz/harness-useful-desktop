@@ -155,6 +155,8 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.notes.link.out': 'Enlaza a',
   'memory.notes.link.in': 'Enlazada desde',
   'memory.notes.body.loading': 'Cargando la nota',
+  'memory.offline.cached': 'La base de datos del equipo no responde. Se muestra la copia guardada {time}.',
+  'memory.offline.empty': 'La base de datos del equipo no responde y aún no se guardó nada de ella aquí. Solo se muestra lo que hay en este equipo.',
   'memory.notes.body.failed': 'No se pudo leer la nota',
   'memory.notes.delete.title': '¿Eliminar esta nota?',
   'memory.notes.delete.body': 'Los agentes pierden lo que registraba y quizá tengan que volver a averiguarlo. No se puede deshacer.',

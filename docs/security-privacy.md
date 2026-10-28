@@ -1775,7 +1775,10 @@ The app stores no tokens (apart from the team database credentials you enter, ke
 file), no chat content, no prompts and no file contents (hook files hold the text and commands of the hooks, not what
 they added to a prompt). Saved sessions belong to the harness
 (its own session folder); the app reads them and never copies them. The exception is project memory below: notes your
-agents write are stored by the `harness-memory` server, not by the app.
+agents write are stored by the `harness-memory` server, not by the app. One copy is the app's own: the last notes and
+scripts pages read from the team database, and the notes opened, are kept in `memory-cache/` in the app's config folder
+(`0700`/`0600`, at most 200 files per kind, titles, tags and note bodies as read) so the Memory view still shows them
+while the team database cannot be reached, marked as a saved copy. Deleting that folder loses nothing but the copy.
 
 ## Logging
 

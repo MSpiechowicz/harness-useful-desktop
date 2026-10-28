@@ -79,9 +79,9 @@ pub async fn fetch_team<K: DocKind>(
         }
     }
 
-    let queries = std::iter::once(None).chain(present.into_iter().map(Some));
+    let mut queries = std::iter::once(None).chain(present.into_iter().map(Some));
 
-    for root in queries {
+    while let Some(root) = queries.next() {
         match list_team_docs::<K>(env, runner, server, root.map(Path::new)).await {
             Ok(list) => {
                 if !list.complete {
@@ -117,6 +117,15 @@ pub async fn fetch_team<K: DocKind>(
             Err(error) => {
                 fetch.failed.extend(root.cloned());
                 fetch.complete = false;
+
+                // The global query's command failed (the team database cannot be reached, the
+                // server is gone): the roots' queries would fail the same way, one process each,
+                // so they wait for the next round. Their mapping and copies are kept like any
+                // failed query's.
+                if root.is_none() && matches!(error, BusinessError::Process(_)) {
+                    fetch.failed.extend(queries.by_ref().flatten().cloned());
+                }
+
                 fetch.problem.get_or_insert(error);
             }
         }

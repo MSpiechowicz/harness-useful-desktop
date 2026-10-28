@@ -171,6 +171,8 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.notes.link.out': 'Prowadzi do',
   'memory.notes.link.in': 'Prowadzi tu z',
   'memory.notes.body.loading': 'Wczytywanie notatki',
+  'memory.offline.cached': 'Zespołowa baza danych jest niedostępna. Pokazuję kopię zapisaną {time}.',
+  'memory.offline.empty': 'Zespołowa baza danych jest niedostępna i nic z niej nie zapisano tu jeszcze. Widać tylko to, co jest na tym komputerze.',
   'memory.notes.body.failed': 'Nie udało się odczytać notatki',
   'memory.notes.delete.title': 'Usunąć tę notatkę?',
   'memory.notes.delete.body': 'Agenci tracą to, co zapisała, i mogą musieć dojść do tego od nowa. Tej operacji nie można cofnąć.',

@@ -109,6 +109,13 @@ pub(crate) async fn run_list(
     Ok(ListAnswer { data, combined_filters })
 }
 
+/// Whether a list answer came from this computer's copy because the team database was unreachable
+/// (`"offline": true`, a server with the `offline-fallback` feature): the team's entries are
+/// missing from it, so it must not stand for what is kept.
+pub(crate) fn offline(data: &Value) -> bool {
+    data.get("offline").and_then(Value::as_bool).unwrap_or(false)
+}
+
 /// The `places` counts of a list answer; `None` when the server does not send them.
 pub(crate) fn place_counts(data: &Value) -> Option<MemoryPlaceCounts> {
     let places = data.get("places").filter(|places| places.is_object())?;

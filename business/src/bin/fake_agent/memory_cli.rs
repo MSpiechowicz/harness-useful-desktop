@@ -326,7 +326,7 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
             answer[name] = count.clone();
         }
     }
-
+    crate::memory_push::offline(&mut answer, field);
     println!("{answer}");
     std::process::exit(0);
 }

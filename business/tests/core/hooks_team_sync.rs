@@ -109,6 +109,22 @@ fn a_failing_root_keeps_only_its_repository_and_global_copies_still_go() {
 }
 
 #[test]
+fn a_global_list_that_fails_to_run_leaves_the_project_lists_for_the_next_round() {
+    let team = team();
+    let roots = [team.project.clone(), second_root(&team)];
+    let cli = Cli::default().on(
+        |_| true,
+        exits(1, "", "harness-memory: the team database did not answer"),
+    );
+
+    let fetch = round(&team, &cli, &roots);
+
+    assert!(!fetch.complete && !fetch.global_listed);
+    assert_eq!(fetch.failed, roots, "kept like any failed query's");
+    assert_eq!(cli.commands().len(), 1, "one process, not one per root");
+}
+
+#[test]
 fn another_root_of_the_same_repository_decides_for_it() {
     let team = team();
     let roots = [team.project.clone(), second_root(&team)];

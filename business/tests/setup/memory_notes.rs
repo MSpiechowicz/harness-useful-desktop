@@ -464,3 +464,16 @@ async fn a_server_that_does_not_start_fails_the_page() {
     };
     assert!(message.contains("exited before answering initialize"), "{message}");
 }
+
+#[tokio::test]
+async fn a_list_the_server_read_from_this_computer_while_the_team_database_was_down_says_so() {
+    let live = Setup::installed(CURRENT, &[]);
+    assert!(!list(&live, None, &first_page()).await.offline);
+
+    let down = Setup::installed(CURRENT, &[("FAKE_MEMORY_OFFLINE", "1")]);
+    let page = list(&down, None, &first_page()).await;
+
+    assert_eq!(page.availability, MemoryScriptsAvailability::Available);
+    assert!(page.offline);
+    assert!(page.notes.is_empty());
+}

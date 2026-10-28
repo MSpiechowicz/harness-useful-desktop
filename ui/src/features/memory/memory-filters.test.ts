@@ -9,7 +9,7 @@ import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { ALL, calls, EMPTY_PROJECT, fakeMemory, filterChoices, NO_NEWER_RELEASE, noteRow, pickFilter, registerMemoryHooks, REPO_REACH, rowButton, setProjectScopes, SCOPES, showMemory, showNotes } from './memory-test-support';
+import { ALL, calls, EMPTY_PROJECT, fakeMemory, filterChoices, NO_NEWER_RELEASE, noteReads, noteRow, pickFilter, registerMemoryHooks, REPO_REACH, rowButton, setProjectScopes, SCOPES, showMemory, showNotes } from './memory-test-support';
 import NotesView from './NotesView.svelte';
 
 registerMemoryHooks();
@@ -133,7 +133,7 @@ describe('the Scope filter', () => {
 
     await fireEvent.click(noteRow(3) as HTMLElement);
 
-    await waitFor(() => expect(calls(invoke, 'memory_note_get').at(-1)).toMatchObject({ id: 3, ...ALL }));
+    await waitFor(() => expect(noteReads(invoke, 3).at(-1)).toMatchObject({ id: 3, ...ALL }));
   });
 });
 

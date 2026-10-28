@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { sampleNotes } from '$lib/ipc/mock/memory-notes-fixtures';
 import { toasts } from '$lib/stores/toasts.svelte';
 
-import { ALL, calls, fakeMemory, noteRow, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
+import { ALL, calls, fakeMemory, noteReads, noteRow, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
 
 registerMemoryHooks();
 
@@ -69,7 +69,7 @@ describe('hiding team notes on this computer', () => {
 
     const panel = await openNote(5, 'The release build fails on macOS when the notarization queue is slow');
 
-    expect(calls(invoke, 'memory_note_get').at(-1)).toMatchObject({ id: 5, hidden: true });
+    expect(noteReads(invoke, 5).at(-1)).toMatchObject({ id: 5, hidden: true });
     expect(within(panel).queryByRole('button', { name: 'Edit' })).toBeNull();
     expect(within(panel).queryByRole('button', { name: 'Delete' })).toBeNull();
 

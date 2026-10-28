@@ -44,7 +44,7 @@ use super::memory_cli::{
 use super::memory_features::FeaturesSupport;
 pub(super) use super::memory_hidden::ids_on_stdin;
 use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, kind_args, not_found};
-use super::memory_list::{ListAnswer, list_filters, place_counts, run_list};
+use super::memory_list::{ListAnswer, list_filters, offline, place_counts, run_list};
 use super::memory_scripts::MemoryScripts;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
@@ -108,6 +108,8 @@ pub async fn list_notes(
         notes: Vec::new(),
         hidden_count: None,
         local_counts: None,
+        offline: false,
+        cached_at: None,
     };
 
     let server = match probe.cli_server(env).await {
@@ -261,6 +263,8 @@ fn notes_page(answer: ListAnswer) -> MemoryNotesPage {
         notes,
         hidden_count: count_of(data.get("hiddenCount")),
         local_counts: counts_by_scope(data, "localCounts"),
+        offline: offline(data),
+        cached_at: None,
     }
 }
 

@@ -9,7 +9,7 @@ import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { ALL, calls, fakeMemory, noteRow, pickFilter, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
+import { ALL, calls, fakeMemory, noteReads, noteRow, pickFilter, PROJECT, registerMemoryHooks, showNotes } from './memory-test-support';
 import NotesView from './NotesView.svelte';
 import ScriptsView from './ScriptsView.svelte';
 
@@ -117,6 +117,18 @@ describe('notes table', () => {
 });
 
 describe('note panel', () => {
+  it('shows the body of a note at once, as the page was read ahead', async () => {
+    const invoke = fakeMemory();
+    await showNotes();
+
+    await waitFor(() => expect(noteReads(invoke, 4).length).toBeGreaterThan(0));
+
+    const panel = await openNote(4, 'Tauri window stayed blank after a hot reload on Wayland');
+
+    expect(within(panel).getByText(/WebKitGTK renders into a DMA buffer/)).toBeInTheDocument();
+    expect(within(panel).queryByRole('status', { name: 'Loading the note' })).toBeNull();
+  });
+
   it('opens beside the table with the content, tags and entities, links, actions and details', async () => {
     const invoke = fakeMemory();
     await showNotes();
@@ -126,7 +138,7 @@ describe('note panel', () => {
 
     expect(within(panel).getByText('Fix · github.com/useful/harness-desktop')).toBeInTheDocument();
     expect(await within(panel).findByText(/WebKitGTK renders into a DMA buffer/)).toBeInTheDocument();
-    expect(calls(invoke, 'memory_note_get')[0]).toEqual({ id: 4, ...ALL });
+    expect(noteReads(invoke, 4)[0]).toEqual({ id: 4, ...ALL });
     for (const heading of ['Content', 'Tags & entities', 'Linked notes', 'Actions', 'Details']) {
       expect(within(panel).getByRole('heading', { level: 3, name: heading })).toBeInTheDocument();
     }
@@ -169,7 +181,7 @@ describe('note panel', () => {
 
     const next = await screen.findByRole('region', { name: 'The release build fails on macOS when the notarization queue is slow' });
     expect(await within(next).findByText(/notarytool waits 10 minutes/)).toBeInTheDocument();
-    expect(calls(invoke, 'memory_note_get').at(-1)).toEqual({ id: 5, ...ALL });
+    expect(noteReads(invoke, 5).at(-1)).toEqual({ id: 5, ...ALL });
     expect(viewState.noteId).toBe(5);
   });
 

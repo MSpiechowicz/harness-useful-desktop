@@ -143,6 +143,8 @@ export function pageOfScripts(
     scripts: [...chosen].sort((a, b) => neverRunLast(sort, a, b) || direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit),
     hiddenCount: visible.filter((script) => script.hidden).length,
     localCounts: { repo: onThisComputer.filter(SCOPES.repo).length, global: onThisComputer.filter(SCOPES.global).length },
+    offline: false,
+    cachedAt: null,
   };
 }
 
@@ -226,7 +228,7 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
     memory_scripts_list: (args) => {
       const availability = availabilityOf(scenario());
       if (availability.kind !== 'available') {
-        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null };
+        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
       }
 
       return { availability, ...pageOfScripts(visible(args).map(summaryOf), args, combined(), current().map(summaryOf)) };

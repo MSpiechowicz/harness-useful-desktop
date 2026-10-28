@@ -155,6 +155,8 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.notes.link.out': 'Renvoie à',
   'memory.notes.link.in': 'Liée depuis',
   'memory.notes.body.loading': 'Chargement de la note',
+  'memory.offline.cached': 'La base d’équipe est injoignable. Affichage de la copie enregistrée {time}.',
+  'memory.offline.empty': 'La base d’équipe est injoignable et rien n’en a encore été enregistré ici. Seul ce qui est sur cet ordinateur est affiché.',
   'memory.notes.body.failed': 'Impossible de lire la note',
   'memory.notes.delete.title': 'Supprimer cette note ?',
   'memory.notes.delete.body': 'Les agents perdent ce qu’elle consignait et devront peut-être le redécouvrir. Cette action est irréversible.',

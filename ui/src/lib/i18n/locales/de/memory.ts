@@ -155,6 +155,8 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.notes.link.out': 'Verweist auf',
   'memory.notes.link.in': 'Verlinkt von',
   'memory.notes.body.loading': 'Die Notiz wird geladen',
+  'memory.offline.cached': 'Die Team-Datenbank ist nicht erreichbar. Gezeigt wird die Kopie von {time}.',
+  'memory.offline.empty': 'Die Team-Datenbank ist nicht erreichbar und es wurde hier noch nichts davon gespeichert. Gezeigt wird nur, was auf diesem Computer liegt.',
   'memory.notes.body.failed': 'Die Notiz konnte nicht gelesen werden',
   'memory.notes.delete.title': 'Diese Notiz löschen?',
   'memory.notes.delete.body': 'Agenten verlieren, was sie festgehalten hat, und müssen es eventuell erneut herausfinden. Das lässt sich nicht rückgängig machen.',

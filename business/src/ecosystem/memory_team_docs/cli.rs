@@ -406,7 +406,7 @@ async fn run<K: DocKind>(
         ))),
         CliAnswer::Failed { message, stdout, .. } => {
             let error = failure(&stdout, message);
-            tracing::warn!(command = name, code = ?error.code(), "harness-memory {} command failed", K::PLURAL);
+            tracing::warn!(command = name, code = ?error.code(), %error, "harness-memory {} command failed", K::PLURAL);
 
             Err(error)
         }

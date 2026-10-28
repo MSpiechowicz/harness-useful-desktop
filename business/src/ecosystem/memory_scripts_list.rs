@@ -25,7 +25,7 @@ use serde_json::Value;
 
 use super::memory_cli::{ListWindow, Repos, count_of, counts_by_scope, list_availability, scope_counts, scope_name};
 use super::memory_hidden::HIDDEN_FLAG;
-use super::memory_list::{ListAnswer, list_filters, place_counts, run_list};
+use super::memory_list::{ListAnswer, list_filters, offline, place_counts, run_list};
 use super::memory_scripts::parse;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
@@ -163,6 +163,8 @@ pub(super) fn unavailable_page(availability: MemoryScriptsAvailability) -> Memor
         scripts: Vec::new(),
         hidden_count: None,
         local_counts: None,
+        offline: false,
+        cached_at: None,
     }
 }
 
@@ -214,5 +216,7 @@ fn scripts_page(answer: ListAnswer) -> MemoryScriptsPage {
         scripts,
         hidden_count: count_of(data.get("hiddenCount")),
         local_counts: counts_by_scope(data, "localCounts"),
+        offline: offline(data),
+        cached_at: None,
     }
 }

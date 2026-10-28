@@ -66,15 +66,96 @@ export function noteDetailKey(id: number, hidden: boolean): string {
   return hidden ? `${id}:hidden` : String(id);
 }
 
-/** The note on screen, body and links included. The list carries no bodies, so this is read when one is chosen. */
-export const noteDetail = new ViewLoader<NoteDetail, string>(
-  (key, reach) => {
-    const [id, hidden] = key.split(':');
+/** The notes read so far this session with their bodies, by reach and key (`noteDetailKey`): a note opened again shows at once while it is read again. */
+const seen = new Map<string, NoteDetail>();
 
-    return ipc.invoke('memory_note_get', { id: Number(id), ...reachArgs(reach ?? ''), hidden: hidden === undefined ? undefined : true });
+/** The most notes kept in `seen`; the oldest go first. */
+const SEEN_MAX = 500;
+
+function seenKey(reach: Reach | null, key: string): string {
+  return `${reach ?? ''}\u0000${key}`;
+}
+
+function remember(reach: Reach | null, key: string, detail: NoteDetail): void {
+  const at = seenKey(reach, key);
+
+  seen.delete(at);
+  seen.set(at, detail);
+
+  if (seen.size > SEEN_MAX) {
+    seen.delete(seen.keys().next().value as string);
+  }
+}
+
+function readNote(key: string, reach: Reach | null): Promise<NoteDetail> {
+  const [id, hidden] = key.split(':');
+
+  return ipc.invoke('memory_note_get', { id: Number(id), ...reachArgs(reach ?? ''), hidden: hidden === undefined ? undefined : true });
+}
+
+/** Forgets every note read so far (a test starts from none). */
+export function forgetSeenNotes(): void {
+  seen.clear();
+  prefetching.clear();
+}
+
+/** The note as it was last read this session, body and links included; null when it was not read. */
+export function seenNote(reach: Reach, id: number, hidden: boolean): NoteDetail | null {
+  return seen.get(seenKey(reach, noteDetailKey(id, hidden))) ?? null;
+}
+
+/**
+ * The note on screen, body and links included. The list carries no bodies, so this is read when one is chosen
+ * (and ahead of that, see `prefetchNotes`); what was read before is shown meanwhile (`seenNote`).
+ */
+export const noteDetail = new ViewLoader<NoteDetail, string>(
+  async (key, reach) => {
+    const detail = await readNote(key, reach);
+
+    remember(reach, key, detail);
+
+    return detail;
   },
   { goneIsFinal: memoryItemGone },
 );
+
+/** How many notes are read ahead at once. */
+const PREFETCH_PARALLEL = 3;
+
+/** Notes whose read ahead is queued or running, so a list refreshed meanwhile does not queue them twice. */
+const prefetching = new Set<string>();
+
+/**
+ * Reads the bodies of the listed notes one after another (a few at a time, those not read yet), so opening one shows its body at once.
+ * A failed read is dropped: the note is read when opened.
+ */
+export function prefetchNotes(ids: number[], reach: Reach, hidden: boolean): void {
+  const todo = ids.filter((id) => seenNote(reach, id, hidden) === null && !prefetching.has(seenKey(reach, noteDetailKey(id, hidden))));
+
+  for (const id of todo) {
+    prefetching.add(seenKey(reach, noteDetailKey(id, hidden)));
+  }
+
+  const next = async (): Promise<void> => {
+    for (let id = todo.shift(); id !== undefined; id = todo.shift()) {
+      const key = noteDetailKey(id, hidden);
+
+      try {
+        remember(reach, key, await readNote(key, reach));
+      } catch {
+        // Read again when the note is opened.
+      } finally {
+        prefetching.delete(seenKey(reach, key));
+      }
+    }
+  };
+
+  const workers = Math.min(PREFETCH_PARALLEL, todo.length);
+
+  for (let worker = 0; worker < workers; worker += 1) {
+    void next();
+  }
+}
 
 /** Hides a remote note on this computer, or shows it again (`hidden: false`). See `hideEntry`. */
 export function hideNote(id: number, title: string, reach: Reach, hidden: boolean): Promise<boolean> {

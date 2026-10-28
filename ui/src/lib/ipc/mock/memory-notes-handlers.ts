@@ -182,6 +182,8 @@ export function pageOfNotes(
     notes: [...chosen].sort((a, b) => direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit).map(noteSummaryOf),
     hiddenCount: visible.filter((found) => found.hidden).length,
     localCounts: { repo: onThisComputer.filter((found) => found.scope === 'repo').length, global: onThisComputer.filter((found) => found.scope === 'global').length },
+    offline: false,
+    cachedAt: null,
   };
 }
 
@@ -225,7 +227,7 @@ export function memoryNotesHandlers(
     memory_notes_list: (args: CommandArgs<'memory_notes_list'>): MemoryNotesPage => {
       const state = availability();
       if (state.kind !== 'available') {
-        return { availability: state, total: 0, kinds: [], scopes: null, places: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null };
+        return { availability: state, total: 0, kinds: [], scopes: null, places: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
       }
 
       // A server without `notes-lang` ignores the filter and leaves `lang` empty.

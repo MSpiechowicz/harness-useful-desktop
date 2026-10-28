@@ -24,7 +24,7 @@ import { pageOfScripts } from '$lib/ipc/mock/memory-scripts-handlers';
 import { IpcFailure } from '$lib/ipc/transport';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { repoReach } from '$lib/stores/memory-reach';
-import { noteDetail, noteList } from '$lib/stores/memoryNotes.svelte';
+import { forgetSeenNotes, noteDetail, noteList } from '$lib/stores/memoryNotes.svelte';
 import { scriptDetail, scriptList } from '$lib/stores/memoryScripts.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
@@ -231,7 +231,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
       const page =
         found.kind === 'available'
           ? pageOfScripts(visible.map(summaryOf), asked, combines(), scripts.map(summaryOf))
-          : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combines(), scripts: [], hiddenCount: null, localCounts: null };
+          : { total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combines(), scripts: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -239,7 +239,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
     if (name === 'memory_notes_list') {
       const asked = args as CommandArgs<'memory_notes_list'>;
       const found = probe();
-      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => reaches(note, asked)), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, places: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null };
+      const page = found.kind === 'available' ? pageOfNotes(notes.filter((note) => reaches(note, asked)), asked, combines(), notes) : { total: 0, kinds: [], scopes: null, places: null, combinedFilters: combines(), notes: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
 
       return { availability: found, ...page } as CommandResult<K>;
     }
@@ -388,6 +388,11 @@ export function calls(invoke: ReturnType<typeof fakeMemory>, name: string): unkn
   return invoke.mock.calls.filter(([command]) => command === name).map(([, args]) => args);
 }
 
+/** The `memory_note_get` calls that asked for note `id`: the bodies of the page are also read ahead, so the calls of one note are told apart by id. */
+export function noteReads(invoke: ReturnType<typeof fakeMemory>, id: number): unknown[] {
+  return calls(invoke, 'memory_note_get').filter((args) => (args as { id: number }).id === id);
+}
+
 /** The table row of a script, by name. */
 export const rowButton = (name: string) => document.querySelector<HTMLElement>(`[data-row="${sampleScripts().find((script) => script.name === name)?.id}"]`);
 
@@ -408,6 +413,7 @@ export function registerMemoryHooks(): void {
     projectScopes.sync(null, null);
     noteList.sync(null, null);
     noteDetail.sync(null, null);
+    forgetSeenNotes();
     scriptList.sync(null, null);
     scriptDetail.sync(null, null);
     noteEditor.reset();

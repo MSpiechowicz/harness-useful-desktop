@@ -7,9 +7,9 @@
 //! A `project` must be the active or a recent project; its canonical root goes to the server as
 //! `--project`. Null asks for the global notes only.
 
+use harness_business::ecosystem::memory_list_cache::{get_note_cached, list_notes_cached};
 use harness_business::ecosystem::{
-    ListWindow, NotesQuery, Repos, delete_all_notes, delete_note, discard_local, get_note, hide_entry, list_notes,
-    save_note,
+    ListWindow, NotesQuery, Repos, delete_all_notes, delete_note, discard_local, hide_entry, save_note,
 };
 use harness_business::model::{
     LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, NoteDetail, NoteDraft, NoteKind,
@@ -197,7 +197,8 @@ async fn list(
         query.clone()
     };
 
-    Ok(list_notes(
+    Ok(list_notes_cached(
+        &state.config_dir,
         &state.env,
         &state.memory_scripts,
         &state.runner,
@@ -216,7 +217,8 @@ async fn get(
 ) -> CommandResult<NoteDetail> {
     let project = project_root(state, project).await?;
 
-    Ok(get_note(
+    Ok(get_note_cached(
+        &state.config_dir,
         &state.env,
         &state.memory_scripts,
         &state.runner,

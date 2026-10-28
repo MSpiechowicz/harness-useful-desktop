@@ -50,4 +50,15 @@ hiddenCount: number | null,
  * How many notes of each scope the local file on this machine holds, every repository
  * counted; `None` without a team database or from a server that does not say.
  */
-localCounts: MemoryScopeCounts | null, };
+localCounts: MemoryScopeCounts | null, 
+/**
+ * The server could not reach the team database and answered from the notes on this
+ * computer instead, so a team's notes are missing from this page: it is not what is kept.
+ */
+offline: boolean, 
+/**
+ * With `offline`, when this page was last read from the team database and kept on this
+ * computer; the page is that copy. `None` when no copy of this page was kept (the page is
+ * empty) or the page is live.
+ */
+cachedAt: string | null, };

@@ -218,4 +218,11 @@ pub struct MemoryNotesPage {
     /// How many notes of each scope the local file on this machine holds, every repository
     /// counted; `None` without a team database or from a server that does not say.
     pub local_counts: Option<MemoryScopeCounts>,
+    /// The server could not reach the team database and answered from the notes on this
+    /// computer instead, so a team's notes are missing from this page: it is not what is kept.
+    pub offline: bool,
+    /// With `offline`, when this page was last read from the team database and kept on this
+    /// computer; the page is that copy. `None` when no copy of this page was kept (the page is
+    /// empty) or the page is live.
+    pub cached_at: Option<String>,
 }

@@ -9,6 +9,7 @@
   import { provideHeaderActions } from './HeaderActions.svelte';
   import { useNotesData } from './memory-data.svelte';
   import MemoryHeader from './MemoryHeader.svelte';
+  import MemoryOfflineBanner from './MemoryOfflineBanner.svelte';
   import NotesCopyBanner from './NotesCopyBanner.svelte';
   import NotesCopyDialog from './NotesCopyDialog.svelte';
   import { notesImport } from './notes-import-state.svelte';
@@ -38,6 +39,8 @@
 
 <div class="flex size-full min-h-0 flex-col overflow-clip">
   <MemoryHeader view="notes" slot={headerActions} addLabel={t('memory.editor.add.note')} {available} onadd={() => noteEditor.create()} extra={importItem} />
+
+  <MemoryOfflineBanner page={noteList.data} />
 
   <NotesCopyBanner oncopy={() => (copying = true)} />
 

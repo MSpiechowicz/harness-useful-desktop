@@ -446,7 +446,7 @@ flowchart LR
     `forbidden` or `unsupported`). `MemoryHooks` probes `hooks config` once per binary and config file stamp (the
     file `memory_config_path` finds, `HARNESS_MEMORY_CONFIG` included; a failed probe is not cached). `src-tauri/src/hooks/team.rs` keeps the team state (`TeamHooks`: trust, the last problem,
     when refreshed) and runs a refresh loop through `src-tauri/src/team_sync.rs` (`business/src/signed_docs/team/`
-    for the folder): at launch, every `TEAM_REFRESH` (60 s), on `hooks_team_refresh`, after a
+    for the folder): at launch, every `TEAM_REFRESH` (60 s; after a refresh that failed the wait doubles each time, up to `TEAM_REFRESH_MAX`, 10 min, and a global list that fails to run skips the project lists of that round), on `hooks_team_refresh`, after a
     share, a removal or a settings save, and soon after a chat starts in a new project root. A refresh probes; while
     hooks are shared it lists the global scope and the 32 most recent project roots (`fetch_team`; 16 rows a page by
     `nextOffset`, or by the page size for an older answer, at most 16 pages, else the round is incomplete) and

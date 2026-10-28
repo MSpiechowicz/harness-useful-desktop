@@ -17,6 +17,7 @@
 //!
 //! Logs carry ids and counts, never a document's content.
 
+mod backoff;
 mod settings;
 
 use std::collections::{HashSet, VecDeque};
@@ -34,6 +35,7 @@ use harness_business::signed_docs::{DocKind, DocStore};
 use harness_business::{BusinessError, Result};
 use tokio::sync::Notify;
 
+use backoff::Backoff;
 pub use settings::TeamSettings;
 pub(crate) use settings::team_settings;
 
@@ -247,8 +249,8 @@ pub async fn reprobe<H: TeamHost>(host: &H) -> bool {
     apply_support(host, support).await.is_some()
 }
 
-/// One refresh (see the module docs).
-pub async fn refresh<H: TeamHost>(host: &H) {
+/// One refresh (see the module docs). False when it could not read or save the team documents.
+pub async fn refresh<H: TeamHost>(host: &H) -> bool {
     let team = host.team_sync();
     let plural = H::Kind::PLURAL;
     let _refreshing = team.refreshing.lock().await;
@@ -258,7 +260,7 @@ pub async fn refresh<H: TeamHost>(host: &H) {
     let support = team.support(host.env()).await;
 
     if apply_support(host, support).await.is_none() {
-        return;
+        return true;
     }
 
     let server = match team.sharing_server(host.env()).await {
@@ -270,12 +272,12 @@ pub async fn refresh<H: TeamHost>(host: &H) {
                 host.notify();
             }
 
-            return;
+            return false;
         }
     };
 
     let Some(store) = host.doc_store() else {
-        return;
+        return true;
     };
 
     let roots = with_pinned::<H>(team_roots(team, &store).await, &store).await;
@@ -305,11 +307,11 @@ pub async fn refresh<H: TeamHost>(host: &H) {
 
     let counts = match applied {
         Ok(Ok(Some(counts))) => counts,
-        Ok(Ok(None)) | Err(_) => return,
+        Ok(Ok(None)) | Err(_) => return true,
         Ok(Err(error)) => {
             tracing::warn!(code = ?error.code(), "team {plural} not saved");
             team.set_problem(Some(error.to_string()), false);
-            return;
+            return false;
         }
     };
 
@@ -326,12 +328,15 @@ pub async fn refresh<H: TeamHost>(host: &H) {
 
     team.roots_seen(&answered, &skipped, &refused);
 
+    let healthy = problem.is_none();
     let settings_changed = team.set_problem(problem.map(|(_, message)| message), complete);
 
     if counts.changed() || settings_changed {
         host.invalidate();
         host.notify();
     }
+
+    healthy
 }
 
 /// Applies what the server says about the kind's team documents; returns the config while they
@@ -472,18 +477,22 @@ async fn with_pinned<H: TeamHost>(roots: Vec<String>, store: &DocStore<H::Kind>)
 }
 
 /// Starts the refresh loop of `host` (it runs until the app exits): a refresh now, then every
-/// [`TEAM_REFRESH`] or when woken. Does nothing without the kind's folder.
+/// [`TEAM_REFRESH`] or when woken. After a refresh that failed the wait doubles each time, up to
+/// `backoff::TEAM_REFRESH_MAX` (the team database is down: asking every minute only fills the log and the
+/// process table); a wake runs one at once and a refresh that worked ends it. Does nothing without the kind's folder.
 pub fn spawn<H: TeamHost>(host: Arc<H>) {
     if host.doc_store().is_none() {
         return;
     }
 
     drop(tauri::async_runtime::spawn(async move {
+        let mut backoff = Backoff::default();
+
         loop {
-            refresh(&*host).await;
+            let wait = backoff.after(refresh(&*host).await);
 
             tokio::select! {
-                () = tokio::time::sleep(TEAM_REFRESH) => {}
+                () = tokio::time::sleep(wait) => {}
                 () = host.team_sync().wake.notified() => {}
             }
         }

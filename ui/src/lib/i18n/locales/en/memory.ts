@@ -152,6 +152,8 @@ export const memory = {
   'memory.notes.link.out': 'Links to',
   'memory.notes.link.in': 'Linked from',
   'memory.notes.body.loading': 'Loading the note',
+  'memory.offline.cached': 'The team database is unreachable. Showing the copy saved {time}.',
+  'memory.offline.empty': 'The team database is unreachable and nothing from it was saved here yet. Only what is on this computer is shown.',
   'memory.notes.body.failed': 'Could not read the note',
   'memory.notes.delete.title': 'Delete this note?',
   'memory.notes.delete.body': 'Agents lose what it recorded and may have to work it out again. This cannot be undone.',

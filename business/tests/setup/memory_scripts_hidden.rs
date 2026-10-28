@@ -290,3 +290,13 @@ async fn a_script_is_saved_beside_a_read_only_team_script_of_its_name() {
     );
     setup.scripts.shutdown().await;
 }
+
+#[tokio::test]
+async fn a_list_the_server_read_from_this_computer_while_the_team_database_was_down_says_so() {
+    assert!(!first_page(&Setup::installed(CURRENT, &[]), false).await.offline);
+
+    let page = first_page(&Setup::installed(CURRENT, &[("FAKE_MEMORY_OFFLINE", "1")]), false).await;
+
+    assert!(page.offline);
+    assert!(page.scripts.is_empty());
+}

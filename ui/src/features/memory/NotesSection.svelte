@@ -17,7 +17,7 @@
   import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
   import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
-  import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE } from '$lib/stores/memoryNotes.svelte';
+  import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE, prefetchNotes, seenNote } from '$lib/stores/memoryNotes.svelte';
   import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
@@ -112,7 +112,10 @@
 
   // The note whose panel is open. Its row is on this page only sometimes (a linked note, a page turned), so the read of it also gives the facts.
   const openId = $derived(viewState.noteId);
-  const detail = $derived<NoteDetail | null>(noteDetail.data && noteDetail.data.note.id === openId ? noteDetail.data : null);
+  // The read of it may still be on its way: what was read of it before (or ahead of the click) shows meanwhile.
+  const detail = $derived<NoteDetail | null>(
+    noteDetail.data && noteDetail.data.note.id === openId ? noteDetail.data : openId === null ? null : seenNote(path, openId, notesTeam.showHidden),
+  );
   const live = $derived<Shown>({ note: detail?.note ?? rows.find((row) => row.id === openId) ?? null, detail });
 
   // A panel that closes slides out showing the note it had, not an empty frame.
@@ -132,6 +135,18 @@
     const asHidden = notesTeam.showHidden;
 
     untrack(() => noteDetail.sync(id === null ? null : noteDetailKey(id, asHidden), where));
+  });
+
+  // The bodies of the notes on this page are read in the background, so opening one shows its body at once. Not from a list that came from
+  // this computer's copy while the team database was down: the server cannot read those notes then.
+  $effect(() => {
+    const ids = rows.map((row) => row.id);
+    const asHidden = notesTeam.showHidden;
+    const where = path;
+
+    if (!page?.offline) {
+      untrack(() => prefetchNotes(ids, where, asHidden));
+    }
   });
 
   // A note that was deleted (here or by an agent) while its link or panel was open is no longer there to show.
