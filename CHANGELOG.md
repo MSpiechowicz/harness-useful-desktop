@@ -1,3 +1,10 @@
+## [0.43.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.43.0...v0.43.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **memory:** keep the last notes and scripts read, show them while the team database is down, and back off team refreshes ([74e3295](https://github.com/MSpiechowicz/harness-useful-desktop/commit/74e329570f201b56ad91a242269f46f94d383abc))
+
 # [0.43.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.42.0...v0.43.0) (2026-10-27)
 
 
