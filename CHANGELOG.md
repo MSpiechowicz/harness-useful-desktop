@@ -1,3 +1,10 @@
+# [0.45.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.44.0...v0.45.0) (2026-10-28)
+
+
+### Features
+
+* **branch:** load more branches on scroll and fetch repos with a hooks path ([d87c9c5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d87c9c58dbf7247def40f595850628dc25484afb)), closes [#44](https://github.com/MSpiechowicz/harness-useful-desktop/issues/44)
+
 # [0.44.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.43.1...v0.44.0) (2026-10-28)
 
 
