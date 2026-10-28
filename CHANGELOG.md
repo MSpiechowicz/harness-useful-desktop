@@ -1,3 +1,16 @@
+# [0.44.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.43.1...v0.44.0) (2026-10-28)
+
+
+### Bug Fixes
+
+* **extensions:** refresh only marketplaces that can be refreshed ([10f46ee](https://github.com/MSpiechowicz/harness-useful-desktop/commit/10f46ee1c39e4cccea0afa4fbb36c8588319e075))
+* **history:** reloaded chats keep every tool result ([611e048](https://github.com/MSpiechowicz/harness-useful-desktop/commit/611e04895b97993508b0d2b76b2d1131f4cbb2b8))
+
+
+### Features
+
+* **memory:** show the project memory the agent used in chat ([b91f310](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b91f310762231e459b5000fbd84cd131ee65dd91))
+
 ## [0.43.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.43.0...v0.43.1) (2026-10-28)
 
 
