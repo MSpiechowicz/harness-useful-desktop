@@ -1,5 +1,5 @@
 //! What the installed Harness Memory can do beyond its commands: `harness-memory features` prints
-//! one feature per line and exits 0. The desktop reads seven:
+//! one feature per line and exits 0. The desktop reads these:
 //!
 //! - `notes-remote-local`: a note scope may be routed `remote+local` (read the team database and
 //!   this computer, save here);
@@ -15,7 +15,9 @@
 //! - `embedder`: the local embedder (`embedder run|enable|disable|status|remove-model`) behind
 //!   vector search;
 //! - `settings`: `settings get|set --json` (the English notes setting);
-//! - `notes-lang`: `notes list --json` rows carry `lang` and `--lang` filters by it.
+//! - `notes-lang`: `notes list --json` rows carry `lang` and `--lang` filters by it;
+//! - `notes-useful`: `notes list --json` rows carry `shown`, `useful` and `lastUsefulAt`, and `--sort
+//!   useful|lastUseful` and `--useful ever|never` use them.
 //!
 //! An older server does not know the command and exits non-zero. [`MemoryFeatures::support`] asks
 //! once per binary through a [`LineProbe`] (cached per binary, an older server cached as one
@@ -55,6 +57,9 @@ const SETTINGS: &str = "settings";
 /// The line for the `lang` of a note and the `--lang` filter.
 const NOTES_LANG: &str = "notes-lang";
 
+/// The line for the usefulness counts of a note, `--sort useful|lastUseful` and `--useful`.
+const NOTES_USEFUL: &str = "notes-useful";
+
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeaturesSupport {
@@ -80,6 +85,8 @@ pub enum FeaturesSupport {
         settings: bool,
         /// `notes-lang` is listed.
         notes_lang: bool,
+        /// `notes-useful` is listed.
+        notes_useful: bool,
     },
     /// It predates `features` (or failed it): none of them.
     Unsupported,
@@ -138,6 +145,12 @@ impl FeaturesSupport {
     pub fn notes_lang(self) -> bool {
         matches!(self, Self::Listed { notes_lang: true, .. })
     }
+
+    /// Whether notes carry usefulness counts and `notes list` sorts by `useful|lastUseful` and
+    /// filters by `--useful`: `notes-useful` is listed.
+    pub fn notes_useful(self) -> bool {
+        matches!(self, Self::Listed { notes_useful: true, .. })
+    }
 }
 
 /// The probe of the installed server's features. See the module docs.
@@ -174,6 +187,7 @@ impl MemoryFeatures {
                 embedder: answer.lists(EMBEDDER),
                 settings: answer.lists(SETTINGS),
                 notes_lang: answer.lists(NOTES_LANG),
+                notes_useful: answer.lists(NOTES_USEFUL),
             },
             LineAnswer::Unsupported => FeaturesSupport::Unsupported,
             LineAnswer::NotInstalled => FeaturesSupport::NotInstalled,

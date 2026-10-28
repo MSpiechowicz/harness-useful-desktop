@@ -3,6 +3,7 @@
   import GitFork from '@lucide/svelte/icons/git-fork';
   import { untrack } from 'svelte';
 
+  import { buildMemoryUse, type MemoryUseIndex } from '$lib/chat/memory-use';
   import { provideToolContext } from '$lib/chat/tool-context';
   import Button from '$lib/components/Button.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
@@ -44,6 +45,9 @@
   });
 
   const chat = $derived(detail.transcript);
+  // The last build is kept (not reactive) so the cards of searches that did not change keep their object between loads.
+  let lastUse: MemoryUseIndex | undefined;
+  const memoryUse = $derived.by(() => (lastUse = buildMemoryUse(chat, lastUse)));
 </script>
 
 <div class="flex size-full min-h-0 flex-col">
@@ -74,7 +78,7 @@
                  up to and including this message; everything after it is left out (the original session stays as it was). -->
             <div class="flex flex-col items-end gap-0.5">
               <div class="max-w-[85%] min-w-0 [&_article]:max-w-full">
-                <MessageRow {item} {chat} />
+                <MessageRow {item} {chat} {memoryUse} />
               </div>
               <button
                 type="button"
@@ -88,7 +92,7 @@
               </button>
             </div>
           {:else}
-            <MessageRow {item} {chat} />
+            <MessageRow {item} {chat} {memoryUse} />
           {/if}
 
           {#if index === chat.items.length - 1 && detail.nextCursor !== null}

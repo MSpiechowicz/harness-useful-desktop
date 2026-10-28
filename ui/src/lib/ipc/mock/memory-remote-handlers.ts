@@ -4,7 +4,7 @@ import type { MemoryRemoteKind } from '../bindings/MemoryRemoteKind';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
 import { embedderScenarioFromLocation } from './memory-embedder-handlers';
-import { notesLangListed } from './memory-notes-handlers';
+import { notesLangListed, notesUsefulListed } from './memory-notes-handlers';
 import { scriptsSupported } from './memory-scripts-handlers';
 import type { Handlers } from './types';
 
@@ -155,6 +155,8 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       embedderSupported: embedderScenarioFromLocation() !== 'old',
       settingsSupported: embedderScenarioFromLocation() !== 'old',
       notesLangSupported: notesLangListed(),
+      // `?useful=old` is a Harness Memory that does not count how useful a note was.
+      notesUsefulSupported: notesUsefulListed(),
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };

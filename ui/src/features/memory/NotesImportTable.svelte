@@ -19,7 +19,7 @@
   let { rows, picks, ontoggle }: Props = $props();
 
   // Columns that do not fit the dialog are left out, as the Notes table does: the container decides.
-  const FROM: Record<NonNullable<Column['from']>, string> = { sm: 'hidden @lg:table-cell', md: 'hidden @2xl:table-cell', lg: 'hidden @4xl:table-cell' };
+  const FROM: Record<NonNullable<Column['from']>, string> = { sm: 'hidden @lg:table-cell', md: 'hidden @2xl:table-cell', lg: 'hidden @4xl:table-cell', xl: 'hidden @7xl:table-cell' };
 
   let page = $state(0);
 

@@ -5,8 +5,10 @@
 //! server's commands, within [`LIST_TIMEOUT`]:
 //!
 //! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] [--place
-//!   local|team] [--lang en|other|unknown] --sort updated|title|kind|scope|place --order O
-//!   [--project P] [--hidden]` (`--lang` only of a server that lists `notes-lang`) answers
+//!   local|team] [--lang en|other|unknown] [--useful ever|never] --sort
+//!   updated|title|kind|scope|place|useful|lastUseful --order O [--project P] [--hidden]` (`--lang`
+//!   only of a server that lists `notes-lang`, `--useful` and the last two sorts only of one that
+//!   lists `notes-useful`) answers
 //!   `{"notes": [...], "total": N, "kinds": [{"kind", "count"}], "scopes": {"repo", "global"},
 //!   "places": {"local", "team"}}`: the repository notes of the project and the global ones, each
 //!   with `readOnly` and `hidden`, and with a team database `hiddenCount` and `localCounts`
@@ -50,7 +52,7 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteDetail, NoteKind, NoteKindCount,
-    NoteLangFilter, NoteSort, NoteSummary, ScriptPlace, ScriptScope,
+    NoteLangFilter, NoteSort, NoteSummary, NoteUsefulFilter, ScriptPlace, ScriptScope,
 };
 use crate::process::ProcessRunner;
 
@@ -71,7 +73,12 @@ pub struct NotesQuery {
     /// One language only, or all. The caller drops it for a server that does not list `notes-lang`
     /// (it would refuse `--lang`).
     pub lang: Option<NoteLangFilter>,
-    /// `updated` unless given.
+    /// Only the notes agents found useful, or only those shown often and never found useful. The
+    /// caller drops it for a server that does not list `notes-useful` (it would refuse
+    /// `--useful`).
+    pub useful: Option<NoteUsefulFilter>,
+    /// `updated` unless given. The caller resets `useful` and `lastUseful` for a server that does
+    /// not list `notes-useful` (it would refuse the sort as a usage error).
     pub sort: Option<NoteSort>,
     /// List the team notes hidden on this machine instead of the visible ones.
     pub hidden: bool,
@@ -79,12 +86,27 @@ pub struct NotesQuery {
 
 impl NotesQuery {
     /// This query as the server `features` describes can answer it: `lang` is dropped unless
-    /// `notes-lang` is listed (an older server refuses `--lang` as a usage error).
+    /// `notes-lang` is listed, and `useful` and the `useful` and `lastUseful` sorts (back to the
+    /// default one) unless `notes-useful` is (an older server refuses them as usage errors).
     #[must_use]
     pub fn for_server(&self, features: FeaturesSupport) -> Self {
         let lang = self.lang.filter(|_| features.notes_lang());
+        let useful = self.useful.filter(|_| features.notes_useful());
+        let sort = self.sort.filter(|sort| features.notes_useful() || !sort.needs_useful());
 
-        Self { lang, ..self.clone() }
+        Self {
+            lang,
+            useful,
+            sort,
+            ..self.clone()
+        }
+    }
+
+    /// Whether [`for_server`](Self::for_server) has something to drop: the caller asks the
+    /// server's features only then.
+    #[must_use]
+    pub fn needs_features(&self) -> bool {
+        self.lang.is_some() || self.useful.is_some() || self.sort.is_some_and(NoteSort::needs_useful)
     }
 }
 
@@ -122,6 +144,8 @@ pub async fn list_notes(
         Some(NoteSort::Kind) => "kind",
         Some(NoteSort::Scope) => "scope",
         Some(NoteSort::Place) => "place",
+        Some(NoteSort::Useful) => "useful",
+        Some(NoteSort::LastUseful) => "lastUseful",
         Some(NoteSort::Updated) | None => "updated",
     };
 
@@ -134,8 +158,14 @@ pub async fn list_notes(
 
     let lang: Vec<(&str, &str)> = query.lang.map(|lang| ("--lang", lang_name(lang))).into_iter().collect();
 
-    let kind_and_lang: Vec<(&str, &str)> = kind.iter().chain(&lang).copied().collect();
-    let (filters, fallbacks) = list_filters(&kind_and_lang, &scope, query.place);
+    let useful: Vec<(&str, &str)> = query
+        .useful
+        .map(|useful| ("--useful", useful_name(useful)))
+        .into_iter()
+        .collect();
+
+    let kept: Vec<(&str, &str)> = kind.iter().chain(&lang).chain(&useful).copied().collect();
+    let (filters, fallbacks) = list_filters(&kept, &scope, query.place);
 
     let hidden = query.hidden.then(|| OsString::from(HIDDEN_FLAG));
     let listed = |filters: &[(&str, &str)]| {
@@ -244,6 +274,14 @@ fn lang_name(lang: NoteLangFilter) -> &'static str {
         NoteLangFilter::En => "en",
         NoteLangFilter::Other => "other",
         NoteLangFilter::Unknown => "unknown",
+    }
+}
+
+/// The server's name of `useful`.
+fn useful_name(useful: NoteUsefulFilter) -> &'static str {
+    match useful {
+        NoteUsefulFilter::Ever => "ever",
+        NoteUsefulFilter::Never => "never",
     }
 }
 

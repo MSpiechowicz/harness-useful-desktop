@@ -132,6 +132,7 @@ fn without_a_file_team_memory_is_off() {
             embedder_supported: false,
             settings_supported: false,
             notes_lang_supported: false,
+            notes_useful_supported: false,
             config_path: "~/.config/harness-memory/config.toml".to_owned(),
             problem: None,
         }

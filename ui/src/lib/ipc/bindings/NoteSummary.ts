@@ -80,4 +80,17 @@ hidden: boolean,
  * The language the server detected: `en`, `other` (flagged, it gets a rewrite hint) or
  * nothing yet. `None` from a server that does not say.
  */
-lang?: string | null, };
+lang?: string | null, 
+/**
+ * How often agents were shown the note. `None` from a server that does not say.
+ */
+shown?: number | null, 
+/**
+ * How often an agent found the note useful. `None` from a server that does not say.
+ */
+useful?: number | null, 
+/**
+ * RFC 3339: when an agent last found the note useful. `None` when none did yet, or from a
+ * server that does not say.
+ */
+lastUsefulAt?: string | null, };

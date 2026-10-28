@@ -21,15 +21,35 @@ export const KIND_LABELS = {
   note: 'memory.notes.kind.note',
 } as const satisfies Record<NoteKind, MessageKey>;
 
-/** Every column sorts, by the server. They are all text or dates, so they read from the left. A time starts with the newest. */
-export function noteColumns(): Column[] {
+/**
+ * Every column sorts, by the server. They are all text or dates, so they read from the left. A time or a count starts with the biggest.
+ * The two columns of usefulness exist only for a Harness Memory that counts it: an older one has nothing to show in them.
+ */
+export function noteColumns(usefulness = false): Column[] {
+  const useful: Column[] = [
+    { key: 'useful', label: t('memory.notes.column.useful'), width: '13rem', from: 'xl', sortable: true, descFirst: true },
+    { key: 'lastUseful', label: t('memory.notes.column.lastUseful'), width: '9rem', from: 'xl', sortable: true, descFirst: true },
+  ];
+
   return [
     { key: 'title', label: t('memory.notes.column.title'), sortable: true },
     { key: 'kind', label: t('memory.notes.column.kind'), width: '12rem', sortable: true },
     { key: 'scope', label: t('memory.notes.column.scope'), width: '12rem', from: 'md', sortable: true },
     { key: 'place', label: t('memory.notes.column.place'), width: '8rem', from: 'lg', sortable: true },
+    ...(usefulness ? useful : []),
     { key: 'updated', label: t('memory.notes.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },
   ];
+}
+
+/** How often agents found a note useful out of the times they were shown it; null when that is not known, or the note was never shown (nothing to measure). */
+export function usefulCounts(note: Pick<NoteSummary, 'shown' | 'useful'>): { shown: number; useful: number } | null {
+  const { shown, useful } = note;
+
+  if (shown == null || useful == null || shown <= 0) {
+    return null;
+  }
+
+  return { shown, useful };
 }
 
 /** All notes under the current search and scope: the kinds partition them. */

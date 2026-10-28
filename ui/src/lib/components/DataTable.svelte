@@ -7,7 +7,7 @@
   import ColumnHandle from './ColumnHandle.svelte';
   import { ICON } from './icon';
   import SortButton from './SortButton.svelte';
-  import { ariaSort, type Column, type ColumnWidths, MIN_COLUMN_PX, nextSort, readColumnWidths, saveColumnWidths, type Sort } from './table';
+  import { ariaSort, type Column, type ColumnWidths, MIN_COLUMN_PX, nextSort, readColumnWidths, saveColumnWidths, type Sort, widthsForNewColumns } from './table';
 
   interface Props {
     /** Accessible name of the table. */
@@ -37,13 +37,20 @@
 
   /** What the column without a width of its own, the one that takes what the others leave, is never squeezed below. */
   const MIN_FLEX_PX = 160;
-  const FROM = { sm: 'hidden @lg:table-cell', md: 'hidden @2xl:table-cell', lg: 'hidden @5xl:table-cell' } as const;
+  const FROM = { sm: 'hidden @lg:table-cell', md: 'hidden @2xl:table-cell', lg: 'hidden @5xl:table-cell', xl: 'hidden @7xl:table-cell' } as const;
 
   let viewport: HTMLElement | undefined = $state();
   let head: HTMLElement | undefined = $state();
   let body: HTMLElement | undefined = $state();
   let cells: Record<string, HTMLElement | undefined> = $state({});
   let widths: ColumnWidths = $state(untrack(() => readColumnWidths(tableId, columns)));
+
+  // A column that appears after the table was shown (one that needs data) gets the width the user gave it before.
+  $effect(() => {
+    const shown = columns;
+
+    untrack(() => Object.assign(widths, widthsForNewColumns(tableId, shown, widths)));
+  });
 
   // The column without a width stays the flexible one. Columns after it hang on the right of the table, so growing one takes room from the flexible one on its left edge.
   const flexKey = $derived(columns.find((column) => !column.width)?.key);
@@ -72,7 +79,7 @@
 
   function resetWidth(column: Column): void {
     delete widths[column.key];
-    saveColumnWidths(tableId, widths);
+    saveColumnWidths(tableId, widths, columns);
   }
 
   function rowElement(key: string | number): HTMLElement | null {
@@ -166,7 +173,7 @@
                 edge={flexIndex >= 0 && index > flexIndex ? 'start' : 'end'}
                 measure={() => widthOf(column)}
                 onresize={(px) => resize(column, px)}
-                oncommit={() => saveColumnWidths(tableId, widths)}
+                oncommit={() => saveColumnWidths(tableId, widths, columns)}
                 onreset={() => resetWidth(column)}
               />
             {/if}

@@ -39,6 +39,7 @@ fn a_server_that_lists_every_feature_routes_notes_and_scripts_to_both_and_is_ask
             embedder: false,
             settings: false,
             notes_lang: false,
+            notes_useful: false,
         }
     );
     assert!(answer.team_and_local());

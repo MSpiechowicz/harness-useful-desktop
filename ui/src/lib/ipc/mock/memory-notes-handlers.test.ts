@@ -246,4 +246,30 @@ describe('mock notes on the team side', () => {
     expect(ignored.total).toBe(listed.memory_notes_list(asked).total);
     expect(ignored.notes.every((note) => note.lang === null)).toBe(true);
   });
+
+  it('counts how useful notes were: filters by it, sorts by it, and says nothing for a server without notes-useful', () => {
+    const asked = { project: '/work/app', offset: 0, limit: 200 } as const;
+    const listed = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const old = memoryNotesHandlers(AVAILABLE, () => 'ok', undefined, undefined, undefined, undefined, () => false);
+
+    const ever = listed.memory_notes_list({ ...asked, useful: 'ever' });
+    const never = listed.memory_notes_list({ ...asked, useful: 'never' });
+
+    expect(ever.total).toBeGreaterThan(0);
+    expect(ever.notes.every((note) => (note.useful ?? 0) > 0)).toBe(true);
+    expect(never.total).toBeGreaterThan(0);
+    expect(never.notes.every((note) => note.useful === 0 && (note.shown ?? 0) >= 3)).toBe(true);
+    expect(ever.total + never.total).toBeLessThan(listed.memory_notes_list(asked).total);
+
+    const byUseful = listed.memory_notes_list({ ...asked, sort: 'useful', order: 'desc' }).notes.map((note) => note.useful ?? 0);
+    expect(byUseful).toEqual([...byUseful].sort((a, b) => b - a));
+
+    const byTime = listed.memory_notes_list({ ...asked, sort: 'lastUseful', order: 'desc' }).notes.map((note) => (note.lastUsefulAt ? Date.parse(note.lastUsefulAt) : 0));
+    expect(byTime).toEqual([...byTime].sort((a, b) => b - a));
+
+    const ignored = old.memory_notes_list({ ...asked, useful: 'ever', sort: 'useful' });
+
+    expect(ignored.total).toBe(listed.memory_notes_list(asked).total);
+    expect(ignored.notes.every((note) => note.shown === null && note.useful === null && note.lastUsefulAt === null)).toBe(true);
+  });
 });

@@ -9,8 +9,8 @@
   interface Props {
     open: boolean;
     ontoggle: () => void;
-    /** Tints the icon tile: the agent thinking, a tool running, or the plain grey of the rest. */
-    tone?: 'plain' | 'think' | 'run';
+    /** Tints the icon tile: the agent thinking, a tool running, project memory (info), or the plain grey of the rest. */
+    tone?: 'plain' | 'think' | 'run' | 'info';
     /** A failed card draws its edge in red. */
     failed?: boolean;
     /** The 16px icon (or spinner) inside the 28px tile. */
@@ -31,7 +31,7 @@
 
   let { open, ontoggle, tone = 'plain', failed = false, icon, title, status, peek, extra, body, ...rest }: Props = $props();
 
-  const TILES = { plain: 'bg-surface-2 text-fg-2', think: 'bg-think-wash text-think', run: 'bg-accent-wash text-accent-text' };
+  const TILES = { plain: 'bg-surface-2 text-fg-2', think: 'bg-think-wash text-think', run: 'bg-accent-wash text-accent-text', info: 'bg-info-wash text-info' };
 </script>
 
 <!-- One shape for everything the agent does in a reply (thinking, tool calls): a 44px header with a 28px icon tile, the

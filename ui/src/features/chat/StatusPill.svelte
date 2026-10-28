@@ -6,7 +6,8 @@
   interface Props {
     tone: 'ok' | 'run' | 'error' | 'idle' | 'info';
     label: string;
-    icon: Snippet;
+    /** The 16px glyph before the label; a pill with none (the memory cards' counts) is just the label. */
+    icon?: Snippet;
     /** Room for a longer label (two counts side by side) before it is cut. */
     wide?: boolean;
   }
@@ -16,8 +17,10 @@
   const TONES = { ok: 'bg-success-wash text-success', run: 'bg-accent-wash text-accent-text', error: 'bg-danger-wash text-danger', idle: 'bg-surface-2 text-fg-3', info: 'bg-info-wash text-info' };
 </script>
 
-<!-- Hugs its content: icon and label are centred as one group with even padding. -->
+<!-- Hugs its content: icon (when it has one) and label are centred as one group with even padding. -->
 <span class={cx('inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-sm leading-5 font-medium', wide ? 'max-w-56' : 'max-w-36', TONES[tone])}>
-  <span class="grid size-[16px] shrink-0 place-items-center">{@render icon()}</span>
+  {#if icon}
+    <span class="grid size-[16px] shrink-0 place-items-center">{@render icon()}</span>
+  {/if}
   <span class="truncate" title={label}>{label}</span>
 </span>

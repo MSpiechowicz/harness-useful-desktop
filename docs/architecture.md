@@ -238,10 +238,12 @@ flowchart LR
       `memory_embedder_supervisor.rs` runs and restarts the process. `src-tauri/src/memory_embedder.rs` decides when it
       runs and forwards its state, and `src-tauri/src/commands/memory_embedder.rs` holds the commands.
     - **Gating.** `harness-memory features` gates each part: `embedder` (the supervisor, the vector search switch and the
-      model removal), `settings` (the English notes setting) and `notes-lang` (`lang` in a note and the `--lang`
-      filter, dropped from a query for a server that does not list it). A server without the line answers
-      `unsupported`, and Harness Memory not installed answers `notFound`. The page reads the same lines from
-      `MemoryRemote` (`embedderSupported`, `settingsSupported`, `notesLangSupported`, next to `saveGuardsSupported`) and
+      model removal), `settings` (the English notes setting), `notes-lang` (`lang` in a note and the `--lang`
+      filter, dropped from a query for a server that does not list it) and `notes-useful` (`shown`, `useful` and
+      `lastUsefulAt` in a note, `--useful` and the `useful` and `lastUseful` sorts, dropped or reset to `updated` the
+      same way). A server without the line answers `unsupported`, and Harness Memory not installed answers
+      `notFound`. The page reads the same lines from `MemoryRemote` (`embedderSupported`, `settingsSupported`,
+      `notesLangSupported`, `notesUsefulSupported`, next to `saveGuardsSupported`) and
       falls back to a rejected call only while those are not loaded.
     - **Pref.** `vectorSearch` in `prefs.json` (default on, also for a file without the key) is server-managed:
       only `memory_set_vector_search` changes it, because it also runs `embedder enable|disable` and starts or stops the

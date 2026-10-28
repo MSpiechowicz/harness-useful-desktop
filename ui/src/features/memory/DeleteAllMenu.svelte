@@ -75,7 +75,7 @@
   });
   const narrowed = $derived.by(() => {
     if (section === 'notes') {
-      return viewState.notesQuery.trim() !== '' || viewState.notesKind !== null || placeApplied(noteList.data?.places, viewState.notesPlace);
+      return viewState.notesQuery.trim() !== '' || viewState.notesKind !== null || placeApplied(noteList.data?.places, viewState.notesPlace) || viewState.notesUseful !== null;
     }
 
     return viewState.scriptsQuery.trim() !== '' || viewState.scriptsStatus !== null || viewState.scriptsGroup !== null || placeApplied(scriptList.data?.places, viewState.scriptsPlace);

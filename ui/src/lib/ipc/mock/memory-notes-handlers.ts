@@ -36,6 +36,11 @@ export function notesLangListed(search: string = globalThis.location?.search ?? 
   return new URLSearchParams(search).get('lang') !== 'old';
 }
 
+/** Browser-preview switch `?useful=old`: a Harness Memory without `notes-useful`, which counts nothing about how useful a note was, and ignores the filter and the two sorts. */
+export function notesUsefulListed(search: string = globalThis.location?.search ?? ''): boolean {
+  return new URLSearchParams(search).get('useful') !== 'old';
+}
+
 /** The notes of Harness Memory kept in memory: `memory_notes_list/note_get/note_delete/notes_delete_all/note_save` like the real backend, without a server. */
 export interface NoteHandlers extends TeamNotesHandlers {
   memory_notes_list: (args: CommandArgs<'memory_notes_list'>) => MemoryNotesPage;
@@ -140,14 +145,20 @@ function matches(found: NoteContent, query: string): boolean {
 
 type NoteOrder = (a: NoteContent, b: NoteContent) => number;
 
-/** How each sort orders two notes, ascending (`scope`: global first, `place`: this computer first); ties go by id. */
+/** How each sort orders two notes, ascending (`scope`: global first, `place`: this computer first, `useful` and `lastUseful`: the fewest and the oldest first); ties go by id. */
 const NOTE_ORDERS: Record<NoteSort, NoteOrder> = {
   updated: (a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt),
   title: (a, b) => a.title.localeCompare(b.title),
   kind: (a, b) => a.kind.localeCompare(b.kind),
   scope: (a, b) => a.scope.localeCompare(b.scope),
   place: (a, b) => a.place.localeCompare(b.place),
+  useful: (a, b) => (a.useful ?? 0) - (b.useful ?? 0),
+  // A note no agent found useful has no time: it sorts as the oldest.
+  lastUseful: (a, b) => (a.lastUsefulAt ? Date.parse(a.lastUsefulAt) : 0) - (b.lastUsefulAt ? Date.parse(b.lastUsefulAt) : 0),
 };
+
+/** How many times a note has to be shown before never being found useful says something (the server's threshold). */
+const NEVER_USEFUL_AFTER_SHOWN = 3;
 
 /**
  * One page of notes as the server answers: filtered by the query, the scope, the place and the kind, sorted and cut. The kinds are counted under the
@@ -157,19 +168,20 @@ const NOTE_ORDERS: Record<NoteSort, NoteOrder> = {
  */
 export function pageOfNotes(
   visible: NoteContent[],
-  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, place, lang, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
+  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, place, lang, useful, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
   combined = true,
   everything: NoteContent[] = visible,
 ): Omit<MemoryNotesPage, 'availability'> {
   const answering = visible.filter((found) => matches(found, query) && found.hidden === hidden);
   const onThisComputer = everything.filter((found) => found.place === 'local');
-  const direction = (order ?? (sort === 'updated' ? 'desc' : 'asc')) === 'desc' ? -1 : 1;
+  const direction = (order ?? (sort === 'updated' || sort === 'useful' || sort === 'lastUseful' ? 'desc' : 'asc')) === 'desc' ? -1 : 1;
   const compare = NOTE_ORDERS[sort];
   const inKind = answering.filter((found) => kind === undefined || found.kind === kind);
   const inScope = answering.filter((found) => !combined || scope === undefined || found.scope === scope);
   const inPlace = answering.filter((found) => !combined || place === undefined || found.place === place);
   const inLang = answering.filter((found) => lang === undefined || (lang === 'unknown' ? !found.lang : found.lang === lang));
-  const chosen = inKind.filter((found) => inScope.includes(found) && inPlace.includes(found) && inLang.includes(found));
+  const inUseful = answering.filter((found) => useful === undefined || (useful === 'ever' ? (found.useful ?? 0) > 0 : (found.useful ?? 0) === 0 && (found.shown ?? 0) >= NEVER_USEFUL_AFTER_SHOWN));
+  const chosen = inKind.filter((found) => inScope.includes(found) && inPlace.includes(found) && inLang.includes(found) && inUseful.includes(found));
   const ofKindHere = inKind.filter((found) => inPlace.includes(found));
   const ofKindInScope = inKind.filter((found) => inScope.includes(found));
 
@@ -201,6 +213,7 @@ export function memoryNotesHandlers(
   importScenario: () => NotesImportScenario = notesImportScenarioFromLocation,
   copyStores: CopyStores = {},
   langListed: () => boolean = notesLangListed,
+  usefulListed: () => boolean = notesUsefulListed,
 ): NoteHandlers {
   let notes: NoteContent[] | null = null;
   const current = (): NoteContent[] =>
@@ -230,15 +243,32 @@ export function memoryNotesHandlers(
         return { availability: state, total: 0, kinds: [], scopes: null, places: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
       }
 
-      // A server without `notes-lang` ignores the filter and leaves `lang` empty.
-      if (!langListed()) {
-        const { lang: _ignored, ...asked } = args;
-        const page = pageOfNotes(visible(args), asked, combined(), current());
+      // A server without `notes-lang` ignores the filter and leaves `lang` empty. One without `notes-useful` ignores the filter and the two sorts, and counts nothing.
+      const asked = { ...args };
 
-        return { availability: state, ...page, notes: page.notes.map((found) => ({ ...found, lang: null })) };
+      if (!langListed()) {
+        delete asked.lang;
       }
 
-      return { availability: state, ...pageOfNotes(visible(args), args, combined(), current()) };
+      if (!usefulListed()) {
+        delete asked.useful;
+
+        if (asked.sort === 'useful' || asked.sort === 'lastUseful') {
+          delete asked.sort;
+        }
+      }
+
+      const page = pageOfNotes(visible(args), asked, combined(), current());
+
+      return {
+        availability: state,
+        ...page,
+        notes: page.notes.map((found) => ({
+          ...found,
+          ...(langListed() ? {} : { lang: null }),
+          ...(usefulListed() ? {} : { shown: null, useful: null, lastUsefulAt: null }),
+        })),
+      };
     },
     memory_note_get: ({ id, hidden, ...reach }: CommandArgs<'memory_note_get'>): NoteDetail => detailOf(find(id, reach, hidden), visible(reach)),
     memory_note_delete: ({ id, ...reach }: CommandArgs<'memory_note_delete'>): null => {

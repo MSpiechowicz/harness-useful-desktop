@@ -31,6 +31,7 @@ fn query(hidden: bool) -> NotesQuery {
         scope: None,
         place: None,
         lang: None,
+        useful: None,
         sort: None,
         hidden,
     }

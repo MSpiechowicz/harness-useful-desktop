@@ -10,11 +10,13 @@
   import { ICON } from '$lib/components/icon';
   import ScopeLabel from '$lib/components/ScopeLabel.svelte';
   import type { Column } from '$lib/components/table';
+  import UsageMeter from '$lib/components/UsageMeter.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
   import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
   import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
   import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
+  import type { NoteUsefulFilter } from '$lib/ipc/bindings/NoteUsefulFilter';
   import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteNote, hideNote, noteDetail, noteDetailKey, noteList, NOTES_PAGE_SIZE, prefetchNotes, seenNote } from '$lib/stores/memoryNotes.svelte';
@@ -40,10 +42,11 @@
   import NoteLangBadge from './NoteLangBadge.svelte';
   import NotePanel from './NotePanel.svelte';
   import PlaceFilter, { placeApplied } from './PlaceFilter.svelte';
-  import { KIND_LABELS, NOTE_KINDS, noteColumns, noteScopeText, totalCount } from './note-format';
+  import { KIND_LABELS, NOTE_KINDS, noteColumns, noteScopeText, totalCount, usefulCounts } from './note-format';
   import { PLACE_LABELS, spelledOut } from './script-format';
 
   type KindChoice = NoteKind | 'all';
+  type UsefulChoice = NoteUsefulFilter | 'all';
 
   interface Shown {
     note: NoteSummary | null;
@@ -62,17 +65,25 @@
   // An older Harness Memory cannot combine the scope with the kind: it gets the kind only, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.notesQuery.trim() !== '');
-  const filtered = $derived(viewState.notesKind !== null || placeApplied(places, viewState.notesPlace) || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden || viewState.notesNotEnglish);
+  const filtered = $derived(viewState.notesKind !== null || placeApplied(places, viewState.notesPlace) || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden || viewState.notesNotEnglish || viewState.notesUseful !== null);
   // Team notes hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // The server's `features` say whether it tells which notes are not in English. Until they are read, rows that carry a language stand in for it.
   const langListed = $derived(memoryRemote.value?.notesLangSupported ?? rows.some((row) => row.lang === 'en' || row.lang === 'other'));
+  // Likewise `notesUsefulSupported` says whether it counts how often agents found a note useful: the columns and the Usefulness filter exist only then.
+  const usefulListed = $derived(memoryRemote.value?.notesUsefulSupported ?? rows.some((row) => row.shown != null));
   // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
   const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
 
   const kindOptions = $derived([
     { value: 'all' as KindChoice, label: t('memory.filter.all'), count: totalCount(kinds) },
     ...NOTE_KINDS.map((kind) => ({ value: kind as KindChoice, label: t(KIND_LABELS[kind]), count: kinds.find((entry) => entry.kind === kind)?.count ?? 0 })),
+  ]);
+
+  const usefulOptions = $derived([
+    { value: 'all' as UsefulChoice, label: t('memory.filter.all') },
+    { value: 'ever' as UsefulChoice, label: t('memory.filter.useful.ever') },
+    { value: 'never' as UsefulChoice, label: t('memory.filter.useful.never'), hint: t('memory.filter.useful.neverHint') },
   ]);
 
   // A search that finds nothing says so. So do filters that leave nothing: they stay chosen, with the way to clear them in the row above.
@@ -102,6 +113,11 @@
 
   function chooseKind(kind: NoteKind | null): void {
     viewState.notesKind = kind;
+    viewState.notesPage = 0;
+  }
+
+  function chooseUseful(useful: NoteUsefulFilter | null): void {
+    viewState.notesUseful = useful;
     viewState.notesPage = 0;
   }
 
@@ -259,6 +275,20 @@
     clearLabel={t('memory.filter.clearKind')}
     align="start"
   />
+
+  {#if usefulListed || viewState.notesUseful !== null}
+    <FilterMenu
+      label={t('memory.filter.useful')}
+      prefix={t('memory.filter.useful')}
+      options={usefulOptions}
+      value={viewState.notesUseful ?? 'all'}
+      onchange={(next) => chooseUseful(next === 'all' ? null : next)}
+      onclear={() => chooseUseful(null)}
+      clearLabel={t('memory.filter.clearUseful')}
+      align="start"
+      wide
+    />
+  {/if}
 {/snippet}
 
 {#snippet hint()}
@@ -298,7 +328,7 @@
   detailEmpty={t('memory.notes.detail.empty')}
   tableLabel={t('memory.notes.table.label')}
   tableId="memory-notes"
-  columns={noteColumns()}
+  columns={noteColumns(usefulListed)}
   {rows}
   sort={viewState.notesSort}
   onsort={(next) => {
@@ -327,6 +357,24 @@
       <div class="min-w-0 text-fg-2"><ScopeLabel scope={memoryScope(note, projectScopes.data ?? [], t('memory.scripts.row.thisRepo'))} /></div>
     {:else if column.key === 'place'}
       <span class="text-fg-2">{t(PLACE_LABELS[note.place])}</span>
+    {:else if column.key === 'useful'}
+      {@const counts = usefulCounts(note)}
+      <div class="flex items-center gap-2">
+        {#if counts}
+          <span class="tabular min-w-[6.5ch] shrink-0 text-sm whitespace-nowrap text-fg-2">{t('memory.notes.useful.ratio', counts)}</span>
+          <UsageMeter value={counts.useful} total={counts.shown} label={t('memory.notes.useful.meter')} />
+        {:else}
+          <span class="text-sm text-fg-3">—</span>
+        {/if}
+      </div>
+    {:else if column.key === 'lastUseful'}
+      {#if note.lastUsefulAt}
+        <span class="tabular text-fg-3" title={formatDateTime(note.lastUsefulAt)}>{relativeTime(note.lastUsefulAt)}</span>
+      {:else if usefulCounts(note)}
+        <span class="text-fg-3">{t('memory.notes.useful.never')}</span>
+      {:else}
+        <span class="text-fg-3">—</span>
+      {/if}
     {:else}
       <span class="tabular text-fg-3" title={formatDateTime(note.updatedAt)}>{relativeTime(note.updatedAt)}</span>
     {/if}

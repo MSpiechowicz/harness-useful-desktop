@@ -123,6 +123,11 @@ settingsSupported: boolean,
  */
 notesLangSupported: boolean, 
 /**
+ * True when the installed Harness Memory lists `notes-useful` in `harness-memory features`:
+ * notes carry `shown`, `useful` and `lastUsefulAt`, and `notes list` sorts and filters by them.
+ */
+notesUsefulSupported: boolean, 
+/**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */
 configPath: string, 

@@ -38,7 +38,7 @@
 </script>
 
 <!-- The notes and saved scripts the app added to this message, in the same row shape as the agent's tool calls. -->
-<ChatRow {open} ontoggle={() => (open = !open)}>
+<ChatRow {open} ontoggle={() => (open = !open)} tone="info">
   {#snippet icon()}<BookOpen size={16} aria-hidden="true" />{/snippet}
 
   {#snippet title()}
@@ -47,9 +47,7 @@
   {/snippet}
 
   {#snippet status()}
-    <StatusPill tone="info" label={counts} wide={recall.count > 0 && recall.scriptCount > 0}>
-      {#snippet icon()}<BookOpen size={16} aria-hidden="true" />{/snippet}
-    </StatusPill>
+    <StatusPill tone="info" label={counts} wide={recall.count > 0 && recall.scriptCount > 0} />
   {/snippet}
 
   {#snippet body()}

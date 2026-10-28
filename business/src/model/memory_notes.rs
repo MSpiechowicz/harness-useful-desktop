@@ -47,6 +47,20 @@ pub enum NoteSort {
     Scope,
     /// Notes on this computer before those in the team database (ascending).
     Place,
+    /// By how often an agent used the note, most first. Asked of a server that lists
+    /// `notes-useful` only.
+    Useful,
+    /// By when an agent last used the note, latest first. Asked of a server that lists
+    /// `notes-useful` only.
+    LastUseful,
+}
+
+impl NoteSort {
+    /// Whether the sort reads the usefulness counts, which a server lists as `notes-useful` only.
+    #[must_use]
+    pub fn needs_useful(self) -> bool {
+        matches!(self, Self::Useful | Self::LastUseful)
+    }
 }
 
 /// Which notes `memory_notes_list` keeps by the language the server detected (`--lang`). Asked of a
@@ -61,6 +75,18 @@ pub enum NoteLangFilter {
     Other,
     /// Notes whose language was not detected yet.
     Unknown,
+}
+
+/// Which notes `memory_notes_list` keeps by whether agents found them useful (`--useful`). Asked of
+/// a server that lists `notes-useful` only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export)]
+pub enum NoteUsefulFilter {
+    /// Notes an agent found useful at least once.
+    Ever,
+    /// Notes shown at least three times and never found useful.
+    Never,
 }
 
 /// Ascending or descending.
@@ -123,6 +149,19 @@ pub struct NoteSummary {
     #[serde(default)]
     #[ts(optional = nullable)]
     pub lang: Option<String>,
+    /// How often agents were shown the note. `None` from a server that does not say.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub shown: Option<u32>,
+    /// How often an agent found the note useful. `None` from a server that does not say.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub useful: Option<u32>,
+    /// RFC 3339: when an agent last found the note useful. `None` when none did yet, or from a
+    /// server that does not say.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub last_useful_at: Option<String>,
 }
 
 /// One note with its body.

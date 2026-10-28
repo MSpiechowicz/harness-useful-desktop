@@ -12,6 +12,7 @@
   import { cx } from '$lib/utils/cx';
   import { matchesShortcut } from '$lib/utils/shortcuts';
   import type { ChatSession } from '$lib/chat/session.svelte';
+  import { buildMemoryUse, type MemoryUseIndex } from '$lib/chat/memory-use';
   import { provideToolContext } from '$lib/chat/tool-context';
   import type { TranscriptItem } from '$lib/chat/types';
   import { rise } from '$lib/design/motion';
@@ -55,6 +56,11 @@
       list?.scrollToIndex(untrack(() => rows.length) - 1);
     }
   });
+
+  // What each reply did with the notes its searches found, for the project-memory cards.
+  // The last build is kept (not reactive) so the cards of searches that did not change keep their object between deltas.
+  let lastUse: MemoryUseIndex | undefined;
+  const memoryUse = $derived.by(() => (lastUse = buildMemoryUse(session.chat, lastUse)));
 
   const noModels = $derived(session.chat.items.length === 0 && session.noModels && !session.ended);
 
@@ -152,7 +158,7 @@
             </Button>
           </div>
         {/if}
-        <MessageRow {item} chat={session.chat} sentImages={session.sentImages} />
+        <MessageRow {item} chat={session.chat} sentImages={session.sentImages} {memoryUse} />
         {#if working && index === session.chat.items.length - 1}
           <WorkingIndicator label={working} />
         {/if}

@@ -104,7 +104,7 @@ pub use memory_import::{
 };
 pub use memory_notes::{
     MemoryNotesPage, NoteContent, NoteDetail, NoteKind, NoteKindCount, NoteLangFilter, NoteLink, NoteLinkDirection,
-    NoteSort, NoteSummary, SortOrder,
+    NoteSort, NoteSummary, NoteUsefulFilter, SortOrder,
 };
 pub use memory_notes_copy::{
     LocalNoteIds, MemoryCopyKind, NoteIdsWord, NotesCopyAction, NotesCopyCounts, NotesCopyFailure, NotesCopyFilter,

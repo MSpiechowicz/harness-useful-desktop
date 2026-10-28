@@ -9,7 +9,7 @@ export interface Column {
   /** A CSS width such as `8rem`; the column without one takes what the others leave. */
   width?: string;
   /** The smallest width of the table, as a container-query size, at which the column is shown; the first columns stay at any width. */
-  from?: 'sm' | 'md' | 'lg';
+  from?: 'sm' | 'md' | 'lg' | 'xl';
   align?: 'end';
   /** A column of times or counts starts with the biggest, the others with the first in the alphabet. */
   descFirst?: boolean;
@@ -54,6 +54,22 @@ export function readColumnWidths(tableId: string, columns: Column[]): ColumnWidt
   return Object.fromEntries(kept.map((column) => [column.key, saved[column.key]]));
 }
 
-export function saveColumnWidths(tableId: string, widths: ColumnWidths): void {
-  writeJson(widthsKey(tableId), widths);
+/**
+ * Keeps the widths of the columns on show. The widths kept for columns that are not on show now (a column that appears
+ * only when there is data for it) stay in storage; a column on show without a width in `widths` was reset, so its width goes.
+ */
+export function saveColumnWidths(tableId: string, widths: ColumnWidths, columns: Column[]): void {
+  const stored = readJson<ColumnWidths>(widthsKey(tableId), {}, isWidths);
+  const shown = new Set(columns.map((column) => column.key));
+  const hidden = Object.entries(stored).filter(([key]) => !shown.has(key));
+  const own = Object.entries(widths).filter(([key]) => shown.has(key));
+
+  writeJson(widthsKey(tableId), Object.fromEntries([...hidden, ...own]));
+}
+
+/** The widths kept for the columns that `current` has no width for yet: a column that appeared after the table was shown. */
+export function widthsForNewColumns(tableId: string, columns: Column[], current: ColumnWidths): ColumnWidths {
+  const saved = readColumnWidths(tableId, columns);
+
+  return Object.fromEntries(Object.entries(saved).filter(([key]) => current[key] === undefined));
 }

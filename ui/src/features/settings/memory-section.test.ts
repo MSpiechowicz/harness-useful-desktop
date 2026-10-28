@@ -37,6 +37,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
     embedderSupported: false,
     settingsSupported: false,
     notesLangSupported: false,
+    notesUsefulSupported: false,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);

@@ -2,6 +2,7 @@ import type { Sort } from '$lib/components/table';
 import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
+import type { NoteUsefulFilter } from '$lib/ipc/bindings/NoteUsefulFilter';
 import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
 import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
 import type { ScriptReview } from '$lib/ipc/bindings/ScriptReview';
@@ -75,6 +76,8 @@ export class ViewState {
   notesPlace = $state<ScriptPlace | null>(null);
   /** Only the notes the server flagged as not written in English (the Not in English filter). */
   notesNotEnglish = $state(false);
+  /** Only the notes an agent found useful at least once (`ever`), or those shown often and never found useful (`never`); null for all (the Usefulness filter). */
+  notesUseful = $state<NoteUsefulFilter | null>(null);
   notesSort = $state<Sort>({ key: 'updated', desc: true });
   notesPage = $state(0);
 
@@ -199,6 +202,7 @@ export class ViewState {
       this.notesKind = null;
       this.notesPlace = null;
       this.notesNotEnglish = false;
+      this.notesUseful = null;
       this.notesSort = { key: 'updated', desc: true };
       this.notesPage = 0;
     } else if (view === 'scripts') {

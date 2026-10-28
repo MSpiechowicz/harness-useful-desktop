@@ -79,7 +79,7 @@ pub fn version() -> String {
 pub fn serve() -> ! {
     let legacy = std::env::var("FAKE_MEMORY_TOOLS").is_ok_and(|tools| tools == "legacy");
     let mut scripts = fixtures();
-    let mut notes = crate::memory_cli::note_fixtures();
+    let mut notes = crate::memory_cli_notes::note_fixtures();
 
     for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else {

@@ -1,5 +1,5 @@
 //! The note tools of the `harness-memory mcp` stand-in (see [`crate::memory`]): `note_save` and
-//! `note_update` on the notes of [`crate::memory_cli::note_fixtures`], kept in memory for the life
+//! `note_update` on the notes of [`crate::memory_cli_notes::note_fixtures`], kept in memory for the life
 //! of the process, answering text only as the real server does.
 //!
 //! - A read-only team note (see [`crate::memory_push::routed`]) has no title: a save beside it is

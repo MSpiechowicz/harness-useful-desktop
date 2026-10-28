@@ -11,7 +11,7 @@ interface Placed {
 }
 
 /** A repository key without the `git:` Harness Memory puts before a remote, which its entries leave out. */
-function bare(key: string): string {
+export function bare(key: string): string {
   return key.replace(/^git:/, '');
 }
 

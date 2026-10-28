@@ -47,8 +47,8 @@ pub const MAX_PAGE_SIZE: u32 = 200;
 /// The longest search, in characters (the server's own limit).
 pub const MAX_QUERY_CHARS: usize = 256;
 
-/// The `updated` sort, newest first unless asked otherwise; other sorts go A to Z.
-const UPDATED_SORT: &str = "updated";
+/// The sorts that go newest or most first unless asked otherwise; other sorts go A to Z.
+const DESCENDING_SORTS: [&str; 3] = ["updated", "useful", "lastUseful"];
 
 /// Which page of a list to read, and the search that filters it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -104,7 +104,7 @@ impl ListWindow {
         let order = match self.order {
             Some(SortOrder::Asc) => "asc",
             Some(SortOrder::Desc) => "desc",
-            None if sort == UPDATED_SORT => "desc",
+            None if DESCENDING_SORTS.contains(&sort) => "desc",
             None => "asc",
         };
 

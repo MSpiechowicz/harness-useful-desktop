@@ -4,13 +4,19 @@
 //! [`crate::memory_scripts_hidden`]'s.
 //!
 //! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] [--place
-//!   local|team] --sort updated|title|kind|scope|place --order asc|desc [--project P]` prints
+//!   local|team] --sort updated|title|kind|scope|place|useful|lastUseful --order asc|desc
+//!   [--project P]` prints
 //!   `{"notes", "total", "kinds", "scopes", "places"}`: the global notes, plus the repository ones
 //!   with `--project`, one of them of a kind the app does not know (`idea`). `--query` matches
 //!   titles (any case); `kinds` counts every kind under the query, scope and place, `scopes` both
 //!   scopes under the query, kind and place, `places` both places under every other filter.
 //!   `--lang en|other|unknown` keeps the notes whose `lang` is that (a fixture has none, so only
 //!   `unknown` keeps it) and is a usage error unless the stand-in lists `notes-lang`.
+//!   With `notes-useful` listed the notes carry `shown`, `useful` and `lastUsefulAt` (see
+//!   [`crate::memory_cli_notes`]), `--useful ever|never` keeps those used at least once or shown at least three
+//!   times and never used, and `--sort useful|lastUseful` orders by them (a note never used comes
+//!   last in `lastUseful`). Without it the notes carry none and the option and the sorts are usage
+//!   errors (`FAKE_MEMORY_FEATURES=notes-lang,...` is an older server).
 //! - `notes get <id> --json [--project P]` prints `{"note", "links"}`; `notes delete <id>
 //!   [--project P]` prints `deleted note <id> <title>`. A note not visible from the arguments exits
 //!   1 with `harness-memory: note <id> not found`; id [`FAILING_ID`] exits 1 with a URL with a
@@ -41,11 +47,10 @@ use std::cmp::Ordering;
 
 use serde_json::{Value, json};
 
+use crate::memory_cli_notes::{LINKS, link, note_fixtures, with_usefulness};
+
 /// The id whose `notes get` and `notes delete` fail as a broken team database would.
 const FAILING_ID: i64 = 500;
-
-/// What `--project` adds: the repository the stand-in's repository notes belong to.
-const REPO: &str = "github.com/o/r";
 
 /// The options of one command.
 #[derive(Default)]
@@ -64,6 +69,8 @@ struct Options {
     places: bool,
     /// `--lang`, taken only when the stand-in lists `notes-lang`.
     lang: Option<String>,
+    /// `--useful`, taken only when the stand-in lists `notes-useful`.
+    useful: Option<String>,
     sort: Option<String>,
     order: Option<String>,
     project: bool,
@@ -204,6 +211,13 @@ fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
             "--scope" if options.combines => options.scope = Some(value()),
             "--place" if options.places => options.place = Some(value()),
             "--lang" if filter == "--kind" && crate::memory_push::lists("notes-lang") => options.lang = Some(value()),
+            "--useful" if filter == "--kind" && crate::memory_push::lists("notes-useful") => {
+                options.useful = Some(value()).filter(|useful| matches!(useful.as_str(), "ever" | "never"));
+
+                if options.useful.is_none() {
+                    usage();
+                }
+            }
             "--review" if options.combines && filter == "--group" => options.review = Some(value()),
             other if !filter.is_empty() && other == filter => options.filter = Some(value()),
             _ => usage(),
@@ -246,6 +260,19 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
             None => lang == "unknown",
         })
     };
+    let keeps_useful = |entry: &Value| {
+        options.useful.as_ref().is_none_or(|useful| {
+            let (shown, used) = (
+                entry["shown"].as_u64().unwrap_or(0),
+                entry["useful"].as_u64().unwrap_or(0),
+            );
+
+            match useful.as_str() {
+                "ever" => used >= 1,
+                _ => shown >= 3 && used == 0,
+            }
+        })
+    };
     let keeps_place = |entry: &Value| {
         options
             .place
@@ -260,7 +287,7 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
     let place = |name: &str| in_other_filters.iter().filter(|entry| entry["place"] == name).count();
     let places = json!({ "local": place("local"), "team": place("team") });
 
-    matching.retain(|entry| keeps_place(entry) && keeps_lang(entry));
+    matching.retain(|entry| keeps_place(entry) && keeps_lang(entry) && keeps_useful(entry));
 
     let counts = if notes {
         let in_scope: Vec<Value> = matching.iter().filter(|entry| keeps_scope(entry)).cloned().collect();
@@ -287,6 +314,8 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
         Some(sort @ ("kind" | "scope" | "place" | "language")) => sort,
         Some("runs") => "runCount",
         Some("lastRun") => "lastRunAt",
+        Some("useful") if notes && crate::memory_push::lists("notes-useful") => "useful",
+        Some("lastUseful") if notes && crate::memory_push::lists("notes-useful") => "lastUsefulAt",
         _ => usage(),
     };
     matching.sort_by(|a, b| compare(&a[key], &b[key]));
@@ -297,7 +326,8 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
         _ => usage(),
     }
 
-    // A script never run comes last whichever the order, as the real server lists it.
+    // A script never run (or a note never used, for `lastUseful`) comes last whichever the order,
+    // as the real server lists it.
     matching.sort_by_key(|entry| entry[key].is_null());
 
     let total = matching.len();
@@ -422,77 +452,17 @@ fn one_note(command: &str, options: &Options) -> ! {
 
 /// The notes `--hidden` asks for: the hidden team note, or the others (see [`crate::memory_push`]).
 fn visible_notes(options: &Options) -> Vec<Value> {
-    if options.hidden {
-        return crate::memory_push::hidden_fixtures();
-    }
-
-    note_fixtures()
-        .into_iter()
-        .map(|note| crate::memory_push::routed(note, false))
-        .collect()
-}
-
-/// The links between fixtures: from, to, relation.
-const LINKS: [(i64, i64, &str); 3] = [(2, 3, "fixes"), (5, 2, "follows"), (6, 1, "explains")];
-
-fn link(notes: &[Value], other: i64, relation: &str, direction: &str) -> Option<Value> {
-    let note = notes.iter().find(|note| note["id"] == other)?;
-
-    Some(json!({
-        "id": other,
-        "title": note["title"],
-        "kind": note["kind"],
-        "relation": relation,
-        "direction": direction,
-    }))
-}
-
-/// The stand-in's notes: id, kind, title, scope, place and update time.
-const NOTES: [&str; 8] = [
-    "1|decision|Use rustls everywhere|global|team|2026-10-09T10:00:00Z",
-    "2|fix|Retry the watcher on rename|repo|team|2026-10-08T10:00:00Z",
-    "3|problem|Watcher misses renames|repo|local|2026-10-07T10:00:00Z",
-    "4|outcome|Release 0.19 shipped|global|team|2026-10-06T10:00:00Z",
-    "5|optimisation|Cache the tools probe|repo|local|2026-10-05T10:00:00Z",
-    "6|location|Memory config lives in the config dir|global|local|2026-10-04T10:00:00Z",
-    "7|note|Prefer bun over npm|global|local|2026-10-03T10:00:00Z",
-    "8|idea|A kind from a newer server|global|local|2026-10-02T10:00:00Z",
-];
-
-/// The stand-in's notes, with their bodies.
-pub fn note_fixtures() -> Vec<Value> {
-    let note = |id: i64, kind: &str, title: &str, scope: &str, place: &str, updated: &str| {
-        json!({
-            "id": id,
-            "kind": kind,
-            "title": title,
-            "scope": scope,
-            "repo": if scope == "repo" { json!(REPO) } else { Value::Null },
-            "place": place,
-            "tags": [kind, "fixture"],
-            "entities": [format!("src/{kind}.rs")],
-            "author": { "source": "claude-code", "root": null },
-            "createdAt": "2026-10-01T08:00:00Z",
-            "updatedAt": updated,
-            "revision": id % 3 + 1,
-            "hits": id * 2,
-            "body": format!("{title}.\nWritten by an agent.\n"),
-        })
+    let notes = if options.hidden {
+        crate::memory_push::hidden_fixtures()
+    } else {
+        note_fixtures()
+            .into_iter()
+            .map(|note| crate::memory_push::routed(note, false))
+            .collect()
     };
 
-    let mut notes: Vec<Value> = NOTES
-        .iter()
-        .map(|row| {
-            let fields: Vec<&str> = row.split('|').collect();
-            let id = fields[0].parse().unwrap_or_default();
-            note(id, fields[1], fields[2], fields[3], fields[4], fields[5])
-        })
-        .collect();
-
-    let added = std::env::var("FAKE_MEMORY_NOTES").unwrap_or_default();
-
-    for (id, title) in (100..).zip(added.lines()) {
-        notes.push(note(id, "note", title, "global", "local", "2026-09-01T10:00:00Z"));
+    if crate::memory_push::lists("notes-useful") {
+        return notes.into_iter().map(with_usefulness).collect();
     }
 
     notes

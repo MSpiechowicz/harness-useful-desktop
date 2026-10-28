@@ -29,6 +29,7 @@ fn notes_query(kind: Option<NoteKind>, scope: Option<ScriptScope>) -> NotesQuery
         scope,
         place: None,
         lang: None,
+        useful: None,
         sort: None,
         hidden: false,
     }

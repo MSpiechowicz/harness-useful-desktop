@@ -13,7 +13,7 @@ use harness_business::ecosystem::{
 };
 use harness_business::model::{
     LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, NoteDetail, NoteDraft, NoteKind,
-    NoteLangFilter, NoteSaved, NoteSort, ScriptPlace, ScriptScope, SortOrder,
+    NoteLangFilter, NoteSaved, NoteSort, NoteUsefulFilter, ScriptPlace, ScriptScope, SortOrder,
 };
 use tauri::State;
 
@@ -23,7 +23,9 @@ use crate::state::AppState;
 
 /// One page of the project's repository notes and the global ones, of one `kind`, one `scope` and
 /// one `place` and one detected `lang` (`en`, `other`, `unknown`) when asked. A server that does not list
-/// `notes-lang` ignores `lang` (its notes carry no language). Never fails for a missing or old
+/// `notes-lang` ignores `lang` (its notes carry no language). `useful` (`ever`, `never`) and the
+/// `useful` and `lastUseful` sorts need `notes-useful`: a server without it ignores the filter and
+/// sorts by `updated` (its notes carry no counts). Never fails for a missing or old
 /// server: see the page's `availability`
 /// (`notes` is empty unless `available`); a server that does not filter by place drops `place` and
 /// answers `places: null`, one that does not combine filters drops `scope` too and answers
@@ -46,6 +48,7 @@ pub async fn memory_notes_list(
     scope: Option<ScriptScope>,
     place: Option<ScriptPlace>,
     lang: Option<NoteLangFilter>,
+    useful: Option<NoteUsefulFilter>,
     sort: Option<NoteSort>,
     order: Option<SortOrder>,
     hidden: Option<bool>,
@@ -56,6 +59,7 @@ pub async fn memory_notes_list(
         scope,
         place,
         lang,
+        useful,
         sort,
         hidden: hidden.unwrap_or(false),
     };
@@ -190,8 +194,9 @@ async fn list(
 ) -> CommandResult<MemoryNotesPage> {
     let project = project_root(state, project).await?;
 
-    // A server without `notes-lang` would refuse `--lang` as a usage error.
-    let query = if query.lang.is_some() {
+    // A server without `notes-lang` would refuse `--lang`, one without `notes-useful` `--useful`
+    // and the usefulness sorts, as usage errors.
+    let query = if query.needs_features() {
         query.for_server(state.memory_features.support(&state.env, &state.runner).await)
     } else {
         query.clone()
@@ -269,6 +274,7 @@ mod tests {
             scope: None,
             place: None,
             lang: None,
+            useful: None,
             sort: None,
             hidden: false,
         }

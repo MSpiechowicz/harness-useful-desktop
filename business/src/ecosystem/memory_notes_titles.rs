@@ -234,6 +234,7 @@ async fn each_global_page(
             scope: Some(ScriptScope::Global),
             place: None,
             lang: None,
+            useful: None,
             sort: Some(NoteSort::Title),
             hidden: false,
         };

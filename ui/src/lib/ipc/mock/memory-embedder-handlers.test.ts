@@ -33,6 +33,14 @@ describe('mock feature lines', () => {
 
     expect([noLang.embedderSupported, noLang.settingsSupported, noLang.notesLangSupported]).toEqual([true, true, false]);
   });
+
+  it('lists notes-useful like a current Harness Memory, and not for ?useful=old', async () => {
+    expect((await memoryRemoteHandlers().memory_remote_get(undefined)).notesUsefulSupported).toBe(true);
+
+    window.history.replaceState(null, '', '/?useful=old');
+
+    expect((await memoryRemoteHandlers().memory_remote_get(undefined)).notesUsefulSupported).toBe(false);
+  });
 });
 
 describe('mock embedder model', () => {

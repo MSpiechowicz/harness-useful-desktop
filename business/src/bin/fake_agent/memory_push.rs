@@ -3,7 +3,7 @@
 //! from fixed fixtures (nothing is kept between runs).
 //!
 //! - `features` prints `notes-remote-local`, `notes-hide`, `push-json`, `scripts-remote-local`,
-//!   `scripts-hide`, `scripts-push-json`, `embedder`, `settings` and `notes-lang`, one per line;
+//!   `scripts-hide`, `scripts-push-json`, `embedder`, `settings`, `notes-lang` and `notes-useful`, one per line;
 //!   `FAKE_MEMORY_FEATURES=none` is a server that predates the command (usage error, exit 2) and
 //!   `FAKE_MEMORY_FEATURES=<a,b>` lists those instead. Without the variable, the same text in
 //!   `.fake-memory-features` of the working directory does the same (for a copy of the stand-in that
@@ -137,7 +137,7 @@ pub fn features() -> ! {
 }
 
 /// The features of a stand-in without `FAKE_MEMORY_FEATURES`.
-const DEFAULT_FEATURES: [&str; 9] = [
+const DEFAULT_FEATURES: [&str; 10] = [
     "notes-remote-local",
     "notes-hide",
     "push-json",
@@ -147,6 +147,7 @@ const DEFAULT_FEATURES: [&str; 9] = [
     "embedder",
     "settings",
     "notes-lang",
+    "notes-useful",
 ];
 
 /// Whether this stand-in lists `feature` in `features`: the commands of a feature it does not list

@@ -32,6 +32,11 @@ interface Seed {
   hits?: number;
   /** `other` for a note the server flagged as not written in English. */
   lang?: 'en' | 'other';
+  /** How often agents were shown the note, and how often they found it useful out of those (none: never shown). */
+  shown?: number;
+  useful?: number;
+  /** Hours since an agent last found the note useful; none for a note no agent did. */
+  lastUseful?: number;
 }
 
 function note(seed: Seed): NoteContent {
@@ -55,6 +60,9 @@ function note(seed: Seed): NoteContent {
     readOnly: false,
     hidden: false,
     lang: seed.lang ?? 'en',
+    shown: seed.shown ?? 0,
+    useful: seed.useful ?? 0,
+    lastUsefulAt: seed.lastUseful === undefined ? null : ago(seed.lastUseful),
   };
 }
 
@@ -70,6 +78,9 @@ const CRAFTED: Seed[] = [
     age: 5,
     revision: 3,
     hits: 12,
+    shown: 14,
+    useful: 11,
+    lastUseful: 3,
   },
   {
     id: 4,
@@ -80,6 +91,9 @@ const CRAFTED: Seed[] = [
     entities: ['WEBKIT_DISABLE_DMABUF_RENDERER', 'src-tauri/tauri.conf.json'],
     age: 28,
     hits: 7,
+    shown: 9,
+    useful: 7,
+    lastUseful: 52,
     lang: 'other',
   },
   {
@@ -93,6 +107,7 @@ const CRAFTED: Seed[] = [
     source: 'omp',
     age: 50,
     hits: 2,
+    shown: 8,
   },
   {
     id: 6,
@@ -104,6 +119,9 @@ const CRAFTED: Seed[] = [
     age: 90,
     revision: 2,
     hits: 5,
+    shown: 20,
+    useful: 3,
+    lastUseful: 400,
   },
   {
     id: 7,
@@ -115,6 +133,9 @@ const CRAFTED: Seed[] = [
     source: 'codex',
     age: 140,
     hits: 9,
+    shown: 5,
+    useful: 5,
+    lastUseful: 1,
     lang: 'other',
   },
   {
@@ -134,6 +155,9 @@ const CRAFTED: Seed[] = [
     scope: 'global',
     tags: ['preview'],
     age: 300,
+    shown: 12,
+    useful: 1,
+    lastUseful: 700,
   },
   {
     id: 10,
@@ -148,6 +172,7 @@ const CRAFTED: Seed[] = [
     age: 320,
     revision: 2,
     hits: 4,
+    shown: 3,
   },
 ];
 
@@ -161,6 +186,10 @@ function generated(count: number): Seed[] {
     const kind = KINDS[index % KINDS.length];
     const title = `${VERBS[index % VERBS.length]} ${OBJECTS[(index * 3) % OBJECTS.length]}${index >= VERBS.length * 2 ? ` (${index + 1})` : ''}`;
 
+    // Every shape of the usefulness columns: never shown, shown and never useful, a low share, a high one.
+    const shown = (index * 5) % 13;
+    const useful = Math.floor((shown * (index % 5)) / 6);
+
     return {
       id: 100 + index,
       kind,
@@ -172,6 +201,9 @@ function generated(count: number): Seed[] {
       entities: index % 2 === 0 ? ['src-tauri/src/lib.rs'] : [],
       age: 400 + index * 9,
       hits: index % 6,
+      shown,
+      useful,
+      lastUseful: useful > 0 ? 30 + index * 7 : undefined,
     } satisfies Seed;
   });
 }

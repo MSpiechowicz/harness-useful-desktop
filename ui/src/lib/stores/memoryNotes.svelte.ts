@@ -5,6 +5,7 @@ import type { NoteDraft } from '$lib/ipc/bindings/NoteDraft';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
 import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
 import type { NoteSort } from '$lib/ipc/bindings/NoteSort';
+import type { NoteUsefulFilter } from '$lib/ipc/bindings/NoteUsefulFilter';
 import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
 import type { ScriptScope } from '$lib/ipc/bindings/ScriptScope';
 import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
@@ -34,6 +35,8 @@ export interface NotesRequest {
   hidden: boolean;
   /** Only the notes the server flagged as not written in English. */
   notEnglish: boolean;
+  /** Only the notes agents found useful at least once, or those shown often and never found useful; null for all. */
+  useful: NoteUsefulFilter | null;
 }
 
 /** The request as the loader's key: the loader fetches again whenever any of it changes, and drops answers to older ones. */
@@ -43,7 +46,7 @@ export function notesKey(request: NotesRequest): string {
 
 /** One page of the notes `reach` covers (every repository, one, or the global ones), with the count of every kind and scope. */
 export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => {
-  const { query, scope, kind, place, sort, order, page, hidden, notEnglish } = JSON.parse(key) as NotesRequest;
+  const { query, scope, kind, place, sort, order, page, hidden, notEnglish, useful } = JSON.parse(key) as NotesRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_notes_list', {
@@ -57,6 +60,7 @@ export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => 
     sort,
     order,
     lang: notEnglish ? 'other' : undefined,
+    useful: useful ?? undefined,
     hidden: hidden || undefined,
   });
 });

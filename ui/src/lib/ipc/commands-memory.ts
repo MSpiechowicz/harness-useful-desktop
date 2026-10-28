@@ -16,6 +16,7 @@ import type { MemorySettings } from './bindings/MemorySettings';
 import type { MemoryVectorSwitchResult } from './bindings/MemoryVectorSwitchResult';
 import type { NoteSaved } from './bindings/NoteSaved';
 import type { NoteSort } from './bindings/NoteSort';
+import type { NoteUsefulFilter } from './bindings/NoteUsefulFilter';
 import type { NotesImportFormat } from './bindings/NotesImportFormat';
 import type { NotesImportPreview } from './bindings/NotesImportPreview';
 import type { NotesImportProgress } from './bindings/NotesImportProgress';
@@ -264,8 +265,9 @@ export const memoryCommands = {
    * `available`). `project` is the project root, null for global only. `offset` defaults to 0, `limit` to 50 (1 to 200),
    * `query` (at most 256 characters, blank for none) is the server's search, `kind` keeps one kind (`kinds` counts every
    * kind under the query either way), `sort` (`updated`, `title`, `kind` by name, `scope` with global first, `place` with
-   * this computer first) defaults to `updated`, `order` to `desc` for `updated` and `asc` otherwise; ties go by id. A
-   * server that does not know the sort answers `outdated`.
+   * this computer first, `useful` by how often agents found it useful, `lastUseful` by when they last did) defaults to
+   * `updated`, `order` to `desc` for `updated`, `useful` and `lastUseful` and `asc` otherwise; ties go by id. A server
+   * without `notes-useful` sorts by `updated` instead of `useful` and `lastUseful`.
    * Rejects with `invalidInput` for a bad limit or a long query, `forbidden` for a project that is not open or recent.
    */
   memory_notes_list: cmd<
@@ -283,6 +285,8 @@ export const memoryCommands = {
       place?: ScriptPlace;
       /** The notes of one detected language (`en`, `other`, `unknown`); a server without `notes-lang` ignores it (every note then has `lang: null`). */
       lang?: NoteLangFilter;
+      /** Only the notes an agent found useful (`ever`) or those shown often and never found useful (`never`); a server without `notes-useful` ignores it. */
+      useful?: NoteUsefulFilter;
       sort?: NoteSort;
       order?: SortOrder;
       /** Only the team notes hidden on this computer (the page's `total` is then their count). */

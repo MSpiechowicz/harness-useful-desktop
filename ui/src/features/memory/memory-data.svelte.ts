@@ -30,6 +30,9 @@ function watchProjectScopes(active: () => string | null): void {
 /** The columns the server sorts the notes by: all of them, and a column is named by its key. */
 const NOTE_SORTS: readonly NoteSort[] = ['updated', 'title', 'kind', 'scope', 'place'];
 
+/** The columns of usefulness, which only a Harness Memory that counts it sorts by. */
+const USEFUL_SORTS: readonly NoteSort[] = ['useful', 'lastUseful'];
+
 /** The columns the server sorts the scripts by: all of them. */
 const SCRIPT_SORTS: readonly ScriptSort[] = ['updated', 'name', 'language', 'scope', 'place', 'runs', 'lastRun'];
 
@@ -85,16 +88,34 @@ export function useNotesData(): void {
     }
   });
 
+  // Likewise a server that does not count how useful notes were has no such columns, filter or sort: a choice of them is dropped, back to the default sort.
+  const usefulUnsupported = $derived(memoryRemote.value?.notesUsefulSupported === false);
+
+  $effect(() => {
+    if (!usefulUnsupported) {
+      return;
+    }
+
+    if (viewState.notesUseful) {
+      viewState.notesUseful = null;
+    }
+
+    if (USEFUL_SORTS.some((sort) => sort === viewState.notesSort.key)) {
+      viewState.notesSort = { key: 'updated', desc: true };
+    }
+  });
+
   const request = $derived<NotesRequest>({
     query: query.value,
     scope: combined ? reachScope(viewState.memoryReach) : null,
     kind: viewState.notesKind,
     place: viewState.notesPlace,
-    sort: sortOf(NOTE_SORTS, viewState.notesSort.key),
+    sort: sortOf(usefulUnsupported ? NOTE_SORTS : [...NOTE_SORTS, ...USEFUL_SORTS], viewState.notesSort.key),
     order: viewState.notesSort.desc ? 'desc' : 'asc',
     page: viewState.notesPage,
     hidden: notesTeam.showHidden,
     notEnglish: viewState.notesNotEnglish && !langUnsupported,
+    useful: usefulUnsupported ? null : viewState.notesUseful,
   });
 
   // The editor and the import review belong to the project on screen and to this view: neither outlives a switch of project or leaving the view.

@@ -131,6 +131,9 @@ pub struct MemoryRemote {
     /// True when the installed Harness Memory lists `notes-lang` in `harness-memory features`:
     /// notes carry a `lang` and `notes list` filters by it.
     pub notes_lang_supported: bool,
+    /// True when the installed Harness Memory lists `notes-useful` in `harness-memory features`:
+    /// notes carry `shown`, `useful` and `lastUsefulAt`, and `notes list` sorts and filters by them.
+    pub notes_useful_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does
