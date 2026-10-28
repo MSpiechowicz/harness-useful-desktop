@@ -5,6 +5,8 @@ import type { MessageRole } from '$lib/ipc/bindings/MessageRole';
 import type { NoticeLevel } from '$lib/ipc/bindings/NoticeLevel';
 import type { SessionState } from '$lib/ipc/bindings/SessionState';
 import type { Subagent } from '$lib/ipc/bindings/Subagent';
+import type { SubagentRoute } from '$lib/ipc/bindings/SubagentRoute';
+import type { SubagentStep } from '$lib/ipc/bindings/SubagentStep';
 import type { TokenUsage } from '$lib/ipc/bindings/TokenUsage';
 import type { UiRequest } from '$lib/ipc/bindings/UiRequest';
 
@@ -124,6 +126,38 @@ export interface ToolCallState {
   touchedPaths: string[];
 }
 
+/** A message the user sent to a subagent from its panel; the panel lists it among the subagent's steps. */
+export interface SentStep {
+  kind: 'you';
+  id: string;
+  text: string;
+  /** Milliseconds since the Unix epoch. */
+  at: number;
+  /** How it travelled: straight to the subagent, or through the orchestrator. */
+  route: SubagentRoute;
+}
+
+export type SubagentStepEntry = SubagentStep | SentStep;
+
+/** When a subagent started and ended on this computer's clock, for the live timer. */
+export interface SubagentClock {
+  startedAt: number;
+  endedAt: number | null;
+}
+
+/** Small pieces of view state that slash commands and other surfaces can open from outside the header. */
+export interface SessionUi {
+  modelPicker: boolean;
+  thinkingPicker: boolean;
+  agentPicker: boolean;
+  stats: boolean;
+  approvalChooser: boolean;
+  /** A line of text the user is being asked for (compact instructions, a session name). */
+  ask: 'compact' | 'name' | null;
+  /** A `!command` waiting for the user's confirmation. */
+  confirmBash: string | null;
+}
+
 export interface PromptError {
   message: string;
   retryable: boolean;
@@ -158,6 +192,10 @@ export interface ChatState {
   toolCalls: Record<string, ToolCallState>;
   /** Subagents the session's `task` calls spawned, by id (OMP). */
   subagents: Record<string, Subagent>;
+  /** What each subagent did, oldest first (see `applySubagentStep`), by subagent id. */
+  subagentSteps: Record<string, SubagentStepEntry[]>;
+  /** When each subagent started and ended, by subagent id. */
+  subagentClock: Record<string, SubagentClock>;
   /** Agent UI requests waiting for an answer, oldest first. */
   openRequests: UiRequest[];
   /** `liveSteered`: leading steering entries already handed to the running response; they cannot be withdrawn. */

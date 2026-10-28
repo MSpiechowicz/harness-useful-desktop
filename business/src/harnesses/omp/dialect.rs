@@ -103,9 +103,12 @@ impl RpcDialect for OmpDialect {
         }
 
         if let Some(subagent) = decode_subagent(&frame) {
-            return vec![Inbound::Event(AgentEvent::Subagent {
-                subagent: Box::new(subagent),
-            })];
+            return state
+                .subagent_steps
+                .observe(&frame, subagent)
+                .into_iter()
+                .map(Inbound::Event)
+                .collect();
         }
 
         decode_common(&frame, state)

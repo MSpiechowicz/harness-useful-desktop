@@ -42,6 +42,7 @@ mod routine_run;
 mod session;
 mod setup;
 mod subagent;
+mod subagent_step;
 mod sync;
 mod sync_apply;
 mod ui_request;
@@ -50,7 +51,7 @@ mod update;
 pub use agent::{AgentSessionInfo, AgentStartRequest, ApprovalMode, BashOutput, SessionRef};
 pub use agent_action::{
     AgentAction, AgentReply, IMAGE_MIME_TYPES, ImageAttachment, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES,
-    MAX_ACTION_TEXT_BYTES, MAX_AGENT_ID_BYTES, MAX_HISTORY_PAGE, StreamingBehavior,
+    MAX_ACTION_TEXT_BYTES, MAX_AGENT_ID_BYTES, MAX_HISTORY_PAGE, MAX_SUBAGENT_ID_BYTES, StreamingBehavior,
 };
 pub use agent_event::{AgentEnvelope, AgentEvent};
 pub use app::AppInfo;
@@ -150,7 +151,11 @@ pub use setup::{
     McpState, MemorySwitchResult, RecommendedSetup, SkillsMigrationFailure, SkillsMigrationReport, SkillsSetup,
     SkillsUnavailableCode,
 };
-pub use subagent::{Subagent, SubagentStatus, SubagentTool};
+pub use subagent::{MAX_SUBAGENT_TEXT_CHARS, Subagent, SubagentRoute, SubagentStatus, SubagentTool};
+pub use subagent_step::{
+    MAX_STEP_DETAIL_CHARS, MAX_STEP_OUTPUT_BYTES, MAX_STEP_OUTPUT_LINES, MAX_STEP_TEXT_CHARS, SubagentStep,
+    SubagentStepKind, SubagentStepStatus,
+};
 pub use sync::{
     SyncBlockReason, SyncExcluded, SyncExcludedReason, SyncExportItem, SyncExportPreview, SyncExportSection,
     SyncExported, SyncImportItem, SyncImportPlan, SyncImportSection, SyncInput, SyncInvalidReason, SyncItemKind,

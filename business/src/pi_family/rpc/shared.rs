@@ -83,6 +83,11 @@ pub fn encode_shared(
                 "this harness cannot switch agents".to_owned(),
             ));
         }
+        A::StopSubagent { .. } | A::MessageSubagent { .. } => {
+            return Err(BusinessError::Unsupported(
+                "this harness cannot stop or message a subagent".to_owned(),
+            ));
+        }
         A::Clone | A::RefreshCommands | A::GetHistory { .. } | A::RemoveQueued { .. } => None,
     };
 

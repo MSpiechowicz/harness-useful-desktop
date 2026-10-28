@@ -95,7 +95,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.shortcut.newChat': 'Nouveau chat',
   'shell.shortcut.toggleRail': 'Développer ou réduire la barre latérale',
   'shell.shortcut.toggleList': 'Afficher ou masquer la liste dans Sessions, Modifications, Configuration et Extensions',
-  'shell.shortcut.toggleDetails': 'Afficher ou masquer les détails dans Sessions, Configuration et Extensions',
+  'shell.shortcut.toggleDetails': 'Afficher ou masquer les détails dans Sessions, Configuration et Extensions, ou le sous-agent dans le Chat',
   'shell.shortcut.back': 'Retour',
   'shell.shortcut.forward': 'Suivant',
   'shell.shortcut.nextChat': 'Chat suivant',

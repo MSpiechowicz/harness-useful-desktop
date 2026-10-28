@@ -7,6 +7,7 @@ import type { UiRequest } from '$lib/ipc/bindings/UiRequest';
 import { asApproval } from './approval';
 import { messageDelta, messageEnd, messageStart } from './messages';
 import { appendItem, findLastIndex, updateItem } from './state';
+import { applySubagentStep } from './subagent-steps';
 import { applySubagent } from './subagents';
 import { interruptRunningTools, toolEnd, toolStart, toolUpdate } from './tools';
 import type { BannerItem, BannerPhase, ChatState, TranscriptItem } from './types';
@@ -88,7 +89,7 @@ function stderrLine(state: ChatState, line: string): ChatState {
 }
 
 /** Applies one event; never throws, unknown events change nothing. */
-export function applyEvent(state: ChatState, event: AgentEvent): ChatState {
+export function applyEvent(state: ChatState, event: AgentEvent, now = Date.now()): ChatState {
   switch (event.type) {
     case 'ready':
       return { ...state, protocolVersion: event.protocolVersion, readyCount: state.readyCount + 1, phase: state.phase === 'starting' ? 'idle' : state.phase };
@@ -132,7 +133,10 @@ export function applyEvent(state: ChatState, event: AgentEvent): ChatState {
       return toolEnd(state, event.toolCallId, event.name, event.isError, event.result, event.touchedPaths);
 
     case 'subagent':
-      return applySubagent(state, event.subagent);
+      return applySubagent(state, event.subagent, now);
+
+    case 'subagentStep':
+      return applySubagentStep(state, event.subagentId, event.step);
 
     case 'commandsUpdated':
       return { ...state, commands: event.commands };
@@ -209,22 +213,25 @@ export function applyEvent(state: ChatState, event: AgentEvent): ChatState {
  * The single entry point for agent events: ignores envelopes of other sessions and duplicates,
  * counts gaps in `seq`, and applies the rest in order.
  */
-export function reduceEnvelope(state: ChatState, envelope: AgentEnvelope): ChatState {
+export function reduceEnvelope(state: ChatState, envelope: AgentEnvelope, now = Date.now()): ChatState {
   if (envelope.sessionKey !== state.key || envelope.seq <= state.lastSeq) {
     return state;
   }
 
   const gapped = envelope.seq > state.lastSeq + 1;
 
-  return applyEvent({ ...state, lastSeq: envelope.seq, gaps: state.gaps + (gapped ? 1 : 0) }, envelope.event);
+  return applyEvent({ ...state, lastSeq: envelope.seq, gaps: state.gaps + (gapped ? 1 : 0) }, envelope.event, now);
 }
 
-/** A new session starts empty: the transcript, calls, requests and queue of the old one go away. */
+/** A new session starts empty: the transcript, calls, subagents, requests and queue of the old one go away. */
 export function clearTranscript(state: ChatState): ChatState {
   return {
     ...state,
     items: [],
     toolCalls: {},
+    subagents: {},
+    subagentSteps: {},
+    subagentClock: {},
     openRequests: [],
     queue: { steering: [], followUp: [], liveSteered: 0 },
     promptError: null,

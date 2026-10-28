@@ -5,7 +5,8 @@ use serde_json::Value as JsonValue;
 use ts_rs::TS;
 
 use super::{
-    ChatMessage, CommandSpec, MessageRole, ModelOption, NoticeLevel, PromptStatus, SessionState, Subagent, UiRequest,
+    ChatMessage, CommandSpec, MessageRole, ModelOption, NoticeLevel, PromptStatus, SessionState, Subagent,
+    SubagentStep, UiRequest,
 };
 
 /// One event of a session's stream.
@@ -118,6 +119,13 @@ pub enum AgentEvent {
     Subagent {
         /// Its latest snapshot (boxed: it is by far the largest event).
         subagent: Box<Subagent>,
+    },
+    /// One step (a tool call or a piece of prose) of a subagent; the webview upserts it by `step.id`.
+    SubagentStep {
+        /// The `Subagent.id` it belongs to.
+        subagent_id: String,
+        /// The step (boxed: the event stays small).
+        step: Box<SubagentStep>,
     },
     /// The slash-command catalog changed (already merged with the desktop commands).
     CommandsUpdated {

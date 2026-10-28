@@ -33,6 +33,8 @@ mod opencode2_recorded;
 mod opencode_mapper_support;
 #[path = "../support/opencode_session_support/mod.rs"]
 mod opencode_session_support;
+#[path = "../support/opencode_subagent_support/mod.rs"]
+mod opencode_subagent_support;
 #[path = "../support/recording_cli/mod.rs"]
 mod recording_cli;
 #[path = "../support/samples/mod.rs"]
@@ -53,6 +55,8 @@ mod claude_mapper_robustness;
 mod claude_protected_asks;
 mod claude_skills_config;
 mod claude_stats;
+mod claude_subagent_limits;
+mod claude_subagent_steps;
 mod claude_tools;
 mod claude_views;
 mod cli_actions;
@@ -71,6 +75,9 @@ mod opencode2_merged_names;
 mod opencode2_plugin_actions;
 mod opencode2_plugin_remove;
 mod opencode2_quiet_mapper;
+mod opencode2_subagent_input;
+mod opencode2_subagent_mapper;
+mod opencode2_subagent_secret;
 mod opencode2_tools_mapper;
 mod opencode2_turns_mapper;
 mod opencode2_views;
@@ -81,6 +88,8 @@ mod opencode_plugin_actions;
 mod opencode_plugin_remove;
 mod opencode_quiet_mapper;
 mod opencode_skills_config;
+mod opencode_subagent_mapper;
+mod opencode_subagent_secret;
 mod opencode_turns_mapper;
 mod opencode_views;
 mod pi_packages;

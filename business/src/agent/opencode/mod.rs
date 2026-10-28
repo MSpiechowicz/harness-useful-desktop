@@ -11,7 +11,8 @@
 //!   history (`history.rs`), model, thinking level and agent pickers read from the startup
 //!   catalogs (`settings.rs`), answers to approvals and questions (`dialogs.rs`), session
 //!   actions (`ops.rs`), `!command`s and compaction (`runs.rs`), and statistics, the context
-//!   meter, the last reply and the HTML export (`reports.rs`).
+//!   meter, the last reply and the HTML export (`reports.rs`), and stopping or messaging a subagent
+//!   (`subagents.rs`).
 //! - **Approval modes** (`approvals.rs`, `probe.rs`): configuration of the chat's own server,
 //!   read from a first start without the mode. **Helper chats:** session rules that deny
 //!   everything.
@@ -29,6 +30,7 @@ mod runs;
 mod settings;
 mod startup;
 mod stream;
+mod subagents;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -193,7 +195,10 @@ impl Chat {
 
     /// A fresh mapper for `session`.
     fn mapper(&self, session: &SessionId) -> Mapper {
-        new_mapper(session, &self.project, &self.root, self.rules)
+        let mut mapper = new_mapper(session, &self.project, &self.root, self.rules);
+        mapper.set_secret(self.shared.secret());
+
+        mapper
     }
 }
 
@@ -284,6 +289,8 @@ impl OpenCodeSession {
             | A::GetAvailableAgents
             | A::SetAgent { .. }
             | A::RefreshCommands => self.setting(action).await,
+            A::StopSubagent { id } => self.stop_subagent(&id).await,
+            A::MessageSubagent { id, message } => self.message_subagent(&id, &message).await,
             _ => self.session_op(action).await,
         };
 

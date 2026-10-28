@@ -96,6 +96,11 @@ impl Shared {
         self.events.send(EmitMsg::Open(first)).ok();
     }
 
+    /// The secret masked in every event, for engines that mask it before they cut a text.
+    pub fn secret(&self) -> Option<&str> {
+        self.secret.as_deref()
+    }
+
     /// `text` with the secret masked (see [`mask_secret`]); `cut` when it was truncated.
     pub fn mask(&self, text: &str, cut: bool) -> String {
         match &self.secret {

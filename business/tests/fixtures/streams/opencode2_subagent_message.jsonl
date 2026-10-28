@@ -1,0 +1,20 @@
+// A message typed in the subagent panel is a steering prompt of the child's session. The child answers and its run succeeds.
+// A title marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Delegate it"}}
+{"sse":{"type":"session.inbox.enqueued","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Delegate it"},"delivery":"steer"}},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.step.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","agent":"build","model":{"id":"big-pickle","providerID":"opencode","variant":"default"},"assistantMessageID":"msg_reply1"},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.tool.input.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_s","name":"subagent"},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.tool.called","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_s","input":{"description":"Check the tests","agent":"general","prompt":"Run the tests and report"},"executed":false},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.created","data":{"sessionID":"ses_child1","parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv"},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.tool.progress","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","assistantMessageID":"msg_reply1","id":"call_s","metadata":{"sessionID":"ses_child1","status":"running"}},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.step.started","data":{"sessionID":"ses_child1","assistantMessageID":"msg_c1","agent":"general","model":{"id":"m1","providerID":"mock"}},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.tool.input.started","data":{"sessionID":"ses_child1","assistantMessageID":"msg_c1","id":"call_c","name":"shell"},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.tool.called","data":{"sessionID":"ses_child1","assistantMessageID":"msg_c1","id":"call_c","input":{"command":"sleep 30"}},"location":{"directory":"$directory"}}}
+{"expect":"POST /api/session/ses_child1/prompt","match":{"/text":"Use the cache","/delivery":"steer"}}
+{"sse":{"type":"session.text.ended","data":{"sessionID":"ses_child1","assistantMessageID":"msg_c1","ordinal":0,"text":"Used the cache."},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.execution.succeeded","data":{"sessionID":"ses_child1"}}}
+{"sse":{"type":"session.renamed","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"},"location":{"directory":"$directory"}}}
+{"hang":true}

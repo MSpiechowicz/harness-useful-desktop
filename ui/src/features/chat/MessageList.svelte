@@ -2,7 +2,7 @@
   import ArrowDown from '@lucide/svelte/icons/arrow-down';
   import History from '@lucide/svelte/icons/history';
   import KeyRound from '@lucide/svelte/icons/key-round';
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
   import Kbd from '$lib/components/Kbd.svelte';
@@ -13,13 +13,16 @@
   import { matchesShortcut } from '$lib/utils/shortcuts';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { buildMemoryUse, type MemoryUseIndex } from '$lib/chat/memory-use';
+  import { indexOfToolCall } from '$lib/chat/subagent-steps';
   import { provideToolContext } from '$lib/chat/tool-context';
   import type { TranscriptItem } from '$lib/chat/types';
   import { rise } from '$lib/design/motion';
+  import { motion } from '$lib/stores/motion.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { MODELS_POLL_MS } from '$lib/stores/live';
   import { memoryChat } from '$lib/stores/memoryChat.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
+  import { subagentPanel } from '$lib/stores/subagentPanel.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
   import { hasMemoryRow } from './memory-rows';
@@ -32,7 +35,7 @@
 
   let { session }: Props = $props();
 
-  provideToolContext({ project: untrack(() => session.info.project), label: t('chat.list.thisChat') });
+  provideToolContext({ project: untrack(() => session.info.project), label: t('chat.list.thisChat'), sessionKey: untrack(() => session.key) });
 
   const ESTIMATED_ROW_PX = 96;
   const ENTRANCE_MS = 240;
@@ -56,6 +59,37 @@
       list?.scrollToIndex(untrack(() => rows.length) - 1);
     }
   });
+
+  // "Jump to it" in the subagent panel brings the call that spawned the subagent to the middle of the chat. The list puts its row
+  // there at once (the card may not be drawn yet), then the card itself is centred, smoothly unless motion is reduced.
+  let stage: HTMLElement | undefined = $state();
+  // A jump asked for before this list mounted (another view, another chat) is not replayed.
+  let jumped = untrack(() => subagentPanel.jump?.nonce ?? 0);
+
+  $effect(() => {
+    const request = subagentPanel.jump;
+
+    if (request && request.key === session.key && request.nonce !== jumped) {
+      jumped = request.nonce;
+      untrack(() => void revealToolCall(request.toolCallId));
+    }
+  });
+
+  async function revealToolCall(toolCallId: string): Promise<void> {
+    const index = indexOfToolCall(rows, toolCallId);
+    if (index === -1) {
+      return;
+    }
+
+    list?.scrollToIndex(index, 'center');
+    await tick();
+
+    requestAnimationFrame(() => {
+      const card = stage?.querySelector(`[data-tool-call-id="${CSS.escape(toolCallId)}"]`);
+
+      card?.scrollIntoView({ block: 'center', behavior: motion.level === 'full' ? 'smooth' : 'auto' });
+    });
+  }
 
   // What each reply did with the notes its searches found, for the project-memory cards.
   // The last build is kept (not reactive) so the cards of searches that did not change keep their object between deltas.
@@ -134,7 +168,7 @@
 <svelte:window {onkeydown} />
 
 <!-- The conversation scrolls inside an equal gap at the top and the bottom, so text never runs under the bar above or the composer below. -->
-<div class="chat-stage relative min-h-0 flex-1 py-3">
+<div bind:this={stage} class="chat-stage relative min-h-0 flex-1 py-3">
   <!-- Both edges fade the same short distance instead of ending in a hard cut: gradient overlays, not a mask, since a mask
      makes WebKitGTK composite the conversation as an image and its text loses its sharpness. -->
   <VirtualList

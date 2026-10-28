@@ -169,3 +169,70 @@
 :root[data-motion="off"] .live-dot {
   animation: none;
 }
+
+/*
+ * The subagent panel. A line of text that changes rolls up from below; the check of a subagent that just finished draws
+ * itself once; the card a "Jump to it" brings into view is ringed for a moment (an overlay that fades, so nothing
+ * but opacity moves).
+ */
+@keyframes roll-up {
+  from {
+    opacity: 0;
+    transform: translateY(70%);
+    filter: blur(2px);
+  }
+}
+
+@keyframes check-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes flash-ring {
+  0%,
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.roll-up {
+  animation: roll-up 420ms var(--ease-out-expo);
+}
+
+.check-draw path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: check-draw 500ms 120ms var(--ease-out-expo) forwards;
+}
+
+/* The ring is the element's own ::after, so it needs the element to be a positioning context (`relative`). */
+[data-flash]::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--accent-2);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: flash-ring var(--flash-duration, 1600ms) var(--ease-out-expo) forwards;
+}
+
+:root[data-motion="reduced"] .roll-up,
+:root[data-motion="off"] .roll-up {
+  animation: none;
+}
+
+:root[data-motion="reduced"] .check-draw path,
+:root[data-motion="off"] .check-draw path {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+:root[data-motion="reduced"] [data-flash]::after,
+:root[data-motion="off"] [data-flash]::after {
+  animation-duration: 600ms;
+}

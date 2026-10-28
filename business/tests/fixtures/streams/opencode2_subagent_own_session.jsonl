@@ -1,0 +1,9 @@
+// A session.created that names the chat's own session as a subagent is not one: no stop or message reaches the server for it. A title marks the end.
+{"include":"opencode2_startup.jsonl"}
+{"expect":"POST /api/session/ses_ea2843d6fffeeHJKZwBKUXqULv/prompt","match":{"/text":"Delegate it"}}
+{"sse":{"type":"session.inbox.enqueued","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox","item":{"type":"user","payload":{"text":"Delegate it"},"delivery":"steer"}},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.execution.started","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv"}}}
+{"sse":{"type":"session.inbox.delivered","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","inboxID":"$inbox"},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.created","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","parentID":"ses_ea2843d6fffeeHJKZwBKUXqULv"},"location":{"directory":"$directory"}}}
+{"sse":{"type":"session.renamed","data":{"sessionID":"ses_ea2843d6fffeeHJKZwBKUXqULv","title":"Marker"},"location":{"directory":"$directory"}}}
+{"hang":true}

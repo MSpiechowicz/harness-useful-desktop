@@ -42,7 +42,19 @@ message: string,
 /**
  * The queue it waits in.
  */
-queue: StreamingBehavior, } | { "type": "abort" } | { "type": "newSession" } | { "type": "switchSession", 
+queue: StreamingBehavior, } | { "type": "abort" } | { "type": "stopSubagent", 
+/**
+ * The `Subagent.id`.
+ */
+id: string, } | { "type": "messageSubagent", 
+/**
+ * The `Subagent.id`.
+ */
+id: string, 
+/**
+ * The message text.
+ */
+message: string, } | { "type": "newSession" } | { "type": "switchSession", 
 /**
  * The session to switch to.
  */

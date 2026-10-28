@@ -90,7 +90,7 @@ engine `agent/codex/`. Stdio only: no ports, no password, no daemon.
 | Approval prompts | the three server requests above → the app's approval card; "Always" = `acceptForSession` | bindings |
 | Question dialogs | `item/tool/requestUserInput`, `mcpServer/elicitation/request` (form only, url → declined with a notice) | bindings, experimental |
 | Slash commands | app built-ins (new, compact, rename, model, …) + skills from `skills/list` sent as `skill` input items | bindings |
-| Subagents | collab/subagent items shown as task cards (S0) | verify |
+| Subagents | collab/subagent items shown as task cards (S0). Hidden from the subagent panel until a recording exists, see [Subagent panel](#subagent-panel) | verify |
 | `!command` | decision 5 | — |
 | History, export, last reply | `thread/turns/list` + `thread/items/list`, HTML through the shared `export_html` | bindings |
 | AI naming | short `codex exec --ephemeral`-style utility process without a model flag (S0: confirm flags), like OMP/PI/Claude | verify |
@@ -270,6 +270,16 @@ tool schemas dropped) into `business/tests/fixtures/codex/app_server/`. The scra
     feature. Hooks live in `<codex home>/hooks.json` (and a `hooks` config key), events PreToolUse,
     PermissionRequest, PostToolUse, PreCompact, PostCompact, SessionStart, SessionEnd, SubagentStart, SubagentStop.
     Profiles exist (`ConfigProfile`).
+
+## Subagent panel
+
+Issue #46 added a subagent details panel for the other harnesses ([subagent-details.md](subagent-details.md)). Codex
+subagents stay hidden in it. `collabAgentToolCall` items are not mapped to subagents, child threads are not followed
+(`follows()` drops the notifications of a child thread) and no recording of a Codex subagent run exists, so the
+protocol is not verified. A recording must capture: the item that starts a subagent (`collabAgentToolCall` with its
+prompt, agent and model), how a child thread is announced and linked to its parent, the child's item and delta
+notifications (messages, commands, file changes), how a child finishes or fails and where its final report appears,
+and whether a request exists to stop it or message it. Until then there is no Stop and no message box for Codex.
 
 ## Residuals (known, accepted)
 

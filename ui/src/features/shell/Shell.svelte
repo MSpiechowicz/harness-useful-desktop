@@ -13,6 +13,7 @@
   import { BRANCH_FETCH_MS, GIT_POLL_MS, HARNESS_FOCUS_GAP_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
   import { sessionDetail, sessionList } from '$lib/stores/sessions.svelte';
+  import { subagentPanel } from '$lib/stores/subagentPanel.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { ui } from '$lib/stores/ui-state.svelte';
   import { palette } from '$lib/stores/palette.svelte';
@@ -52,6 +53,21 @@
 
   const commands = $derived(buildCommands({ openShortcuts: () => (shortcutsOpen = true) }));
 
+  /** The details of the view on screen. In Chat they are the subagent panel: it opens on the first running subagent, else the newest. */
+  function toggleDetails(): void {
+    const session = agentSessions.active;
+
+    if (nav.current === 'chat') {
+      if (session) {
+        subagentPanel.toggle(session.key, session.chat.subagents);
+      }
+
+      return;
+    }
+
+    void WorkspaceState.toggleCurrentDetails();
+  }
+
   const shortcuts = globalShortcuts({
     togglePalette: () => palette.toggle(),
     openShortcuts: () => (shortcutsOpen = !shortcutsOpen),
@@ -65,7 +81,7 @@
     },
     toggleRail: () => ui.toggleRail(),
     toggleList: () => void WorkspaceState.toggleCurrentList(),
-    toggleDetails: () => void WorkspaceState.toggleCurrentDetails(),
+    toggleDetails,
     goTo: (index) => nav.go(VIEWS[index].id),
   });
   const groups = $derived(shortcutGroups(shortcuts));

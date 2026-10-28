@@ -474,6 +474,38 @@ flowchart LR
 
 Privacy rules: [security-privacy.md](security-privacy.md#hooks).
 
+## Subagent details panel
+
+A subagent opens in a side panel (`ui/src/features/chat/SubagentPanel.svelte`, from the list in the chat) with its
+brief, steps, output tail and report, and a box to stop it or message it. Data flow:
+
+1. The harness frames (Claude: frames with `parent_tool_use_id`, OpenCode: child session events, OMP: progress
+   snapshots) go through the mapper (`claude_stream/mapper/subagent_steps.rs`, `opencode_server/mapper/` and
+   `opencode_server_v2/mapper/children.rs`, `harnesses/omp/subagent_steps.rs`).
+2. The mapper emits `AgentEvent::Subagent` (a snapshot: label, status, agent, model, report, `messageRoute`,
+   `canStop`) and `AgentEvent::SubagentStep { subagentId, step }` (an upsert by step id). Texts are redacted before
+   they are cut (`security/text.rs`).
+3. The reducer (`ui/src/lib/chat/reducer.ts`) keeps `subagentSteps` (200 steps per subagent, finished subagents forgotten oldest first past 64) and
+   `subagentClock` (start and end times), in memory only. The panel reads them.
+
+Two actions ride on `agent_send`, with no new command: `StopSubagent { id }` and `MessageSubagent { id, message }`.
+The id is 1 to 1024 bytes and the message is not empty. The reply is `NotFound` for an id the chat does not know,
+`Ack` for one that already finished (nothing is done), `Conflict` when the harness cannot act yet (OpenCode: the
+child's agent is not known) and `Unsupported` where the harness has no such action. The panel shows a control only
+when the snapshot says it works: `canStop`, and `messageRoute` (`direct` or `orchestrator`).
+
+| Harness | Steps | Output | Report | Stop | Message |
+| --- | --- | --- | --- | --- | --- |
+| Claude Code | yes | yes | yes | `stop_task` | orchestrator steer |
+| OpenCode 1 and 2 | yes | yes | yes | abort or interrupt of the child | direct to the child |
+| OMP | from progress snapshots | no | no | no | orchestrator steer |
+| PI | no subagents | | | | |
+| Codex | hidden | | | | |
+
+Codex child threads are not followed and nothing is recorded, so its subagents stay out of the panel (see
+[codex.md](plans/codex.md)). Plan and real-CLI checks: [subagent-details.md](plans/subagent-details.md). Privacy rules:
+[security-privacy.md](security-privacy.md#opencode-chat).
+
 ## Business modules
 
 | Module | Purpose |

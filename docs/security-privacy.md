@@ -275,6 +275,11 @@ value may cross the IPC boundary. For each string leaf, the first matching rule 
   are redacted like process output), and the last stderr line of a failed `opencode` session command (also cut to
   200 characters);
 - marketplace URIs, MCP client errors, and package sources (`Redactor` at their key path);
+- the texts of subagents, before they are cut: the brief (the prompt that started it) and the final report (64 Ki
+  characters each), prose steps (4 Ki characters), the tool name, label and one-line argument preview of a step (240
+  characters each) and the output tail of a step (the last 400 lines and 64 KiB, cut at a line boundary). The text is
+  redacted first and cut after, so a secret cannot be split by the cut and survive in half. In an OpenCode chat the
+  server password is masked before the cut too (`business/src/security/text.rs`);
 - every string the project memory server stores: titles, bodies, tags, entity names, relation labels and the client
   name (the server's own redaction, in its repository).
 
@@ -741,7 +746,8 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
 - **A closed set of requests.** The client can only make the requests of the `Route` enum
   (`business/src/opencode_server/routes.rs`): health, the event stream, sessions (create, read, rename, a helper chat's rules, delete,
   fork, abort, prompt, command, shell, compact, messages, status), read-only `/config`, `/config/providers`, `/agent` and
-  `/command`, and permission and question replies. Ids are checked before they are put into a path. The app never calls
+  `/command`, and permission and question replies. Abort and `prompt_async` also go to the child sessions of the
+  chat's session (its subagents, see Subagents below). The chat's own session is never taken for a child. Ids are checked before they are put into a path. The app never calls
   the share routes (`/share`, `/unshare`: a chat would be published), `/global/dispose`, `/global/upgrade`, any config
   write, `/auth/*`, OAuth or provider login, `/tui/*`, `/pty/*` or `/experimental/*`. `scripts/check-forbidden.ts` rejects
   these paths, `--mdns` without `=false` and `--port 4096` in the engine files, with no opt-out. If your own OpenCode
@@ -785,8 +791,13 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
   the plan agent's read-only rules included. The card says so.
 - **Subagents.** In Always ask and Write ask first the `task` tool asks before it starts a subagent, and the
   subagent's own tools follow the mode. Without a mode a subagent runs its tools under your OpenCode settings. Asks
-  OpenCode raises in a subagent session reach the chat, without a link to a tool card (the subagent's calls are not
-  in the chat).
+  OpenCode raises in a subagent session reach the chat, without a link to a tool card. The subagent's own tool
+  calls, prose and output are not chat messages. They are shown in the subagent panel (open a subagent from the list
+  in the chat). **Stop** in the panel aborts that child session only, never the chat. A **message** typed in the
+  panel is sent to the child session directly (`prompt_async`) with the agent and model the server reported for that
+  child, and it skips the app's hooks and the memory recall (see [Hooks](#hooks)). It is refused as a conflict while
+  the child's agent is not known yet, and a session id that is the chat's own is refused as a subagent. The server
+  password is masked in all of these texts.
 - **Command templates.** A server command (`/name` for a custom command, an MCP prompt or a skill) runs its template,
   and OpenCode runs the `` !`cmd` `` shell snippets in a template without a permission check, as in its terminal app. A
   routine or hook prompt that starts with `/name` runs that command the same way. The commands are OpenCode's own
@@ -849,6 +860,8 @@ OpenCode 2 gets the same guarantees through its own engine (`business/src/agent/
   and answers later matching asks of the chat itself, so the allowance ends with the chat and OpenCode's database
   holds nothing new.
 - **Helper chats** create their session with a deny-all rule and delete it when the chat stops.
+- **Subagents.** Stop in the subagent panel is an interrupt, and a message is a prompt with steer delivery, both sent
+  to the child session with the child's own directory. Texts are redacted before they are cut, as above.
 - **Orphans.** Like every agent process, the server is recorded while it runs, and the next app start kills one a
   crashed app left behind (see [Process spawning](#process-spawning)).
 
@@ -1011,6 +1024,13 @@ fork, clone, rename, compact, export, `!command`) work, and are described below.
 - **What the chat shows.** Tool results from Claude Code pass `redact_text` before they reach the screen, and so do the
   texts of subagent tasks and the process's stderr lines. Assistant text, thinking and tool arguments are shown as
   produced, and saved sessions are shown as written: they are your own session data (see [Secret redaction](#secret-redaction)).
+- **Subagents.** A frame a subagent produces (it carries `parent_tool_use_id`) becomes a step in the subagent panel
+  (tool calls, prose, output tails, the final report). It is never a chat message or a turn, and a frame that arrives
+  after the main turn ended does not start one. These texts are redacted before they are cut (see
+  [Secret redaction](#secret-redaction)). The app tracks at most 256 tasks per chat. Past that it forgets the oldest
+  finished one, and while all 256 still run a new task is not shown. Stop in the panel is the `stop_task` control request for that task. A message typed in the panel goes to the
+  orchestrator as a steering prompt (`streamingBehavior` `steer`) that reads `Message for subagent "<label>" ("<id>"):
+  <text>`. It is a normal prompt of the chat, so prompt hooks and memory recall run for it.
 - **Trust boundary.** Even in a trusted folder, a project's `.claude/settings.json` hooks, `.mcp.json` servers and
   plugins run as you whatever the app does, as they would with `claude -p`. The app's own hooks stay app-side, so
   nothing runs twice. Trust once only in a repository you would run `claude` in.
@@ -1584,6 +1604,9 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
   are `project` (which only selects a project root, and must be an existing folder) and the file `<id>.json` it names by
   id; it writes nothing outside the hooks folder and never the app's config folder, and it never runs a hook. It speaks
   JSON-RPC on stdin and stdout, opens no connection and logs nothing a client sends.
+- **Subagent messages.** A message typed in the subagent panel of an OpenCode chat is sent straight to the child
+  session and fires no hook and adds no memory recall. A message to a Claude Code or OMP subagent is a prompt of the
+  orchestrator and gets the hooks of any prompt.
 - **Command hooks run a shell.** `hooks/command.rs` is, with the companion installers, the one place the app runs a shell:
   `/bin/sh -c <command>` on Linux and macOS, `cmd.exe /D /S /C "<command>"` on Windows. The text is the hook's `command`,
   written by you or approved by you in the version you saw. It runs with your privileges and the app's environment, in the
@@ -1770,6 +1793,10 @@ Rust changes them: through the native pickers and the project and harness comman
 `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
 rest as stored. The exhaustive destructuring in `with_ui_fields` makes a new field fail to compile until it is
 classified. Turning off `rememberRecentProjects` clears the recent list.
+
+Subagent details (steps, output tails, briefs and reports) live in memory only. They are not written to disk, they are
+lost when the chat is reloaded, and the webview keeps at most 200 steps per subagent and only the newest step's output.
+Past 64 subagents it forgets the oldest finished one, and a running one is never dropped. The backend caps are listed under [Secret redaction](#secret-redaction).
 
 The app stores no tokens (apart from the team database credentials you enter, kept in Harness Memory's own config
 file), no chat content, no prompts and no file contents (hook files hold the text and commands of the hooks, not what

@@ -3,8 +3,8 @@
 //! [`Mapper`] per chat.
 //!
 //! - **Sessions:** only events of the chat's own session count. Subagent sessions started from it
-//!   (at any depth, see [`family`]) are tracked for their asks ([`asks`]); their messages and tool
-//!   calls are not shown. Forks are other chats. Events without a session (`server.*`, catalog and
+//!   (at any depth, see [`family`]) are tracked for their asks ([`asks`]) and for the subagent panel
+//!   ([`children`]); their messages and tool calls are not part of the chat. Forks are other chats. Events without a session (`server.*`, catalog and
 //!   project events) are ignored.
 //! - **Turns, steering and the follow-up queue:** see [`turns`]. A turn is one execution
 //!   (`session.execution.started` … `succeeded | failed | interrupted`); `session.status`
@@ -20,6 +20,7 @@
 //!   OpenCode starts on its own during a turn shows as `compaction` `start` and `end`.
 
 mod asks;
+mod children;
 mod family;
 mod form;
 mod history;
@@ -49,6 +50,7 @@ use super::messages::SessionMessage;
 use super::wire::{Form, ModelRef, PermissionRequest};
 use crate::error::Result;
 use crate::model::{AgentEvent, UiResponse};
+use crate::opencode_server::mapper::Subagents;
 use crate::opencode_server::wire::Outgoing;
 use crate::security::redact_text;
 
@@ -127,6 +129,8 @@ pub struct Mapper {
     unlisted: Vec<String>,
     replies: Replies,
     tools: Tools,
+    /// The subagents the chat's `subagent` calls started (the subagent panel).
+    runs: Subagents,
     asks: Asks,
     /// Each ask still open on OpenCode's side, so a dialog whose answer did not reach OpenCode
     /// can be shown again ([`Mapper::reopen`]).
@@ -157,6 +161,7 @@ impl Mapper {
             unlisted: Vec::new(),
             replies: Replies::default(),
             tools: Tools::new(project.to_path_buf(), directory.to_path_buf()),
+            runs: Subagents::default(),
             asks: Asks::new(directory.to_path_buf()),
             asked: HashMap::new(),
             turn: Turn::default(),
@@ -176,8 +181,10 @@ impl Mapper {
         };
 
         if let EventKind::SessionCreated(created) = &event.kind {
-            self.note_child(created, event);
-            return Vec::new();
+            let mut out = Vec::new();
+            self.note_child(created, event, &mut out);
+
+            return events(out).collect();
         }
 
         if session != self.session {
@@ -228,6 +235,8 @@ impl Mapper {
             EventKind::AgentSelected(selected) => return session_change(SessionChange::Agent(selected.agent.clone())),
             EventKind::ModelSelected(selected) => return session_change(SessionChange::Model(selected.model.clone())),
             kind => {
+                self.subagent_call(session, kind, &mut out);
+
                 if !self.reply_event(kind, created, &mut out) {
                     self.ask_event(kind, false, &mut out);
                 }
@@ -241,6 +250,12 @@ impl Mapper {
     /// asks).
     pub fn set_mode_applied(&mut self, applied: bool) {
         self.asks.set_mode_applied(applied);
+    }
+
+    /// Masks `secret` (the server password) in the texts of the subagent panel, before they are
+    /// cut to their size limits.
+    pub fn set_secret(&mut self, secret: Option<&str>) {
+        self.runs.set_secret(secret);
     }
 
     /// The answer to dialog `response.id`; the engine sends it (or shows the next question).

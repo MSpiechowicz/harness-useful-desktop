@@ -28,6 +28,10 @@ function subagent(overrides: Partial<Subagent> = {}): Subagent {
     costUsd: 0.012,
     durationMs: 31_000,
     model: 'anthropic/claude-sonnet-4-5',
+    label: null,
+    report: null,
+    messageRoute: null,
+    canStop: null,
     ...overrides,
   };
 }

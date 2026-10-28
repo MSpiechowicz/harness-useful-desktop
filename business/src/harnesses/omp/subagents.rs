@@ -7,15 +7,13 @@
 
 use serde_json::{Value, json};
 
-use crate::model::{Subagent, SubagentStatus, SubagentTool};
-use crate::security::redact_text;
+use crate::model::{MAX_SUBAGENT_TEXT_CHARS, Subagent, SubagentRoute, SubagentStatus, SubagentTool};
+use crate::security::bounded_redacted;
 
-/// Longest assignment kept.
-const TASK_CHARS: usize = 600;
 /// Longest description, intent, tool argument preview or output line kept.
-const LINE_CHARS: usize = 240;
+pub(super) const LINE_CHARS: usize = 240;
 /// Recent tool calls kept per snapshot.
-const RECENT_TOOLS: usize = 5;
+pub(super) const RECENT_TOOLS: usize = 5;
 /// Recent output lines kept per snapshot.
 const RECENT_OUTPUT: usize = 6;
 
@@ -49,9 +47,9 @@ fn progress(payload: &Value) -> Option<Subagent> {
 
     let mut subagent = base(payload, progress.get("id").or_else(|| payload.get("id"))?, status)?;
     subagent.description = clipped(progress, "description", LINE_CHARS).or(subagent.description);
-    subagent.task = clipped(payload, "assignment", TASK_CHARS)
-        .or_else(|| clipped(payload, "task", TASK_CHARS))
-        .or_else(|| clipped(progress, "task", TASK_CHARS));
+    subagent.task = clipped(payload, "assignment", MAX_SUBAGENT_TEXT_CHARS)
+        .or_else(|| clipped(payload, "task", MAX_SUBAGENT_TEXT_CHARS))
+        .or_else(|| clipped(progress, "task", MAX_SUBAGENT_TEXT_CHARS));
     subagent.intent =
         clipped(progress, "currentToolIntent", LINE_CHARS).or_else(|| clipped(progress, "lastIntent", LINE_CHARS));
     subagent.current_tool = clipped(progress, "currentTool", LINE_CHARS);
@@ -88,32 +86,21 @@ fn lifecycle(payload: &Value) -> Option<Subagent> {
 fn base(payload: &Value, id: &Value, status: SubagentStatus) -> Option<Subagent> {
     let id = id.as_str().filter(|id| !id.is_empty())?;
 
+    let agent = clipped(payload, "agent", LINE_CHARS).unwrap_or_else(|| "task".to_owned());
+
     Some(Subagent {
-        id: clip(id, LINE_CHARS),
+        message_route: Some(SubagentRoute::Orchestrator),
+        can_stop: Some(false),
         parent_tool_call_id: payload
             .get("parentToolCallId")
             .and_then(Value::as_str)
-            .map(|id| clip(id, LINE_CHARS)),
-        agent: clipped(payload, "agent", LINE_CHARS).unwrap_or_else(|| "task".to_owned()),
-        status,
+            .map(|id| bounded_redacted(id, LINE_CHARS)),
         index: number(payload, "index")
             .and_then(|index| u32::try_from(index).ok())
             .unwrap_or(0),
         detached: payload.get("detached").and_then(Value::as_bool).unwrap_or(false),
         description: clipped(payload, "description", LINE_CHARS),
-        task: None,
-        intent: None,
-        current_tool: None,
-        current_args: None,
-        recent_tools: None,
-        recent_output: None,
-        tool_count: None,
-        tokens: None,
-        context_tokens: None,
-        context_window: None,
-        cost_usd: None,
-        duration_ms: None,
-        model: None,
+        ..Subagent::new(bounded_redacted(id, LINE_CHARS), agent, status)
     })
 }
 
@@ -150,20 +137,20 @@ fn recent_output(progress: &Value) -> Vec<String> {
         .iter()
         .skip(skip)
         .filter_map(Value::as_str)
-        .map(|line| clip(line, LINE_CHARS))
+        .map(|line| bounded_redacted(line, LINE_CHARS))
         .collect()
 }
 
-fn clipped(value: &Value, key: &str, max: usize) -> Option<String> {
+pub(super) fn clipped(value: &Value, key: &str, max: usize) -> Option<String> {
     value
         .get(key)
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|text| !text.is_empty())
-        .map(|text| clip(text, max))
+        .map(|text| bounded_redacted(text, max))
 }
 
-fn number(value: &Value, key: &str) -> Option<u64> {
+pub(super) fn number(value: &Value, key: &str) -> Option<u64> {
     value.get(key).and_then(|number| {
         number.as_u64().or_else(|| {
             number
@@ -172,18 +159,6 @@ fn number(value: &Value, key: &str) -> Option<u64> {
                 .map(|float| float as u64)
         })
     })
-}
-
-/// `text` redacted, then cut to `max` characters (with an ellipsis).
-fn clip(text: &str, max: usize) -> String {
-    let redacted = redact_text(text);
-    if redacted.chars().count() <= max {
-        return redacted;
-    }
-
-    let mut cut: String = redacted.chars().take(max.saturating_sub(1)).collect();
-    cut.push('…');
-    cut
 }
 
 #[cfg(test)]
@@ -241,14 +216,14 @@ mod tests {
 
     #[test]
     fn texts_are_clipped_and_bad_frames_ignored() {
-        let long = "x".repeat(2000);
+        let long = "x".repeat(MAX_SUBAGENT_TEXT_CHARS + 2000);
         let frame = json!({
             "type": "subagent_progress",
             "payload": { "agent": "task", "task": long, "progress": { "id": "Long", "status": "pending" } }
         });
 
         let subagent = decode_subagent(&frame).unwrap();
-        assert_eq!(subagent.task.unwrap().chars().count(), TASK_CHARS);
+        assert_eq!(subagent.task.unwrap().chars().count(), MAX_SUBAGENT_TEXT_CHARS);
 
         assert!(decode_subagent(&json!({ "type": "subagent_progress", "payload": { "progress": {} } })).is_none());
         assert!(decode_subagent(&json!({ "type": "agent_start" })).is_none());

@@ -3,8 +3,8 @@
 //!
 //! - **Sessions:** only events of the chat's own session count. Subagent sessions started from it
 //!   (`session.created` with a known `parentID`, at any depth) are tracked for their asks
-//!   ([`asks`]); their messages and tool calls belong to the `task` call that started them and are
-//!   not shown.
+//!   ([`asks`]) and for the subagent panel ([`children`]); their messages and tool calls belong to
+//!   the `task` call that started them and are not part of the chat.
 //!   Durable events repeat as `sync` and server events (`server.*`) carry no session: both are
 //!   ignored, as is every type the chat does not show (catalog, plugin, file and diff events).
 //! - **Messages and tool calls:** see [`messages`].
@@ -14,10 +14,13 @@
 //! - **Quiet runs** (`!command`s and compactions): see [`quiet`].
 
 mod asks;
+mod children;
 mod message;
 mod messages;
 mod question;
 mod quiet;
+mod subagent_run;
+mod subagent_state;
 mod touched;
 mod turns;
 
@@ -28,12 +31,15 @@ use serde_json::Value;
 
 use self::asks::Asks;
 pub use self::asks::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
+pub use self::children::SubagentSettings;
 pub(crate) use self::message::{
     history_messages, is_summary, part_type, record_messages, settled_records, text, tool_outcome,
 };
 use self::messages::Messages;
 use self::quiet::QuietRun;
 pub use self::quiet::{QuietKind, compaction_started};
+pub(crate) use self::subagent_run::tool_step;
+pub(crate) use self::subagent_state::{CallEnd, CallInput, Subagents};
 pub(crate) use self::touched::{part_touched, project_dir};
 use self::turns::Turn;
 use super::wire::{Envelope, Outgoing, SessionInfo, session_info};
@@ -65,6 +71,8 @@ pub struct Mapper {
     /// Subagent sessions and their directories.
     children: HashMap<String, String>,
     messages: Messages,
+    /// The subagents the chat's `task` calls started (the subagent panel).
+    runs: Subagents,
     asks: Asks,
     /// Each ask still open on OpenCode's side, as it came (`properties`, from a subagent), so a
     /// dialog whose answer did not reach OpenCode can be shown again ([`Mapper::reopen`]).
@@ -98,6 +106,7 @@ impl Mapper {
             session: session.to_owned(),
             children: HashMap::new(),
             messages: Messages::new(project.to_path_buf(), directory.to_path_buf()),
+            runs: Subagents::default(),
             asks: Asks::new(directory.to_path_buf()),
             asked: HashMap::new(),
             turn: Turn::default(),
@@ -120,8 +129,10 @@ impl Mapper {
         };
 
         if envelope.kind == "session.created" {
-            self.note_child(&envelope.properties);
-            return Vec::new();
+            let mut out = Vec::new();
+            self.note_child(&envelope.properties, &mut out);
+
+            return events(out).collect();
         }
 
         if session != self.session {
@@ -146,6 +157,7 @@ impl Mapper {
             "message.part.updated" => {
                 let part = properties.get("part").unwrap_or(&Value::Null);
                 self.messages.part_updated(part, &mut out);
+                self.task_part(session, part, &mut out);
             }
             "message.part.delta" => self.messages.part_delta(properties, &mut out),
             "session.status" => return self.status(properties, out),
@@ -163,6 +175,12 @@ impl Mapper {
     /// Whether the chat's server applies an approval mode to every agent (shown on `task` asks).
     pub fn set_mode_applied(&mut self, applied: bool) {
         self.asks.set_mode_applied(applied);
+    }
+
+    /// Masks `secret` (the server password) in the texts of the subagent panel, before they are
+    /// cut to their size limits.
+    pub fn set_secret(&mut self, secret: Option<&str>) {
+        self.runs.set_secret(secret);
     }
 
     /// The answer to dialog `response.id`; the engine sends it (or shows the next question).
@@ -208,17 +226,17 @@ impl Mapper {
         self.asked.clear();
     }
 
-    /// An event of a subagent session: only its asks reach the chat.
+    /// An event of a subagent session: its asks reach the chat, the rest the subagent panel.
     fn subagent_event(&mut self, envelope: &Envelope) -> Vec<Mapped> {
-        let known = envelope
+        let Some(session) = envelope
             .session_id()
-            .is_some_and(|session| self.children.contains_key(session));
-
-        if !known {
+            .filter(|session| self.children.contains_key(*session))
+        else {
             return Vec::new();
-        }
+        };
 
         let mut out = Vec::new();
+        self.child_event(session, envelope, &mut out);
         self.ask_event(envelope, true, &mut out);
 
         events(out).collect()
@@ -254,7 +272,7 @@ impl Mapper {
     }
 
     /// Tracks a session started from a tracked one.
-    fn note_child(&mut self, properties: &Value) {
+    fn note_child(&mut self, properties: &Value, out: &mut Vec<AgentEvent>) {
         let Some(info) = properties.get("info").and_then(session_info) else {
             return;
         };
@@ -262,8 +280,10 @@ impl Mapper {
         let parent = info.parent_id.as_deref();
         let known = parent.is_some_and(|parent| parent == self.session || self.children.contains_key(parent));
 
-        if known {
-            self.children.insert(info.id, info.directory);
+        // The chat's own session is never a subagent: stopping one would abort the chat.
+        if known && info.id != self.session {
+            self.children.insert(info.id.clone(), info.directory.clone());
+            self.child_started(&info, out);
         }
     }
 

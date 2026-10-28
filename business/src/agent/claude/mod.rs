@@ -22,7 +22,7 @@
 //!   denies the open asks and stops a running `!command`, `prompts.rs`); the state, the model and
 //!   thinking pickers, the commands and renaming (`settings.rs`); new, switch, fork and clone
 //!   (`ops.rs`); `!command`s and compaction (`runs.rs`); statistics, history, export and the last
-//!   reply (`reports.rs`).
+//!   reply (`reports.rs`); stopping one subagent (`subagents.rs`).
 //! - **Stop:** stdin closes, Claude Code exits (killed after the grace period).
 
 mod dialogs;
@@ -35,6 +35,7 @@ mod roles;
 mod runs;
 mod settings;
 mod startup;
+mod subagents;
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -48,6 +49,7 @@ use self::startup::Launcher;
 use super::io::Shared;
 use super::process::AgentProcess;
 use super::sink::PromptTaken;
+use crate::agent::subagents_unsupported;
 use crate::claude_stream::ClaudeMapper;
 use crate::claude_stream::stats::{ClaudeStats, MessageCounts};
 use crate::claude_stream::wire::control::{ModelInfo, SlashCommand};
@@ -250,6 +252,8 @@ impl ClaudeSession {
             A::GetAvailableAgents | A::SetAgent { .. } => Err(BusinessError::Unsupported(
                 "Claude Code chats have no agent picker".to_owned(),
             )),
+            A::StopSubagent { id } => self.stop_subagent(&id).await,
+            A::MessageSubagent { .. } => Err(subagents_unsupported("Claude Code")),
         }
     }
 

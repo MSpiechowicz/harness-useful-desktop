@@ -11,6 +11,8 @@ export function initialChatState(key: string): ChatState {
     items: [],
     toolCalls: {},
     subagents: {},
+    subagentSteps: {},
+    subagentClock: {},
     openRequests: [],
     queue: { steering: [], followUp: [], liveSteered: 0 },
     statuses: {},
@@ -28,6 +30,11 @@ export function initialChatState(key: string): ChatState {
     historyTotal: null,
     nextOrder: 0,
   };
+}
+
+/** The entry of `id` itself, never one inherited from `Object.prototype` (an id like `__proto__` comes from the agent). */
+export function own<T>(record: Readonly<Record<string, T>>, id: string): T | undefined {
+  return Object.hasOwn(record, id) ? record[id] : undefined;
 }
 
 export function findLastIndex<T>(list: readonly T[], matches: (item: T) => boolean): number {

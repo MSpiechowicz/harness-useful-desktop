@@ -89,4 +89,5 @@ mod routines_team_confirm;
 mod routines_when;
 mod routines_workspace;
 mod safe_reader;
+mod subagent_contract;
 mod team_listing_all;

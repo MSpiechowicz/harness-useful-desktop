@@ -13,6 +13,7 @@
   import { acceptCommand, filterCommands, resolveSlash, slashQuery } from '$lib/chat/slash';
   import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
   import { harness } from '$lib/stores/harness.svelte';
+  import { subagentPanel } from '$lib/stores/subagentPanel.svelte';
   import { uid } from '$lib/utils/ids';
   import { matchesShortcut } from '$lib/utils/shortcuts';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -91,9 +92,10 @@
     stopArmedAt = null;
   }
 
-  // Escape twice stops the agent; one Escape alone is too easy to hit. Menus and dialogs take their own Escape first.
+  // Escape twice stops the agent; one Escape alone is too easy to hit. Menus and dialogs take their own Escape first, and so
+  // does the subagent panel: an Escape that closes it is not the first of the two.
   function onwindowkeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Escape' || event.defaultPrevented || event.repeat || event.isComposing || !session.streaming) {
+    if (event.key !== 'Escape' || event.defaultPrevented || event.repeat || event.isComposing || !session.streaming || subagentPanel.selectedId(session.key) !== null) {
       return;
     }
 
@@ -295,6 +297,7 @@
 
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
+    data-composer-card
     {ondragover}
     ondragleave={() => (dragging = false)}
     {ondrop}

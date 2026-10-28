@@ -204,10 +204,19 @@ async fn tool_calls_of_the_chat_end_with_touched_paths_and_subagents_stay_out() 
             vec!["src/new.rs".to_owned()],
         )
     );
-    let shown = serde_json::to_string(&events).expect("events serialize");
+    let (panel, chat_events): (Vec<&AgentEvent>, Vec<&AgentEvent>) = events
+        .iter()
+        .partition(|event| matches!(event, AgentEvent::Subagent { .. } | AgentEvent::SubagentStep { .. }));
+    let shown = serde_json::to_string(&chat_events).expect("events serialize");
     assert!(
         !shown.contains("Child text is not shown") && !shown.contains("src/child.rs"),
-        "a subagent's messages, calls and touched files stay in its task"
+        "a subagent's messages, calls and touched files stay out of the chat"
+    );
+
+    let panel = serde_json::to_string(&panel).expect("events serialize");
+    assert!(
+        panel.contains("src/child.rs"),
+        "its calls show in the subagent panel instead"
     );
 
     let last = events

@@ -9,6 +9,7 @@ import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
 import type { ModelOption } from '$lib/ipc/bindings/ModelOption';
 import type { SessionRoutineTag } from '$lib/ipc/bindings/SessionRoutineTag';
 import type { SessionStats } from '$lib/ipc/bindings/SessionStats';
+import type { Subagent } from '$lib/ipc/bindings/Subagent';
 import type { UiOutcome } from '$lib/ipc/bindings/UiOutcome';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 import { harness } from '$lib/stores/harness.svelte';
@@ -16,34 +17,22 @@ import type { ToastsStore } from '$lib/stores/toasts.svelte';
 import { Flight } from '$lib/utils/flight';
 
 import { pendingApproval, pendingDialog, type ApprovalPrompt } from './approval';
-import { splitFileNote, toImages, withFileNote } from './attachments';
+import { toImages, withFileNote } from './attachments';
 import { ComposerAttachments, type Attached } from './composer-attachments.svelte';
 import { finishBash, startBash } from './bash';
 import { messageAction, type SendMode } from './composer';
 import { labelFromPrompt, type ChatLabel } from './naming';
-import { splitHooks } from './hook-context';
-import { splitRecall } from './memory-recall';
+import { firstUserPrompt } from './first-prompt';
 import { prependHistory } from './messages';
 import { applyEvent, clearTranscript, dropRequest, reduceEnvelope } from './reducer';
 import { mergeCatalog } from './slash';
 import { initialChatState } from './state';
-import type { ChatState } from './types';
+import { addSentMessage } from './subagent-steps';
+import { messageRequest } from './subagents';
+import type { ChatState, SessionUi } from './types';
 
 const HISTORY_PAGE = 50;
 const FLUSH_FALLBACK_MS = 100;
-
-/** Small pieces of view state that slash commands and other surfaces can open from outside the header. */
-export interface SessionUi {
-  modelPicker: boolean;
-  thinkingPicker: boolean;
-  agentPicker: boolean;
-  stats: boolean;
-  approvalChooser: boolean;
-  /** A line of text the user is being asked for (compact instructions, a session name). */
-  ask: 'compact' | 'name' | null;
-  /** A `!command` waiting for the user's confirmation. */
-  confirmBash: string | null;
-}
 
 /**
  * One running agent session: its transcript (reduced from the event stream), the composer
@@ -87,21 +76,7 @@ export class ChatSession {
   /** The name and description a helper agent gave the chat (the "AI chat names" setting); null until it answers. */
   aiLabel = $state.raw<ChatLabel | null>(null);
   /** What the chat was opened with, known only while the whole transcript is (not for a resumed chat's newest page). */
-  firstPrompt = $derived.by(() => {
-    if (this.chat.historyCursor !== null) {
-      return '';
-    }
-
-    const first = this.chat.items.find((item) => item.kind === 'message' && item.role === 'user');
-
-    if (first?.kind !== 'message') {
-      return '';
-    }
-
-    const sent = first.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n');
-
-    return splitFileNote(splitHooks(splitRecall(sent).text).text).text;
-  });
+  firstPrompt = $derived(firstUserPrompt(this.chat));
   /** The card text: the helper's when it answered, else the opening words of the first message. */
   label = $derived(this.aiLabel ?? labelFromPrompt(this.firstPrompt));
   /** Called when the first user message of a chat lands, and again after `startOver` (a new session in the same chat). */
@@ -303,6 +278,23 @@ export class ChatSession {
     await this.send({ type: 'abort' });
   }
 
+  /** Stops one subagent and leaves the chat running. False when the harness refused (the toast says why). */
+  async stopSubagent(id: string): Promise<boolean> {
+    return (await this.send({ type: 'stopSubagent', id })) !== null;
+  }
+
+  /** Sends the user's message to a subagent the way its route says and lists it among the subagent's steps. False when it did not go out. */
+  async messageSubagent(subagent: Subagent, text: string): Promise<boolean> {
+    const request = messageRequest(subagent, text);
+    const sent = request !== null && (await this.send(request.action)) !== null;
+
+    if (sent) {
+      this.apply((state) => addSentMessage(state, subagent.id, text, request.route, Date.now()));
+    }
+
+    return sent;
+  }
+
   /**
    * Withdraws a message still waiting in the steering or follow-up queue; the agent's next queue update drops it from
    * the list. False when it did not leave the queue (already handed to the agent, or refused).
@@ -487,7 +479,7 @@ export class ChatSession {
   /** Replaces the transcript with the session's history, after the session changed under the chat (a fork). */
   async reloadHistory(): Promise<void> {
     this.historyLoaded = false;
-    this.apply((state) => ({ ...state, items: [], toolCalls: {}, subagents: {}, nextOrder: 0, lastUserText: null, historyCursor: null, historyTotal: null }));
+    this.apply((state) => ({ ...state, items: [], toolCalls: {}, subagents: {}, subagentSteps: {}, subagentClock: {}, nextOrder: 0, lastUserText: null, historyCursor: null, historyTotal: null }));
     await this.loadHistory();
   }
 

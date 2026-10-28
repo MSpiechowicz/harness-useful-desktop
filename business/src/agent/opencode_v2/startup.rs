@@ -177,6 +177,7 @@ impl OpenCodeV2Session {
         let mut mapper = Mapper::new(booted.session.as_str(), project, &booted.directory);
         mapper.seen(&booted.messages);
         mapper.set_mode_applied(rules.mode().is_some());
+        mapper.set_secret(shared.secret());
 
         let commands = OpenCodeCatalog.merged(&booted.slash.entries);
         let live = Live {

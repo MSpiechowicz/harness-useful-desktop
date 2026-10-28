@@ -225,11 +225,12 @@
     return () => cancelAnimationFrame(frame);
   });
 
-  export function scrollToIndex(index: number): void {
+  /** Brings a row to the top of the view, or with `center` to the middle of it. */
+  export function scrollToIndex(index: number, align: 'start' | 'center' = 'start'): void {
     if (scroller && index >= 0 && index < items.length) {
       // A jump is the caller's choice of place: the view stops following the end unless it lands there.
       following = false;
-      scroller.scrollTop = offsets[index];
+      scroller.scrollTop = align === 'center' ? Math.max(0, offsets[index] - (viewport - (offsets[index + 1] - offsets[index])) / 2) : offsets[index];
     }
   }
 

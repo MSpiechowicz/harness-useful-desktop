@@ -66,7 +66,9 @@ impl OpenCodeSession {
             | A::SetThinkingLevel { .. }
             | A::GetAvailableAgents
             | A::SetAgent { .. }
-            | A::RefreshCommands => Err(BusinessError::Internal("not a session action".to_owned())),
+            | A::RefreshCommands
+            | A::StopSubagent { .. }
+            | A::MessageSubagent { .. } => Err(BusinessError::Internal("not a session action".to_owned())),
         }
     }
 

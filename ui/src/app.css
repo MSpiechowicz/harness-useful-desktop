@@ -268,6 +268,13 @@
   padding-inline: calc(var(--panel-pad-x) - var(--panel-row-inset) - 1px);
 }
 
+/* A scrolling body whose rows fade out at its top and bottom edges instead of ending in a hard cut under the block above
+   or the line below. The fade sits inside the body's own padding, so nothing is faded while the body rests at either end. */
+@utility panel-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--panel-fade), #000 calc(100% - var(--panel-fade-end)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--panel-fade), #000 calc(100% - var(--panel-fade-end)), transparent);
+}
+
 /* The header of a side panel: the title on the pad, and a close button on the right whose glyph is on the pad too. */
 @utility panel-header-inset {
   padding-left: var(--panel-pad-x);

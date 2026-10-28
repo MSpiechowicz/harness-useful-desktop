@@ -1,5 +1,6 @@
 //! The subagent sessions of a chat: the sessions started from its own session, at any depth, whose
-//! asks reach the chat ([`super::asks`]). Their messages and tool calls are not shown.
+//! asks reach the chat ([`super::asks`]) and whose work shows in the subagent panel
+//! ([`super::children`]). Their messages and tool calls are not part of the chat.
 //!
 //! A subagent session is known from any of:
 //!
@@ -14,10 +15,11 @@
 use serde_json::Value;
 
 use super::{Mapped, Mapper, events};
+use crate::model::AgentEvent;
 use crate::opencode_server_v2::events::{Event, SessionCreated, ToolProgress};
 
 /// The tool that runs a subagent in a session of its own.
-const SUBAGENT_TOOL: &str = "subagent";
+pub(super) const SUBAGENT_TOOL: &str = "subagent";
 
 impl Mapper {
     /// Counts `session` (started from `parent`) as one of the chat's subagent sessions, working
@@ -60,12 +62,16 @@ impl Mapper {
     }
 
     /// Tracks a session started from a tracked one.
-    pub(super) fn note_child(&mut self, created: &SessionCreated, event: &Event) {
+    pub(super) fn note_child(&mut self, created: &SessionCreated, event: &Event, out: &mut Vec<AgentEvent>) {
         let Some(parent) = created.parent_id.as_deref() else {
             return;
         };
 
         self.adopt(&created.session_id, parent, event_directory(event));
+
+        if self.children.contains_key(&created.session_id) {
+            self.child_started(&created.session_id, parent, out);
+        }
     }
 
     /// Notes the session a `subagent` call of the chat's session names, for the engine to confirm.
@@ -85,18 +91,19 @@ impl Mapper {
         self.unlisted.push(child.to_owned());
     }
 
-    /// An event of another session: only the asks of the chat's subagents reach the chat.
+    /// An event of another session: the asks of the chat's subagents reach the chat, the rest
+    /// the subagent panel ([`super::children`]).
     pub(super) fn subagent_event(&mut self, event: &Event) -> Vec<Mapped> {
-        let known = event
+        let Some(session) = event
             .session_id
             .as_deref()
-            .is_some_and(|session| self.children.contains_key(session));
-
-        if !known {
+            .filter(|session| self.children.contains_key(*session))
+        else {
             return Vec::new();
-        }
+        };
 
         let mut out = Vec::new();
+        self.child_event(session, event, &mut out);
         self.ask_event(&event.kind, true, &mut out);
 
         events(out).collect()

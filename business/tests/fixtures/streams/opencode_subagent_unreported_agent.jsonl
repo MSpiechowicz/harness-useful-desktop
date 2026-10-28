@@ -1,0 +1,10 @@
+// A child whose reply has not shown yet has no agent the server reported (the task call's subagent_type is what a model wrote). A message to it waits: it is refused, and no prompt is sent.
+// A title marks the end.
+{"include":"opencode_startup.jsonl"}
+{"expect":"POST /session/ses_eaa561636ffezINnnn1ghd5370/prompt_async","match":{"/parts/0/text":"Delegate it"}}
+{"sse":{"type":"session.status","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","status":{"type":"busy"}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","part":{"id":"prt_task","messageID":"msg_parent","type":"tool","tool":"task","callID":"call_task","sessionID":"ses_eaa561636ffezINnnn1ghd5370","state":{"status":"running","input":{"description":"Check the tests","prompt":"Run the tests and report","subagent_type":"general"},"time":{"start":10}}}}}}
+{"sse":{"type":"session.created","properties":{"sessionID":"ses_child1","info":{"id":"ses_child1","parentID":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Child session - 2026-10-19T19:36:07.700Z","time":{"created":1}}}}}
+{"sse":{"type":"message.part.updated","properties":{"sessionID":"ses_child1","part":{"id":"prt_bash","messageID":"msg_c1","type":"tool","tool":"bash","callID":"call_bash","sessionID":"ses_child1","state":{"status":"running","input":{"command":"sleep 30"},"time":{"start":11}}}}}}
+{"sse":{"type":"session.updated","properties":{"sessionID":"ses_eaa561636ffezINnnn1ghd5370","info":{"id":"ses_eaa561636ffezINnnn1ghd5370","directory":"$directory","title":"Marker","time":{"created":1,"updated":2}}}}}
+{"hang":true}

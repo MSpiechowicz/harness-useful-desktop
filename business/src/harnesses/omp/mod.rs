@@ -13,6 +13,7 @@ mod marketplaces;
 mod paths;
 mod plugins;
 mod sessions;
+mod subagent_steps;
 mod subagents;
 mod themes;
 
@@ -30,6 +31,7 @@ pub use paths::{active_profile, omp_paths};
 pub use plugins::{InstalledPlugins, installed_plugins};
 pub(crate) use plugins::{PluginOrigin, PluginRecord, user_plugin_records};
 pub use sessions::{omp_session_store, omp_sessions_dir, omp_sessions_root};
+pub(crate) use subagent_steps::SubagentSteps;
 
 use crate::ecosystem::catalog::{SKILLS_MARKETPLACE, SKILLS_TARGET};
 use crate::harness::prelude::*;

@@ -92,7 +92,7 @@ export const shell = {
   'shell.shortcut.newChat': 'New chat',
   'shell.shortcut.toggleRail': 'Expand or collapse the sidebar',
   'shell.shortcut.toggleList': 'Show or hide the list on Sessions, Changes, Config and Extensions',
-  'shell.shortcut.toggleDetails': 'Show or hide the details on Sessions, Config and Extensions',
+  'shell.shortcut.toggleDetails': 'Show or hide the details on Sessions, Config and Extensions, or the subagent in Chat',
   'shell.shortcut.back': 'Back',
   'shell.shortcut.forward': 'Forward',
   'shell.shortcut.nextChat': 'Next chat',

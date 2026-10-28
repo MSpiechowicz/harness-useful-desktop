@@ -182,10 +182,13 @@ fn a_subagent_asks_with_its_own_directory_and_other_sessions_are_ignored() {
     let created = json!({ "type": "session.created", "properties": { "sessionID": CHILD,
         "info": { "id": CHILD, "parentID": SESSION, "directory": "/work/project/sub" } } });
 
-    let out = events(feed(
+    let out: Vec<AgentEvent> = events(feed(
         &mut mapper,
         &[bash_ask("per_0", "ses_unknown"), created, bash_ask("per_1", CHILD)],
-    ));
+    ))
+    .into_iter()
+    .filter(|event| !matches!(event, AgentEvent::Subagent { .. }))
+    .collect();
 
     assert_eq!(out.len(), 1);
     let (id, title, ..) = select(&out[0]);

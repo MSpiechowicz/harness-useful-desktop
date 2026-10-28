@@ -4,37 +4,11 @@
 
 use crate::claude_frames;
 
-use std::path::Path;
-
-use claude_frames::{hints, requesting};
-use harness_business::claude_stream::mapper::{Ask, ClaudeMapper, Hint, Mapped, SendKind, UNFINISHED_TOOL, events};
-use harness_business::claude_stream::wire::decode_value;
-use harness_business::model::{AgentEvent, ChatBlock, PromptStatus, SubagentStatus};
+use claude_frames::{feed, hints, kinds, mapper, requesting};
+use harness_business::claude_stream::mapper::{Ask, Hint, SendKind, UNFINISHED_TOOL, events};
+use harness_business::model::{AgentEvent, ChatBlock, PromptStatus, SubagentRoute, SubagentStatus};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
-
-fn mapper() -> ClaudeMapper {
-    ClaudeMapper::new(Path::new("/work/project"))
-}
-
-fn feed(mapper: &mut ClaudeMapper, frames: &[Value]) -> Vec<Mapped> {
-    frames
-        .iter()
-        .flat_map(|frame| mapper.on_frame(&decode_value(frame.clone()).unwrap()))
-        .collect()
-}
-
-fn kinds(mapped: &[Mapped]) -> Vec<String> {
-    events(mapped)
-        .iter()
-        .map(|event| {
-            serde_json::to_value(event).unwrap()["type"]
-                .as_str()
-                .unwrap()
-                .to_owned()
-        })
-        .collect()
-}
 
 fn text_reply(id: &str, text: &str) -> Value {
     json!({ "type": "assistant", "uuid": format!("entry-{id}"), "parent_tool_use_id": null,
@@ -52,7 +26,7 @@ fn result(uuid: &str, extra: Value) -> Value {
 }
 
 #[test]
-fn frames_of_a_subagent_are_not_shown() {
+fn frames_of_a_subagent_never_show_as_chat_messages_or_start_a_turn() {
     let mut mapper = mapper();
     let parent = json!("toolu_task");
     let out = feed(
@@ -105,6 +79,78 @@ fn task_subagents_show_as_subagents_and_other_tasks_do_not() {
     assert_eq!((subagents[1].tool_count, subagents[1].tokens), (Some(3), Some(900)));
     assert_eq!(subagents[2].status, SubagentStatus::Completed);
     assert_eq!(subagents[2].intent.as_deref(), Some("Found it"));
+    assert_eq!(subagents[2].report.as_deref(), Some("Found it"));
+
+    assert_eq!(subagents[0].label.as_deref(), Some("Find the parser"));
+    assert_eq!(subagents[0].message_route, Some(SubagentRoute::Orchestrator));
+    assert_eq!(
+        subagents.iter().map(|subagent| subagent.can_stop).collect::<Vec<_>>(),
+        [Some(true), Some(true), Some(false)]
+    );
+}
+
+#[test]
+fn an_ended_subagent_is_not_revived_by_a_status_less_update_or_a_late_progress() {
+    let mut mapper = mapper();
+    feed(
+        &mut mapper,
+        &[
+            json!({ "type": "system", "subtype": "task_started", "task_id": "t1", "tool_use_id": "toolu_task",
+                "description": "Find it", "subagent_type": "Explore", "task_type": "local_agent" }),
+            json!({ "type": "system", "subtype": "task_notification", "task_id": "t1", "status": "completed",
+                "summary": "Done", "output_file": "" }),
+        ],
+    );
+    assert_eq!(mapper.subagent_active("t1"), Some(false));
+
+    let out = feed(
+        &mut mapper,
+        &[
+            json!({ "type": "system", "subtype": "task_updated", "task_id": "t1",
+                "patch": { "is_backgrounded": true, "description": "Renamed" } }),
+            json!({ "type": "system", "subtype": "task_progress", "task_id": "t1", "description": "late",
+                "last_tool_name": "Grep" }),
+        ],
+    );
+
+    for event in events(&out) {
+        match event {
+            AgentEvent::Subagent { subagent } => {
+                assert_eq!(subagent.status, SubagentStatus::Completed);
+                assert_eq!(subagent.can_stop, Some(false));
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    assert_eq!(mapper.subagent_active("t1"), Some(false));
+}
+
+#[test]
+fn a_status_less_update_keeps_a_running_subagent_running_and_an_explicit_status_still_applies() {
+    let mut mapper = mapper();
+    feed(
+        &mut mapper,
+        &[
+            json!({ "type": "system", "subtype": "task_started", "task_id": "t1", "tool_use_id": "toolu_task",
+            "subagent_type": "Explore", "task_type": "local_agent" }),
+        ],
+    );
+
+    let renamed = feed(
+        &mut mapper,
+        &[
+            json!({ "type": "system", "subtype": "task_updated", "task_id": "t1", "patch": { "description": "Renamed" } }),
+        ],
+    );
+    assert_eq!(mapper.subagent_active("t1"), Some(true));
+    assert_eq!(kinds(&renamed), ["subagent"]);
+
+    feed(
+        &mut mapper,
+        &[json!({ "type": "system", "subtype": "task_updated", "task_id": "t1", "patch": { "status": "killed" } })],
+    );
+    assert_eq!(mapper.subagent_active("t1"), Some(false));
 }
 
 #[test]

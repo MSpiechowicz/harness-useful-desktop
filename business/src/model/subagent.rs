@@ -15,6 +15,20 @@ pub enum SubagentStatus {
     Aborted,
 }
 
+/// Longest `task` (the prompt a subagent was given) and `report` kept, in characters (64 Ki characters, not bytes).
+pub const MAX_SUBAGENT_TEXT_CHARS: usize = 64 * 1024;
+
+/// How a message typed in the subagent panel reaches the subagent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum SubagentRoute {
+    /// Straight into the subagent's own session.
+    Direct,
+    /// To the orchestrator (the main agent), which passes it on.
+    Orchestrator,
+}
+
 /// One recent tool call of a subagent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -68,4 +82,44 @@ pub struct Subagent {
     pub duration_ms: Option<u64>,
     /// `provider/id` of the model it runs on.
     pub model: Option<String>,
+    /// What it was spawned for (the spawn description), shown as the panel title.
+    pub label: Option<String>,
+    /// Its final answer as markdown, at most [`MAX_SUBAGENT_TEXT_CHARS`] characters, redacted.
+    pub report: Option<String>,
+    /// How a message to it travels. `None` hides the message box.
+    pub message_route: Option<SubagentRoute>,
+    /// Whether the panel may stop it. `None` and `Some(false)` hide the stop control.
+    pub can_stop: Option<bool>,
+}
+
+impl Subagent {
+    /// A snapshot that carries only what every frame has; a harness sets the rest it knows.
+    pub fn new(id: String, agent: String, status: SubagentStatus) -> Self {
+        Self {
+            id,
+            parent_tool_call_id: None,
+            agent,
+            status,
+            index: 0,
+            detached: false,
+            description: None,
+            task: None,
+            intent: None,
+            current_tool: None,
+            current_args: None,
+            recent_tools: None,
+            recent_output: None,
+            tool_count: None,
+            tokens: None,
+            context_tokens: None,
+            context_window: None,
+            cost_usd: None,
+            duration_ms: None,
+            model: None,
+            label: None,
+            report: None,
+            message_route: None,
+            can_stop: None,
+        }
+    }
 }

@@ -13,6 +13,7 @@
   import MessageList from './MessageList.svelte';
   import PromptErrorBanner from './PromptErrorBanner.svelte';
   import SubagentList from './SubagentList.svelte';
+  import SubagentPanel from './SubagentPanel.svelte';
   import UiRequestDialog from './UiRequestDialog.svelte';
   import WidgetStrip from './WidgetStrip.svelte';
 
@@ -23,6 +24,7 @@
   let { session }: Props = $props();
 
   let restarting = $state(false);
+  let host: HTMLElement | undefined = $state();
 
   const chat = $derived(session.chat);
   const approval = $derived(pendingApproval(chat));
@@ -44,7 +46,8 @@
   }
 </script>
 
-<div class="flex size-full min-h-0 flex-col">
+<!-- The subagent panel slides over the right side of this pane (it is positioned against it), so the chat never reflows. -->
+<div bind:this={host} class="relative flex size-full min-h-0 flex-col overflow-x-clip">
   <MessageList {session} />
 
   <span class="sr-only" role="status">{session.streaming ? t('chat.list.responding') : ''}</span>
@@ -65,12 +68,14 @@
 
   {#if subagents.length > 0}
     <div class="chat-col">
-      <SubagentList {subagents} docked />
+      <SubagentList {subagents} panelKey={session.key} docked />
     </div>
   {/if}
 
   <Composer {session} />
   <WidgetStrip {chat} placement="below" />
+
+  <SubagentPanel {session} {host} />
 </div>
 
 {#if session.dialog}

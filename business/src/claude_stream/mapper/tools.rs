@@ -237,8 +237,34 @@ fn intent(input: &Value) -> Option<String> {
         .map(redact_text)
 }
 
+/// The arguments that say most about a call, in the order they are tried.
+const PRIMARY_ARGS: [&str; 8] = [
+    "command",
+    "pattern",
+    "query",
+    "url",
+    "file_path",
+    "path",
+    "description",
+    "prompt",
+];
+
+/// The argument of a call that says most about it (a shell command, a path, a pattern, a URL, a
+/// search query, a description), else its first text argument. Not redacted.
+pub(super) fn primary_arg(input: &Value) -> Option<String> {
+    let args = input.as_object()?;
+    let named = PRIMARY_ARGS.iter().filter_map(|key| args.get(*key));
+
+    named
+        .chain(args.values())
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .find(|text| !text.is_empty())
+        .map(str::to_owned)
+}
+
 /// The text of a `tool_result`'s content: a string, or its text blocks one per line.
-fn result_text(content: &Value) -> String {
+pub(super) fn result_text(content: &Value) -> String {
     let Value::Array(blocks) = content else {
         return content.as_str().unwrap_or_default().to_owned();
     };

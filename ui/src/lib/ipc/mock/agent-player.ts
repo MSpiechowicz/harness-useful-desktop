@@ -1,8 +1,9 @@
 import type { AgentEnvelope } from '../bindings/AgentEnvelope';
 import type { AgentEvent } from '../bindings/AgentEvent';
+import type { Subagent } from '../bindings/Subagent';
 import type { UiOutcome } from '../bindings/UiOutcome';
 import type { UiResponse } from '../bindings/UiResponse';
-import type { EventSink } from '../transport';
+import { IpcFailure, type EventSink } from '../transport';
 import { fixtures, type StreamName } from './fixtures';
 import { SUBAGENT_STEP_MS, subagentDemo } from './subagent-demo';
 
@@ -107,6 +108,9 @@ function delayFor(event: AgentEvent): number {
   if (event.type === 'subagent' && event.subagent.status !== 'pending') {
     return SUBAGENT_STEP_MS;
   }
+  if (event.type === 'subagentStep') {
+    return SUBAGENT_STEP_MS / 2;
+  }
 
   return STEP_MS;
 }
@@ -126,6 +130,8 @@ export class MockAgentStream {
   private playing = false;
   private waiter: { id: string; resolve: (outcome: UiOutcome | null) => void } | null = null;
   private queued: { steering: string[]; followUp: string[] } = { steering: [], followUp: [] };
+  /** The latest snapshot of each subagent, so a stop or a message can answer for it. */
+  private readonly subagents = new Map<string, Subagent>();
 
   constructor(
     readonly key: string,
@@ -139,8 +145,47 @@ export class MockAgentStream {
   }
 
   emit(event: AgentEvent): void {
+    if (event.type === 'subagent') {
+      this.subagents.set(event.subagent.id, event.subagent);
+    }
+
+    // A step happens when it is played, not when the scenario was written.
+    const stamped = event.type === 'subagentStep' && event.step.at !== null ? { ...event, step: { ...event.step, at: Date.now() } } : event;
+
     this.seq += 1;
-    this.sink({ sessionKey: this.key, seq: this.seq, event });
+    this.sink({ sessionKey: this.key, seq: this.seq, event: stamped });
+  }
+
+  private subagent(id: string): Subagent {
+    const found = this.subagents.get(id);
+    if (!found) {
+      throw IpcFailure.from({ code: 'notFound', message: 'That subagent is not known.' });
+    }
+
+    return found;
+  }
+
+  /** Stops one subagent the way a harness that can reports it: its snapshot becomes `aborted`. A finished one is left as it is. */
+  stopSubagent(id: string): void {
+    const found = this.subagent(id);
+    if (found.status !== 'running' && found.status !== 'pending') {
+      return;
+    }
+    if (found.canStop !== true) {
+      throw IpcFailure.from({ code: 'unsupported', message: 'This subagent cannot be stopped from here.' });
+    }
+
+    this.emit({ type: 'subagent', subagent: { ...found, status: 'aborted', canStop: false } });
+  }
+
+  /** A message to a running subagent gets a short answer in its steps. */
+  messageSubagent(id: string, message: string): void {
+    const found = this.subagent(id);
+    if (found.status === 'running' && found.messageRoute === 'direct') {
+      const reply = `Got it, taking this into account: ${message}`;
+
+      setTimeout(() => this.emit({ type: 'subagentStep', subagentId: id, step: { id: `${id}-reply-${this.seq}`, kind: 'text', name: null, detail: reply, status: 'done', at: Date.now(), output: null, outputLines: null } }), 900 * this.pace());
+    }
   }
 
   /** Replays the scenario for `prompt`, echoing `shown` as the user message; a new prompt while one is playing is the caller's job to queue. */

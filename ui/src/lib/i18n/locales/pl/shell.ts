@@ -107,7 +107,7 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.shortcut.newChat': 'Nowy czat',
   'shell.shortcut.toggleRail': 'Rozwiń lub zwiń pasek boczny',
   'shell.shortcut.toggleList': 'Pokaż lub ukryj listę w Sesjach, Zmianach, Konfiguracji i Rozszerzeniach',
-  'shell.shortcut.toggleDetails': 'Pokaż lub ukryj szczegóły w Sesjach, Konfiguracji i Rozszerzeniach',
+  'shell.shortcut.toggleDetails': 'Pokaż lub ukryj szczegóły w Sesjach, Konfiguracji i Rozszerzeniach albo subagenta w Czacie',
   'shell.shortcut.back': 'Wstecz',
   'shell.shortcut.forward': 'Dalej',
   'shell.shortcut.nextChat': 'Następny czat',

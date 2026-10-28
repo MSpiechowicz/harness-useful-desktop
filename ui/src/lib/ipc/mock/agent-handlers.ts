@@ -119,6 +119,16 @@ export function agentHandlers(
 
         return ACK;
 
+      case 'stopSubagent':
+        stream.stopSubagent(action.id);
+
+        return ACK;
+
+      case 'messageSubagent':
+        stream.messageSubagent(action.id, action.message);
+
+        return ACK;
+
       default:
         return configure(target, action);
     }

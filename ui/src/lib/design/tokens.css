@@ -221,6 +221,25 @@
   --panel-row-inset: 8px;
   /* The room around an 18px glyph in a 36px icon button: a close button this much closer to the edge puts the glyph on the pad. */
   --panel-close-inset: 9px;
+  /* The space between the blocks of a side panel that lays itself out (the subagent panel): the cards, the tabs and the first block. */
+  --panel-block-gap: 12px;
+  /* The icon tile of a step (28px) and of the live card of a subagent (36px, the control height). */
+  --tile-md: 28px;
+  --tile-lg: var(--control-h);
+  --tile-lg-radius: 10px;
+  /* The line heights of the subagent panel's rows: a step's detail, the field of the message box and the lines of a terminal (20px), and the two-line captions of a card header (18px). */
+  --detail-line: 20px;
+  --caption-line: 18px;
+  /* How tall the subagent panel's message field grows when there is no chat composer to match. */
+  --message-field-max: 120px;
+  /* How far the subagent panel's scrolling body fades out at its top and bottom edges (the bottom one matches the body's own
+     bottom padding), so rows do not end in a hard cut. */
+  --panel-fade: var(--panel-block-gap);
+  --panel-fade-end: 24px;
+  /* How tall a subagent's brief gets in its card before it scrolls inside the card: past it the messages sent later still show. */
+  --brief-max-h: 320px;
+  /* The output card of a subagent: the room the line numbers keep beyond their digits. */
+  --output-gutter-pad: 3.5ch;
   /* The least a pane header keeps for its title (a file name, say) when the controls beside it crowd it: they shrink first. */
   --pane-title-min: 240px;
   /* The line height of a notice banner that sits between the top bar and a workspace view: a whole pixel, so the view below starts on one. */

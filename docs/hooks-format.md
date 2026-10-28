@@ -92,7 +92,7 @@ The tool name is the one the harness reports. OpenCode reports the native id of 
 | `todowrite`, `skill`, `question` | update the todo list, load a skill, ask the user | none |
 | `<server>_<tool>` | tool `<tool>` of MCP server `<server>` | none |
 
-So `edit|write|apply_patch` matches every OpenCode 1 file change. Only paths inside the project count. Tool calls of a subagent (a `task`) are not reported, as in OMP: they fire no `toolEnd` and add no touched paths.
+So `edit|write|apply_patch` matches every OpenCode 1 file change. Only paths inside the project count. Tool calls of a subagent (a `task`) are not reported, as in OMP: they fire no `toolEnd` and add no touched paths. A message typed in the subagent panel of an OpenCode chat goes straight to the child session and skips hooks, while a message to a Claude Code or OMP subagent is a prompt of the orchestrator and runs `promptSubmit` hooks like any prompt.
 
 OpenCode 2 (2.1) renamed some tools and the argument that names the file:
 

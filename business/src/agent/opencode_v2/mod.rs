@@ -16,7 +16,7 @@
 //!   history (`history.rs`), the model, thinking level and agent pickers and renaming
 //!   (`settings.rs`), answers to approvals and forms (`dialogs.rs`), new chat, fork and clone
 //!   (`ops.rs`), `!command`s and compaction (`runs.rs`), and statistics, the last reply and the HTML
-//!   export (`reports.rs`).
+//!   export (`reports.rs`), and stopping or messaging a subagent (`subagents.rs`).
 //! - **Approval modes** (`approvals.rs`, `probe.rs`): configuration of the chat's own server, read
 //!   from a first start without the mode, checked again when OpenCode reloads its agents
 //!   (`guard.rs`). "Always allow" lasts as long as the chat. **Helper chats:** a session whose own
@@ -41,6 +41,7 @@ mod settings;
 mod shell_output;
 mod startup;
 mod stream;
+mod subagents;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
@@ -255,6 +256,8 @@ impl OpenCodeV2Session {
             A::GetSessionStats => self.stats().await,
             A::ExportHtml => self.export_html().await,
             A::GetLastAssistantText => self.last_reply().await,
+            A::StopSubagent { id } => self.stop_subagent(&id).await,
+            A::MessageSubagent { id, message } => self.message_subagent(&id, &message).await,
         };
 
         // Tools see the server password: whatever OpenCode stored never shows it.

@@ -218,6 +218,7 @@ impl Chat {
     pub(super) fn mapper(&self, session: &SessionId) -> Mapper {
         let mut mapper = Mapper::new(session.as_str(), &self.project, &self.root);
         mapper.set_mode_applied(self.rules.mode().is_some());
+        mapper.set_secret(self.shared.secret());
 
         mapper
     }

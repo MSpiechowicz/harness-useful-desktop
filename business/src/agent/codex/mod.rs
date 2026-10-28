@@ -51,6 +51,7 @@ use self::runs::Shell;
 use super::io::Shared;
 use super::process::AgentProcess;
 use super::sink::PromptTaken;
+use crate::agent::subagents_unsupported;
 use crate::codex_rpc::CodexMapper;
 use crate::codex_rpc::stats::{CodexStats, MessageCounts};
 use crate::codex_rpc::wire::items::UserInput;
@@ -301,6 +302,7 @@ impl CodexSession {
             A::GetAvailableAgents | A::SetAgent { .. } => Err(BusinessError::Unsupported(
                 "Codex chats have no agent picker".to_owned(),
             )),
+            A::StopSubagent { .. } | A::MessageSubagent { .. } => Err(subagents_unsupported("Codex")),
         }
     }
 

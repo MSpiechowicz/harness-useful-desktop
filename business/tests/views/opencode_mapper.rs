@@ -196,12 +196,17 @@ fn subagent_sessions_at_any_depth_stay_out_of_the_chat() {
         ],
     ));
 
+    let chat: Vec<&AgentEvent> = out
+        .iter()
+        .filter(|event| !matches!(kind(event).as_str(), "subagent" | "subagentStep"))
+        .collect();
+
     assert_eq!(
-        out.iter().map(kind).collect::<Vec<_>>(),
+        chat.iter().map(|event| kind(event)).collect::<Vec<_>>(),
         ["agentStart", "toolStart", "toolEnd"],
         "a subagent's calls belong to its task card, and its going idle does not end the turn"
     );
-    assert!(matches!(&out[2], AgentEvent::ToolEnd { tool_call_id, .. } if tool_call_id == "call_own"));
+    assert!(matches!(chat[2], AgentEvent::ToolEnd { tool_call_id, .. } if tool_call_id == "call_own"));
 }
 
 #[test]

@@ -15,6 +15,9 @@ pub const MAX_ACTION_TEXT_BYTES: usize = 512 * 1024;
 /// Largest accepted `setAgent` agent id, in bytes.
 pub const MAX_AGENT_ID_BYTES: usize = 128;
 
+/// Largest accepted subagent id, in bytes.
+pub const MAX_SUBAGENT_ID_BYTES: usize = 1024;
+
 /// Largest accepted `getHistory` page size.
 pub const MAX_HISTORY_PAGE: u32 = 200;
 
@@ -90,6 +93,20 @@ pub enum AgentAction {
     },
     /// Stop the running turn.
     Abort,
+    /// Stop one subagent and leave the chat running. The reply is `Ack` (also for a subagent that
+    /// already finished), `NotFound` for an unknown id and `Unsupported` where the harness cannot.
+    StopSubagent {
+        /// The `Subagent.id`.
+        id: String,
+    },
+    /// Send a message to one subagent, over the route its `messageRoute` names. Errors as for
+    /// `StopSubagent`.
+    MessageSubagent {
+        /// The `Subagent.id`.
+        id: String,
+        /// The message text.
+        message: String,
+    },
     /// Start a fresh session in the same process.
     NewSession,
     /// Switch to another session of the same harness.
@@ -172,6 +189,11 @@ impl AgentAction {
             } => check_text("instructions", instructions),
             Self::SetSessionName { name } => check_text("name", name),
             Self::SetAgent { agent } => check_agent_id(agent),
+            Self::StopSubagent { id } => check_subagent_id(id),
+            Self::MessageSubagent { id, message } => {
+                check_subagent_id(id)?;
+                check_message(message)
+            }
             Self::GetHistory { limit, .. } => check_history_limit(*limit),
             _ => Ok(()),
         }
@@ -186,6 +208,24 @@ fn check_text(field: &str, text: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn check_subagent_id(id: &str) -> Result<()> {
+    if id.is_empty() || id.len() > MAX_SUBAGENT_ID_BYTES {
+        return Err(BusinessError::InvalidInput(format!(
+            "subagent id must be 1 to {MAX_SUBAGENT_ID_BYTES} bytes"
+        )));
+    }
+
+    Ok(())
+}
+
+fn check_message(message: &str) -> Result<()> {
+    if message.trim().is_empty() {
+        return Err(BusinessError::InvalidInput("message must not be empty".to_owned()));
+    }
+
+    check_text("message", message)
 }
 
 fn check_agent_id(agent: &str) -> Result<()> {

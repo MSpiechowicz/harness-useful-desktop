@@ -11,7 +11,9 @@
 //!   it as a quiet message.
 //! - **Replies** (see [`replies`]): streamed from the `stream_event` frames, confirmed by the
 //!   `assistant` frames; **tool cards** (see [`tools`]) with touched paths; **subagents** from the
-//!   `task_*` frames (see [`tasks`]). Frames of a subagent (`parent_tool_use_id`) are not shown.
+//!   `task_*` frames (see [`tasks`]). Frames of a subagent (`parent_tool_use_id`) never reach the
+//!   chat's turn or messages, whenever they arrive: its `assistant` and `user` frames become the
+//!   subagent's steps (see [`subagent_steps`]) and its `stream_event` frames are dropped.
 //! - **Bounds:** a reply's streamed text and a tool call's streamed input stop growing at
 //!   [`MAX_STREAMED_BYTES`] (the reply ends with a note that it was cut).
 //! - **User frames** are never shown as the user's messages (the engine shows what it sent): tool
@@ -27,6 +29,7 @@
 mod asks;
 mod notes;
 mod replies;
+mod subagent_steps;
 mod tasks;
 mod tools;
 mod turns;
@@ -252,6 +255,11 @@ impl ClaudeMapper {
         }
     }
 
+    /// Whether subagent `id` runs: `None` for one the chat never saw.
+    pub fn subagent_active(&self, id: &str) -> Option<bool> {
+        self.tasks.is_active(id)
+    }
+
     /// True while a compaction runs.
     pub fn is_compacting(&self) -> bool {
         self.turn.is_compacting()
@@ -336,7 +344,8 @@ impl ClaudeMapper {
     }
 
     fn assistant(&mut self, frame: &AssistantFrame, out: &mut Out) {
-        if frame.parent_tool_use_id.is_some() {
+        if let Some(parent) = &frame.parent_tool_use_id {
+            self.tasks.child_assistant(parent, frame, &mut out.events);
             return;
         }
 
@@ -351,7 +360,12 @@ impl ClaudeMapper {
     }
 
     fn user(&mut self, frame: &UserFrame, out: &mut Out) {
-        if frame.parent_tool_use_id.is_some() || frame.is_synthetic {
+        if let Some(parent) = &frame.parent_tool_use_id {
+            self.tasks.child_user(parent, frame, &mut out.events);
+            return;
+        }
+
+        if frame.is_synthetic {
             return;
         }
 

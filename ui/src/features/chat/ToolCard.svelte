@@ -14,6 +14,7 @@
   import { git } from '$lib/stores/git.svelte';
   import { isJsonObject } from '$lib/chat/tools';
   import { project } from '$lib/stores/project.svelte';
+  import { subagentPanel } from '$lib/stores/subagentPanel.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
   import ChatRow from './ChatRow.svelte';
@@ -57,7 +58,15 @@
   }
 </script>
 
-<ChatRow {open} ontoggle={() => (open = !open)} tone={call.status === 'running' ? 'run' : 'plain'} failed={call.status === 'error'} data-tool-status={call.status}>
+<ChatRow
+  {open}
+  ontoggle={() => (open = !open)}
+  tone={call.status === 'running' ? 'run' : 'plain'}
+  failed={call.status === 'error'}
+  data-tool-status={call.status}
+  data-tool-call-id={call.id}
+  data-flash={where?.sessionKey !== undefined && subagentPanel.flashesCall(where.sessionKey, call.id) ? '' : undefined}
+>
   {#snippet icon()}<Icon size={16} aria-hidden="true" />{/snippet}
 
   {#snippet title()}
@@ -89,7 +98,7 @@
 
   {#snippet extra()}
     {#if spawned.length > 0}
-      <SubagentList subagents={spawned} />
+      <SubagentList subagents={spawned} panelKey={where?.sessionKey} />
     {/if}
   {/snippet}
 

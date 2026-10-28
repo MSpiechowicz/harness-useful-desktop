@@ -56,6 +56,11 @@ pub use sink::{CollectingSink, EventSink, PromptTaken};
 pub use slots::SessionClaim;
 pub use trust_memory::TrustMemory;
 
+/// The refusal of `StopSubagent` and `MessageSubagent` where `harness` has no way to do it.
+fn subagents_unsupported(harness: &str) -> crate::error::BusinessError {
+    crate::error::BusinessError::Unsupported(format!("{harness} chats cannot stop or message a subagent"))
+}
+
 /// Time limit for the handshake and the first `get_state`.
 pub const STARTUP_TIMEOUT: Duration = Duration::from_secs(10);
 

@@ -1,0 +1,9 @@
+// Two subagents (one finished, one running) and the stop of the running one: stop_task names the
+// task, Claude Code answers and then reports the task stopped. A stop_task for any other task
+// fails the match and ends the fake.
+{"include": "claude_init.jsonl"}
+{"emit": {"type": "system", "subtype": "task_started", "task_id": "t-done", "tool_use_id": "toolu_done", "description": "Early scout", "subagent_type": "us-scout", "task_type": "local_agent", "prompt": "Look"}}
+{"emit": {"type": "system", "subtype": "task_notification", "task_id": "t-done", "status": "completed", "summary": "Done", "output_file": ""}}
+{"emit": {"type": "system", "subtype": "task_started", "task_id": "t-live", "tool_use_id": "toolu_live", "description": "Late scout", "subagent_type": "us-scout", "task_type": "local_agent", "is_backgrounded": true, "prompt": "Look"}}
+{"expect": "control_request", "subtype": "stop_task", "match": {"/request/task_id": "t-live"}, "reply": {}}
+{"emit": {"type": "system", "subtype": "task_notification", "task_id": "t-live", "status": "stopped", "output_file": ""}}

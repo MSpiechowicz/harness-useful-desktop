@@ -1,14 +1,18 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Subagent } from '$lib/ipc/bindings/Subagent';
 import { WorkspaceState } from '$lib/components/workspace.svelte';
 import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { harness } from '$lib/stores/harness.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
+import { subagentPanel } from '$lib/stores/subagentPanel.svelte';
 import { ui, UiState } from '$lib/stores/ui-state.svelte';
 
+import { chatSession } from '../../../tests/chat-helpers';
 import { samplePrefs } from '../../../tests/helpers';
 import Rail from './Rail.svelte';
 import Shell from './Shell.svelte';
@@ -33,6 +37,14 @@ beforeEach(() => {
 /** `matchMedia` that reports a window wide enough for the expanded rail. */
 function wideWindow(): void {
   vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('min-width'), media: query, addEventListener: () => {}, removeEventListener: () => {} }));
+}
+
+function subagent(id: string, status: Subagent['status']): Subagent {
+  return {
+    id, parentToolCallId: null, agent: 'explore', status, index: 0, detached: false, description: null, task: null, intent: null, currentTool: null,
+    currentArgs: null, recentTools: null, recentOutput: null, toolCount: null, tokens: null, contextTokens: null, contextWindow: null, costUsd: null,
+    durationMs: null, model: null, label: null, report: null, messageRoute: null, canStop: null,
+  };
 }
 
 describe('keyboard shortcuts overlay', () => {
@@ -148,6 +160,7 @@ describe('the list and details shortcuts', () => {
   it('reaches the view on screen from the keyboard, from a text field too', async () => {
     const list = vi.spyOn(WorkspaceState, 'toggleCurrentList').mockReturnValue(true);
     const details = vi.spyOn(WorkspaceState, 'toggleCurrentDetails').mockReturnValue(true);
+    nav.go('sessions');
     render(Shell);
     const field = focusedField();
 
@@ -158,6 +171,34 @@ describe('the list and details shortcuts', () => {
 
     expect(list).toHaveBeenCalledTimes(2);
     expect(details).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the subagent panel with Ctrl+] in Chat: the running subagent first, else the newest, and closes it again', async () => {
+    const details = vi.spyOn(WorkspaceState, 'toggleCurrentDetails').mockReturnValue(true);
+    const { session } = chatSession([
+      { type: 'subagent', subagent: subagent('Older', 'completed') },
+      { type: 'subagent', subagent: subagent('Runner', 'running') },
+      { type: 'subagent', subagent: subagent('Newest', 'completed') },
+    ]);
+    agentSessions.sessions = [session];
+    agentSessions.activeKey = session.key;
+    render(Shell);
+    const field = focusedField();
+
+    await fireEvent.keyDown(field, { key: ']', ctrlKey: true });
+    expect(subagentPanel.selectedId(session.key)).toBe('Runner');
+
+    await fireEvent.keyDown(field, { key: ']', ctrlKey: true });
+    expect(subagentPanel.selectedId(session.key)).toBeNull();
+
+    session.apply((state) => ({ ...state, subagents: { Older: state.subagents.Older, Newest: state.subagents.Newest } }));
+    await fireEvent.keyDown(field, { key: ']', ctrlKey: true });
+    expect(subagentPanel.selectedId(session.key)).toBe('Newest');
+    expect(details).not.toHaveBeenCalled();
+
+    subagentPanel.close(session.key);
+    agentSessions.sessions = [];
+    agentSessions.activeKey = null;
   });
 
   it('leaves the panels alone, and focus where it is, while a modal dialog is open', async () => {

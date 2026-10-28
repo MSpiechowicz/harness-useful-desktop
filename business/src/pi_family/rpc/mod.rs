@@ -75,6 +75,8 @@ pub struct DecodeState {
     tool_args: HashMap<String, (String, Value)>,
     open_prompts: Vec<String>,
     run_error: Option<String>,
+    /// OMP's subagent steps, derived from its progress snapshots.
+    pub(crate) subagent_steps: crate::harnesses::omp::SubagentSteps,
 }
 
 /// Tool calls whose arguments are kept until their end event (bounds memory on a stuck run).
@@ -93,6 +95,7 @@ impl DecodeState {
             tool_args: HashMap::new(),
             open_prompts: Vec::new(),
             run_error: None,
+            subagent_steps: Default::default(),
         }
     }
 

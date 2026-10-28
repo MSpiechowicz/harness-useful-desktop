@@ -20,6 +20,7 @@ import { memoryEditor } from './memory-editor';
 import { memoryImport } from './memory-import';
 import { memoryGuards } from './memory-guards';
 import { branch } from './branch';
+import { subagents } from './subagents';
 
 export const de: Dict = {
   ...common,
@@ -43,4 +44,5 @@ export const de: Dict = {
   ...memoryImport,
   ...memoryGuards,
   ...branch,
+  ...subagents,
 };

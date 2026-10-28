@@ -145,8 +145,11 @@ impl OpenCodeSession {
         let info = booted.info;
 
         let commands = OpenCodeCatalog.merged(&booted.commands);
+        let mut mapper = new_mapper(&booted.session, project, &booted.directory, rules);
+        mapper.set_secret(shared.secret());
+
         let live = Live {
-            mapper: new_mapper(&booted.session, project, &booted.directory, rules),
+            mapper,
             session: booted.session,
             title: info.title,
             model: info.model.or(booted.default_model),
