@@ -19,6 +19,10 @@ const OMP = {
   info: { id: 'omp' },
   capabilities: { plugins: true, marketplaces: true, packages: false, cliActions: true },
 } as HarnessSummary;
+const CODEX = {
+  info: { id: 'codex' },
+  capabilities: { plugins: true, marketplaces: true, packages: false, cliActions: true },
+} as HarnessSummary;
 const PI = {
   info: { id: 'pi' },
   capabilities: { plugins: false, marketplaces: false, packages: true, cliActions: true },
@@ -36,7 +40,7 @@ const READ_ONLY = {
 
 function outdated(...ids: string[]): ExtensionsView {
   return {
-    marketplaces: [{ name: 'm' }],
+    marketplaces: [{ name: 'm', refreshable: true }],
     plugins: ids.map((id) => ({
       id,
       name: id.split('@')[0],
@@ -232,7 +236,7 @@ describe('Extension auto-update', () => {
   it('stops asking catalogs to refresh once both settings are switched off in the middle of a pass', async () => {
     let on = true;
     const { updater, log } = setup({
-      view: () => ({ marketplaces: [{ name: 'a' }, { name: 'b' }, { name: 'c' }], plugins: [] }) as unknown as ExtensionsView,
+      view: () => ({ marketplaces: [{ name: 'a', refreshable: true }, { name: 'b', refreshable: true }, { name: 'c', refreshable: true }], plugins: [] }) as unknown as ExtensionsView,
       run: () => {
         on = false;
 
@@ -245,6 +249,32 @@ describe('Extension auto-update', () => {
     await updater.check();
 
     expect(log).toEqual(['marketplaceUpdate']);
+  });
+
+  it('refreshes only the catalogs the harness can refresh, leaving out built-in ones that would only fail', async () => {
+    const refreshed: string[] = [];
+    const { updater } = setup({
+      harnesses: [CODEX],
+      view: () =>
+        ({
+          marketplaces: [
+            { name: 'openai-bundled', sourceType: 'local', refreshable: false },
+            { name: 'harness-useful-skills', sourceType: 'git', refreshable: true },
+          ],
+          plugins: [],
+        }) as unknown as ExtensionsView,
+      run: (action) => {
+        if (action.type === 'marketplaceUpdate') {
+          refreshed.push(action.name ?? '');
+        }
+
+        return cli();
+      },
+    });
+
+    await updater.check();
+
+    expect(refreshed).toEqual(['harness-useful-skills']);
   });
 
   it('makes no request at all, even for PI packages, while both are off', async () => {

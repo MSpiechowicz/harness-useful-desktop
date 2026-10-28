@@ -77,6 +77,15 @@ pub struct MarketplaceRecord {
     pub updated_at: Option<String>,
 }
 
+impl MarketplaceRecord {
+    /// `codex plugin marketplace upgrade` only works on a git marketplace: it refuses a local one
+    /// (Codex's built-in `openai-bundled`, a folder added by path) with "is not configured as a Git
+    /// marketplace".
+    fn is_git(&self) -> bool {
+        self.source_type.as_deref() == Some("git")
+    }
+}
+
 /// The plugin cache, `<home>/plugins/cache`.
 fn cache_dir(env: &Env) -> PathBuf {
     codex_home(env).join("plugins").join("cache")
@@ -236,6 +245,7 @@ pub(in crate::harnesses::codex) fn marketplaces(
             };
 
             MarketplaceInfo {
+                refreshable: record.is_git(),
                 source_type: record.source_type.clone().unwrap_or_else(|| "unknown".to_owned()),
                 source: display_source(&record.source),
                 added_at: None,

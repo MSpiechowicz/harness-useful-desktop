@@ -200,7 +200,7 @@ export function applyAction(view: ExtensionsView, { action, project }: Pick<Appl
     }
 
     case 'marketplaceAdd':
-      next.marketplaces.push({ name: basename(action.source), sourceType: 'github', source: action.source, addedAt: new Date().toISOString(), updatedAt: null, entries: [], error: null });
+      next.marketplaces.push({ name: basename(action.source), sourceType: 'github', source: action.source, addedAt: new Date().toISOString(), updatedAt: null, refreshable: true, entries: [], error: null });
       break;
 
     case 'marketplaceRemove':

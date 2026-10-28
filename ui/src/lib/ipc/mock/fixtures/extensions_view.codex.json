@@ -48,6 +48,7 @@
       "source": "acme/demo-market",
       "addedAt": null,
       "updatedAt": "2026-10-20T10:00:00Z",
+      "refreshable": true,
       "entries": [
         {
           "name": "lint-tools",
@@ -70,6 +71,7 @@
       "source": "~/.codex/.tmp/bundled-marketplaces/openai-bundled",
       "addedAt": null,
       "updatedAt": null,
+      "refreshable": false,
       "entries": [
         {
           "name": "pdf",

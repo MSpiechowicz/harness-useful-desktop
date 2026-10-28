@@ -193,6 +193,17 @@ fn the_extensions_view_lists_plugins_marketplaces_skills_and_servers() {
         ]
     );
 
+    let refreshable: Vec<(&str, bool)> = view
+        .marketplaces
+        .iter()
+        .map(|market| (market.name.as_str(), market.refreshable))
+        .collect();
+    assert_eq!(
+        refreshable,
+        [("demo-market", true), ("openai-bundled", false)],
+        "only a git marketplace can be upgraded, a local one (the built-in openai-bundled) is refused by Codex"
+    );
+
     let skills: Vec<(&str, ExtensionScope)> = view
         .skills
         .iter()

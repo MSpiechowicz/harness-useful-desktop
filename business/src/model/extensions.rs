@@ -88,6 +88,9 @@ pub struct MarketplaceInfo {
     pub added_at: Option<String>,
     /// When the catalog was last refreshed (ISO 8601).
     pub updated_at: Option<String>,
+    /// The harness can refresh this catalog from its source. False for one it ships or reads from a
+    /// folder (Codex's built-in marketplaces), where an update only fails.
+    pub refreshable: bool,
     /// Catalog entries.
     pub entries: Vec<MarketplaceEntry>,
     /// Secret-free reason the catalog could not be read.

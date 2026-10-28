@@ -133,7 +133,7 @@ export class ExtensionUpdater {
    * Catalogs only learn about new versions when they are refreshed. Each one is refreshed by name: a bare
    * `marketplace update` stops at the first catalog that fails (renamed, unreachable) and leaves the later ones stale,
    * so their plugin updates would never be seen. A failure is not worth a message: the plugins are judged by what the
-   * catalogs say now.
+   * catalogs say now. A catalog the harness cannot refresh (Codex's built-in ones) is left out: asking could only fail.
    */
   private async refreshMarketplaces(harness: HarnessId): Promise<void> {
     this.lastCatalogRun.set(harness, this.now());
@@ -141,7 +141,9 @@ export class ExtensionUpdater {
     let names: string[];
 
     try {
-      names = (await this.view(harness)).marketplaces.map((marketplace) => marketplace.name);
+      names = (await this.view(harness)).marketplaces
+        .filter((marketplace) => marketplace.refreshable)
+        .map((marketplace) => marketplace.name);
     } catch {
       return;
     }

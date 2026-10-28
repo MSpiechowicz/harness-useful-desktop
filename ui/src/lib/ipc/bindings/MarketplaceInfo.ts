@@ -26,6 +26,11 @@ addedAt: string | null,
  */
 updatedAt: string | null, 
 /**
+ * The harness can refresh this catalog from its source. False for one it ships or reads from a
+ * folder (Codex's built-in marketplaces), where an update only fails.
+ */
+refreshable: boolean, 
+/**
  * Catalog entries.
  */
 entries: Array<MarketplaceEntry>, 

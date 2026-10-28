@@ -71,6 +71,8 @@ pub(super) fn marketplaces(
 
         marketplaces.push(MarketplaceInfo {
             error: Some(NOT_ADDED.to_owned()),
+            // Claude has nothing to update until the marketplace is added.
+            refreshable: false,
             ..described(&name, entry.get("source"))
         });
     }
@@ -106,6 +108,7 @@ fn described(name: &str, source: Option<&Value>) -> MarketplaceInfo {
         source: shown.map(|source| display_source(&source)).unwrap_or_default(),
         added_at: None,
         updated_at: None,
+        refreshable: true,
         entries: Vec::new(),
         error: None,
     }

@@ -94,6 +94,7 @@ fn marketplace(env: &Env, cache_root: &Path, entry: &Value, installed: &[PluginI
             .unwrap_or_default(),
         added_at: text_field(entry, "addedAt"),
         updated_at: text_field(entry, "updatedAt"),
+        refreshable: true,
         name,
         entries,
         error,

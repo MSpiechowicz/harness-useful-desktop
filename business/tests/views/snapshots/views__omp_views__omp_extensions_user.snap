@@ -70,6 +70,7 @@ expression: "exported(extensions(&env, None), &home, &project)"
       "source": "demo-org/demo-marketplace",
       "addedAt": "2026-07-02T08:30:00.000Z",
       "updatedAt": "2026-10-07T21:05:00.000Z",
+      "refreshable": true,
       "entries": [
         {
           "name": "demo-plugin",
@@ -92,6 +93,7 @@ expression: "exported(extensions(&env, None), &home, &project)"
       "source": "https://••••@git.example.com/team/plugins.git",
       "addedAt": "2026-07-02T08:30:00.000Z",
       "updatedAt": "2026-07-02T08:30:00.000Z",
+      "refreshable": true,
       "entries": [],
       "error": "The catalog path points outside the marketplace cache, so it was not read."
     },
@@ -101,6 +103,7 @@ expression: "exported(extensions(&env, None), &home, &project)"
       "source": "~/plugins/fresh-marketplace",
       "addedAt": "2026-10-08T17:40:00.000Z",
       "updatedAt": "2026-10-08T17:40:00.000Z",
+      "refreshable": true,
       "entries": [],
       "error": "Catalog not cached yet; refresh the marketplace to load its plugins."
     }

@@ -52,6 +52,7 @@ expression: "exported(view(Some(&project)), &home, &project)"
       "source": "demo-org/useful-skills",
       "addedAt": null,
       "updatedAt": "2026-10-01T09:58:00.000Z",
+      "refreshable": true,
       "entries": [
         {
           "name": "useful-skills",
@@ -68,6 +69,7 @@ expression: "exported(view(Some(&project)), &home, &project)"
       "source": "https://git.example.com/demo/market.git",
       "addedAt": null,
       "updatedAt": "2026-10-05T12:00:00.000Z",
+      "refreshable": true,
       "entries": [
         {
           "name": "lint-tools",
@@ -96,6 +98,7 @@ expression: "exported(view(Some(&project)), &home, &project)"
       "source": "~/claude-markets/local-market",
       "addedAt": null,
       "updatedAt": "2026-10-06T12:00:00.000Z",
+      "refreshable": true,
       "entries": [
         {
           "name": "local-helper",
@@ -112,6 +115,7 @@ expression: "exported(view(Some(&project)), &home, &project)"
       "source": "https://••••@git.example.com/team/plugins.git",
       "addedAt": null,
       "updatedAt": "2026-10-06T12:00:00.000Z",
+      "refreshable": true,
       "entries": [],
       "error": "The marketplace folder is outside Claude Code's plugins folder, so it was not read."
     },
@@ -121,6 +125,7 @@ expression: "exported(view(Some(&project)), &home, &project)"
       "source": "demo-org/fresh-plugins",
       "addedAt": null,
       "updatedAt": "2026-10-07T12:00:00.000Z",
+      "refreshable": true,
       "entries": [],
       "error": "The catalog is not downloaded yet. Update the marketplace to load its plugins."
     },
@@ -130,6 +135,7 @@ expression: "exported(view(Some(&project)), &home, &project)"
       "source": "demo-org/team-tools",
       "addedAt": null,
       "updatedAt": null,
+      "refreshable": false,
       "entries": [],
       "error": "Listed in your settings but not added to Claude Code yet."
     }
