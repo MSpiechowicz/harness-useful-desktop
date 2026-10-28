@@ -80,7 +80,7 @@ export const branch: AreaMessages<typeof enBranch> = {
   'branch.list.namePlaceholder': 'Name vergeben, z. B. feat/rebase-picker',
   'branch.list.current': 'Aktueller Branch',
   'branch.list.remoteOnly': 'Nur auf {remote}',
-  'branch.list.more': '{count} weitere, Suche eingrenzen',
+  'branch.list.loading': 'Weitere Branches werden geladen…',
   'branch.list.none': 'Kein Branch passt',
   'branch.list.failed': 'Branches konnten nicht geladen werden',
   'branch.create.row': '{name} anlegen',

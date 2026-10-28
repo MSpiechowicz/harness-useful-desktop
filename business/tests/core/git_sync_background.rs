@@ -73,7 +73,6 @@ async fn every_key_that_runs_a_program_or_rewrites_a_remote_stops_the_background
     let keys = [
         ("core.sshCommand", "ssh"),
         ("core.askPass", "true"),
-        ("core.hooksPath", "/nowhere"),
         ("credential.helper", "cache"),
         ("credential.https://example.invalid.helper", "cache"),
         ("remote.origin.uploadpack", "git-upload-pack"),
@@ -130,6 +129,55 @@ async fn a_background_fetch_runs_no_hook_but_a_clicked_one_does() {
         .unwrap();
 
     assert!(marker.exists(), "a clicked fetch runs the repository's hooks");
+}
+
+#[tokio::test]
+async fn a_repository_hooks_path_neither_stops_the_background_fetch_nor_runs_its_hooks() {
+    let world = world();
+    let (home, work) = (&world.home, &world.work);
+    let marker = home.home.join("hooks-path.marker");
+    let hooks = home.home.join("hooks");
+    fs::create_dir_all(&hooks).unwrap();
+    script(
+        &hooks.join("reference-transaction"),
+        &format!("echo \"$1\" >> '{}'", marker.display()),
+    );
+    work.git(&["config", "--local", "core.hooksPath", &hooks.to_string_lossy()]);
+    push_from_other(&world, "one");
+
+    let state = git_fetch(&home.env, &home.runner, &work.path, None, true)
+        .await
+        .unwrap();
+
+    assert_eq!(state.behind, 1, "a hooks path stopped the background fetch");
+    assert!(!marker.exists(), "the background fetch ran a hook from the hooks path");
+}
+
+#[tokio::test]
+async fn a_background_fetch_runs_no_hook_planted_where_a_relative_null_device_would_point() {
+    let world = world();
+    let (home, work) = (&world.home, &world.work);
+    let marker = home.home.join("nul.marker");
+    // Windows' `NUL` as a hooks path is read as this directory at the top of the work tree.
+    for dir in ["NUL", "dev/null"] {
+        let hooks = work.path.join(dir);
+        fs::create_dir_all(&hooks).unwrap();
+        script(
+            &hooks.join("reference-transaction"),
+            &format!("echo \"$1\" >> '{}'", marker.display()),
+        );
+    }
+    push_from_other(&world, "one");
+
+    let state = git_fetch(&home.env, &home.runner, &work.path, None, true)
+        .await
+        .unwrap();
+
+    assert_eq!(state.behind, 1, "the refs were updated");
+    assert!(
+        !marker.exists(),
+        "the background fetch ran a hook planted in the work tree"
+    );
 }
 
 #[tokio::test]

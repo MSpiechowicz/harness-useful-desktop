@@ -134,7 +134,7 @@ export const commands = {
   git_fetch: cmd<{ project: string; background: boolean }, BranchSync>(),
   git_sync_action: cmd<{ project: string; action: SyncAction }, GitActionResult>(),
   git_switch: cmd<{ project: string; request: SwitchRequest }, GitActionResult>(),
-  git_branch_search: cmd<{ project: string; query: string; limit: number }, BranchPage>(),
+  git_branch_search: cmd<{ project: string; query: string; offset: number; limit: number }, BranchPage>(),
   git_set_main_branch: cmd<{ project: string; branch: string | null }, BranchSync>(),
   review_compose: cmd<{ request: ReviewRequest }, ComposedReview>(),
   ecosystem_status: cmd<undefined, EcosystemStatus>(),

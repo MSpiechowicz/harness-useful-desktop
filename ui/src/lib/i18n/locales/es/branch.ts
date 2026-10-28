@@ -80,7 +80,7 @@ export const branch: AreaMessages<typeof enBranch> = {
   'branch.list.namePlaceholder': 'Ponle nombre, p. ej. feat/rebase-picker',
   'branch.list.current': 'Rama actual',
   'branch.list.remoteOnly': 'Solo en {remote}',
-  'branch.list.more': '{count} más, afina la búsqueda',
+  'branch.list.loading': 'Cargando más ramas…',
   'branch.list.none': 'Ninguna rama coincide',
   'branch.list.failed': 'No se pudieron cargar las ramas',
   'branch.create.row': 'Crear {name}',

@@ -16,9 +16,28 @@ describe('the mock branch sync commands', () => {
       mock.invoke('git_branch_search', {
         project: '/etc',
         query: '',
+        offset: 0,
         limit: 10,
       }),
     ).rejects.toMatchObject({ code: 'forbidden' });
+  });
+
+  it('slice the branch search from the offset and report every match as the total', async () => {
+    history.replaceState(null, '', '/?branches=1500');
+    const mock = createMockTransport(defaultScenario(), 0);
+    const search = (offset: number, limit: number) => mock.invoke('git_branch_search', { project, query: '', offset, limit });
+
+    const first = await search(0, 50);
+    const second = await search(50, 50);
+    const last = await search(first.total - 10, 50);
+    history.replaceState(null, '', '/');
+
+    expect(first.branches).toHaveLength(50);
+    expect(second.branches).toHaveLength(50);
+    expect(second.total).toBe(first.total);
+    expect(second.branches[0].name).not.toBe(first.branches[0].name);
+    expect(new Set([...first.branches, ...second.branches].map((row) => row.name)).size).toBe(100);
+    expect(last.branches).toHaveLength(10);
   });
 
   it('refuse a branch name git would not take', async () => {

@@ -83,9 +83,10 @@ fn ref_name_problem(name: &str) -> Option<&'static str> {
 
 /// Branches of the project's repository matching `query` (case-insensitive substring of the name):
 /// local ones first, then remote-only ones (short names without the remote), newest commit first.
-/// At most `limit` (1 to [`MAX_BRANCH_SEARCH`]) come back, `total` counts all matches. Empty
-/// outside a work tree.
-pub async fn git_branch_search(git: &GitCli<'_>, query: &str, limit: u32) -> Result<BranchPage> {
+/// The page starts at match `offset` (0-based) and holds at most `limit` (1 to
+/// [`MAX_BRANCH_SEARCH`]) of them, `total` counts all matches (an `offset` past the last one gives
+/// an empty page). Empty outside a work tree.
+pub async fn git_branch_search(git: &GitCli<'_>, query: &str, offset: u32, limit: u32) -> Result<BranchPage> {
     if query.len() > MAX_BRANCH_QUERY_BYTES {
         return Err(BusinessError::InvalidInput(format!(
             "the branch search is limited to {MAX_BRANCH_QUERY_BYTES} bytes"
@@ -142,9 +143,10 @@ pub async fn git_branch_search(git: &GitCli<'_>, query: &str, limit: u32) -> Res
     local.append(&mut remote_only);
 
     let total = u32::try_from(local.len()).unwrap_or(u32::MAX);
-    local.truncate(limit);
+    let offset = usize::try_from(offset).unwrap_or(usize::MAX);
+    let branches = local.into_iter().skip(offset).take(limit).collect();
 
-    Ok(BranchPage { branches: local, total })
+    Ok(BranchPage { branches, total })
 }
 
 /// The branch name of a remote-tracking `refname`, without the remote; `None` for a remote's `HEAD`.

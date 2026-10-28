@@ -8,7 +8,7 @@
 //!
 //! A background fetch nobody asked for just now is held to more: it never recurses into submodules,
 //! never starts garbage collection, allows only the https, http, ssh, git and file transports, runs no hook (`core.hooksPath` is
-//! the null device and the config-based `reference-transaction` hooks are disabled), never asks for credentials (git's own prompt, `GIT_ASKPASS`, the credential
+//! the `git` program's own path, under which no hook can exist, and the config-based `reference-transaction` hooks are disabled), never asks for credentials (git's own prompt, `GIT_ASKPASS`, the credential
 //! manager) and runs `ssh` with `BatchMode=yes` unless `core.sshCommand` names a command. It does
 //! not run at all while the repository's own configuration names a program or redirects the
 //! remote (see [`PROGRAM_CONFIG`]): only a click runs those.
@@ -21,7 +21,7 @@
 //! first error line, with URL userinfo and credential-like text removed.
 
 use super::branch_ops::validate_remote_name;
-use super::cli::{GitCli, NETWORK_TIMEOUT, NULL_DEVICE, RunOpts, SAFE_PROTOCOLS, WRITE_CONFIG, redacted_failure};
+use super::cli::{GitCli, NETWORK_TIMEOUT, RunOpts, SAFE_PROTOCOLS, WRITE_CONFIG, redacted_failure};
 use super::repo_state::{StashKind, our_top_stash, remotes, sync_state};
 use super::stash::{apply_stash, drop_applied_stash, relabelled};
 use crate::error::{BusinessError, Result};
@@ -44,8 +44,9 @@ const BACKGROUND_ENV: [(&str, &str); 4] = [
 /// Keys (lowercase, as `git config --get-regexp` matches them) of the repository's own
 /// configuration that run a program (`hook.<name>.command` included) or redirect or rewrite a remote. A background fetch does not
 /// run while the repository (or its worktree) sets any of them, or includes another file that
-/// could.
-const PROGRAM_CONFIG: &str = r"^(core\.(sshcommand|askpass|hookspath|gitproxy|alternaterefscommand)|credential\..*|remote\..*\.(uploadpack|receivepack|vcs|proxy|proxyauthmethod)|http\..*|url\..*\.(insteadof|pushinsteadof)|protocol\..*|hook\..*|include\..*|includeif\..*)$";
+/// could. `core.hooksPath` is not one of them: the fetch overrides it itself, and
+/// tools such as husky set it in most repositories, which would stop the fetch for good.
+const PROGRAM_CONFIG: &str = r"^(core\.(sshcommand|askpass|gitproxy|alternaterefscommand)|credential\..*|remote\..*\.(uploadpack|receivepack|vcs|proxy|proxyauthmethod)|http\..*|url\..*\.(insteadof|pushinsteadof)|protocol\..*|hook\..*|include\..*|includeif\..*)$";
 
 /// Texts with which git says the work tree is in the way.
 const BLOCKED_BY_CHANGES: [&str; 4] = [
@@ -111,7 +112,11 @@ pub async fn git_fetch(git: &GitCli<'_>, picked: Option<&str>, background: bool)
             return Ok(state);
         }
 
-        args.extend(background_config());
+        // A path git would be handed in a lossy form is not the program any more: no fetch then.
+        let Some(program) = git.program().to_str() else {
+            return Ok(state);
+        };
+        args.extend(background_config(program));
         opts.env
             .extend(BACKGROUND_ENV.map(|(name, value)| (name.to_owned(), value.to_owned())));
 
@@ -132,8 +137,10 @@ pub async fn git_fetch(git: &GitCli<'_>, picked: Option<&str>, background: bool)
     sync_state(git, picked).await
 }
 
-/// The `-c` options of a background fetch.
-fn background_config() -> Vec<String> {
+/// The `-c` options of a background fetch. The hooks path is the `git` program itself: an absolute
+/// path to a file, so no hook can sit below it whatever the repository holds. Windows' `NUL` would be
+/// read as a `NUL` directory at the top of the work tree.
+fn background_config(git_program: &str) -> Vec<String> {
     [
         "gc.auto=0",
         "maintenance.auto=false",
@@ -143,7 +150,7 @@ fn background_config() -> Vec<String> {
     ]
     .into_iter()
     .map(str::to_owned)
-    .chain([format!("core.hooksPath={NULL_DEVICE}")])
+    .chain([format!("core.hooksPath={git_program}")])
     .flat_map(|setting| ["-c".to_owned(), setting])
     .collect()
 }
@@ -413,5 +420,32 @@ fn continue_args(state: &BranchSync) -> Result<(Vec<String>, Ending)> {
     match operation.kind {
         GitOperationKind::Rebase => Ok((strings(["rebase", "--continue"]), Ending::ContinuesRebase)),
         GitOperationKind::Merge => Ok((strings(["commit", "--no-edit"]), Ending::Strict)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::env::Env;
+    use crate::process::resolve_binary;
+
+    /// Runs on every OS, Windows included: the hooks path is the absolute path of a file, never a
+    /// relative name such as `NUL` that git would look up in the work tree.
+    #[test]
+    fn the_background_hooks_path_is_the_absolute_git_program() {
+        let env = Env::from_process().unwrap();
+        let Some(git) = resolve_binary(&env, "git", None) else {
+            return;
+        };
+        let program = git.path.to_str().unwrap();
+        let config = background_config(program);
+
+        let hooks = config
+            .iter()
+            .find_map(|setting| setting.strip_prefix("core.hooksPath="))
+            .unwrap();
+        assert_eq!(hooks, program);
+        assert!(git.path.is_absolute(), "{hooks} is relative");
+        assert!(git.path.is_file(), "{hooks} is not a file");
     }
 }

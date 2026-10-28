@@ -57,15 +57,17 @@ pub async fn git_switch(
     switch(&state, project, request).await
 }
 
-/// At most `limit` (1 to 100) branches whose name contains `query`, local ones first.
+/// The branches whose name contains `query`, local ones first, from match `offset` on, at most
+/// `limit` (1 to 100) of them.
 #[tauri::command]
 pub async fn git_branch_search(
     state: State<'_, AppState>,
     project: String,
     query: String,
+    offset: u32,
     limit: u32,
 ) -> CommandResult<BranchPage> {
-    branch_search(&state, project, query, limit).await
+    branch_search(&state, project, query, offset, limit).await
 }
 
 /// Picks `branch` as the main branch of `project`, or clears the pick with `None`.
@@ -193,11 +195,17 @@ where
     .await
 }
 
-async fn branch_search(state: &AppState, project: String, query: String, limit: u32) -> CommandResult<BranchPage> {
+async fn branch_search(
+    state: &AppState,
+    project: String,
+    query: String,
+    offset: u32,
+    limit: u32,
+) -> CommandResult<BranchPage> {
     let Target { dir, .. } = target(state, project).await?;
 
     on_blocking(state, async move |env, runner| {
-        git::git_branch_search(env, runner, &dir, &query, limit).await
+        git::git_branch_search(env, runner, &dir, &query, offset, limit).await
     })
     .await
 }
@@ -296,7 +304,7 @@ mod tests {
             block_on(fetch(state, stranger.clone(), false)).map(drop),
             block_on(sync_action(state, stranger.clone(), SyncAction::Push)).map(drop),
             block_on(switch(state, stranger.clone(), create("topic"))).map(drop),
-            block_on(branch_search(state, stranger.clone(), String::new(), 10)).map(drop),
+            block_on(branch_search(state, stranger.clone(), String::new(), 0, 10)).map(drop),
             block_on(set_main_branch(state, stranger, Some("dev".to_owned()))).map(drop),
         ];
         for error in refused {
@@ -407,7 +415,7 @@ mod tests {
         let result = block_on(switch(state, project.clone(), create("topic"))).expect("switch");
         assert_eq!(result.state.branch.as_deref(), Some("topic"));
 
-        let page = block_on(branch_search(state, project.clone(), "dev".to_owned(), 10)).expect("search");
+        let page = block_on(branch_search(state, project.clone(), "dev".to_owned(), 0, 10)).expect("search");
         let names: Vec<&str> = page.branches.iter().map(|branch| branch.name.as_str()).collect();
         assert_eq!(names, ["dev"]);
     }

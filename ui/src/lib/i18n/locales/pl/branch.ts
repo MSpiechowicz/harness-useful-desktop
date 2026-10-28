@@ -92,7 +92,7 @@ export const branch: AreaMessages<typeof enBranch> = {
   'branch.list.namePlaceholder': 'Nadaj nazwę, np. feat/rebase-picker',
   'branch.list.current': 'Bieżąca gałąź',
   'branch.list.remoteOnly': 'Tylko w {remote}',
-  'branch.list.more': 'Jeszcze {count}, zawęź wyszukiwanie',
+  'branch.list.loading': 'Wczytywanie kolejnych gałęzi…',
   'branch.list.none': 'Żadna gałąź nie pasuje',
   'branch.list.failed': 'Nie udało się wczytać gałęzi',
   'branch.create.row': 'Utwórz {name}',

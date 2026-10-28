@@ -223,7 +223,7 @@ pub struct BranchRow {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct BranchPage {
-    /// The first matches, at most the requested limit.
+    /// The matches from the requested offset, at most the requested limit.
     pub branches: Vec<BranchRow>,
     /// All matches.
     pub total: u32,

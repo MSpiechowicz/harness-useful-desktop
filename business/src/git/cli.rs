@@ -39,9 +39,6 @@ pub const NETWORK_TIMEOUT: Duration = Duration::from_secs(120);
 /// rebase todo would wait for input that never comes).
 pub const WRITE_CONFIG: [&str; 4] = ["-c", "core.editor=true", "-c", "sequence.editor=true"];
 
-/// The null device: a path under which git finds no hooks.
-pub const NULL_DEVICE: &str = if cfg!(windows) { "NUL" } else { "/dev/null" };
-
 /// The transports a command that is not a clicked network action may use (`GIT_ALLOW_PROTOCOL`).
 /// A repository-local partial clone (`remote.origin.promisor` with an `ext::` or `evil::` URL) makes
 /// even `git diff` or `git show` fetch a missing object lazily; without this a read would start
@@ -153,6 +150,11 @@ impl<'a> GitCli<'a> {
             xdg_config,
             runner,
         })
+    }
+
+    /// The absolute path of the `git` program.
+    pub fn program(&self) -> &Path {
+        &self.program
     }
 
     /// The project directory.

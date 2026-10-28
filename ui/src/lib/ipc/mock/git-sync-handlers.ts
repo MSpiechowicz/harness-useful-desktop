@@ -273,13 +273,13 @@ export function gitSyncHandlers(state: MockState, scenario: () => SyncScenario =
       return result(repo, 'done');
     },
 
-    git_branch_search: ({ project, query, limit }) => {
+    git_branch_search: ({ project, query, offset, limit }) => {
       const repo = repoOf(project);
       const needle = query.trim().toLowerCase();
       const matches = repo.branches.filter((row) => row.name.toLowerCase().includes(needle));
       const ordered = [...matches.filter((row) => !row.remoteOnly), ...matches.filter((row) => row.remoteOnly)];
       const page: BranchPage = {
-        branches: ordered.slice(0, Math.min(Math.max(limit, 1), MAX_SEARCH)).map((row) => ({ ...row, isCurrent: row.name === repo.sync.branch })),
+        branches: ordered.slice(Math.max(offset, 0), Math.max(offset, 0) + Math.min(Math.max(limit, 1), MAX_SEARCH)).map((row) => ({ ...row, isCurrent: row.name === repo.sync.branch })),
         total: ordered.length,
       };
 

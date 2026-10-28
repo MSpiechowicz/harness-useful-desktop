@@ -1,7 +1,9 @@
 <script lang="ts">
   import Check from '@lucide/svelte/icons/check';
 
-  import { t, tn } from '$lib/i18n/i18n.svelte';
+  import Spinner from '$lib/components/Spinner.svelte';
+  import { rowKey } from '$lib/git/branch-keys';
+  import { t } from '$lib/i18n/i18n.svelte';
   import type { BranchRow } from '$lib/ipc/bindings/BranchRow';
   import { branchSync } from '$lib/stores/branch-sync.svelte';
   import { relativeTime } from '$lib/utils/format';
@@ -20,13 +22,46 @@
 
   let { remote, selected, onpick, disabled = false, showEmpty = true }: Props = $props();
 
+  /** How far below the visible rows the next page is asked for: one box height, so it is there before the end is reached. */
+  const LOOKAHEAD = '0% 0% 100% 0%';
+
   const page = $derived(branchSync.page);
-  const hidden = $derived(page ? page.total - page.branches.length : 0);
+
+  let scroller = $state<HTMLElement>();
+  let sentinel = $state<HTMLElement>();
+
+  // Watches the end of the list. Armed again whenever the rows change, so a page that does not fill the box
+  // (or leaves the end in view) asks for the next one at once. A failed page does not change them: it waits for a new scroll.
+  $effect(() => {
+    void branchSync.page;
+    if (!scroller || !sentinel || typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void branchSync.loadMore();
+        }
+      },
+      { root: scroller, rootMargin: LOOKAHEAD },
+    );
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  });
+
+  /** After a failed page the end may stay in view, which the observer does not report again: a scroll near the end asks once more. */
+  function retryNearEnd(): void {
+    if (scroller && branchSync.searchFailed && scroller.scrollHeight - scroller.scrollTop <= 2 * scroller.clientHeight) {
+      void branchSync.loadMore();
+    }
+  }
 </script>
 
-<!-- The branches the backend found for the search, local ones first. A long list shows how many more match: the search narrows it. -->
-<div class="max-h-52 overflow-y-auto px-1.5 pb-2" role="group" aria-label={t('branch.list.title')}>
-  {#each page?.branches ?? [] as row (row.remoteOnly + row.name)}
+<!-- The branches the backend found for the search, local ones first. Scrolling near the end loads the next page. -->
+<div bind:this={scroller} onscroll={retryNearEnd} class="max-h-52 overflow-y-auto px-1.5 pb-2" role="group" aria-label={t('branch.list.title')}>
+  {#each page?.branches ?? [] as row (rowKey(row))}
     {@const chosen = selected(row)}
     <button
       type="button"
@@ -57,7 +92,14 @@
     <p class="px-2 py-3 text-sm text-warning" role="status">{t('branch.list.failed')}</p>
   {/if}
 
-  {#if hidden > 0}
-    <p class="px-2 pt-1.5 text-xs text-fg-3" role="status">{t('branch.list.more', { count: hidden })}</p>
+  {#if branchSync.loadingMore}
+    <p class="flex h-control items-center gap-2 px-2 text-sm text-fg-3" role="status">
+      <Spinner size={14} class="text-accent-text" />
+      <span>{t('branch.list.loading')}</span>
+    </p>
+  {/if}
+
+  {#if branchSync.hasMore}
+    <div bind:this={sentinel} aria-hidden="true"></div>
   {/if}
 </div>

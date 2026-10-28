@@ -84,7 +84,7 @@ export const branch = {
   'branch.list.namePlaceholder': 'Name it, e.g. feat/rebase-picker',
   'branch.list.current': 'Current branch',
   'branch.list.remoteOnly': 'Only on {remote}',
-  'branch.list.more': '{count} more, refine the search',
+  'branch.list.loading': 'Loading more branches…',
   'branch.list.none': 'No branch matches',
   'branch.list.failed': 'Couldn’t load the branches',
   'branch.create.row': 'Create {name}',

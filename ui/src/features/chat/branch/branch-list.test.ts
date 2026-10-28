@@ -1,11 +1,14 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { branchSync } from '$lib/stores/branch-sync.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
 import { chip, note, openMenu, useBranchMenu } from './branch-menu-support';
 
 useBranchMenu();
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('the branches', () => {
   it('lists them with the current one marked, and finds one on the server as you type', async () => {
@@ -30,12 +33,51 @@ describe('the branches', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows a page of a long list and says how many more match', async () => {
+  it('shows a page of a long list and loads the next one when the end comes into view', async () => {
+    const watchers: (() => void)[] = [];
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(private readonly callback: IntersectionObserverCallback) {}
+        observe() {
+          watchers.push(() => this.callback([{ isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver));
+        }
+        disconnect() {}
+      },
+    );
     await chip('?branches=1500');
     const dialog = await openMenu();
 
     await waitFor(() => expect(within(dialog).getAllByRole('menuitemradio')).toHaveLength(50));
-    expect(within(dialog).getByText('1457 more, refine the search')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/refine the search/)).not.toBeInTheDocument();
+
+    // The fetch the popover starts may land meanwhile and search again, which starts the list over: scrolling asks again.
+    await waitFor(() => {
+      watchers.at(-1)?.();
+      expect(within(dialog).getAllByRole('menuitemradio')).toHaveLength(100);
+    });
+  });
+
+  it('asks again for a page that failed when the list is scrolled near its end', async () => {
+    await chip('?branches=1500');
+    const dialog = await openMenu();
+    await waitFor(() => expect(within(dialog).getAllByRole('menuitemradio')).toHaveLength(50));
+    const list = within(dialog).getByRole('group', { name: 'Branches' });
+    Object.defineProperties(list, { scrollHeight: { value: 1800 }, clientHeight: { value: 200 }, scrollTop: { value: 1500, writable: true } });
+    const loadMore = vi.spyOn(branchSync, 'loadMore').mockResolvedValue();
+
+    await fireEvent.scroll(list);
+    expect(loadMore).not.toHaveBeenCalled();
+
+    branchSync.searchFailed = true;
+    await fireEvent.scroll(list);
+    expect(loadMore).toHaveBeenCalledOnce();
+
+    list.scrollTop = 0;
+    await fireEvent.scroll(list);
+    expect(loadMore).toHaveBeenCalledOnce();
+    loadMore.mockRestore();
+    branchSync.searchFailed = false;
   });
 
   it('switches branch on a click', async () => {

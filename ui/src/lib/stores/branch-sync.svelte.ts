@@ -1,3 +1,4 @@
+import { rowKey, signatureOf } from '$lib/git/branch-keys';
 import { noteFor, FAILED_TITLES, type SyncNote } from '$lib/git/sync-notes';
 import { t, tn, type MessageKey } from '$lib/i18n/i18n.svelte';
 import type { BranchPage } from '$lib/ipc/bindings/BranchPage';
@@ -13,7 +14,7 @@ import { BRANCH_FETCH_GAP_MS } from './live';
 import { prefs } from './prefs.svelte';
 import { toasts, type ToastsStore } from './toasts.svelte';
 
-/** How many branches one search shows; a longer list says how many more match and asks for a narrower search. */
+/** How many branches one request brings; the list asks for the next page when it is scrolled to the end. */
 export const BRANCH_PAGE_SIZE = 50;
 /** The wait after the last keystroke before the branches are searched. */
 const SEARCH_DEBOUNCE_MS = 150;
@@ -37,10 +38,12 @@ export class BranchSyncStore {
   /** What the last action did, shown under the rows until the next action or the popover closing. */
   note = $state.raw<SyncNote | null>(null);
 
-  /** The branches matching the last search, and whether one is on its way or failed. */
+  /** The branches matching the last search, every page loaded so far, and whether a search is on its way or failed. */
   page = $state.raw<BranchPage | null>(null);
   searching = $state(false);
   searchFailed = $state(false);
+  /** The next page of the last search is on its way. */
+  loadingMore = $state(false);
 
   private project: string | null = null;
   private readSeq = 0;
@@ -48,6 +51,10 @@ export class BranchSyncStore {
   private searchSeq = 0;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
   private lastQuery = '';
+  /** The text the rows shown were searched for: the next page continues that search, even after a newer one failed. */
+  private pageQuery = '';
+  /** How many matches the backend has handed over, the offset of the next page. Can differ from the rows shown, which skip repeats. */
+  private fetched = $state(0);
   private signature: string | null = null;
   private lastFetchAt = 0;
   private fetching: { project: string; done: Promise<void> } | null = null;
@@ -168,6 +175,12 @@ export class BranchSyncStore {
       }
 
       void this.repository.refresh({ quiet: true, statusOnly: true });
+
+      // The list shown or on its way may miss branches the fetch brought: search again, quietly (a failure leaves the list unmarked).
+      // A search waiting for the typing to pause already starts over by itself, and a list scrolled past its first page keeps its place.
+      if ((this.page !== null || this.searching) && this.searchTimer === null && this.fetched <= BRANCH_PAGE_SIZE) {
+        void this.runSearch(this.lastQuery, true);
+      }
     } catch {
       if (project === this.project) {
         this.fetchFailed = true;
@@ -323,7 +336,55 @@ export class BranchSyncStore {
     this.note = null;
   }
 
-  private async runSearch(query: string): Promise<void> {
+  /** Matches of the last search that are not loaded yet. */
+  get hasMore(): boolean {
+    return this.page !== null && this.fetched < this.page.total;
+  }
+
+  /**
+   * Appends the next page of the last search. Ignored while a search or a page is on its way, once everything is loaded
+   * and before any search ran. A failure sets `searchFailed`, and asking again tries again.
+   */
+  async loadMore(): Promise<void> {
+    const project = this.project;
+    const shown = this.page;
+    if (project === null || shown === null || this.searching || this.loadingMore || !this.hasMore) {
+      return;
+    }
+
+    const mine = this.searchSeq;
+    this.loadingMore = true;
+    // A newer search that failed stays reported: the rows still answer the older text.
+    this.searchFailed &&= this.pageQuery !== this.lastQuery;
+
+    try {
+      const next = await this.transport.invoke('git_branch_search', {
+        project,
+        query: this.pageQuery,
+        offset: this.fetched,
+        limit: BRANCH_PAGE_SIZE,
+      });
+      if (project !== this.project || mine !== this.searchSeq) {
+        return;
+      }
+
+      // A branch made or fetched meanwhile shifts the pages: a row already listed is not listed twice.
+      const known = new Set(shown.branches.map(rowKey));
+      this.page = { branches: [...shown.branches, ...next.branches.filter((row) => !known.has(rowKey(row)))], total: next.total };
+      // A page with nothing in it ends the list, so a shrunken result is not asked for again and again.
+      this.fetched = next.branches.length === 0 ? next.total : this.fetched + next.branches.length;
+    } catch {
+      if (project === this.project && mine === this.searchSeq) {
+        this.searchFailed = true;
+      }
+    } finally {
+      if (mine === this.searchSeq) {
+        this.loadingMore = false;
+      }
+    }
+  }
+
+  private async runSearch(query: string, quiet = false): Promise<void> {
     const project = this.project;
     if (project === null) {
       return;
@@ -332,20 +393,25 @@ export class BranchSyncStore {
     this.searchSeq += 1;
     const mine = this.searchSeq;
     this.searching = true;
+    // A page of the old search still on its way is dropped by the new sequence number, so it cannot clear this.
+    this.loadingMore = false;
 
     try {
       const page = await this.transport.invoke('git_branch_search', {
         project,
         query,
+        offset: 0,
         limit: BRANCH_PAGE_SIZE,
       });
       if (project === this.project && mine === this.searchSeq) {
         this.page = page;
+        this.pageQuery = query;
+        this.fetched = page.branches.length;
         this.searchFailed = false;
       }
     } catch {
       if (project === this.project && mine === this.searchSeq) {
-        this.searchFailed = true;
+        this.searchFailed ||= !quiet || this.page === null || this.pageQuery !== query;
       }
     } finally {
       if (mine === this.searchSeq) {
@@ -362,6 +428,7 @@ export class BranchSyncStore {
     this.searchSeq += 1;
     this.forgetSearchTimer();
     this.lastQuery = '';
+    this.pageQuery = '';
     this.lastFetchAt = 0;
     this.fetching = null;
     this.state = null;
@@ -372,6 +439,8 @@ export class BranchSyncStore {
     this.page = null;
     this.searching = false;
     this.searchFailed = false;
+    this.loadingMore = false;
+    this.fetched = 0;
 
     if (project !== null) {
       void this.read();
@@ -426,14 +495,6 @@ export class BranchSyncStore {
       this.searchTimer = null;
     }
   }
-}
-
-/** What in a git status says the branch moved: the head, the branch, its upstream and counts, and the conflicted files. */
-function signatureOf(status: GitStatus): string {
-  const conflicted = status.entries.filter((entry) => entry.staged === 'conflicted' || entry.unstaged === 'conflicted').map((entry) => entry.path);
-  const untracked = status.entries.filter((entry) => entry.unstaged === 'untracked').length;
-
-  return [status.head, status.branch, status.upstream, status.ahead, status.behind, status.entries.length, untracked, conflicted.join('\0')].join('|');
 }
 
 export const branchSync = new BranchSyncStore(ipc, toasts, git, () => prefs.value?.backgroundFetch === true);

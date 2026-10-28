@@ -150,16 +150,18 @@ pub async fn git_switch(
     branch_ops::git_switch(&GitCli::new(env, runner, project)?, picked_main, request).await
 }
 
-/// `git_branch_search` for the canonical project directory `project`: at most `limit` branches
-/// (1 to 100) whose name contains `query`, local ones first; empty outside a repository.
+/// `git_branch_search` for the canonical project directory `project`: the branches whose name
+/// contains `query`, local ones first, from match `offset` on, at most `limit` (1 to 100) of them;
+/// empty outside a repository.
 pub async fn git_branch_search(
     env: &Env,
     runner: &dyn ProcessRunner,
     project: &Path,
     query: &str,
+    offset: u32,
     limit: u32,
 ) -> Result<BranchPage> {
-    branch_ops::git_branch_search(&GitCli::new(env, runner, project)?, query, limit).await
+    branch_ops::git_branch_search(&GitCli::new(env, runner, project)?, query, offset, limit).await
 }
 
 /// `git_diff` for the canonical project directory `project`: staged, then unstaged, then

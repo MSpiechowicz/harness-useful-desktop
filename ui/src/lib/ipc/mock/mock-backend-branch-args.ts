@@ -9,6 +9,6 @@ export const BRANCH_SYNC_ARGS: { [K in Extract<CommandName, 'git_sync_state' | '
   git_fetch: { project: PROJECT, background: true },
   git_sync_action: { project: PROJECT, action: 'push' },
   git_switch: { project: PROJECT, request: { branch: 'main', create: null, stash: false } },
-  git_branch_search: { project: PROJECT, query: 'feat', limit: 20 },
+  git_branch_search: { project: PROJECT, query: 'feat', offset: 0, limit: 20 },
   git_set_main_branch: { project: PROJECT, branch: null },
 };

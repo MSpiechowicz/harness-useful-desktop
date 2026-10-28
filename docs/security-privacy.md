@@ -643,15 +643,15 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   Desktop:`) or an autostash, and refuses while unmerged files exist or when that stash is already marked applied.
   `DropStash` drops only a top stash marked applied, never a foreign one.
   **Background fetch.** `fetch --no-recurse-submodules --multiple --end-of-options <remotes>` with `-c gc.auto=0 -c
-  maintenance.auto=false -c protocol.ext.allow=never -c credential.interactive=false -c core.hooksPath=/dev/null -c hook.reference-transaction.enabled=false` (`NUL`
-  on Windows), and the env `GIT_ASKPASS=` (empty), `GCM_INTERACTIVE=never`, `GIT_ALLOW_PROTOCOL=https:http:ssh:git:file`,
+  maintenance.auto=false -c protocol.ext.allow=never -c credential.interactive=false -c core.hooksPath=<git program> -c hook.reference-transaction.enabled=false`
+  (the absolute path of the git executable, the same on every OS: Windows' `NUL` would be read as a `NUL` folder in the work tree. A git path that is not valid UTF-8 skips the background fetch), and the env `GIT_ASKPASS=` (empty), `GCM_INTERACTIVE=never`, `GIT_ALLOW_PROTOCOL=https:http:ssh:git:file`,
   `SSH_ASKPASS_REQUIRE=never`, `GIT_TERMINAL_PROMPT=0` and, only when `core.sshCommand` is unset,
-  `GIT_SSH_COMMAND="ssh -o BatchMode=yes"`. It runs no hook (`core.hooksPath` switches off the scripts, `hook.reference-transaction.enabled=false` the
+  `GIT_SSH_COMMAND="ssh -o BatchMode=yes"`. It runs no hook (`-c core.hooksPath=<path of the git program>`, a file no hook can sit below, switches off the scripts and beats a hooks path the repository sets, `hook.reference-transaction.enabled=false` the
   config-based `hook.<name>.command` hooks that git 2.54 and later run on that event, the only one a fetch fires, and
   the repository's own `hook.*` keys also stop it), no remote helper outside those transports (`ext::`,
   `<helper>::` URLs) and no submodule fetch. It does not run (the state comes back unchanged, no error) while the
   repository-local config (`--local`, and `--worktree` when `extensions.worktreeConfig` is on) sets any of
-  `core.sshCommand`, `core.askPass`, `core.hooksPath`, `core.gitProxy`, `core.alternateRefsCommand`, `credential.*`,
+  `core.sshCommand`, `core.askPass`, `core.gitProxy`, `core.alternateRefsCommand`, `credential.*`,
   `remote.*.uploadpack`, `remote.*.receivepack`, `remote.*.vcs`, `remote.*.proxy`, `remote.*.proxyAuthMethod`, `http.*`,
   `url.*.insteadOf`, `url.*.pushInsteadOf`, `protocol.*`, `hook.*`, `include.*` or `includeIf.*`, or when git cannot read that
   config. It can still run programs named in your global config: a global credential helper is consulted, and a global

@@ -7,38 +7,14 @@ import type { GitStatus } from '$lib/ipc/bindings/GitStatus';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { IpcFailure } from '$lib/ipc/transport';
 
-import { fakeTransport } from '../../../tests/helpers';
-import { BranchSyncStore } from './branch-sync.svelte';
+import { BRANCH_PAGE_SIZE } from './branch-sync.svelte';
+import { build, deferred, PROJECT, rows, sync } from './branch-sync-support';
 import { BRANCH_FETCH_GAP_MS } from './live';
-import { ToastsStore } from './toasts.svelte';
 
-const PROJECT = '/home/demo/project';
 const OTHER = '/home/demo/other';
-
-function sync(overrides: Partial<BranchSync> = {}): BranchSync {
-  return { ...structuredClone(fixtures.git.sync), ...overrides };
-}
 
 function status(overrides: Partial<GitStatus> = {}): GitStatus {
   return { ...structuredClone(fixtures.git.status), ...overrides };
-}
-
-type Handlers = Parameters<typeof fakeTransport>[0];
-
-function build(handlers: Handlers, { allowed = true }: { allowed?: boolean } = {}) {
-  const notifications = new ToastsStore();
-  const repository = { refresh: vi.fn(async () => {}) };
-  const store = new BranchSyncStore(fakeTransport(handlers), notifications, repository, () => allowed);
-
-  return { store, notifications, repository };
-}
-
-/** A reply the test settles when it wants to, to put answers in a chosen order. */
-function deferred<T>() {
-  let settle: (value: T) => void = () => {};
-  const promise = new Promise<T>((resolve) => (settle = resolve));
-
-  return { promise, settle };
 }
 
 const result = (state: BranchSync, outcome: GitActionResult['outcome'] = 'done'): GitActionResult => ({ outcome, state });
@@ -124,6 +100,143 @@ describe('fetching the remote', () => {
     await bare.store.fetchRemote();
 
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('searches again when a fetch lands after the list was shown, so new remote branches appear', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    let fetched = false;
+    const search = vi.fn(
+      (): BranchPage => ({
+        branches: rows(0, fetched ? 2 : 1),
+        total: fetched ? 2 : 1,
+      }),
+    );
+    const { store } = build({
+      git_sync_state: () => sync(),
+      git_branch_search: search,
+      git_fetch: () => {
+        fetched = true;
+
+        return sync();
+      },
+    });
+    store.follow(PROJECT, null);
+    store.search('feat', true);
+    await vi.waitFor(() => expect(store.page?.total).toBe(1));
+
+    await store.fetchRemote();
+
+    await vi.waitFor(() => expect(store.page?.branches.map((row) => row.name)).toEqual(['feat/0', 'feat/1']));
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(search).toHaveBeenLastCalledWith({ project: PROJECT, query: 'feat', offset: 0, limit: BRANCH_PAGE_SIZE });
+  });
+
+  it('keeps a list scrolled past its first page when a fetch lands', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const search = vi.fn(({ offset }: { offset: number }): BranchPage => ({ branches: rows(offset, BRANCH_PAGE_SIZE), total: 500 }));
+    const { store } = build({
+      git_sync_state: () => sync(),
+      git_branch_search: search,
+      git_fetch: () => sync(),
+    });
+    store.follow(PROJECT, null);
+    store.search('feat', true);
+    await vi.waitFor(() => expect(store.page?.branches).toHaveLength(BRANCH_PAGE_SIZE));
+    await store.loadMore();
+    expect(store.page?.branches).toHaveLength(2 * BRANCH_PAGE_SIZE);
+
+    await store.fetchRemote();
+
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(store.page?.branches).toHaveLength(2 * BRANCH_PAGE_SIZE);
+  });
+
+  it('searches again when a fetch lands while the first search is still on its way, and shows that answer', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const first = deferred<BranchPage>();
+    let calls = 0;
+    const { store } = build({
+      git_sync_state: () => sync(),
+      git_branch_search: () => {
+        calls += 1;
+
+        return calls === 1 ? first.promise : { branches: rows(0, 2), total: 2 };
+      },
+      git_fetch: () => sync(),
+    });
+    store.follow(PROJECT, null);
+    store.search('feat', true);
+    expect(store.page).toBeNull();
+
+    await store.fetchRemote();
+    await vi.waitFor(() => expect(store.page?.total).toBe(2));
+
+    first.settle({ branches: rows(0, 1), total: 1 });
+    await Promise.resolve();
+    expect(calls).toBe(2);
+    expect(store.page?.total).toBe(2);
+  });
+
+  it('leaves a shown list unmarked when the search after a fetch fails', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    let fetched = false;
+    const { store } = build({
+      git_sync_state: () => sync(),
+      git_branch_search: (): BranchPage => {
+        if (fetched) {
+          throw IpcFailure.from({ code: 'process', message: 'git failed' });
+        }
+
+        return { branches: rows(0, 1), total: 1 };
+      },
+      git_fetch: () => {
+        fetched = true;
+
+        return sync();
+      },
+    });
+    store.follow(PROJECT, null);
+    store.search('feat', true);
+    await vi.waitFor(() => expect(store.page?.total).toBe(1));
+
+    await store.fetchRemote();
+    await vi.waitFor(() => expect(store.searching).toBe(false));
+
+    expect(store.searchFailed).toBe(false);
+    expect(store.page?.total).toBe(1);
+  });
+
+  it('reports a newer search that a fetch took over and that failed, since the rows answer the older text', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const typed = deferred<BranchPage>();
+    let asked = 0;
+    const { store } = build({
+      git_sync_state: () => sync(),
+      git_branch_search: ({ query }: { query: string }) => {
+        if (query === 'ab') {
+          asked += 1;
+          if (asked > 1) {
+            throw IpcFailure.from({ code: 'process', message: 'git failed' });
+          }
+
+          return typed.promise;
+        }
+
+        return { branches: rows(0, 1), total: 1 };
+      },
+      git_fetch: () => sync(),
+    });
+    store.follow(PROJECT, null);
+    store.search('a', true);
+    await vi.waitFor(() => expect(store.page?.total).toBe(1));
+    store.search('ab', true);
+
+    await store.fetchRemote();
+    await vi.waitFor(() => expect(store.searching).toBe(false));
+
+    expect(asked).toBe(2);
+    expect(store.searchFailed).toBe(true);
+    expect(store.page?.total).toBe(1);
   });
 
   it('says a failed fetch quietly, without a toast, and clears it once one works', async () => {
@@ -349,48 +462,6 @@ describe('switching branches', () => {
       text: 'Created feat/new from main',
       names: ['feat/new', 'main'],
     });
-  });
-});
-
-describe('searching branches', () => {
-  it('waits for the typing to pause, asks once, and ignores an answer that is no longer the latest', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    const slow = deferred<BranchPage>();
-    const queries: string[] = [];
-    const { store } = build({
-      git_sync_state: () => sync(),
-      git_branch_search: ({ query }: { query: string }) => {
-        queries.push(query);
-
-        return query === 'fe'
-          ? slow.promise
-          : {
-              branches: [
-                {
-                  name: 'feat/x',
-                  isCurrent: false,
-                  remoteOnly: false,
-                  lastCommitDate: null,
-                },
-              ],
-              total: 1,
-            };
-      },
-    });
-    store.follow(PROJECT, null);
-
-    store.search('f');
-    store.search('fe');
-    expect(queries).toEqual([]);
-    await vi.advanceTimersByTimeAsync(150);
-    expect(queries).toEqual(['fe']);
-
-    store.search('fea', true);
-    await vi.waitFor(() => expect(store.page?.total).toBe(1));
-
-    slow.settle({ branches: [], total: 0 });
-    await vi.advanceTimersByTimeAsync(0);
-    expect(store.page?.total).toBe(1);
   });
 });
 

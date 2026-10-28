@@ -6,7 +6,7 @@ import type { BranchRow } from "./BranchRow";
  */
 export type BranchPage = { 
 /**
- * The first matches, at most the requested limit.
+ * The matches from the requested offset, at most the requested limit.
  */
 branches: Array<BranchRow>, 
 /**
