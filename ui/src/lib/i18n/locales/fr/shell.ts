@@ -78,6 +78,13 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.toast.noSession': 'Aucune session enregistrée à reprendre',
   'shell.toast.resumeSoon': 'Les sessions de {harness} ne peuvent pas encore être reprises',
   'shell.toast.saveFailed': 'Impossible d’enregistrer les paramètres',
+  'shell.toast.codeGraph.building': 'Création du graphe de code pour {repo}…',
+  'shell.toast.codeGraph.progress.one': '{done} sur {count} fichier',
+  'shell.toast.codeGraph.progress.other': '{done} sur {count} fichiers',
+  'shell.toast.codeGraph.ready.one': 'Graphe de code prêt · {count} fichier',
+  'shell.toast.codeGraph.ready.other': 'Graphe de code prêt · {count} fichiers',
+  'shell.toast.codeGraph.readyPlain': 'Graphe de code prêt',
+  'shell.toast.codeGraph.error': 'Impossible de créer le graphe de code',
 
   'shell.shortcuts.title': 'Raccourcis clavier',
   'shell.shortcuts.hint': 'Tout a sa touche. Appuyez sur {keys} n’importe où pour revoir cette liste.',

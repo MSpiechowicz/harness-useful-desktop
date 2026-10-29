@@ -3,7 +3,7 @@
 
 use super::approvals::Approvals;
 use super::format::loose_name;
-use crate::model::{Hook, HookApproval, HookOrigin, HookRequirement, HookStatus, HookView};
+use crate::model::{Hook, HookApproval, HookOrigin, HookRequirement, HookSeed, HookStatus, HookView};
 use crate::signed_docs::listing::sort_files;
 use crate::signed_docs::scope::{ranked, scoped_doc};
 
@@ -21,9 +21,25 @@ pub struct HookCapabilities {
     pub memory_available: bool,
     /// Harness Dashboard is installed (`harness-dashboard`).
     pub dashboard_available: bool,
+    /// The installed Harness Memory lists the `code-index` feature, so the code graph tools exist.
+    /// Where the hooks run (`memory_available` and this) the Code index switch must be on too: with
+    /// the switch off the server hides the `code_*` tools, so the "Use the code graph first" hook
+    /// ([`HookSeed::needs_code_graph`](crate::model::HookSeed::needs_code_graph)) is not seeded
+    /// and an existing one pauses instead of asking for tools that are not there. For the family
+    /// dialog's `installed` only the feature counts, so the user may add the hook before the
+    /// switch is on. A flag here, not a [`HookRequirement`], so the hook file format is unchanged.
+    pub code_graph_available: bool,
 }
 
 impl HookCapabilities {
+    /// True when `hook` may run: every requirement it names is met, and the code graph is there
+    /// when its family seed asks for it.
+    pub fn allows(self, hook: &Hook) -> bool {
+        let code_graph = self.code_graph_available || !hook.seed.is_some_and(HookSeed::needs_code_graph);
+
+        code_graph && hook.requires.iter().all(|requirement| self.meets(*requirement))
+    }
+
     /// True when `requirement` is met.
     pub fn meets(self, requirement: HookRequirement) -> bool {
         match requirement {
@@ -145,7 +161,7 @@ fn status_of(hook: &Hook, approval: HookApproval, capabilities: HookCapabilities
         return HookStatus::Off;
     }
 
-    if !hook.requires.iter().all(|requirement| capabilities.meets(*requirement)) {
+    if !capabilities.allows(hook) {
         return HookStatus::Paused;
     }
 

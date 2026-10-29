@@ -68,6 +68,7 @@ pub mod mcp_register;
 pub mod mcp_rename;
 pub mod memory_binary;
 pub mod memory_cli;
+pub mod memory_code;
 mod memory_copy_answer;
 pub mod memory_embedder;
 mod memory_embedder_lines;
@@ -125,6 +126,9 @@ pub use mcp_rename::rename_dashboard_mcp_file;
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
 pub use memory_cli::Repos;
+pub use memory_code::{
+    CodeBuildWatcher, CodeGraphSupport, code_graph_support, code_switch_is_on, get_code_index, set_code_index,
+};
 pub use memory_embedder::{
     EmbedderEvent, EmbedderStatus, EmbedderTracker, embedder_status, feature_server, get_settings, parse_event,
     remove_embedder_model, set_embedder_enabled, set_settings,

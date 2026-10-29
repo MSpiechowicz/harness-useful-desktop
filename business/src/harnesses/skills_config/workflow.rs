@@ -13,6 +13,10 @@
 //! symlink or (on Unix) open to other users. A settings root that cannot be resolved is an error
 //! for every key, unless it is missing and the harness reads that as no saved settings
 //! ([`MissingRoot`]). Nothing is created or changed.
+//!
+//! The sixth stage is `code-graph`. Before Harness Skills 0.5.0 it was `graphify-memory`: while
+//! `code-graph.json` is missing, `graphify-memory.json` is read in its place, under the same safety
+//! rules.
 
 use std::fs::{self, Metadata};
 use std::io::ErrorKind;
@@ -31,8 +35,12 @@ const STAGES: [&str; 6] = [
     "review",
     "security-review",
     "backend-memory",
-    "graphify-memory",
+    "code-graph",
 ];
+
+/// The file name the `code-graph` stage had before Harness Skills 0.5.0 (`graphify-memory`); read
+/// when `code-graph.json` is missing.
+const LEGACY_CODE_GRAPH: &str = "graphify-memory";
 
 /// The per-repository master switch.
 const WORKFLOW: &str = "workflow";
@@ -173,9 +181,21 @@ fn check_ancestor(dir: &Path) -> Result<bool, String> {
     Ok(true)
 }
 
-/// The `<key>.json` file of `dir`.
+/// The `<key>.json` file of `dir`; for `code-graph`, the legacy `graphify-memory.json` while
+/// that is missing.
 fn read_setting(dir: &Path, key: &str) -> Setting {
-    let file = dir.join(format!("{key}.json"));
+    let setting = read_file(dir, key);
+
+    if key == "code-graph" && setting == Setting::Default {
+        return read_file(dir, LEGACY_CODE_GRAPH);
+    }
+
+    setting
+}
+
+/// The `<name>.json` file of `dir`: `Default` when it is missing.
+fn read_file(dir: &Path, name: &str) -> Setting {
+    let file = dir.join(format!("{name}.json"));
 
     let metadata = match fs::symlink_metadata(&file) {
         Ok(metadata) => metadata,

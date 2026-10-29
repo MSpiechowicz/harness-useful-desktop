@@ -54,6 +54,42 @@ export class ToastsStore {
     return id;
   }
 
+  /**
+   * Changes a toast that is still shown, e.g. the progress of a long task. A key left out stays as it was, `description`, `action` and
+   * `project` can be cleared with `undefined`. A toast that is gone stays gone. Auto-dismiss starts over when `duration` changes.
+   */
+  update(id: number, patch: Partial<ToastInput>): void {
+    const item = this.items.find((each) => each.id === id);
+
+    if (!item) {
+      return;
+    }
+
+    if (patch.title !== undefined) {
+      item.title = patch.title;
+    }
+
+    if ('description' in patch) {
+      item.description = patch.description;
+    }
+
+    if (patch.tone !== undefined) {
+      item.tone = patch.tone;
+    }
+
+    if (patch.duration !== undefined) {
+      item.duration = patch.duration;
+    }
+
+    if ('action' in patch) {
+      item.action = patch.action;
+    }
+
+    if ('project' in patch) {
+      item.project = patch.project;
+    }
+  }
+
   dismiss(id: number): void {
     this.items = this.items.filter((item) => item.id !== id);
   }

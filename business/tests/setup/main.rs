@@ -35,6 +35,8 @@ mod ecosystem_model;
 mod ecosystem_releases;
 mod live_ecosystem;
 mod mcp_merge;
+mod memory_code;
+mod memory_code_switch;
 mod memory_embedder;
 mod memory_embedder_supervisor;
 mod memory_features;

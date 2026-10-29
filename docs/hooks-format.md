@@ -49,7 +49,7 @@ Top-level fields. Required means the key MUST be present and valid. Readers igno
 | `action` | object | yes | see Actions |
 | `enabled` | boolean | yes | |
 | `requires` | array of string or null | no | unique, `"harness-memory"` (Harness Memory installed and its memory setting on) or `"harness-dashboard"` (Harness Dashboard installed). A hook whose requirement is not met does not run and shows as waiting |
-| `seed` | string or null | no | `"memory-search"`, `"memory-save"`, `"dashboard-limits"`, `"useful-skills"`, `"branch-sync"` or `"memory-first"`: marks a Harness family hook, set only by the app window. Other writers keep it as is |
+| `seed` | string or null | no | `"memory-search"`, `"memory-save"`, `"dashboard-limits"`, `"useful-skills"`, `"branch-sync"`, `"memory-first"` or `"code-graph-first"`: marks a Harness family hook, set only by the app window. Other writers keep it as is |
 | `createdAt` | string | yes | RFC 3339 UTC, `YYYY-MM-DDTHH:MM:SSZ` (a fraction is accepted on read), e.g. `2026-10-17T10:00:00Z` |
 | `createdBy` | string | yes | `"desktop"` or `"agent"`. Set once when the file is created and never changed by any writer. Decides who may remove the hook |
 | `updatedAt` | string | yes | same format, set on every write |
@@ -230,7 +230,7 @@ Content:
 
 Approved copies `<app_config_dir>/hook-approved/<id>.json`: the exact bytes of the approved version (mode `0600`, written with the approval, removed when the app deletes the hook), so the Hooks view can show what a pending edit changed. Written only by the app window.
 
-Hooks state `<app_config_dir>/hooks-state.json`: `{ "version": 1, "seeded": ["memory-search", "memory-save", "dashboard-limits", "useful-skills", "branch-sync", "memory-first"], "teamDisabled": ["<id>"], "sharedFrom": { "<id>": "<sha256>" } }`. `seeded`: the seeds launch seeding created (or found) once. `teamDisabled` and `sharedFrom` (both optional, see Team hooks): the team hooks turned off on this machine, and the SHA-256 each local hook had when the user shared it. Written only by the app window. An invalid file is set aside and rebuilt with every seed listed and no team entries.
+Hooks state `<app_config_dir>/hooks-state.json`: `{ "version": 1, "seeded": ["memory-search", "memory-save", "dashboard-limits", "useful-skills", "branch-sync", "memory-first", "code-graph-first"], "teamDisabled": ["<id>"], "sharedFrom": { "<id>": "<sha256>" } }`. `seeded`: the seeds launch seeding created (or found) once. `teamDisabled` and `sharedFrom` (both optional, see Team hooks): the team hooks turned off on this machine, and the SHA-256 each local hook had when the user shared it. Written only by the app window. An invalid file is set aside and rebuilt with every seed listed and no team entries.
 
 ## Harness family hooks
 
@@ -244,6 +244,7 @@ A catalog of hooks for the Harness family members agents use over MCP. Each is g
 | `useful-skills` | `harness-memory` | `Check Useful Skills first` | `promptSubmit` | `addContext` |
 | `branch-sync` | `harness-memory` | `Check the branch against main` | `sessionStart` | `addContext` |
 | `memory-first` | `harness-memory` | `Check Memory first` | `promptSubmit` | `addContext` |
+| `code-graph-first` | `harness-memory` | `Use the code graph first` | `promptSubmit` | `addContext` |
 
 Exact texts:
 
@@ -253,6 +254,9 @@ Exact texts:
 - `useful-skills`: `If Useful Skills are installed, read the ones that apply to this message before you act. When it starts a new task, even late in the session, load the workflow skill and decide the workflow first (plan, implement, review) before the first edit. Then read any other skill that fits and follow its limits (for example the 500-line file maximum). Do not skip a matching skill.`
 - `branch-sync`: `At the start of the session, compare the branch you are working on with the repository's main branch: main, master or prod, whichever exists (git symbolic-ref refs/remotes/origin/HEAD names the default). Run git fetch, find which of the two has the most recent commits, and list the commits of the main branch your branch does not contain (git log HEAD..origin/<main> --oneline). If there are any, pull them into your branch unless the work tree is dirty or the merge would conflict, then tell me what came in and whether it touches the files in the scope of this work. Never discard local changes or rewrite history; ask me first when unsure.`
 - `memory-first`: `Before you act on this message, search Harness Memory for notes about it with a few English keywords (note_search) and check the saved scripts (script_list). Reuse what fits, and say so if a note is outdated. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository. If the memory settings say saving is off, still search; just do not save.`
+- `code-graph-first`: `If the Harness Memory code tools (code_map, code_symbol, code_impact, code_path) are available, use them for code-structure questions before grep or reading files, and pass project_path. Use code_map for an unfamiliar area, code_symbol for where something is defined and who uses it, code_impact before changing a signature, and one code_path call to trace how A reaches B (a symbol, a file path, a command name or plain words work as an endpoint). If you grep to find a starting point, switch to code_path from the function you found. Use grep only for literal text, error messages, config values, or when a code tool says the repository is not indexed.`
+
+`code-graph-first` also needs the code graph of Harness Memory: the installed server lists the `code-index` feature and its Code index switch (Settings, Memory) is on. The file format is unchanged (`requires` is `["harness-memory"]`): the app checks the seed. Without the code graph the hook is not seeded or restored, a file already in the folder is paused, and the dialog shows it as needing Harness Memory. It is created once the code graph is there (at a launch, when the switch is turned on, or after Harness Memory was updated through the app).
 
 When the app writes them:
 
@@ -263,7 +267,7 @@ When the app writes them:
 - After a member is installed through the app, its missing hooks are added again, even ones deleted before. Existing ones are never overwritten.
 - Uninstalling a member deletes nothing: its hooks wait for it.
 
-Status of a catalog entry: `installed` (an approved valid file with the seed matches the catalog), `outdated` (it differs), `missing` (no approved valid file with the seed), `needsMember` (the member is not installed).
+Status of a catalog entry: `installed` (an approved valid file with the seed matches the catalog), `outdated` (it differs), `missing` (no approved valid file with the seed), `needsMember` (the member is not installed, or for `code-graph-first` the installed Harness Memory does not list `code-index`).
 
 ## Team hooks
 

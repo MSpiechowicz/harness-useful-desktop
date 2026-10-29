@@ -96,6 +96,9 @@ export const settings = {
   'settings.memory.english.title': 'English notes',
   'settings.memory.english.description': 'Harnesses must write notes in English, so every search finds them. A note in another language is refused with a request to rewrite it. Your own saves are kept, with a warning.',
   'settings.memory.english.descriptionTeam': 'Harnesses must write notes in English, so every search finds them. A note in another language is refused with a request to rewrite it. Your own saves are kept, with a warning. This applies to everyone who uses the team database.',
+  'settings.memory.code.title': 'Code index',
+  'settings.memory.code.description': 'Lets agents look up where code is defined and who uses it, from a local index of the project.',
+  'settings.memory.code.descriptionEnv': 'Lets agents look up where code is defined and who uses it, from a local index of the project. An environment variable controls this setting.',
 
 
   'settings.memoryRemote.title': 'Remote memory',

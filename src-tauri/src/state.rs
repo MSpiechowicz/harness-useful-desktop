@@ -27,6 +27,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::agents::Agents;
 use crate::drops::DropSink;
 use crate::hooks::HookRuntime;
+use crate::memory_code_builds::CodeBuilds;
 use crate::memory_embedder::EmbedderWatch;
 use crate::memory_held::HeldWatcher;
 use crate::memory_requests::ScriptRequests;
@@ -72,6 +73,8 @@ pub struct AppState {
     pub script_requests: Arc<ScriptRequests>,
     /// The page told when the saves Harness Memory holds for review change.
     pub memory_held: Arc<HeldWatcher>,
+    /// The page told when a code graph build begins, progresses or ends.
+    pub code_builds: Arc<CodeBuilds>,
     /// The writes of each chat's memory guards file after its start (toggles, newest revision
     /// only, and moves), one at a time per chat.
     pub memory_chat_writes: Arc<ChatGuardWrites>,
@@ -167,6 +170,7 @@ impl AppState {
             embedder_watch: EmbedderWatch::default(),
             script_requests: Arc::new(ScriptRequests::default()),
             memory_held: Arc::new(HeldWatcher::default()),
+            code_builds: Arc::new(CodeBuilds::default()),
             memory_chat_writes: Arc::new(ChatGuardWrites::default()),
             attachments_dir: prefs_dir.join("attachments"),
             drops: DropSink::default(),

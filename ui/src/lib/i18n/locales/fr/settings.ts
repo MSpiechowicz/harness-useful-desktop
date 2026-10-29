@@ -98,6 +98,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.english.title': 'Notes en anglais',
   'settings.memory.english.description': 'Les harnesses doivent écrire les notes en anglais pour que chaque recherche les trouve. Une note dans une autre langue est refusée avec une demande de la réécrire. Vos propres enregistrements sont conservés, avec un avertissement.',
   'settings.memory.english.descriptionTeam': 'Les harnesses doivent écrire les notes en anglais pour que chaque recherche les trouve. Une note dans une autre langue est refusée avec une demande de la réécrire. Vos propres enregistrements sont conservés, avec un avertissement. Cela concerne toutes les personnes qui utilisent la base de données d’équipe.',
+  'settings.memory.code.title': 'Index du code',
+  'settings.memory.code.description': 'Permet aux agents de retrouver où le code est défini et qui l’utilise, à partir d’un index local du projet.',
+  'settings.memory.code.descriptionEnv': 'Permet aux agents de retrouver où le code est défini et qui l’utilise, à partir d’un index local du projet. Une variable d’environnement contrôle ce réglage.',
 
 
   'settings.memoryRemote.title': 'Mémoire distante',

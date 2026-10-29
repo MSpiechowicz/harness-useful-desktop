@@ -74,6 +74,14 @@ export const CATALOG: readonly CatalogEntry[] = [
     type: 'addContext',
     text: 'Before you act on this message, search Harness Memory for notes about it with a few English keywords (note_search) and check the saved scripts (script_list). Reuse what fits, and say so if a note is outdated. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository. If the memory settings say saving is off, still search; just do not save.',
   },
+  {
+    seed: 'code-graph-first',
+    member: 'harness-memory',
+    name: 'Use the code graph first',
+    event: 'promptSubmit',
+    type: 'addContext',
+    text: 'If the Harness Memory code tools (code_map, code_symbol, code_impact, code_path) are available, use them for code-structure questions before grep or reading files, and pass project_path. Use code_map for an unfamiliar area, code_symbol for where something is defined and who uses it, code_impact before changing a signature, and one code_path call to trace how A reaches B (a symbol, a file path, a command name or plain words work as an endpoint). If you grep to find a starting point, switch to code_path from the function you found. Use grep only for literal text, error messages, config values, or when a code tool says the repository is not indexed.',
+  },
 ];
 
 /** The text the memory-save hook had before the catalog changed: the sample of an outdated family hook. */

@@ -37,7 +37,7 @@
 //! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0. `harness-memory trust
 //! <id>=<sha256>… [--project <path>]` approves the stand-in's scripts, see [`memory::trust`].
 //! `harness-memory notes list|get|delete` and `harness-memory scripts list` answer from fixtures,
-//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`]; `harness-memory embedder …` and `settings …`, see [`memory_embedder`].
+//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`]; `harness-memory embedder …` and `settings …`, see [`memory_embedder`]; `harness-memory code status|enable|disable`, see [`memory_code`].
 //! `harness-memory hooks|routines config|list|put|delete` answer from files
 //! next to the copy, see [`memory_hooks`].
 
@@ -59,6 +59,8 @@ mod memory;
 mod memory_cli;
 #[path = "fake_agent/memory_cli_notes.rs"]
 mod memory_cli_notes;
+#[path = "fake_agent/memory_code.rs"]
+mod memory_code;
 #[path = "fake_agent/memory_embedder.rs"]
 mod memory_embedder;
 #[path = "fake_agent/memory_hooks.rs"]
@@ -114,6 +116,7 @@ fn main() {
             Some("features") => memory_push::features(),
             Some("embedder") if memory_push::lists("embedder") => memory_embedder::embedder(&args[2..]),
             Some("settings") if memory_push::lists("settings") => memory_embedder::settings(&args[2..]),
+            Some("code") if memory_push::lists("code-index") => memory_code::code(&args[2..]),
             Some("push") => memory_push::push(&args[2..]),
             Some(plural @ ("hooks" | "routines")) => memory_hooks::docs(plural, &args[2..]),
             _ => {}

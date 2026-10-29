@@ -77,6 +77,13 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.toast.noSession': 'Nenhuma sessão salva para retomar',
   'shell.toast.resumeSoon': 'As sessões do {harness} ainda não podem ser retomadas',
   'shell.toast.saveFailed': 'Não foi possível salvar as configurações',
+  'shell.toast.codeGraph.building': 'Criando o grafo de código de {repo}…',
+  'shell.toast.codeGraph.progress.one': '{done} de {count} arquivo',
+  'shell.toast.codeGraph.progress.other': '{done} de {count} arquivos',
+  'shell.toast.codeGraph.ready.one': 'Grafo de código pronto · {count} arquivo',
+  'shell.toast.codeGraph.ready.other': 'Grafo de código pronto · {count} arquivos',
+  'shell.toast.codeGraph.readyPlain': 'Grafo de código pronto',
+  'shell.toast.codeGraph.error': 'Não foi possível criar o grafo de código',
 
   'shell.shortcuts.title': 'Atalhos de teclado',
   'shell.shortcuts.hint': 'Tudo tem uma tecla. Pressione {keys} em qualquer lugar para ver isto de novo.',

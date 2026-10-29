@@ -60,9 +60,9 @@ pub use engine::{
     memory_save_part,
 };
 pub use family::{
-    FAMILY, FamilyHook, SEED_BRANCH_SYNC_TEXT, SEED_DASHBOARD_LIMITS_TEXT, SEED_MEMORY_FIRST_TEXT,
-    SEED_MEMORY_SAVE_TEXT, SEED_MEMORY_SEARCH_TEXT, SEED_USEFUL_SKILLS_TEXT, apply_family, family_hook, family_status,
-    restore_member, seed_defaults,
+    FAMILY, FamilyHook, SEED_BRANCH_SYNC_TEXT, SEED_CODE_GRAPH_FIRST_TEXT, SEED_DASHBOARD_LIMITS_TEXT,
+    SEED_MEMORY_FIRST_TEXT, SEED_MEMORY_SAVE_TEXT, SEED_MEMORY_SEARCH_TEXT, SEED_USEFUL_SKILLS_TEXT, apply_family,
+    family_hook, family_status, restore_member, seed_defaults,
 };
 pub use format::{MAX_HOOK_FILE_BYTES, is_hook_id, parse_hook_file};
 pub use memory_guards::read_memory_guards;

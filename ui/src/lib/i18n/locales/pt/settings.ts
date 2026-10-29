@@ -99,6 +99,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.english.title': 'Notas em inglês',
   'settings.memory.english.description': 'Os harnesses devem escrever as notas em inglês para que qualquer pesquisa as encontre. Uma nota em outro idioma é recusada com um pedido para reescrevê-la. Seus próprios salvamentos são mantidos, com um aviso.',
   'settings.memory.english.descriptionTeam': 'Os harnesses devem escrever as notas em inglês para que qualquer pesquisa as encontre. Uma nota em outro idioma é recusada com um pedido para reescrevê-la. Seus próprios salvamentos são mantidos, com um aviso. Isso vale para todos que usam o banco de dados da equipe.',
+  'settings.memory.code.title': 'Índice de código',
+  'settings.memory.code.description': 'Permite que os agentes encontrem onde o código é definido e quem o usa, a partir de um índice local do projeto.',
+  'settings.memory.code.descriptionEnv': 'Permite que os agentes encontrem onde o código é definido e quem o usa, a partir de um índice local do projeto. Uma variável de ambiente controla esta configuração.',
 
   'settings.memoryRemote.title': 'Memória remota',
   'settings.memoryRemote.description': 'Compartilhe a memória do projeto com a sua equipe por um único banco de dados. Os harnesses de todos os colegas leem e gravam nele. Cada linha abaixo escolhe onde ela fica guardada.',

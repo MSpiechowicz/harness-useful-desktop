@@ -98,6 +98,9 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memory.english.title': 'Notatki po angielsku',
   'settings.memory.english.description': 'Harnessy muszą pisać notatki po angielsku, żeby każde wyszukiwanie je znajdowało. Notatka w innym języku zostaje odrzucona z prośbą o jej przepisanie. Twoje własne zapisy zostają zachowane, z ostrzeżeniem.',
   'settings.memory.english.descriptionTeam': 'Harnessy muszą pisać notatki po angielsku, żeby każde wyszukiwanie je znajdowało. Notatka w innym języku zostaje odrzucona z prośbą o jej przepisanie. Twoje własne zapisy zostają zachowane, z ostrzeżeniem. Dotyczy to wszystkich, którzy korzystają z bazy danych zespołu.',
+  'settings.memory.code.title': 'Indeks kodu',
+  'settings.memory.code.description': 'Pozwala agentom sprawdzać, gdzie kod jest zdefiniowany i kto go używa, na podstawie lokalnego indeksu projektu.',
+  'settings.memory.code.descriptionEnv': 'Pozwala agentom sprawdzać, gdzie kod jest zdefiniowany i kto go używa, na podstawie lokalnego indeksu projektu. To ustawienie kontroluje zmienna środowiskowa.',
 
 
   'settings.memoryRemote.title': 'Pamięć zdalna',

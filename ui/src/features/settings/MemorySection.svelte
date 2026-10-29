@@ -11,6 +11,7 @@
   import { prefs } from '$lib/stores/prefs.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
 
+  import CodeIndexRow from './CodeIndexRow.svelte';
   import ManualRemovalNote from './ManualRemovalNote.svelte';
   import MemoryGuardsSections from './MemoryGuardsSections.svelte';
   import MemorySearchRows from './MemorySearchRows.svelte';
@@ -104,6 +105,8 @@
   {/if}
 
   <MemorySearchRows />
+
+  <CodeIndexRow />
 
   <SettingRow title={t('settings.memoryRemote.title')} description={t('settings.memoryRemote.description')}>
     {#snippet control()}

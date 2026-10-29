@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "1a2b3c4d5e6f70818293a4b5c6d70044",
+  "name": "Use the code graph first",
+  "description": "Seeded default. Asks the agent, on every message, to answer code-structure questions with the Harness Memory code tools before grep.",
+  "scope": "global",
+  "project": null,
+  "event": "promptSubmit",
+  "matcher": null,
+  "action": {
+    "type": "addContext",
+    "text": "If the Harness Memory code tools (code_map, code_symbol, code_impact, code_path) are available, use them for code-structure questions before grep or reading files, and pass project_path. Use code_map for an unfamiliar area, code_symbol for where something is defined and who uses it, code_impact before changing a signature, and one code_path call to trace how A reaches B (a symbol, a file path, a command name or plain words work as an endpoint). If you grep to find a starting point, switch to code_path from the function you found. Use grep only for literal text, error messages, config values, or when a code tool says the repository is not indexed."
+  },
+  "enabled": true,
+  "createdAt": "2026-10-29T10:00:00Z",
+  "createdBy": "desktop",
+  "updatedAt": "2026-10-29T10:00:00Z",
+  "updatedBy": "desktop",
+  "requires": [
+    "harness-memory"
+  ],
+  "seed": "code-graph-first"
+}

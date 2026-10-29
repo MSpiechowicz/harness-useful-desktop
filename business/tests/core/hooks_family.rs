@@ -18,14 +18,17 @@ mod hooks_family {
     const NOTHING: HookCapabilities = HookCapabilities {
         memory_available: false,
         dashboard_available: false,
+        code_graph_available: false,
     };
     const MEMORY: HookCapabilities = HookCapabilities {
         memory_available: true,
         dashboard_available: false,
+        code_graph_available: false,
     };
     const BOTH: HookCapabilities = HookCapabilities {
         memory_available: true,
         dashboard_available: true,
+        code_graph_available: false,
     };
 
     fn store() -> (TempDir, HookStore) {
@@ -157,6 +160,7 @@ mod hooks_family {
                 (HookSeed::UsefulSkills, HookFamilyStatus::Missing),
                 (HookSeed::BranchSync, HookFamilyStatus::Missing),
                 (HookSeed::MemoryFirst, HookFamilyStatus::Missing),
+                (HookSeed::CodeGraphFirst, HookFamilyStatus::NeedsMember),
             ]
         );
 
@@ -172,6 +176,7 @@ mod hooks_family {
                 (HookSeed::UsefulSkills, HookFamilyStatus::Installed),
                 (HookSeed::BranchSync, HookFamilyStatus::Installed),
                 (HookSeed::MemoryFirst, HookFamilyStatus::Installed),
+                (HookSeed::CodeGraphFirst, HookFamilyStatus::NeedsMember),
             ]
         );
 
@@ -276,7 +281,7 @@ mod hooks_family {
         assert_eq!(pending.status, HookStatus::Pending);
 
         assert_eq!(
-            restore_member(&store, HookRequirement::HarnessMemory, at(2)).unwrap(),
+            restore_member(&store, HookRequirement::HarnessMemory, MEMORY, at(2)).unwrap(),
             vec![HookSeed::MemorySearch]
         );
 
@@ -326,9 +331,11 @@ mod hooks_family {
             seeded(&store, HookSeed::DashboardLimits).unwrap().status,
             HookStatus::Active
         );
+        // Everything but the code graph hook, which needs the code graph of Harness Memory.
         assert!(
             statuses(&store, BOTH)
                 .iter()
+                .filter(|(seed, _)| *seed != HookSeed::CodeGraphFirst)
                 .all(|(_, status)| *status == HookFamilyStatus::Installed)
         );
 
@@ -351,14 +358,14 @@ mod hooks_family {
         assert_eq!(seeded(&store, HookSeed::MemorySave), None);
 
         assert_eq!(
-            restore_member(&store, HookRequirement::HarnessMemory, at(2)).unwrap(),
+            restore_member(&store, HookRequirement::HarnessMemory, MEMORY, at(2)).unwrap(),
             vec![HookSeed::MemorySave]
         );
         assert_eq!(seeded(&store, HookSeed::MemorySave).unwrap().status, HookStatus::Active);
         assert_eq!(seeded(&store, HookSeed::MemorySearch).unwrap().sha256, edited.sha256);
 
         assert_eq!(
-            restore_member(&store, HookRequirement::HarnessDashboard, at(3)).unwrap(),
+            restore_member(&store, HookRequirement::HarnessDashboard, BOTH, at(3)).unwrap(),
             vec![HookSeed::DashboardLimits]
         );
 

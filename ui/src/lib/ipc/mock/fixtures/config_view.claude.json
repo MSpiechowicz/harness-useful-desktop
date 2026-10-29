@@ -611,7 +611,7 @@
           }
         },
         {
-          "key": "graphify-memory",
+          "key": "code-graph",
           "value": {
             "kind": "text",
             "value": "default (enabled)"

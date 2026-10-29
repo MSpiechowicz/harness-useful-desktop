@@ -145,17 +145,21 @@ pub enum HookSeed {
     BranchSync,
     /// Harness Memory: "Check Memory first" (`promptSubmit`).
     MemoryFirst,
+    /// Harness Memory: "Use the code graph first" (`promptSubmit`). Offered only while the installed
+    /// Harness Memory lists `code-index` (and runs only while the Code index switch is on).
+    CodeGraphFirst,
 }
 
 impl HookSeed {
     /// Every family hook, in catalog order.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::MemorySearch,
         Self::MemorySave,
         Self::DashboardLimits,
         Self::UsefulSkills,
         Self::BranchSync,
         Self::MemoryFirst,
+        Self::CodeGraphFirst,
     ];
 
     /// The name in the file and in `hooks-state.json`.
@@ -167,7 +171,14 @@ impl HookSeed {
             Self::UsefulSkills => "useful-skills",
             Self::BranchSync => "branch-sync",
             Self::MemoryFirst => "memory-first",
+            Self::CodeGraphFirst => "code-graph-first",
         }
+    }
+
+    /// True when the hook also needs the code graph of Harness Memory (see
+    /// `HookCapabilities::code_graph_available`), beyond its `requires`.
+    pub fn needs_code_graph(self) -> bool {
+        self == Self::CodeGraphFirst
     }
 
     /// The seed named `name`.

@@ -43,6 +43,7 @@ pub const EVERY_FEATURE: FeaturesSupport = FeaturesSupport::Listed {
     settings: false,
     notes_lang: false,
     notes_useful: false,
+    code_index: false,
 };
 
 /// What a server with `scripts` support and `features` supports (team documents and database kinds

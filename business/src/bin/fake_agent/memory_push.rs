@@ -137,7 +137,7 @@ pub fn features() -> ! {
 }
 
 /// The features of a stand-in without `FAKE_MEMORY_FEATURES`.
-const DEFAULT_FEATURES: [&str; 10] = [
+const DEFAULT_FEATURES: [&str; 11] = [
     "notes-remote-local",
     "notes-hide",
     "push-json",
@@ -148,6 +148,7 @@ const DEFAULT_FEATURES: [&str; 10] = [
     "settings",
     "notes-lang",
     "notes-useful",
+    "code-index",
 ];
 
 /// Whether this stand-in lists `feature` in `features`: the commands of a feature it does not list

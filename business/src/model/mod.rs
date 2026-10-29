@@ -24,6 +24,7 @@ mod git_sync;
 mod harness;
 mod hook;
 mod ipc_error;
+mod memory_code;
 mod memory_embedder;
 mod memory_guards;
 mod memory_import;
@@ -93,6 +94,7 @@ pub use hook::{
     TeamHooks,
 };
 pub use ipc_error::{IpcError, IpcErrorCode};
+pub use memory_code::{CodeBuildEvent, CodeIndexState};
 pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 pub use memory_guards::{
     GlobalKindGuard, HeldItem, HeldKind, HeldSaved, HeldTool, KindGuard, MemoryChatGuards, MemoryChatGuardsSet,

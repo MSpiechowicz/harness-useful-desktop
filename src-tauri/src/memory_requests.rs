@@ -6,7 +6,8 @@
 //! the user through [`crate::notifications`] while the main window is not in front), and every
 //! [`HEARTBEAT_INTERVAL`] touches `desktop.alive` while Harness Memory is installed and its data
 //! folder exists (the server creates it), and on every poll tells [`crate::memory_held`]'s
-//! listener when the held saves changed (one event per burst). [`ScriptRequests::stop`] (app exit)
+//! listener when the held saves changed (one event per burst) and [`crate::memory_code_builds`]'s
+//! listener about the code graph builds. [`ScriptRequests::stop`] (app exit)
 //! ends both and removes the heartbeat file, so the server stops waiting for an answer from this
 //! app. Before its first poll the thread removes the chats' memory guards files untouched for 30 days
 //! ([`sweep_chats`]).
@@ -196,6 +197,7 @@ pub fn spawn<R: Runtime>(app: &AppHandle<R>) {
             }
 
             let mut polls: u32 = 0;
+            let mut watcher_failed = false;
 
             loop {
                 let Some(state) = handle.try_state::<AppState>() else {
@@ -208,6 +210,17 @@ pub fn spawn<R: Runtime>(app: &AppHandle<R>) {
 
                 let fresh = state.script_requests.tick(&state.env, polls == 0, SystemTime::now());
                 state.memory_held.tick(&state.env, Instant::now());
+
+                // A bug in the build watcher must never end this thread (script alerts, heartbeat, held saves).
+                let watched = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    state.code_builds.tick(&state.env, SystemTime::now());
+                }));
+
+                if watched.is_err() && !watcher_failed {
+                    watcher_failed = true;
+                    tracing::error!("the code graph build watcher panicked; the memory request thread goes on");
+                }
+
                 polls = (polls + 1) % POLLS_PER_HEARTBEAT;
 
                 if !fresh.is_empty() {

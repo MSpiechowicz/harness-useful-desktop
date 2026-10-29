@@ -13,8 +13,12 @@
 //!   refresh of their copies ([`crate::team_sync`]), and the copies the chats run after the local
 //!   hooks.
 //! - Capabilities: `harness-memory` is met while Harness Memory is installed and the
-//!   `memoryEnabled` pref is on, `harness-dashboard` while Harness Dashboard is installed. Looked
-//!   up at most every [`MEMBERS_TTL`], and again after an install or the memory switch.
+//!   `memoryEnabled` pref is on, `harness-dashboard` while Harness Dashboard is installed. The code
+//!   graph (for the "Use the code graph first" hook) is met while Harness Memory lists `code-index`
+//!   and its Code index switch is on. Looked
+//!   up at most every [`MEMBERS_TTL`], and again after an install or the memory switch. The
+//!   switch file (`code.toml`) is read again on every use, so a switch turned off outside the app
+//!   stops that hook on the next prompt.
 //! - Harness family hooks: seeded once at launch for the members available
 //!   ([`spawn_on_launch`]), and a member's missing ones are added again after the app installed it
 //!   ([`after_member_install`]).
@@ -27,6 +31,7 @@
 //! Logs carry hook ids and counts, never a hook's text, command or output.
 
 pub mod chat;
+mod members;
 pub mod team;
 #[cfg(test)]
 mod team_tests;
@@ -36,6 +41,8 @@ mod tests;
 mod tests_claude;
 #[cfg(test)]
 mod tests_cli;
+#[cfg(test)]
+mod tests_code_graph;
 #[cfg(test)]
 mod tests_codex;
 #[cfg(test)]
@@ -48,7 +55,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant, SystemTime};
 
-use harness_business::ecosystem::{Companion, installed_memory, resolve_dashboard};
+use harness_business::ecosystem::{
+    CodeGraphSupport, Companion, MemoryFeatures, code_graph_support, code_switch_is_on, installed_memory,
+    resolve_dashboard,
+};
 use harness_business::env::Env;
 use harness_business::hooks::team::{TeamFolder, TeamViews, team_views};
 use harness_business::hooks::{HookCapabilities, HookKind, HookSet, HookStore, restore_member, seed_defaults};
@@ -60,6 +70,7 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
 
 use self::chat::ChatHooks;
+use self::members::Members;
 use crate::doc_watch::DocWatch;
 use crate::state::{AppState, SharedPrefs};
 use crate::team_sync::TeamSync;
@@ -77,6 +88,8 @@ pub struct HookRuntime {
     env: Arc<Env>,
     chats: Mutex<HashMap<String, Arc<ChatHooks>>>,
     cache: Mutex<Cache>,
+    /// The features of the installed Harness Memory, for the code graph capability.
+    features: MemoryFeatures,
     listener: Mutex<Option<Channel<HooksEvent>>>,
     /// Held by every write of the app (commands, seeding, pruning), so approvals are never lost
     /// to two writers that each load and save them.
@@ -105,32 +118,6 @@ struct RunViews {
     team: TeamViews,
 }
 
-/// The family members on this machine.
-#[derive(Debug, Clone, Copy, Default)]
-struct Members {
-    memory_installed: bool,
-    memory_enabled: bool,
-    dashboard_installed: bool,
-}
-
-impl Members {
-    /// What the hooks' `requires` are checked against.
-    fn capabilities(self) -> HookCapabilities {
-        HookCapabilities {
-            memory_available: self.memory_installed && self.memory_enabled,
-            dashboard_available: self.dashboard_installed,
-        }
-    }
-
-    /// Which members are installed (Harness Memory whatever its setting).
-    fn installed(self) -> HookCapabilities {
-        HookCapabilities {
-            memory_available: self.memory_installed,
-            dashboard_available: self.dashboard_installed,
-        }
-    }
-}
-
 impl HookRuntime {
     /// Hooks in `store` (`None`: no hooks folder, hooks are unavailable), with the
     /// `memoryEnabled` pref read from `prefs`.
@@ -141,6 +128,7 @@ impl HookRuntime {
             env,
             chats: Mutex::default(),
             cache: Mutex::default(),
+            features: MemoryFeatures::new(),
             listener: Mutex::default(),
             writes: Arc::default(),
             watch: DocWatch::default(),
@@ -157,8 +145,22 @@ impl HookRuntime {
     }
 
     /// What the hooks' `requires` are checked against now.
+    ///
+    /// The members are cached for [`MEMBERS_TTL`], but the Code index switch is read again from
+    /// its file on every call, so a switch turned off outside the app (`harness-memory code
+    /// disable`) stops the code graph hook on the next prompt, not up to 30 s later.
     pub async fn capabilities(&self) -> HookCapabilities {
-        self.members().await.capabilities()
+        let mut capabilities = self.members().await.capabilities();
+
+        if capabilities.code_graph_available {
+            let env = self.env.clone();
+
+            capabilities.code_graph_available = tauri::async_runtime::spawn_blocking(move || code_switch_is_on(&env))
+                .await
+                .unwrap_or(false);
+        }
+
+        capabilities
     }
 
     /// Which family members are installed (Harness Memory whatever its setting).
@@ -207,10 +209,18 @@ impl HookRuntime {
         let (memory_enabled, dashboard_installed) = local.unwrap_or_default();
         let memory_installed = installed_memory(&self.env, &TokioRunner).await.is_some();
 
+        // The code graph: the server's `code-index` feature, and its switch when listed.
+        let code_graph = if memory_installed {
+            code_graph_support(&self.env, &TokioRunner, &self.features).await
+        } else {
+            CodeGraphSupport::default()
+        };
+
         let members = Members {
             memory_installed,
             memory_enabled,
             dashboard_installed,
+            code_graph,
         };
 
         let mut cache = self.lock_cache();
@@ -471,9 +481,10 @@ pub async fn after_member_install(runtime: &HookRuntime, companion: Companion) {
     };
 
     runtime.refresh_members();
+    let available = runtime.capabilities().await;
 
     let restored = runtime
-        .write(move |store| restore_member(store, member, SystemTime::now()))
+        .write(move |store| restore_member(store, member, available, SystemTime::now()))
         .await;
 
     match restored {

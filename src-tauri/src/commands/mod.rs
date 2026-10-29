@@ -11,6 +11,7 @@ pub mod git_sync;
 pub mod harness;
 pub mod hooks;
 pub mod memory;
+pub mod memory_code;
 pub mod memory_embedder;
 pub mod memory_guards;
 pub mod memory_notes;

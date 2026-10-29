@@ -70,7 +70,8 @@ impl Data {
     }
 }
 
-fn private(dir: &Path) {
+/// Makes `dir` private to the user (Unix), as the server creates its folders.
+pub(crate) fn private(dir: &Path) {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

@@ -906,7 +906,7 @@ expression: "exported(config(&env, Some(&project)), &home, &project)"
           }
         },
         {
-          "key": "graphify-memory",
+          "key": "code-graph",
           "value": {
             "kind": "text",
             "value": "default (enabled)"

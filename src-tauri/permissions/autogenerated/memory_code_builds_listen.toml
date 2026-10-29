@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-code-builds-listen"
+description = "Enables the memory_code_builds_listen command without any pre-configured scope."
+commands.allow = ["memory_code_builds_listen"]
+
+[[permission]]
+identifier = "deny-memory-code-builds-listen"
+description = "Denies the memory_code_builds_listen command without any pre-configured scope."
+commands.deny = ["memory_code_builds_listen"]

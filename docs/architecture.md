@@ -389,7 +389,9 @@ flowchart LR
 7. **Harness family hooks.** `hooks/family.rs` holds the catalog (`FAMILY`): `memory-search` (`sessionStart`
    `addContext`), `memory-save` (`turnEnd` `followUp`), `useful-skills` (`promptSubmit` `addContext`, asks the agent
    to read the installed Useful Skills), `memory-first` (`promptSubmit` `addContext`, asks the agent to search Harness
-   Memory before it acts) and `branch-sync` (`sessionStart` `addContext`, asks the agent to fetch and
+   Memory before it acts), `code-graph-first` (`promptSubmit` `addContext`, asks the agent to use the Harness Memory
+   code tools before grep; also needs the `code-index` feature and the Code index switch on: the
+   `code_graph_available` capability, so no new `requires` value) and `branch-sync` (`sessionStart` `addContext`, asks the agent to fetch and
    compare its branch with the main branch) for Harness Memory, `dashboard-limits` (`sessionStart`
    `addContext`) for Harness Dashboard, each global, `requires` its member and written by the window (approved), marked
    by `seed`. Launch seeding (`hooks::spawn_on_launch`, and `seed_available` again when the memory switch is turned on)

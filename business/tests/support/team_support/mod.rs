@@ -20,6 +20,7 @@ use tempfile::TempDir;
 pub const NONE: HookCapabilities = HookCapabilities {
     memory_available: false,
     dashboard_available: false,
+    code_graph_available: false,
 };
 
 /// The repository key of the tests' project.

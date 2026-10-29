@@ -32,7 +32,7 @@ use std::process::ExitCode;
 use serde_json::{Value, json};
 
 use crate::app_dirs::config_dir;
-use crate::ecosystem::{installed_memory, resolve_dashboard};
+use crate::ecosystem::{CodeGraphSupport, MemoryFeatures, code_graph_support, installed_memory, resolve_dashboard};
 use crate::env::Env;
 use crate::hooks::{HookCapabilities, HookStore};
 use crate::pi_family::rpc::MAX_FRAME_BYTES;
@@ -219,13 +219,22 @@ pub fn run_stdio() -> ExitCode {
 
 /// The family members this machine has, checked like the app window does: Harness Memory counts
 /// when it is installed and reports its version (`runner` asks it) and its memory setting is on
-/// (the prefs file read without changing it), Harness Dashboard when it is installed.
+/// (the prefs file read without changing it), Harness Dashboard when it is installed, and the code
+/// graph when that Harness Memory lists `code-index` and the Code index switch is on.
 pub async fn machine_capabilities(env: &Env, runner: &dyn ProcessRunner) -> HookCapabilities {
     let memory_on = memory_enabled(&config_dir(env));
+    let memory_available = memory_on && installed_memory(env, runner).await.is_some();
+
+    let code_graph = if memory_available {
+        code_graph_support(env, runner, &MemoryFeatures::new()).await
+    } else {
+        CodeGraphSupport::default()
+    };
 
     HookCapabilities {
-        memory_available: memory_on && installed_memory(env, runner).await.is_some(),
+        memory_available,
         dashboard_available: resolve_dashboard(env).is_some(),
+        code_graph_available: code_graph.listed && code_graph.on,
     }
 }
 

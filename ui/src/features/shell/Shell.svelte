@@ -19,6 +19,7 @@
   import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { memoryChat } from '$lib/stores/memoryChat.svelte';
+  import { memoryCode } from '$lib/stores/memoryCode.svelte';
   import { memoryHeld } from '$lib/stores/memoryHeld.svelte';
   import { scriptRequests } from '$lib/stores/scriptRequests.svelte';
   import { updates } from '$lib/stores/updates.svelte';
@@ -255,6 +256,9 @@
 
     untrack(() => memoryHeld.follow(keys));
   });
+
+  // A code graph build shows one toast that follows it until it is done, wherever the user is, so the shell listens from the start.
+  $effect(() => memoryCode.startBuilds());
 
   // Hooks an agent wrote wait for the user's approval, and the rail counts them wherever the user is, so the shell listens from the start.
   $effect(() => hooks.start());

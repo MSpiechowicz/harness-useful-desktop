@@ -18,6 +18,7 @@ mod hooks_agent {
     const CAPS: HookCapabilities = HookCapabilities {
         memory_available: false,
         dashboard_available: false,
+        code_graph_available: false,
     };
 
     struct Folder {

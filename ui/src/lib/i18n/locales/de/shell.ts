@@ -78,6 +78,13 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.toast.noSession': 'Keine gespeicherte Sitzung zum Fortsetzen',
   'shell.toast.resumeSoon': 'Sitzungen von {harness} lassen sich noch nicht fortsetzen',
   'shell.toast.saveFailed': 'Einstellungen konnten nicht gespeichert werden',
+  'shell.toast.codeGraph.building': 'Code-Graph für {repo} wird erstellt…',
+  'shell.toast.codeGraph.progress.one': '{done} von {count} Datei',
+  'shell.toast.codeGraph.progress.other': '{done} von {count} Dateien',
+  'shell.toast.codeGraph.ready.one': 'Code-Graph bereit · {count} Datei',
+  'shell.toast.codeGraph.ready.other': 'Code-Graph bereit · {count} Dateien',
+  'shell.toast.codeGraph.readyPlain': 'Code-Graph bereit',
+  'shell.toast.codeGraph.error': 'Code-Graph konnte nicht erstellt werden',
 
   'shell.shortcuts.title': 'Tastenkürzel',
   'shell.shortcuts.hint': 'Alles hat eine Taste. Drücke überall {keys}, um das hier wieder zu sehen.',

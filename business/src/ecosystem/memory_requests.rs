@@ -419,7 +419,7 @@ pub fn parse_request(text: &str, id: &str, received: SystemTime) -> Option<Scrip
 /// Why requests in a folder with `metadata` must not be trusted (Unix: other users may change it,
 /// or it belongs to another user); `None` when it is private.
 #[cfg(unix)]
-fn unsafe_folder(metadata: &std::fs::Metadata) -> Option<&'static str> {
+pub(super) fn unsafe_folder(metadata: &std::fs::Metadata) -> Option<&'static str> {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
     if metadata.permissions().mode() & 0o022 != 0 {
@@ -430,6 +430,6 @@ fn unsafe_folder(metadata: &std::fs::Metadata) -> Option<&'static str> {
 }
 
 #[cfg(not(unix))]
-fn unsafe_folder(_metadata: &std::fs::Metadata) -> Option<&'static str> {
+pub(super) fn unsafe_folder(_metadata: &std::fs::Metadata) -> Option<&'static str> {
     None
 }

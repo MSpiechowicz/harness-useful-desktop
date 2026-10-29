@@ -143,19 +143,43 @@ fn the_fixture_switches_show_saved_files_and_defaults() {
             "review",
             "security-review",
             "backend-memory",
-            "graphify-memory"
+            "code-graph"
         ]
     );
     assert_eq!(label(&shown, "workflow"), "default (enabled)");
     assert_eq!(label(&shown, "research"), "enabled (saved file)");
     assert_eq!(label(&shown, "plan"), "disabled (saved file)");
     assert_eq!(label(&shown, "review"), "enabled (saved file)");
-    assert_eq!(label(&shown, "graphify-memory"), "default (enabled)");
+    assert_eq!(label(&shown, "code-graph"), "default (enabled)");
     assert!(view.notices.iter().any(|notice| notice.message == OPTIONS_NOTICE));
 
     let section = find(&view, WORKFLOW).unwrap();
     assert!(section.source.exists);
     assert!(section.source.path.ends_with("workflow-settings"));
+}
+
+#[test]
+fn the_code_graph_switch_falls_back_to_the_legacy_graphify_file() {
+    let home = tempfile::tempdir().unwrap();
+    let dir = settings_dir(home.path());
+
+    write_file(&dir.join("graphify-memory.json"), "false");
+    assert_eq!(
+        label(&switches(&config(home.path(), None)), "code-graph"),
+        "disabled (saved file)"
+    );
+
+    write_file(&dir.join("code-graph.json"), "true");
+    assert_eq!(
+        label(&switches(&config(home.path(), None)), "code-graph"),
+        "enabled (saved file)",
+        "the new file wins over the legacy one"
+    );
+
+    // A legacy file read in its place is held to the same rules.
+    std::fs::remove_file(dir.join("code-graph.json")).unwrap();
+    write_file(&dir.join("graphify-memory.json"), "\"yes\"");
+    assert!(label(&switches(&config(home.path(), None)), "code-graph").starts_with("error:"));
 }
 
 #[test]

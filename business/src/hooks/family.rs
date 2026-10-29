@@ -10,6 +10,12 @@
 //!   updates outdated ones on the user's request.
 //! - After a member is installed, [`restore_member`] adds its missing hooks again (never
 //!   overwriting one that exists).
+//! - `code-graph-first` also needs the code graph of Harness Memory (the capability
+//!   `code_graph_available`: the installed server lists `code-index` and the Code index switch is
+//!   on). Without it launch seeding and [`restore_member`] skip it (it stays unrecorded, so it is
+//!   seeded once the code graph is there: at a launch, after the switch or after Harness Memory
+//!   was updated), the dialog shows it as needing the member, and a file already in the folder
+//!   is paused.
 //! - Uninstalling a member deletes nothing: its hooks wait (paused) for it.
 //! - Only an approved file counts as a seed's hook. A pending file with a seed (an edit the user
 //!   has not reviewed, or a file someone else wrote) is replaced by the catalog version when the
@@ -75,6 +81,15 @@ pub const SEED_MEMORY_FIRST_TEXT: &str = "Before you act on this message, search
      the repository you are working in (its git root), so nothing is read from or saved to another \
      repository. If the memory settings say saving is off, still search; just do not save.";
 
+/// The `code-graph-first` context.
+pub const SEED_CODE_GRAPH_FIRST_TEXT: &str = "If the Harness Memory code tools (code_map, code_symbol, code_impact, \
+     code_path) are available, use them for code-structure questions before grep or reading files, and pass \
+     project_path. Use code_map for an unfamiliar area, code_symbol for where something is defined and who uses \
+     it, code_impact before changing a signature, and one code_path call to trace how A reaches B (a symbol, a \
+     file path, a command name or plain words work as an endpoint). If you grep to find a starting point, switch \
+     to code_path from the function you found. Use grep only for literal text, error messages, config values, or \
+     when a code tool says the repository is not indexed.";
+
 /// One catalog entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FamilyHook {
@@ -125,6 +140,12 @@ impl FamilyHook {
         hook.name == self.name && event && self.earlier.contains(&text)
     }
 
+    /// True when a machine with `capabilities` can use this entry: its member, and the code graph
+    /// when its seed needs it.
+    fn offered_by(&self, capabilities: HookCapabilities) -> bool {
+        capabilities.meets(self.member) && (capabilities.code_graph_available || !self.seed.needs_code_graph())
+    }
+
     /// A new file of this entry, created now with a fresh id.
     fn new_hook(&self, now: SystemTime) -> Hook {
         self.hook_with_id(uuid::Uuid::new_v4().simple().to_string(), now)
@@ -155,7 +176,7 @@ impl FamilyHook {
 }
 
 /// The catalog, in the order the dialog lists it.
-pub const FAMILY: [FamilyHook; 6] = [
+pub const FAMILY: [FamilyHook; 7] = [
     FamilyHook {
         seed: HookSeed::MemorySearch,
         member: HookRequirement::HarnessMemory,
@@ -239,6 +260,16 @@ pub const FAMILY: [FamilyHook; 6] = [
         earlier: &[],
         earlier_events: &[],
     },
+    FamilyHook {
+        seed: HookSeed::CodeGraphFirst,
+        member: HookRequirement::HarnessMemory,
+        name: "Use the code graph first",
+        description: "Seeded default. Asks the agent, on every message, to answer code-structure questions with the Harness Memory code tools before grep.",
+        event: HookEvent::PromptSubmit,
+        text: SEED_CODE_GRAPH_FIRST_TEXT,
+        earlier: &[],
+        earlier_events: &[],
+    },
 ];
 
 /// The catalog entry of `seed`.
@@ -262,7 +293,7 @@ fn seed_file(listing: &HookListing, seed: HookSeed, approved: bool) -> Option<(&
 }
 
 /// Each catalog entry against the folder. `installed`: which members are installed (Harness
-/// Memory counts whatever its memory setting).
+/// Memory counts whatever its memory setting, the code graph whatever its switch).
 pub fn family_status(listing: &HookListing, installed: HookCapabilities) -> Vec<HookFamilyEntry> {
     FAMILY
         .iter()
@@ -270,7 +301,7 @@ pub fn family_status(listing: &HookListing, installed: HookCapabilities) -> Vec<
             let hook = seeded_in(listing, entry.seed);
 
             let status = match hook {
-                _ if !installed.meets(entry.member) => HookFamilyStatus::NeedsMember,
+                _ if !entry.offered_by(installed) => HookFamilyStatus::NeedsMember,
                 None => HookFamilyStatus::Missing,
                 Some(hook) if entry.matches(hook) => HookFamilyStatus::Installed,
                 Some(_) => HookFamilyStatus::Outdated,
@@ -295,7 +326,7 @@ pub fn seed_defaults(store: &HookStore, available: HookCapabilities, now: System
     let mut state = load_state(store.config_dir())?;
     let due: Vec<&FamilyHook> = FAMILY
         .iter()
-        .filter(|entry| available.meets(entry.member) && !state.has(entry.seed))
+        .filter(|entry| entry.offered_by(available) && !state.has(entry.seed))
         .collect();
 
     if due.is_empty() {
@@ -374,11 +405,17 @@ fn updated(entry: &FamilyHook, hook: &Hook, now: SystemTime) -> Hook {
 }
 
 /// After `member` was installed: adds its family hooks that are missing, even ones the user
-/// deleted before. Never overwrites an existing one. Returns the seeds added.
-pub fn restore_member(store: &HookStore, member: HookRequirement, now: SystemTime) -> Result<Vec<HookSeed>> {
+/// deleted before. Never overwrites an existing one. A hook that needs the code graph is added
+/// only when `available` has it. Returns the seeds added.
+pub fn restore_member(
+    store: &HookStore,
+    member: HookRequirement,
+    available: HookCapabilities,
+    now: SystemTime,
+) -> Result<Vec<HookSeed>> {
     let seeds: Vec<HookSeed> = FAMILY
         .iter()
-        .filter(|entry| entry.member == member)
+        .filter(|entry| entry.member == member && (available.code_graph_available || !entry.seed.needs_code_graph()))
         .map(|entry| entry.seed)
         .collect();
 

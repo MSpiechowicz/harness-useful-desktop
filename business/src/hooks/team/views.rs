@@ -244,7 +244,7 @@ fn status_of(
         return HookStatus::Off;
     }
 
-    if !hook.requires.iter().all(|requirement| capabilities.meets(*requirement)) {
+    if !capabilities.allows(hook) {
         return HookStatus::Paused;
     }
 

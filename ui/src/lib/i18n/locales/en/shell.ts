@@ -75,6 +75,13 @@ export const shell = {
   'shell.toast.noSession': 'No saved session to resume',
   'shell.toast.resumeSoon': 'Sessions of {harness} cannot be resumed yet',
   'shell.toast.saveFailed': 'Could not save settings',
+  'shell.toast.codeGraph.building': 'Building code graph for {repo}…',
+  'shell.toast.codeGraph.progress.one': '{done} of {count} file',
+  'shell.toast.codeGraph.progress.other': '{done} of {count} files',
+  'shell.toast.codeGraph.ready.one': 'Code graph ready · {count} file',
+  'shell.toast.codeGraph.ready.other': 'Code graph ready · {count} files',
+  'shell.toast.codeGraph.readyPlain': 'Code graph ready',
+  'shell.toast.codeGraph.error': 'Code graph could not be built',
 
   'shell.shortcuts.title': 'Keyboard shortcuts',
   'shell.shortcuts.hint': 'Everything has a key. Press {keys} anywhere to see this again.',
