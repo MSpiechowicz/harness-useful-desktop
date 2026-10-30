@@ -1,3 +1,11 @@
+# [0.47.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.46.0...v0.47.0) (2026-10-30)
+
+
+### Features
+
+* **memory:** build the code index on open, show hook updates and fix live chat gaps ([8838f45](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8838f45d7ed39af03f6547848d69855f6f0147e8))
+* **memory:** code index switch, build toast and 'Use the code graph first' hook ([7b229bf](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7b229bf7f550cf7c084d435e6f6d02bade36be07))
+
 # [0.46.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.45.0...v0.46.0) (2026-10-28)
 
 
