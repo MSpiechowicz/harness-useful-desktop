@@ -10,6 +10,7 @@ export const MEMORY_EMBEDDER_ARGS = {
   memory_code_index_get: undefined,
   memory_code_index_set: { on: false },
   memory_code_builds_listen: { onEvent: () => {} },
+  memory_code_prepare: { project: '/home/demo/project' },
 } satisfies {
   memory_set_vector_search: CommandArgs<'memory_set_vector_search'>;
   memory_embedder_watch: CommandArgs<'memory_embedder_watch'>;
@@ -19,4 +20,5 @@ export const MEMORY_EMBEDDER_ARGS = {
   memory_code_index_get: CommandArgs<'memory_code_index_get'>;
   memory_code_index_set: CommandArgs<'memory_code_index_set'>;
   memory_code_builds_listen: CommandArgs<'memory_code_builds_listen'>;
+  memory_code_prepare: CommandArgs<'memory_code_prepare'>;
 };

@@ -9,13 +9,13 @@ import type { HookStatus } from '../bindings/HookStatus';
 import type { HookView } from '../bindings/HookView';
 import type { ShareBlock } from '../bindings/ShareBlock';
 import { IpcFailure } from '../transport';
-import { CATALOG, type CatalogEntry, fakeSha, familyHook, hookId, HOOKS_PROJECT, lintApproved, lintChanged, OLD_SAVE_TEXT, testsReminder } from './hooks-fixtures';
+import { CATALOG, type CatalogEntry, fakeSha, familyHook, hookId, HOOKS_PROJECT, lintApproved, lintChanged, EDITED_SAVE_TEXT, OLD_SAVE_TEXT, testsReminder } from './hooks-fixtures';
 import { LOCAL_ORIGIN, MockTeam, sharedSamples } from './hooks-team-state';
 import { localPlace } from './project-scopes';
 import { teamModeOf } from './team-preview';
 
 /** Browser-preview switch `?hooks=`: what the Hooks view finds. Anything else shows the sample hooks. */
-export const HOOK_SCENARIOS = ['ok', 'empty', 'outdated', 'noDashboard', 'invalid', 'problem', 'failing', 'team', 'teamTrusted', 'teamNoOrigin', 'teamProblem'] as const;
+export const HOOK_SCENARIOS = ['ok', 'empty', 'outdated', 'outdatedEdited', 'noDashboard', 'invalid', 'problem', 'failing', 'team', 'teamTrusted', 'teamNoOrigin', 'teamProblem'] as const;
 export type HookScenario = (typeof HOOK_SCENARIOS)[number];
 
 export function hookScenarioFromLocation(search: string = globalThis.location?.search ?? ''): HookScenario {
@@ -34,6 +34,9 @@ interface Stored {
 }
 
 const MAX_PER_SCOPE = 64;
+
+/** The text the memory-save hook holds in the scenarios where it is outdated: an earlier catalog version, or one the user edited. */
+const SAVE_TEXTS: Partial<Record<HookScenario, string>> = { outdated: OLD_SAVE_TEXT, outdatedEdited: EDITED_SAVE_TEXT };
 
 /** The hooks folder, the approvals and the family catalog of the mock backend, kept in memory. */
 export class MockHooks {
@@ -61,7 +64,7 @@ export class MockHooks {
     const lint = lintApproved(hookId());
 
     this.put(familyHook(search));
-    this.put(familyHook(save, scenario === 'outdated' ? OLD_SAVE_TEXT : save.text));
+    this.put(familyHook(save, SAVE_TEXTS[scenario] ?? save.text));
     this.files.set(lint.id, { hook: lintChanged(lint), approved: lint, changed: true });
     const reminder = this.put(testsReminder()).hook;
 

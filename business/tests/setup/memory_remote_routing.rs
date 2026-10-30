@@ -98,6 +98,7 @@ fn a_server_without_every_feature_never_gets_remote_local_written() {
         notes_lang: false,
         notes_useful: false,
         code_index: false,
+        code_prepare: false,
     };
 
     for (features, wording) in [
@@ -170,6 +171,7 @@ fn the_vector_search_lines_reach_the_page_as_their_own_flags() {
         notes_lang,
         notes_useful: false,
         code_index: false,
+        code_prepare: false,
     };
     let flags = |features| {
         let remote = memory_remote_get(&home.env, support(features));

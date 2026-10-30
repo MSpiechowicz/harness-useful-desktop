@@ -458,7 +458,7 @@ fn event_of(file: StatusFile) -> Option<CodeBuildEvent> {
 
 /// `text` without control characters and the characters that draw nothing but can reorder or hide
 /// the text around them ([`is_hidden_char`]), at most [`MAX_PATH_CHARS`] long.
-fn clip(text: &str) -> String {
+pub(super) fn clip(text: &str) -> String {
     text.chars()
         .filter(|character| !character.is_control() && !is_hidden_char(*character))
         .take(MAX_PATH_CHARS)
@@ -466,6 +466,6 @@ fn clip(text: &str) -> String {
 }
 
 /// `text` with every run of white space (new lines included) as one space.
-fn one_line(text: &str) -> String {
+pub(super) fn one_line(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }

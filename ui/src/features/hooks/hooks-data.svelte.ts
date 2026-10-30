@@ -1,5 +1,3 @@
-import { untrack } from 'svelte';
-
 import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import type { HookDraft } from '$lib/ipc/bindings/HookDraft';
@@ -30,8 +28,10 @@ const KEY = 'hooks';
 export class HooksStore {
   readonly list = new ViewLoader<HookListing, string>((_key, path) => ipc.invoke('hooks_list', { project: path, all: true }));
 
-  /** The Harness family catalog against the hook files; null until the dialog asked. */
+  /** The Harness family catalog against the hook files; null until it was read once. */
   private updatingFamily = false;
+  /** Counts family reads: only the latest one may set `family`, so a poll that began before an update cannot bring back what it replaced. */
+  private familyReads = 0;
   family = $state.raw<HookFamilyEntry[] | null>(null);
   familyError = $state<string | null>(null);
 
@@ -60,9 +60,30 @@ export class HooksStore {
     return pendingCount(this.list.data);
   }
 
+  /** The family hooks whose file holds an earlier catalog text: the update is waiting. Empty until the catalog was read, so nothing shows while it is unknown. */
+  get outdated(): HookFamilyEntry[] {
+    return (this.family ?? []).filter((entry) => entry.status === 'outdated' && entry.hookId !== null);
+  }
+
+  /** The ids of the hook files that have an update waiting. */
+  get outdatedIds(): ReadonlySet<string> {
+    return new Set(this.outdated.flatMap((entry) => (entry.hookId === null ? [] : [entry.hookId])));
+  }
+
+  /** How many family hooks have an update waiting. */
+  get updates(): number {
+    return this.outdated.length;
+  }
+
+  /** The waiting update of this hook, or null when it has none (a team hook is never a family hook's file). */
+  updateOf(view: HookView): HookFamilyEntry | null {
+    return view.origin === 'local' ? (this.outdated.find((entry) => entry.hookId === view.id) ?? null) : null;
+  }
+
   /** Reads the hooks of every project (`path` is the one in use, the team hooks are verified for it); a list already read is refreshed quietly. */
   follow(path: string | null): void {
     this.list.revalidate(KEY, path);
+    void this.readFamily();
   }
 
   /**
@@ -126,9 +147,9 @@ export class HooksStore {
     }
   }
 
-  /** Reads the list again in the background, and the family catalog when the dialog has shown it. */
+  /** Reads the list again in the background, and the family catalog with it, so an update waiting for a family hook shows without the dialog. */
   async refresh(): Promise<void> {
-    await Promise.all([this.list.refresh({ quiet: true }), untrack(() => this.family) ? this.readFamily() : Promise.resolve()]);
+    await Promise.all([this.list.refresh({ quiet: true }), this.readFamily()]);
   }
 
   /** The hook with this row key (`viewKey`). */
@@ -274,11 +295,25 @@ export class HooksStore {
 
   /** Reads the Harness family catalog. A failure is kept for the dialog to say. */
   async readFamily(): Promise<void> {
+    const turn = ++this.familyReads;
+
     try {
-      this.family = await ipc.invoke('hooks_family', undefined);
+      const read = await ipc.invoke('hooks_family', undefined);
+
+      if (turn !== this.familyReads) {
+        return;
+      }
+
+      // The poll reads it every few seconds: an unchanged catalog keeps its object, so nothing redraws.
+      if (JSON.stringify(read) !== JSON.stringify(this.family)) {
+        this.family = read;
+      }
+
       this.familyError = null;
     } catch (error) {
-      this.familyError = IpcFailure.from(error).message;
+      if (turn === this.familyReads) {
+        this.familyError = IpcFailure.from(error).message;
+      }
     }
   }
 

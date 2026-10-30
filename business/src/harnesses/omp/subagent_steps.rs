@@ -27,6 +27,9 @@ struct Followed {
     tool_count: u32,
     /// The call in flight last sent: its name, its arguments and its ordinal.
     running: Option<(String, String, u32)>,
+    /// The brief went out: OMP sends it on every progress frame, but not on the `started`
+    /// lifecycle frame that usually comes first.
+    task_sent: bool,
     output: String,
     last_done: Option<SubagentStep>,
 }
@@ -38,13 +41,15 @@ pub struct SubagentSteps {
 }
 
 impl SubagentSteps {
-    /// The events for one subagent frame: its snapshot (the `task` only the first time the id is
-    /// seen) followed by the steps the frame completed or started.
+    /// The events for one subagent frame: its snapshot (the `task` only on the first frame that
+    /// carries it) followed by the steps the frame completed or started.
     pub fn observe(&mut self, frame: &Value, mut subagent: Subagent) -> Vec<AgentEvent> {
-        let (followed, first) = self.follow(&subagent.id);
+        let followed = self.follow(&subagent.id);
 
-        if !first {
+        if followed.task_sent {
             subagent.task = None;
+        } else if subagent.task.is_some() {
+            followed.task_sent = true;
         }
 
         let steps = match frame.pointer("/payload/progress") {
@@ -65,7 +70,7 @@ impl SubagentSteps {
         events
     }
 
-    fn follow(&mut self, id: &str) -> (&mut Followed, bool) {
+    fn follow(&mut self, id: &str) -> &mut Followed {
         let known = self.followed.iter().position(|followed| followed.id == id);
 
         let index = known.unwrap_or_else(|| {
@@ -77,6 +82,7 @@ impl SubagentSteps {
                 id: id.to_owned(),
                 tool_count: 0,
                 running: None,
+                task_sent: false,
                 output: String::new(),
                 last_done: None,
             });
@@ -84,7 +90,7 @@ impl SubagentSteps {
             self.followed.len() - 1
         });
 
-        (&mut self.followed[index], known.is_none())
+        &mut self.followed[index]
     }
 }
 
@@ -175,10 +181,12 @@ impl Followed {
 
     /// The tail of `recentOutput` when it differs from the one sent last.
     fn new_output(&mut self, progress: &Value) -> Option<(String, u32)> {
+        // OMP sends the newest line first
         let lines: Vec<&str> = progress
             .get("recentOutput")
             .and_then(Value::as_array)?
             .iter()
+            .rev()
             .filter_map(Value::as_str)
             .collect();
 

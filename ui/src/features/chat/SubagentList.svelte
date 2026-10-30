@@ -59,7 +59,7 @@
           type="button"
           aria-pressed={selected}
           class={cx(
-            'group relative flex w-full items-center gap-3 rounded-sm px-2.5 py-1.5 text-left transition-colors duration-[var(--dur-fast)]',
+            'group relative flex w-full items-center gap-3 rounded-sm px-2.5 py-1.5 text-left transition-colors duration-[var(--dur-fast)] focus-visible:-outline-offset-2',
             selected ? 'bg-accent-wash' : 'hover:bg-hover active:bg-press',
           )}
           data-flash={panelKey !== undefined && subagentPanel.flashesRow(panelKey, subagent.id) ? '' : undefined}

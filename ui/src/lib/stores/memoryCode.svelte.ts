@@ -54,8 +54,9 @@ function progressText(event: CodeBuildEvent): string | undefined {
   return event.filesTotal > 0 ? tn('shell.toast.codeGraph.progress', event.filesTotal, { done: number(event.filesDone) }) : undefined;
 }
 
-function readyTitle(event: CodeBuildEvent): string {
-  return event.filesTotal > 0 ? tn('shell.toast.codeGraph.ready', event.filesTotal) : t('shell.toast.codeGraph.readyPlain');
+/** "25 files indexed in my-repo". Nothing while the files are not counted: there is no number to show. */
+function readyText(event: CodeBuildEvent): string | undefined {
+  return event.filesTotal > 0 ? tn('shell.toast.codeGraph.indexed', event.filesTotal, { repo: event.repoName }) : undefined;
 }
 
 /** The toast a build is shown as in its phase, or null for a phase that has none (the build is dropped). */
@@ -64,7 +65,7 @@ function shownAs(event: CodeBuildEvent): ToastInput | null {
     case 'building':
       return { title: t('shell.toast.codeGraph.building', { repo: event.repoName }), description: progressText(event), duration: 0 };
     case 'ready':
-      return { title: readyTitle(event), tone: 'success', duration: READY_TOAST_MS };
+      return { title: t('shell.toast.codeGraph.readyPlain'), description: readyText(event), tone: 'success', duration: READY_TOAST_MS };
     case 'error':
       return { title: t('shell.toast.codeGraph.error'), description: event.error ?? undefined, tone: 'danger', duration: 0 };
     default:
@@ -184,6 +185,8 @@ export class MemoryCodeStore {
   private changes = 0;
   /** The toast of each build that has one. */
   private shown = new Map<number, number>();
+  /** The projects `prepare` was asked for in this run: each is asked once, until the switch is turned on again. */
+  private prepared = new Set<string>();
 
   constructor(
     private readonly transport: Transport,
@@ -227,6 +230,11 @@ export class MemoryCodeStore {
     this.failure = null;
     this.index = { ...before, enabled: on };
 
+    // A build the switch refused while it was off is asked for again once it is on.
+    if (on && !before.enabled) {
+      this.prepared.clear();
+    }
+
     try {
       this.index = await this.transport.invoke('memory_code_index_set', { on });
     } catch (error) {
@@ -258,6 +266,22 @@ export class MemoryCodeStore {
     return () => {
       listening = false;
     };
+  }
+
+  /**
+   * Asks the backend to index a project that has no code index yet, in the background (the build shows as a toast). Each project is asked
+   * once, and nothing happens for none. A refusal is ignored: the server may lack a code index, and the switch says so.
+   */
+  prepare(path: string | null): void {
+    if (path === null || this.prepared.has(path)) {
+      return;
+    }
+
+    this.prepared.add(path);
+
+    this.transport.invoke('memory_code_prepare', { project: path }).catch(() => {
+      // Not installed, too old, or the build did not start: the project is indexed on the next run.
+    });
   }
 
   /** Shows, changes or removes the toast of a build as `decide` says. */
@@ -303,6 +327,7 @@ export class MemoryCodeStore {
     this.failure = null;
     this.builds = EMPTY_BUILD_TOASTS;
     this.shown.clear();
+    this.prepared.clear();
   }
 }
 

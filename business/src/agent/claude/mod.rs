@@ -54,7 +54,7 @@ use crate::claude_stream::ClaudeMapper;
 use crate::claude_stream::stats::{ClaudeStats, MessageCounts};
 use crate::claude_stream::wire::control::{ModelInfo, SlashCommand};
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, StreamingBehavior, UiResponse};
+use crate::model::{AgentAction, AgentEvent, AgentReply, BashOutput, ChatMessage, StreamingBehavior, UiResponse};
 use crate::process::ExitInfo;
 
 /// A running Claude Code chat (see the module docs).
@@ -142,6 +142,8 @@ struct Queued {
     uuid: String,
     text: String,
     queue: StreamingBehavior,
+    /// What the chat shows once the CLI takes it (`io.rs`).
+    message: ChatMessage,
 }
 
 impl Live {

@@ -1,4 +1,7 @@
-//! `git_status` from `git status --porcelain=v2 --branch -z --untracked-files=all`.
+//! `git_status` from `git status --porcelain=v2 --branch -z`, with untracked folders listed file by
+//! file (`--untracked-files=all`) while that stays a list a person can read: past
+//! [`MAX_LISTED_ENTRIES`] an untracked folder is one entry, as git shows it by default
+//! (`node_modules/` of a repository without a `.gitignore` is tens of thousands of files).
 //!
 //! Porcelain paths are relative to the work-tree root; they are made relative to the project
 //! (which may be a subdirectory) and entries outside the project are dropped.
@@ -10,17 +13,41 @@ use crate::model::{GitFileStatus, GitStatus, StatusEntry};
 /// Length of the short sha reported for HEAD (matches `git_branches`).
 pub const SHORT_SHA: usize = 7;
 
+/// The most entries listed with every untracked file on its own line. The Changes view and the rail
+/// read the status every few seconds and show each entry, so a larger list folds untracked folders.
+pub const MAX_LISTED_ENTRIES: usize = 1000;
+
 /// The status of the project's repository; `isRepo: false` outside a work tree.
 pub async fn git_status(git: &GitCli<'_>) -> Result<GitStatus> {
     let Some(prefix) = git.prefix().await? else {
         return Ok(not_a_repo());
     };
 
-    let output = git
-        .run_ok(["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"])
+    // An untracked folder is one entry (`dir/`) here: without one, this is the whole list already.
+    let folded = git
+        .run_ok(["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=normal"])
         .await?;
+    let folded = parse_status(&folded.stdout, &prefix);
 
-    Ok(parse_status(&output.stdout, &prefix))
+    if !folded.entries.iter().any(is_untracked_folder) {
+        return Ok(folded);
+    }
+
+    // Its files one by one, unless that is too many to show (or too much output to read).
+    let all = git
+        .run_ok(["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"])
+        .await
+        .map(|output| parse_status(&output.stdout, &prefix));
+
+    match all {
+        Ok(all) if all.entries.len() <= MAX_LISTED_ENTRIES => Ok(all),
+        _ => Ok(folded),
+    }
+}
+
+/// An untracked folder as git lists it by default: its path ends with `/`.
+fn is_untracked_folder(entry: &StatusEntry) -> bool {
+    entry.unstaged == Some(GitFileStatus::Untracked) && entry.path.ends_with('/')
 }
 
 /// The status of a directory outside any repository.

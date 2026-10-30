@@ -82,13 +82,16 @@ pub const SEED_MEMORY_FIRST_TEXT: &str = "Before you act on this message, search
      repository. If the memory settings say saving is off, still search; just do not save.";
 
 /// The `code-graph-first` context.
-pub const SEED_CODE_GRAPH_FIRST_TEXT: &str = "If the Harness Memory code tools (code_map, code_symbol, code_impact, \
-     code_path) are available, use them for code-structure questions before grep or reading files, and pass \
-     project_path. Use code_map for an unfamiliar area, code_symbol for where something is defined and who uses \
-     it, code_impact before changing a signature, and one code_path call to trace how A reaches B (a symbol, a \
-     file path, a command name or plain words work as an endpoint). If you grep to find a starting point, switch \
-     to code_path from the function you found. Use grep only for literal text, error messages, config values, or \
-     when a code tool says the repository is not indexed.";
+pub const SEED_CODE_GRAPH_FIRST_TEXT: &str = "Before your first tool call, decide which Harness Memory code tool answers the question and call it \
+     first: code_map for an overview of the repository or an area, code_symbol for where a name is \
+     defined and used, code_impact for what a change affects, code_path for how A reaches B. Pass \
+     project_path, the repository root. grep, find and file reads come after, for literal text and for \
+     details the graph does not show. A small repository is no reason to skip them: one code_map call \
+     costs less than listing and reading files. A question about a flow (how a request, an event or data \
+     gets from one part to another) is answered by code_path from the entry point to the part it ends in, \
+     after code_map named both: do not reconstruct the flow by reading files one by one. If the code \
+     tools are listed as deferred tools, load them with ToolSearch first. If they are not available in \
+     this chat, say so once and go on with the usual tools.";
 
 /// One catalog entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -267,7 +270,26 @@ pub const FAMILY: [FamilyHook; 7] = [
         description: "Seeded default. Asks the agent, on every message, to answer code-structure questions with the Harness Memory code tools before grep.",
         event: HookEvent::PromptSubmit,
         text: SEED_CODE_GRAPH_FIRST_TEXT,
-        earlier: &[],
+        earlier: &[
+            "Use the Harness Memory code tools (code_map, code_symbol, code_impact, code_path) for code-structure \
+            questions before grep, ls, find or reading files, also in a small repository, and pass project_path. \
+            In Claude Code they may be listed as deferred tools: load them first with ToolSearch, query \
+            \"select:mcp__harness-memory__code_map,mcp__harness-memory__code_symbol,mcp__harness- \
+            memory__code_impact,mcp__harness-memory__code_path\". Use code_map for an unfamiliar area or an \
+            overview, code_symbol for where something is defined and who uses it, code_impact before changing a \
+            signature, and one code_path call to trace how A reaches B (a symbol, a file path, a command name or \
+            plain words work as an endpoint). If you grep to find a starting point, switch to code_path from the \
+            function you found. Use grep only for literal text, error messages, config values, or when a code \
+            tool says the repository is not indexed. If the code tools are not available in this chat, say so \
+            once and go on with the usual tools.",
+            "If the Harness Memory code tools (code_map, code_symbol, code_impact, code_path) are available, use them \
+            for code-structure questions before grep or reading files, and pass project_path. Use \
+            code_map for an unfamiliar area, code_symbol for where something is defined and who uses it, \
+            code_impact before changing a signature, and one code_path call to trace how A reaches B (a \
+            symbol, a file path, a command name or plain words work as an endpoint). If you grep to find \
+            a starting point, switch to code_path from the function you found. Use grep only for literal \
+            text, error messages, config values, or when a code tool says the repository is not indexed.",
+        ],
         earlier_events: &[],
     },
 ];

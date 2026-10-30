@@ -117,14 +117,9 @@ async fn a_server_that_cannot_write_the_choice_answers_with_its_line() {
 async fn an_older_server_is_unsupported_and_a_missing_one_not_found() {
     let older = Setup::installed(CURRENT, &[("FAKE_MEMORY_FEATURES", "embedder")]);
 
-    let refused = feature_server(
-        &older.env,
-        older.runner(),
-        &MemoryFeatures::new(),
-        FeaturesSupport::code_index,
-        "the code index",
-    )
-    .await;
+    let refused = older
+        .feature_server(FeaturesSupport::code_index, "the code index")
+        .await;
     assert!(matches!(refused, Err(BusinessError::Unsupported(_))), "{refused:?}");
 
     let usage = get_code_index(&older.env, older.runner(), &older.binary).await;
@@ -134,14 +129,9 @@ async fn an_older_server_is_unsupported_and_a_missing_one_not_found() {
     );
 
     let absent = Setup::without_server(CURRENT, &[]);
-    let refused = feature_server(
-        &absent.env,
-        absent.runner(),
-        &MemoryFeatures::new(),
-        FeaturesSupport::code_index,
-        "the code index",
-    )
-    .await;
+    let refused = absent
+        .feature_server(FeaturesSupport::code_index, "the code index")
+        .await;
     assert!(matches!(refused, Err(BusinessError::NotFound(_))), "{refused:?}");
 }
 

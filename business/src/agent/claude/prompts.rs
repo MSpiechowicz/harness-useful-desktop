@@ -11,12 +11,18 @@
 //! - Every message gets a fresh `uuid` and counts with the mapper (`sent`) before it is written; a
 //!   message whose write fails is taken back. A prompt's taking (the CLI queued or started it)
 //!   runs the prompt-taken call in event order.
+//! - **Shown message:** the CLI does not send the user's message back, so the chat emits it: a
+//!   `messageStart` and `messageEnd` (the text sent, hooks' context included, under the sent
+//!   `uuid`, which the CLI also records in the transcript) once an idle prompt was written, or
+//!   once the CLI takes a queued one (`io.rs`). A withdrawn or cancelled one is never shown.
 //! - **Abort:** `interrupt` (the queue is kept: a waiting follow-up runs next). An ask still open
 //!   once the CLI answered, failed or timed out is closed and denied, so a stopped turn never
 //!   waits for an answer. A failed interrupt is reported after that. A running `!command` is
 //!   killed.
 //!
 //! [`ClaudeSession`]: super::ClaudeSession
+
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::io::send_kind;
 use super::{ClaudeSession, Queued};
@@ -25,7 +31,9 @@ use crate::claude_stream::wire::outbound::{
     HostRequest, ImagePart, Priority, UserMessage, new_message_uuid, permission_deny, user_message,
 };
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentAction, AgentEvent, AgentReply, ImageAttachment, StreamingBehavior};
+use crate::model::{
+    AgentAction, AgentEvent, AgentReply, ChatBlock, ChatMessage, ImageAttachment, MessageRole, StreamingBehavior,
+};
 use crate::pi_family::rpc::pending::{ABORT_TIMEOUT, DEFAULT_TIMEOUT};
 
 /// What a permission prompt or question still open at an abort is answered with.
@@ -77,6 +85,7 @@ impl ClaudeSession {
         let run = self.run();
         let chat = &run.chat;
         let uuid = new_message_uuid();
+        let shown = shown_message(&uuid, &text, images);
 
         let message = {
             let mut live = chat.lock();
@@ -100,6 +109,7 @@ impl ClaudeSession {
                     uuid: uuid.clone(),
                     text: text.clone(),
                     queue,
+                    message: shown.clone(),
                 });
                 chat.shared.emit(live.queue_update());
             }
@@ -118,7 +128,13 @@ impl ClaudeSession {
             return Err(error);
         }
 
-        Ok(message.priority.is_some())
+        let queued = message.priority.is_some();
+
+        if !queued {
+            chat.show(shown);
+        }
+
+        Ok(queued)
     }
 
     /// Withdraws the first message in `queue` whose text is `text`, unless the CLI took it.
@@ -197,6 +213,37 @@ impl ClaudeSession {
 
         Ok(AgentReply::Ack)
     }
+}
+
+/// The user message `uuid` the chat shows for `text` and `images` (an image keeps its MIME type).
+fn shown_message(uuid: &str, text: &str, images: &[ImageAttachment]) -> ChatMessage {
+    let mut blocks = vec![ChatBlock::Text { text: text.to_owned() }];
+
+    blocks.extend(images.iter().map(|image| ChatBlock::Image {
+        mime_type: image.mime_type.clone(),
+    }));
+
+    ChatMessage {
+        id: Some(uuid.to_owned()),
+        role: MessageRole::User,
+        blocks,
+        model: None,
+        provider: None,
+        stop_reason: None,
+        error_message: None,
+        usage: None,
+        cost_usd: None,
+        timestamp: Some(now_millis()),
+        tool_call_id: None,
+        tool_name: None,
+        is_error: None,
+    }
+}
+
+fn now_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX))
 }
 
 /// Why a message reached a process the chat has left (it moved to another session meanwhile).

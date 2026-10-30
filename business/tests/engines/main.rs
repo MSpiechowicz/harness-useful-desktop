@@ -52,6 +52,7 @@ mod claude_engine_session_owner;
 mod claude_engine_settings;
 mod claude_engine_subagents;
 mod claude_engine_turns;
+mod claude_engine_user_messages;
 mod claude_launch;
 mod claude_wire;
 mod claude_wire_encode;

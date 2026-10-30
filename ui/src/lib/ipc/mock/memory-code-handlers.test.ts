@@ -29,8 +29,15 @@ describe('code index mock', () => {
     const handlers = memoryCodeHandlers(() => 'old');
 
     expect(() => handlers.memory_code_index_get(undefined)).toThrowError(/code index/);
+    expect(() => handlers.memory_code_prepare({ project: '/home/demo/project' })).toThrowError(/code index/);
     expect(codeScenarioFromLocation('?code=bulk')).toBe('bulk');
     expect(codeScenarioFromLocation('?code=nonsense')).toBe('ready');
+  });
+
+  it('accepts a project to prepare and answers at once with nothing', () => {
+    const handlers = memoryCodeHandlers(() => 'ready');
+
+    expect(handlers.memory_code_prepare({ project: '/home/demo/project' })).toBeNull();
   });
 
   it('sends a first index as building steps and a ready end, and nothing in the default scenario', () => {

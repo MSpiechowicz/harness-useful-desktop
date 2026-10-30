@@ -31,7 +31,7 @@ use crate::claude_stream::wire::outbound::{
 use crate::claude_stream::wire::{ControlResponse, decode_value};
 use crate::claude_stream::{Mapped, SendKind};
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentEvent, MessageRole, StreamingBehavior};
+use crate::model::{AgentEvent, ChatMessage, MessageRole, StreamingBehavior};
 use crate::pi_family::rpc::{Frame, FrameReader, RequestKind, RpcResponse, await_response, encode_frame};
 use crate::security::redact_text;
 
@@ -114,20 +114,25 @@ impl Chat {
             Hint::PromptQueued(uuid) => self.taken(live, &uuid),
             Hint::PromptStarted(uuid) => {
                 self.taken(live, &uuid);
+                self.show_queued(live, std::slice::from_ref(&uuid));
                 self.dequeue(live, std::slice::from_ref(&uuid));
             }
             Hint::PromptsTaken(uuids) => {
                 for uuid in &uuids {
                     self.taken(live, uuid);
                 }
+                self.show_queued(live, &uuids);
                 self.dequeue(live, &uuids);
             }
-            Hint::PromptCompleted(uuid) | Hint::PromptCancelled(uuid) => {
+            Hint::PromptCompleted(uuid) => {
+                self.show_queued(live, std::slice::from_ref(&uuid));
                 self.dequeue(live, std::slice::from_ref(&uuid));
             }
+            Hint::PromptCancelled(uuid) => self.dequeue(live, std::slice::from_ref(&uuid)),
             Hint::TurnEnded(end) => {
                 let model = live.running_model.clone();
                 live.stats.on_result(&end.result, model.as_deref());
+                self.show_queued(live, &end.prompts);
                 self.dequeue(live, &end.prompts);
 
                 // No settle follows a run without a model turn (a compaction, a `!command`'s
@@ -183,6 +188,29 @@ impl Chat {
         if live.awaiting_take.len() < before {
             self.shared.prompt_taken_now();
         }
+    }
+
+    /// Shows the queued messages among `uuids` the CLI took (still in the queue, so shown once).
+    fn show_queued(&self, live: &Live, uuids: &[String]) {
+        for queued in live.queue.iter().filter(|queued| uuids.contains(&queued.uuid)) {
+            self.show(queued.message.clone());
+        }
+    }
+
+    /// Shows the user's `message`: the CLI does not send it back.
+    pub(super) fn show(&self, message: ChatMessage) {
+        let Some(id) = message.id.clone() else {
+            return;
+        };
+
+        self.shared.emit(AgentEvent::MessageStart {
+            message_id: id.clone(),
+            role: MessageRole::User,
+        });
+        self.shared.emit(AgentEvent::MessageEnd {
+            message_id: id,
+            message,
+        });
     }
 
     /// Takes `uuids` out of the queue (the CLI took, finished or dropped them).

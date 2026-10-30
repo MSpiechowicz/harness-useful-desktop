@@ -131,11 +131,11 @@ fn recent_output(progress: &Value) -> Vec<String> {
         .and_then(Value::as_array)
         .map(Vec::as_slice)
         .unwrap_or_default();
-    let skip = lines.len().saturating_sub(RECENT_OUTPUT);
+    // OMP sends the newest line first: keep the newest, oldest first
+    let mut kept: Vec<&Value> = lines.iter().take(RECENT_OUTPUT).collect();
+    kept.reverse();
 
-    lines
-        .iter()
-        .skip(skip)
+    kept.into_iter()
         .filter_map(Value::as_str)
         .map(|line| bounded_redacted(line, LINE_CHARS))
         .collect()
@@ -168,6 +168,8 @@ mod tests {
     #[test]
     fn progress_frames_become_bounded_snapshots() {
         let output: Vec<String> = (0..20).map(|line| format!("line {line}")).collect();
+        // OMP sends the newest line first
+        let sent: Vec<&String> = output.iter().rev().collect();
         let tools: Vec<Value> = (0..9)
             .map(|n| json!({ "tool": "read", "args": format!("f{n}.rs"), "endMs": n }))
             .collect();
@@ -179,7 +181,7 @@ mod tests {
                 "progress": {
                     "index": 1, "id": "ParserScout", "agent": "explore", "status": "running",
                     "task": "Map the parser", "currentTool": "grep", "currentToolArgs": "fn parse",
-                    "currentToolIntent": "Finding parse callers", "recentTools": tools, "recentOutput": output,
+                    "currentToolIntent": "Finding parse callers", "recentTools": tools, "recentOutput": sent,
                     "toolCount": 9, "tokens": 12_000, "cost": 0.012, "durationMs": 4200.5,
                     "resolvedModelIdentity": "anthropic/claude-sonnet-4-5", "requests": 3
                 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Pause from '@lucide/svelte/icons/pause';
+  import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 
   import Button from '$lib/components/Button.svelte';
   import { docScope, scopeText } from '$lib/components/docs/doc-scope';
@@ -12,6 +13,7 @@
   import SidePanel from '$lib/components/SidePanel.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MessageKey } from '$lib/i18n/locales/en';
+  import type { HookFamilyEntry } from '$lib/ipc/bindings/HookFamilyEntry';
   import type { HookView } from '$lib/ipc/bindings/HookView';
   import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
   import { nav } from '$lib/stores/nav.svelte';
@@ -44,6 +46,14 @@
     canUpdate: boolean;
     /** Why a team hook cannot be copied to the user's hooks (its repository is not on this computer), or null. */
     copyLock: string | null;
+    /** The newer catalog version waiting for this Harness family hook, or null. */
+    familyUpdate: HookFamilyEntry | null;
+    /** The update is being written. */
+    familyUpdating: boolean;
+    /** Updates a hook still on an earlier catalog version (`familyUpdate.stale`) in place. */
+    onfamilyupdate: () => void;
+    /** Opens the Harness family hooks dialog, which asks before replacing a hook the user edited. */
+    onfamilyreview: () => void;
     ontoggle: (enabled: boolean) => void;
     onapprove: () => void;
     onreject: () => void;
@@ -56,10 +66,12 @@
     onclose: () => void;
   }
 
-  let { open, inline, view, projects, busy, sharing, canUpdate, copyLock, ontoggle, onapprove, onreject, onedit, ondelete, onshare, onupdate, onremove, oncopy, onclose }: Props = $props();
+  let { open, inline, view, projects, busy, sharing, canUpdate, copyLock, familyUpdate, familyUpdating, onfamilyupdate, onfamilyreview, ontoggle, onapprove, onreject, onedit, ondelete, onshare, onupdate, onremove, oncopy, onclose }: Props = $props();
 
   const hook = $derived(view?.hook ?? null);
   const info = NOTICE_LOOKS.info;
+  // The update notice is not a warning: it is the accent of the "Update available" chip.
+  const accent = { box: 'bg-accent-wash', color: 'text-accent-text' };
 
   const STATUS_TEXT: Record<string, MessageKey> = {
     active: 'hooks.panel.status.active',
@@ -121,6 +133,21 @@
               />
             {/snippet}
           </SettingRow>
+        </div>
+      {/if}
+
+      {#if familyUpdate}
+        <div class={cx('mt-3 flex flex-col gap-3 rounded-md p-3', accent.box)} role="status">
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="flex h-5 shrink-0 items-center"><RefreshCw class={accent.color} size={ICON.sm} aria-hidden="true" /></span>
+            <p class="min-w-0 text-sm font-medium text-fg">{t('hooks.panel.update.notice')}</p>
+          </div>
+
+          {#if familyUpdate.stale}
+            <Button variant="primary" loading={familyUpdating} onclick={onfamilyupdate}>{t('hooks.family.update')}</Button>
+          {:else}
+            <Button variant="primary" onclick={onfamilyreview}>{t('hooks.panel.update.review')}</Button>
+          {/if}
         </div>
       {/if}
 

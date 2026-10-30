@@ -164,7 +164,7 @@
           shortcut={viewHint(view.id)}
           active={view.id === nav.current}
           {expanded}
-          badge={railBadge(view.id, chat, git.status, hooks.pending, { pending: routines.pending, needsYou: routines.waiting.size })}
+          badge={railBadge(view.id, chat, git.status, hooks.pending, { pending: routines.pending, needsYou: routines.waiting.size }, hooks.updates)}
           bind:button={buttons[index]}
           onselect={() => nav.go(view.id)}
         />

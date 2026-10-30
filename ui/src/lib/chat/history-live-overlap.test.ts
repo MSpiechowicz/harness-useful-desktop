@@ -44,4 +44,13 @@ describe('history read while a turn runs', () => {
 
     expect(texts(state)).toEqual(['Same time other role', 'No time', 'No time either', 'Run the tests']);
   });
+
+  it('shows a message once when the live one carries its history entry id but not its time', () => {
+    // Claude Code: the app shows the prompt it sent at once, the transcript stamps it a moment later
+    const live = { ...message('user', 'Run the tests', 3000), id: 'entry-1' };
+    const state = applyEvent(applyEvent(initialChatState('k'), { type: 'messageStart', messageId: 'entry-1', role: 'user' }), { type: 'messageEnd', messageId: 'entry-1', message: live });
+    const history = [message('user', 'Earlier', 1000), { ...message('user', 'Run the tests', 3042), id: 'entry-1' }];
+
+    expect(texts(prependHistory(state, history, null, history.length))).toEqual(['Earlier', 'Run the tests']);
+  });
 });

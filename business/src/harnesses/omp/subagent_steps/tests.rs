@@ -107,17 +107,18 @@ fn the_task_is_sent_once_and_the_snapshot_cannot_stop_or_reach_the_subagent_dire
 
 #[test]
 fn new_output_lands_on_the_latest_finished_step_once() {
+    // OMP sends the newest line first, the step keeps them oldest first
     let mut steps = SubagentSteps::default();
     let tools = vec![tool("bash", "make", 5)];
 
-    let first = observe(&mut steps, &frame(1, tools.clone(), None, &["ok", "done"]));
+    let first = observe(&mut steps, &frame(1, tools.clone(), None, &["done", "ok"]));
     let step = steps_of(&first)[0].clone();
     assert_eq!((step.output.as_deref(), step.output_lines), (Some("ok\ndone"), Some(2)));
 
-    let same = observe(&mut steps, &frame(1, tools.clone(), None, &["ok", "done"]));
+    let same = observe(&mut steps, &frame(1, tools.clone(), None, &["done", "ok"]));
     assert!(steps_of(&same).is_empty());
 
-    let later = observe(&mut steps, &frame(1, tools, None, &["ok", "done", "more"]));
+    let later = observe(&mut steps, &frame(1, tools, None, &["more", "done", "ok"]));
     let again = steps_of(&later);
     assert_eq!(
         (again[0].id.as_str(), again[0].output.as_deref()),
@@ -243,4 +244,22 @@ fn lifecycle_frames_add_no_steps() {
 
     assert_eq!(events.len(), 1);
     assert_eq!(snapshot(&events).status, crate::model::SubagentStatus::Completed);
+}
+
+#[test]
+fn the_brief_comes_from_the_first_progress_frame_after_a_started_lifecycle_frame() {
+    let mut steps = SubagentSteps::default();
+    let started = json!({
+        "type": "subagent_lifecycle",
+        "payload": { "id": "Scout", "index": 0, "agent": "explore", "agentSource": "bundled", "status": "started" }
+    });
+
+    let first = observe(&mut steps, &started);
+    assert_eq!(snapshot(&first).task, None);
+
+    let progress = observe(&mut steps, &frame(0, Vec::new(), None, &[]));
+    assert_eq!(snapshot(&progress).task.as_deref(), Some("Map it"));
+
+    let later = observe(&mut steps, &frame(0, Vec::new(), None, &[]));
+    assert_eq!(snapshot(&later).task, None);
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-code-prepare"
+description = "Enables the memory_code_prepare command without any pre-configured scope."
+commands.allow = ["memory_code_prepare"]
+
+[[permission]]
+identifier = "deny-memory-code-prepare"
+description = "Denies the memory_code_prepare command without any pre-configured scope."
+commands.deny = ["memory_code_prepare"]

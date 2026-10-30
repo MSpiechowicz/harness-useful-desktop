@@ -30,32 +30,38 @@
   let { title, body, changes, diffLabel, textDiff, extra, approveLabel, rejectLabel, busy, onapprove, onreject }: Props = $props();
 
   const look = NOTICE_LOOKS.warning;
+
+  // A part with nothing on either side has no row to show, and without any part there is no box of changes: an empty dark
+  // box inside the notice reads as something that failed to load.
+  const shown = $derived(changes.filter((change) => Boolean(change.from || change.to)));
 </script>
 
 <!-- Nothing an agent wrote runs before this: the user reads exactly what is new, and approves that version or sends it away. -->
 <div class={cx('flex flex-col gap-3 rounded-md p-3', look.box)} role="status">
   <NoticeHead level="warning" {title} {body} />
 
-  <div class="flex flex-col gap-3 rounded-md border border-line bg-surface-1 p-3">
-    {#each changes as change (change.key)}
-      <div class="flex flex-col gap-1.5">
-        <p class="text-xs font-medium tracking-wider text-fg-3 uppercase">{change.label}</p>
+  {#if shown.length > 0}
+    <div class="flex flex-col gap-3 rounded-md border border-line bg-surface-1 p-3" data-review-changes>
+      {#each shown as change (change.key)}
+        <div class="flex flex-col gap-1.5">
+          <p class="text-xs font-medium tracking-wider text-fg-3 uppercase">{change.label}</p>
 
-        {#if change.text}
-          {@render textDiff(change)}
-        {:else}
-          <div class="chat-radius overflow-hidden border border-line bg-canvas py-1 text-sm leading-5 break-words" role="group" aria-label={diffLabel(change.label)}>
-            {#if change.from !== null}
-              <p class={cx('grid grid-cols-[1.5ch_1fr] gap-x-2 px-3.5', DIFF_ROW.remove, DIFF_TEXT.remove, change.mono && 'font-mono')}><span aria-hidden="true">−</span><span>{change.from}</span></p>
-            {/if}
-            {#if change.to !== null}
-              <p class={cx('grid grid-cols-[1.5ch_1fr] gap-x-2 px-3.5', DIFF_ROW.add, DIFF_TEXT.add, change.mono && 'font-mono')}><span aria-hidden="true">+</span><span>{change.to}</span></p>
-            {/if}
-          </div>
-        {/if}
-      </div>
-    {/each}
-  </div>
+          {#if change.text}
+            {@render textDiff(change)}
+          {:else}
+            <div class="chat-radius overflow-hidden border border-line bg-canvas py-1 text-sm leading-5 break-words" role="group" aria-label={diffLabel(change.label)}>
+              {#if change.from !== null}
+                <p class={cx('grid grid-cols-[1.5ch_1fr] gap-x-2 px-3.5', DIFF_ROW.remove, DIFF_TEXT.remove, change.mono && 'font-mono')}><span aria-hidden="true">−</span><span>{change.from}</span></p>
+              {/if}
+              {#if change.to !== null}
+                <p class={cx('grid grid-cols-[1.5ch_1fr] gap-x-2 px-3.5', DIFF_ROW.add, DIFF_TEXT.add, change.mono && 'font-mono')}><span aria-hidden="true">+</span><span>{change.to}</span></p>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
 
   {@render extra?.()}
 

@@ -80,12 +80,15 @@ export const CATALOG: readonly CatalogEntry[] = [
     name: 'Use the code graph first',
     event: 'promptSubmit',
     type: 'addContext',
-    text: 'If the Harness Memory code tools (code_map, code_symbol, code_impact, code_path) are available, use them for code-structure questions before grep or reading files, and pass project_path. Use code_map for an unfamiliar area, code_symbol for where something is defined and who uses it, code_impact before changing a signature, and one code_path call to trace how A reaches B (a symbol, a file path, a command name or plain words work as an endpoint). If you grep to find a starting point, switch to code_path from the function you found. Use grep only for literal text, error messages, config values, or when a code tool says the repository is not indexed.',
+    text: 'Before your first tool call, decide which Harness Memory code tool answers the question and call it first: code_map for an overview of the repository or an area, code_symbol for where a name is defined and used, code_impact for what a change affects, code_path for how A reaches B. Pass project_path, the repository root. grep, find and file reads come after, for literal text and for details the graph does not show. A small repository is no reason to skip them: one code_map call costs less than listing and reading files. A question about a flow (how a request, an event or data gets from one part to another) is answered by code_path from the entry point to the part it ends in, after code_map named both: do not reconstruct the flow by reading files one by one. If the code tools are listed as deferred tools, load them with ToolSearch first. If they are not available in this chat, say so once and go on with the usual tools.',
   },
 ];
 
 /** The text the memory-save hook had before the catalog changed: the sample of an outdated family hook. */
 export const OLD_SAVE_TEXT = 'Before you finish, save what you learned about this task to Harness Memory (memory_save). Keep each note short and reusable.';
+
+/** A text of the memory-save hook that is neither the catalog's nor an earlier version of it: the user edited the hook. */
+export const EDITED_SAVE_TEXT = 'Save what you learned to Harness Memory, and always mention the ticket number in the note.';
 
 let counter = 0;
 

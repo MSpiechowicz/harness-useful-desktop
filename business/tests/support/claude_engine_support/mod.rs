@@ -345,6 +345,18 @@ pub fn prompt(message: &str) -> AgentAction {
     }
 }
 
+/// The prompt of the `claude_image.jsonl` scenario: a question with one small PNG.
+pub fn image_prompt() -> AgentAction {
+    AgentAction::Prompt {
+        message: "What is this?".to_owned(),
+        images: vec![harness_business::model::ImageAttachment {
+            data: "iVBORw0KGgo=".to_owned(),
+            mime_type: "image/png".to_owned(),
+        }],
+        streaming_behavior: None,
+    }
+}
+
 /// The chat's saved messages (`GetHistory`, one page).
 pub async fn history(chat: &Chat) -> Vec<harness_business::model::ChatMessage> {
     let reply = chat

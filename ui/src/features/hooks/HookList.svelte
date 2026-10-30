@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Badge from '$lib/components/Badge.svelte';
   import DocScopeCell from '$lib/components/docs/DocScopeCell.svelte';
   import DocSwitchCell from '$lib/components/docs/DocSwitchCell.svelte';
   import DocTable from '$lib/components/docs/DocTable.svelte';
@@ -28,9 +29,11 @@
     scopeOf: (view: HookView) => DocScope;
     /** Hooks a change is being written for (by `viewKey`): their switch waits. */
     busy: ReadonlySet<string>;
+    /** The ids of the Harness family hooks whose catalog text is newer than the file's: their row says an update waits. */
+    updates: ReadonlySet<string>;
   }
 
-  let { rows, pagination, sort, onsort, openId, scopeOf, busy, onopen, onmove, ontoggle, table = $bindable() }: Props = $props();
+  let { rows, pagination, sort, onsort, openId, scopeOf, busy, updates, onopen, onmove, ontoggle, table = $bindable() }: Props = $props();
 
   const COLUMNS = $derived([
     { key: 'hook', label: t('hooks.list.column.hook') },
@@ -60,7 +63,10 @@
   {@const WhenIcon = hook ? EVENT_ICONS[hook.event] : null}
 
   <td role="gridcell" class="border-b border-line/60 px-3">
-    <div class={cx('truncate font-medium', view.status === 'off' ? 'text-fg-2' : 'text-fg')} title={hookTitle(view)}>{hookTitle(view)}</div>
+    <div class="flex min-w-0 items-center gap-2">
+      <div class={cx('truncate font-medium', view.status === 'off' ? 'text-fg-2' : 'text-fg')} title={hookTitle(view)}>{hookTitle(view)}</div>
+      {#if view.origin === 'local' && updates.has(view.id)}<Badge tone="accent" class="shrink-0">{t('hooks.list.updateAvailable')}</Badge>{/if}
+    </div>
   </td>
 
   <DocScopeCell scope={scopeOf(view)} remote={view.origin === 'team'} />

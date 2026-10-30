@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import FolderOpen from '@lucide/svelte/icons/folder-open';
   import MessageSquare from '@lucide/svelte/icons/message-square';
   import PackageOpen from '@lucide/svelte/icons/package-open';
@@ -60,10 +62,11 @@
     failed = session ? null : attempt;
   }
 
-  // Opening the app always means chatting: start one as soon as a harness and a project are ready.
+  // Opening the app always means chatting: start one as soon as a harness and a project are ready. `start` runs untracked:
+  // the `restoring` flag it reads and sets must not run this effect again, or an answer that comes back at once loops forever.
   $effect(() => {
     if (harness.status === 'ready' && agentSessions.sessions.length === 0 && target && !starting && failed !== target) {
-      void start();
+      untrack(() => void start());
     }
   });
 </script>

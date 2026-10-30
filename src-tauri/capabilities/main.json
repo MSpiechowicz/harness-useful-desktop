@@ -13,6 +13,7 @@
     "allow-memory-code-index-get",
     "allow-memory-code-index-set",
     "allow-memory-code-builds-listen",
+    "allow-memory-code-prepare",
     "allow-memory-set-vector-search",
     "allow-memory-embedder-watch",
     "allow-memory-embedder-remove-model",

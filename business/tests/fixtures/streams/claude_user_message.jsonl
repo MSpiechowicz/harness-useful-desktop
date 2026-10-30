@@ -1,0 +1,5 @@
+// One turn of basic.jsonl (claude_basic.jsonl) for any prompt text: "pong", with its queue lifecycle,
+// init, streaming and result.
+{"include": "claude_init.jsonl"}
+{"expect": "user", "as": "prompt"}
+{"replay": "../claude/stream/basic.jsonl", "from": 6, "to": 22, "except": ["control_response"], "replace": {"c3ffc375-3f53-4214-acb4-665d7431545c": "$prompt"}}

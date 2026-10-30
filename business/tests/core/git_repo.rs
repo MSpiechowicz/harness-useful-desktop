@@ -5,7 +5,7 @@ use crate::git_support;
 use std::fs;
 
 use git_support::{GitHome, Repo, git_home};
-use harness_business::git::{git_branches, git_diff, git_status};
+use harness_business::git::{MAX_LISTED_ENTRIES, git_branches, git_diff, git_status};
 use harness_business::model::{
     DiffLineKind, DiffRequest, DiffScope, FileDiff, GitFileStatus, IpcErrorCode, StatusEntry,
 };
@@ -67,6 +67,37 @@ async fn directories_outside_a_repository_are_not_repos() {
 
     let diffs = git_diff(&home.env, &home.runner, &plain, &request(DiffScope::All, &[])).await;
     assert!(diffs.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn an_untracked_folder_too_large_to_list_is_one_entry_and_a_small_one_lists_its_files() {
+    let home = git_home();
+    let repo = base_repo(&home);
+
+    repo.write("a.txt", "changed\n");
+    repo.write("new/one.txt", "1\n");
+    repo.write("new/two.txt", "2\n");
+
+    // a small untracked folder lists its files, as before
+    let small = git_status(&home.env, &home.runner, &repo.path).await.unwrap();
+    let paths: Vec<&str> = small.entries.iter().map(|entry| entry.path.as_str()).collect();
+    assert_eq!(paths, ["a.txt", "new/one.txt", "new/two.txt"]);
+
+    // a `node_modules/` without a `.gitignore`: too many files to show one by one
+    for index in 0..=MAX_LISTED_ENTRIES {
+        repo.write(&format!("node_modules/pkg{index}/index.js"), "x\n");
+    }
+
+    let large = git_status(&home.env, &home.runner, &repo.path).await.unwrap();
+    let paths: Vec<&str> = large.entries.iter().map(|entry| entry.path.as_str()).collect();
+    assert_eq!(paths, ["a.txt", "new/", "node_modules/"]);
+    assert!(
+        large
+            .entries
+            .iter()
+            .skip(1)
+            .all(|entry| entry.unstaged == Some(GitFileStatus::Untracked))
+    );
 }
 
 #[tokio::test]

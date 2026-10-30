@@ -28,6 +28,7 @@ use crate::agents::Agents;
 use crate::drops::DropSink;
 use crate::hooks::HookRuntime;
 use crate::memory_code_builds::CodeBuilds;
+use crate::memory_code_prepares::CodePrepares;
 use crate::memory_embedder::EmbedderWatch;
 use crate::memory_held::HeldWatcher;
 use crate::memory_requests::ScriptRequests;
@@ -118,6 +119,8 @@ pub struct AppState {
     pub routines: Arc<RoutineRuntime>,
     /// The Harness Memory repository key of each project, for the session (`project_scopes`).
     pub project_keys: ProjectKeys,
+    /// The projects whose code index is being prepared (`memory_code_prepare`).
+    pub code_prepares: CodePrepares,
     /// The locks that let one git write (fetch, push, rebase, switch...) run at a time per project.
     pub git_writes: GitWriteLocks,
 }
@@ -191,6 +194,7 @@ impl AppState {
             hooks: Arc::new(hooks),
             routines: Arc::new(routines),
             project_keys: ProjectKeys::default(),
+            code_prepares: CodePrepares::default(),
             git_writes: GitWriteLocks::default(),
         }
     }

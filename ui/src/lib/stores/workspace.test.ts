@@ -28,6 +28,17 @@ describe('workspace restore', () => {
     expect(store.activeKey).toBe(store.sessions[0].key);
     expect(nav.current).toBe('changes');
   });
+
+  it('brings nothing back after the launch’s restore, so closing the last chat starts a fresh one', async () => {
+    localStorage.setItem('harness:workspace', JSON.stringify({ view: 'chat', chats: [{ harness: 'omp', sessionId: 'abc-123', project: PROJECT }], active: 0 }));
+    vi.resetModules();
+    const { restoreWorkspace: restore } = await import('./workspace.svelte');
+    const { store } = storeWithMock();
+
+    expect(await restore(store)).toBe(true);
+    // the answer of the launch's restore is not handed out again: a caller waiting for those chats would wait forever
+    expect(await restore(store)).toBe(false);
+  });
 });
 
 describe('workspace restore of the view the Memory view became', () => {

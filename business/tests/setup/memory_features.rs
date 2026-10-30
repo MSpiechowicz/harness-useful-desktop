@@ -41,6 +41,7 @@ fn a_server_that_lists_every_feature_routes_notes_and_scripts_to_both_and_is_ask
             notes_lang: false,
             notes_useful: false,
             code_index: false,
+            code_prepare: false,
         }
     );
     assert!(answer.team_and_local());
@@ -203,5 +204,25 @@ fn the_code_index_is_read_from_its_own_line() {
         FeaturesSupport::Unknown,
     ] {
         assert!(!other.code_index(), "{other:?}");
+    }
+}
+
+#[test]
+fn the_code_prepare_is_read_from_its_own_line() {
+    let (_dir, env) = installed();
+
+    let current = wait(MemoryFeatures::new().support(&env, &features("code-index\n Code-Prepare \n")));
+    assert!(current.code_prepare());
+
+    let older = wait(MemoryFeatures::new().support(&env, &features("code-index\n")));
+    assert!(matches!(older, FeaturesSupport::Listed { .. }));
+    assert!(!older.code_prepare());
+
+    for other in [
+        FeaturesSupport::Unsupported,
+        FeaturesSupport::NotInstalled,
+        FeaturesSupport::Unknown,
+    ] {
+        assert!(!other.code_prepare(), "{other:?}");
     }
 }

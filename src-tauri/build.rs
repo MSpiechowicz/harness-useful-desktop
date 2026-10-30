@@ -17,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "memory_code_index_get",
     "memory_code_index_set",
     "memory_code_builds_listen",
+    "memory_code_prepare",
     "memory_set_vector_search",
     "memory_embedder_watch",
     "memory_embedder_remove_model",

@@ -143,9 +143,14 @@ export function saveWorkspaceWhenReady(agents: AgentSessionsStore): void {
 
 /**
  * Reopens the chats and the page from the last run, once per launch. Resolves true when at least one chat came back
- * (the caller then skips starting a fresh one).
+ * (the caller then skips starting a fresh one). Once that restore is over it resolves false: closing the last chat later
+ * brings nothing back, so the caller starts a fresh chat instead of waiting for one that never comes.
  */
 export function restoreWorkspace(agents: AgentSessionsStore): Promise<boolean> {
+  if (restoreSettled) {
+    return Promise.resolve(false);
+  }
+
   restoring ??= (async () => {
     const saved = readWorkspace();
     if (!saved || saved.chats.length === 0) {

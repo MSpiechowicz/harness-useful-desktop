@@ -24,7 +24,7 @@ export interface RoutineAttention {
  * What the rail says about a view without opening it: changed files, hooks and routines waiting for approval, a routine run that asks something, and a chat waiting on the user (an approval or a
  * question). A working agent needs no badge: the animated logo and the rail status already say so.
  */
-export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null, pendingHooks = 0, routines: RoutineAttention = { pending: 0, needsYou: 0 }): RailBadge | null {
+export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null, pendingHooks = 0, routines: RoutineAttention = { pending: 0, needsYou: 0 }, hookUpdates = 0): RailBadge | null {
   if (view === 'chat' && chat) {
     const status = chatStatus(chat);
 
@@ -39,8 +39,8 @@ export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus |
     return { text: count > 99 ? '99+' : String(count), label: tn('shell.count.changedFile', count), tone: 'warning', busy: false };
   }
 
-  if (view === 'hooks' && pendingHooks > 0) {
-    return { text: pendingHooks > 99 ? '99+' : String(pendingHooks), label: tn('shell.count.hooksToApprove', pendingHooks), tone: 'warning', busy: false };
+  if (view === 'hooks' && pendingHooks + hookUpdates > 0) {
+    return hooksBadge(pendingHooks, hookUpdates);
   }
 
   if (view === 'routines' && routines.pending + routines.needsYou > 0) {
@@ -48,6 +48,14 @@ export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus |
   }
 
   return null;
+}
+
+/** The count of what waits in Hooks: hooks to approve (urgent, warning) and Harness family hooks with a newer catalog text (accent, when nothing waits for approval). */
+function hooksBadge(pending: number, updates: number): RailBadge {
+  const total = pending + updates;
+  const parts = [pending > 0 ? tn('shell.count.hooksToApprove', pending) : '', updates > 0 ? tn('shell.count.hookUpdates', updates) : ''];
+
+  return { text: total > 99 ? '99+' : String(total), label: parts.filter(Boolean).join(', '), tone: pending > 0 ? 'warning' : 'accent', busy: false };
 }
 
 /** The count of what waits in Routines. A run that asks something is urgent, so it makes the badge pulse. */

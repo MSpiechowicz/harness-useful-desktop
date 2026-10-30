@@ -223,6 +223,7 @@ fn a_query_keeps_its_lang_only_for_a_server_that_lists_notes_lang() {
         notes_lang,
         notes_useful: false,
         code_index: false,
+        code_prepare: false,
     };
 
     assert_eq!(asked.for_server(listed(true)), asked);

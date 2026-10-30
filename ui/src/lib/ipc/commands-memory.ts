@@ -78,6 +78,13 @@ export const memoryCommands = {
    */
   memory_code_builds_listen: cmd<{ onEvent: EventSink<CodeBuildEvent> }, null>(),
   /**
+   * Starts a background build of the code index of `project`, only when it has none, and answers at once: the build can run for minutes and
+   * shows up in `memory_code_builds_listen`. Does nothing without support in the server, with the Code index switch off, on Windows, or while a
+   * run for that path is going. The page asks once per project in an app run (again after the switch is turned back on), so a build that
+   * failed is tried again on the next launch, or by the agent's first code tool call.
+   */
+  memory_code_prepare: cmd<{ project: string }, null>(),
+  /**
    * The "Vector search" switch: runs `embedder enable|disable`, stores `vectorSearch`, then starts or stops the embedder (it starts only while
    * `memoryEnabled` is on too). The answer holds the stored pref and the embedder's state right then: follow it with `memory_embedder_watch`.
    * Nothing changes when it rejects: `unsupported` for a Harness Memory without the `embedder` feature, `notFound` when it is not installed,

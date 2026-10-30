@@ -69,6 +69,7 @@ pub mod mcp_rename;
 pub mod memory_binary;
 pub mod memory_cli;
 pub mod memory_code;
+pub mod memory_code_prepare;
 mod memory_copy_answer;
 pub mod memory_embedder;
 mod memory_embedder_lines;
@@ -129,6 +130,7 @@ pub use memory_cli::Repos;
 pub use memory_code::{
     CodeBuildWatcher, CodeGraphSupport, code_graph_support, code_switch_is_on, get_code_index, set_code_index,
 };
+pub use memory_code_prepare::{CodePrepared, prepare_code_index};
 pub use memory_embedder::{
     EmbedderEvent, EmbedderStatus, EmbedderTracker, embedder_status, feature_server, get_settings, parse_event,
     remove_embedder_model, set_embedder_enabled, set_settings,

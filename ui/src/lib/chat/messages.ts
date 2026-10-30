@@ -89,14 +89,23 @@ function messageIdentity(role: MessageRole, timestamp: number | null): string | 
   return timestamp === null ? null : `${role}@${timestamp}`;
 }
 
-/** The identities of the messages the transcript shows already. */
+/** The identities of the messages the transcript shows already: role and time, and the session entry id when known. */
 function shownMessages(state: ChatState): Set<string> {
   const shown = new Set<string>();
 
   for (const item of state.items) {
-    const identity = item.kind === 'message' && item.meta !== null ? messageIdentity(item.role, item.meta.timestamp) : null;
+    if (item.kind !== 'message' || item.meta === null) {
+      continue;
+    }
+
+    const identity = messageIdentity(item.role, item.meta.timestamp);
     if (identity !== null) {
       shown.add(identity);
+    }
+
+    // a live message can carry the id its history entry has, but not the same time (Claude Code's own prompt)
+    if (item.meta.entryId !== null) {
+      shown.add(`id:${item.meta.entryId}`);
     }
   }
 
@@ -119,7 +128,7 @@ export function prependHistory(state: ChatState, messages: ChatMessage[], nextCu
 
     // A history read while a turn runs lists the turn's finished messages, which the live stream already showed.
     const identity = messageIdentity(message.role, message.timestamp);
-    if (identity !== null && shown.has(identity)) {
+    if ((identity !== null && shown.has(identity)) || (message.id !== null && shown.has(`id:${message.id}`))) {
       continue;
     }
 

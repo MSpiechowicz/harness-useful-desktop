@@ -139,6 +139,22 @@ impl Setup {
     }
 
     /// The runner for the server's commands.
+    /// The memory server of this setup for `feature`, or why there is none (`what` names it).
+    pub async fn feature_server(
+        &self,
+        feature: fn(harness_business::ecosystem::FeaturesSupport) -> bool,
+        what: &str,
+    ) -> harness_business::Result<PathBuf> {
+        harness_business::ecosystem::feature_server(
+            &self.env,
+            self.runner(),
+            &harness_business::ecosystem::MemoryFeatures::new(),
+            feature,
+            what,
+        )
+        .await
+    }
+
     pub fn runner(&self) -> &dyn ProcessRunner {
         self.stand_in.as_ref()
     }

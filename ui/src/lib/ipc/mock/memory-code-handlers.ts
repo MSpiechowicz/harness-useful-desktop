@@ -3,7 +3,7 @@ import type { CodeIndexState } from '../bindings/CodeIndexState';
 import { IpcFailure } from '../transport';
 import type { Handlers } from './types';
 
-type CodeCommands = 'memory_code_index_get' | 'memory_code_index_set' | 'memory_code_builds_listen';
+type CodeCommands = 'memory_code_index_get' | 'memory_code_index_set' | 'memory_code_builds_listen' | 'memory_code_prepare';
 
 /**
  * Browser-preview switch `?code=`: `old` is a Harness Memory without the `code-index` feature, `build` runs a first index of a repository once
@@ -83,6 +83,13 @@ export function memoryCodeHandlers(scenario: () => CodeScenario = codeScenarioFr
       steps(scenario()).forEach((event, index) => {
         timers.add(setTimeout(() => onEvent(event), (index + 1) * stepMs));
       });
+
+      return null;
+    },
+    memory_code_prepare: () => {
+      if (scenario() === 'old') {
+        throw unsupported();
+      }
 
       return null;
     },

@@ -54,7 +54,8 @@
       </div>
 
       {#if description}
-        <p id={descriptionId} class="text-base text-fg-2">{description}</p>
+        <!-- The close button sits above the description's right end, so its width is kept clear and the text wraps before it. -->
+        <p id={descriptionId} class={cx('text-base text-fg-2', dismissible && 'pr-control')}>{description}</p>
       {/if}
     </header>
 

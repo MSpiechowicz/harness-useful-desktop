@@ -6,8 +6,8 @@ use crate::claude_engine_support;
 
 use std::sync::{Arc, Mutex};
 
-use claude_engine_support::{BASIC_SESSION, kinds, marker, prompt, start, stop_cleanly};
-use harness_business::model::{AgentAction, AgentEvent, AgentReply, ImageAttachment, PromptStatus};
+use claude_engine_support::{BASIC_SESSION, image_prompt, kinds, marker, prompt, start, stop_cleanly};
+use harness_business::model::{AgentAction, AgentEvent, AgentReply, PromptStatus};
 use pretty_assertions::assert_eq;
 
 /// The events from the first `agentStart` on.
@@ -160,15 +160,7 @@ async fn tool_calls_end_with_their_results_and_the_project_files_they_touched() 
 async fn a_prompt_with_an_image_sends_a_text_and_an_image_block() {
     let chat = start("claude_image.jsonl").await;
 
-    let action = AgentAction::Prompt {
-        message: "What is this?".to_owned(),
-        images: vec![ImageAttachment {
-            data: "iVBORw0KGgo=".to_owned(),
-            mime_type: "image/png".to_owned(),
-        }],
-        streaming_behavior: None,
-    };
-    chat.send(action).await;
+    chat.send(image_prompt()).await;
     marker(&chat).await;
 
     stop_cleanly(&chat).await;

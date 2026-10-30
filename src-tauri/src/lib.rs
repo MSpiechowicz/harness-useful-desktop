@@ -15,6 +15,7 @@ mod lifecycle;
 mod logging;
 mod mcp_cli;
 mod memory_code_builds;
+mod memory_code_prepares;
 mod memory_embedder;
 mod memory_held;
 mod memory_requests;
@@ -82,6 +83,7 @@ pub fn run() -> ExitCode {
             commands::memory_code::memory_code_index_get,
             commands::memory_code::memory_code_index_set,
             commands::memory_code::memory_code_builds_listen,
+            commands::memory_code::memory_code_prepare,
             commands::memory_embedder::memory_set_vector_search,
             commands::memory_embedder::memory_embedder_watch,
             commands::memory_embedder::memory_embedder_remove_model,

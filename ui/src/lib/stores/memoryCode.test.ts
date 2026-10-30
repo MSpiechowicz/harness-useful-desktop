@@ -60,7 +60,7 @@ describe('decide', () => {
       [build({ phase: 'ready', filesDone: 240 }), 1000],
     ]);
 
-    expect(ready).toMatchObject({ action: 'update', toast: { title: 'Code graph ready · 240 files', tone: 'success', duration: 4000, description: undefined } });
+    expect(ready).toMatchObject({ action: 'update', toast: { title: 'Code graph ready', tone: 'success', duration: 4000, description: '240 files indexed in api' } });
   });
 
   it('says "1 file" for one file', () => {
@@ -69,7 +69,7 @@ describe('decide', () => {
       [build({ phase: 'ready', filesTotal: 1, filesDone: 1 }), 1000],
     ]);
 
-    expect(ready).toMatchObject({ toast: { title: 'Code graph ready · 1 file' } });
+    expect(ready).toMatchObject({ toast: { title: 'Code graph ready', description: '1 file indexed in api' } });
   });
 
   it('shows a failed build as a danger toast with the reason, that stays until dismissed', () => {
@@ -93,7 +93,7 @@ describe('decide', () => {
   it('shows a build that was done before the backend saw it as one short success toast', () => {
     const [lone] = run([[build({ phase: 'ready', filesDone: 240 }), 0]]);
 
-    expect(lone).toMatchObject({ action: 'push', toast: { title: 'Code graph ready · 240 files', tone: 'success', duration: 4000 } });
+    expect(lone).toMatchObject({ action: 'push', toast: { title: 'Code graph ready', description: '240 files indexed in api', tone: 'success', duration: 4000 } });
   });
 
   it('shows nothing for a stopped build it never saw', () => {
@@ -245,7 +245,7 @@ describe('the build toasts of the store', () => {
 
     expect(push).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledTimes(3);
-    expect(notifications.items).toEqual([expect.objectContaining({ title: 'Code graph ready · 240 files', tone: 'success', duration: 4000, description: undefined })]);
+    expect(notifications.items).toEqual([expect.objectContaining({ title: 'Code graph ready', tone: 'success', duration: 4000, description: '240 files indexed in api' })]);
   });
 
   it('keeps the toast of a build when the user changes project, and turns it ready', () => {
@@ -260,7 +260,7 @@ describe('the build toasts of the store', () => {
     notifications.leaveProjects(null);
     store.handle(build({ phase: 'ready', filesDone: 240 }));
 
-    expect(notifications.items).toEqual([expect.objectContaining({ title: 'Code graph ready · 240 files', tone: 'success' })]);
+    expect(notifications.items).toEqual([expect.objectContaining({ title: 'Code graph ready', description: '240 files indexed in api', tone: 'success' })]);
   });
 
   it('shows a build that writes again after going stale as one toast', () => {
@@ -379,5 +379,67 @@ describe('the code index switch of the store', () => {
 
     expect(invoke).not.toHaveBeenCalledWith('memory_code_index_set', expect.anything());
     expect(store.index?.enabled).toBe(false);
+  });
+});
+
+describe('preparing the code index of a project', () => {
+  function prepared(reply: () => Promise<null> = () => Promise.resolve(null)) {
+    const invoke = vi.fn(async (name: string, args?: { on?: boolean }) => {
+      if (name === 'memory_code_prepare') {
+        return reply();
+      }
+
+      return { enabled: args?.on ?? true, source: 'file' as const };
+    });
+
+    return { invoke, store: new MemoryCodeStore({ invoke } as unknown as Transport, new ToastsStore()) };
+  }
+
+  it('asks the backend to build the index of the project', () => {
+    const { store, invoke } = prepared();
+
+    store.prepare('/work/api');
+
+    expect(invoke).toHaveBeenCalledWith('memory_code_prepare', { project: '/work/api' });
+  });
+
+  it('does nothing without a project', () => {
+    const { store, invoke } = prepared();
+
+    store.prepare(null);
+
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('asks once for a project, and separately for another', () => {
+    const { store, invoke } = prepared();
+
+    store.prepare('/work/api');
+    store.prepare('/work/api');
+    store.prepare('/work/web');
+
+    expect(invoke).toHaveBeenCalledTimes(2);
+  });
+
+  it('swallows a refusal and does not ask again', async () => {
+    const { store, invoke } = prepared(() => Promise.reject(IpcFailure.from({ code: 'unsupported', message: 'no code index' })));
+
+    expect(() => store.prepare('/work/api')).not.toThrow();
+    await Promise.resolve();
+    store.prepare('/work/api');
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks again for a project once the switch is turned back on', async () => {
+    const { store, invoke } = prepared();
+
+    await store.load();
+    store.prepare('/work/api');
+    await store.setEnabled(false);
+    await store.setEnabled(true);
+    store.prepare('/work/api');
+
+    expect(invoke.mock.calls.filter(([name]) => name === 'memory_code_prepare')).toHaveLength(2);
   });
 });

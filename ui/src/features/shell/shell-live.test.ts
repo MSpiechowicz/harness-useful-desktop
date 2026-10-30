@@ -3,10 +3,12 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { ipc } from '$lib/ipc/client';
+import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { branchSync } from '$lib/stores/branch-sync.svelte';
 import { git } from '$lib/stores/git.svelte';
 import { harness } from '$lib/stores/harness.svelte';
 import { BRANCH_FETCH_MS, GIT_POLL_MS, HARNESS_FOCUS_GAP_MS, RETRY_BACKOFF_MS } from '$lib/stores/live';
+import { memoryCode } from '$lib/stores/memoryCode.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
@@ -150,5 +152,20 @@ describe('the shell keeps what it shows current', () => {
 
       expect(calls('git_sync_state')).toBe(before + 1);
     });
+  });
+});
+
+describe('the shell builds the code index of an open project', () => {
+  it('asks once a chat runs in the project, without Settings having read the switch first', async () => {
+    // a fresh launch: the switch not read yet, no project prepared (earlier tests of this file prepared this one)
+    memoryCode.reset();
+    const invoke = vi.spyOn(ipc, 'invoke');
+
+    render(Shell);
+    await agentSessions.create('omp', project.active?.path ?? '');
+
+    // the switch is read at launch: no visit to Settings → Memory is needed
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('memory_code_prepare', { project: project.active?.path }));
+    expect(invoke.mock.calls.filter(([name]) => name === 'memory_code_prepare')).toHaveLength(1);
   });
 });

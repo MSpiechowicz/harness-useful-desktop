@@ -259,6 +259,24 @@
 
   // A code graph build shows one toast that follows it until it is done, wherever the user is, so the shell listens from the start.
   $effect(() => memoryCode.startBuilds());
+  // The switch is read at launch too, not only in Settings: building a project's index on open waits for it to be on.
+  $effect(() => untrack(() => void memoryCode.load()));
+
+  // A project with a running chat is one the user trusted, so its code index is built in the background (a toast follows the
+  // build). Not before: an untrusted folder is not read. Once per project, and again after the switch is turned back on.
+  // The switch counts only once the server confirmed it, or the backend would still see it off.
+  $effect(() => {
+    const path = project.active?.path ?? null;
+    const running = agentSessions.sessions.some((session) => session.info.project === path && !session.ended);
+    const on = memoryCode.index?.enabled === true && !memoryCode.pending;
+
+    untrack(() => {
+      // The window of a global routine works in a folder of the routines' own, which is no project to index.
+      if (path !== null && running && on && !routines.inWorkspace(path)) {
+        memoryCode.prepare(path);
+      }
+    });
+  });
 
   // Hooks an agent wrote wait for the user's approval, and the rail counts them wherever the user is, so the shell listens from the start.
   $effect(() => hooks.start());

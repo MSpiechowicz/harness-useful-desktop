@@ -30,6 +30,7 @@
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { rise } from '$lib/design/motion';
   import { t, tn } from '$lib/i18n/i18n.svelte';
+  import type { HookSeed } from '$lib/ipc/bindings/HookSeed';
   import type { HookView } from '$lib/ipc/bindings/HookView';
   import { HOOKS_POLL_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
@@ -58,6 +59,8 @@
   let editorOpen = $state(false);
   let editorTarget = $state<EditorTarget>({ view: null, target: { kind: 'global' } });
   let familyOpen = $state(false);
+  /** The seed of the Harness family hook the panel's Update is writing. */
+  let updatingSeed = $state<HookSeed | null>(null);
   let deleteAllOpen = $state(false);
 
   const path = $derived(project.active?.path ?? null);
@@ -187,6 +190,23 @@
 
   function ask(request: ConfirmRequest): Promise<boolean> {
     return confirmer?.ask(request) ?? Promise.resolve(false);
+  }
+
+  /** Brings the open Harness family hook to the catalog's text, which the panel offers only for one still on an earlier version. */
+  async function updateFamilyHook(): Promise<void> {
+    const seed = shownView ? hooks.updateOf(shownView)?.seed : undefined;
+
+    if (seed === undefined || updatingSeed !== null) {
+      return;
+    }
+
+    updatingSeed = seed;
+
+    try {
+      await hooks.applyFamily([seed]);
+    } finally {
+      updatingSeed = null;
+    }
   }
 
   /** Closes the panel and hands the focus back to the row it was opened from. */
@@ -377,6 +397,7 @@
               {openId}
               {scopeOf}
               busy={hooks.busy}
+              updates={hooks.outdatedIds}
               onopen={(id) => (viewState.hookId = id)}
               onmove={(id) => openId !== null && (viewState.hookId = id)}
               ontoggle={(view, enabled) => void hooks.toggle(view, enabled)}
@@ -393,6 +414,10 @@
             busy={shownView !== null && hooks.busy.has(viewKey(shownView))}
             sharing={team !== null}
             canUpdate={shownView !== null && originalOf(views, shownView) !== null}
+            familyUpdate={shownView ? hooks.updateOf(shownView) : null}
+            familyUpdating={updatingSeed !== null && updatingSeed === (shownView ? hooks.updateOf(shownView)?.seed : null)}
+            onfamilyupdate={updateFamilyHook}
+            onfamilyreview={() => (familyOpen = true)}
             {copyLock}
             ontoggle={(enabled) => shownView && void hooks.toggle(shownView, enabled)}
             onapprove={() => shownView && void hooks.approve(shownView)}

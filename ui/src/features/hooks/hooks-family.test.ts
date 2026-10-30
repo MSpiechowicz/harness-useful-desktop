@@ -60,26 +60,28 @@ describe('The Harness Desktop MCP server hint', () => {
 });
 
 describe('Harness family hooks', () => {
-  it('lists the catalog with what each hook needs, and adds a missing one in place', async () => {
+  it('lists the catalog with what each hook needs, and installs a missing one in place', async () => {
     const { invoke } = fakeHooks();
     await showHooks();
     const dialog = await openFamily();
 
     await waitFor(() => expect(within(rowIn(dialog, 'Search Harness Memory first')).getByText('Installed')).toBeInTheDocument());
     expect(within(rowIn(dialog, 'Save what you learned')).getByText('Installed')).toBeInTheDocument();
-    expect(within(rowIn(dialog, 'Check Useful Skills first')).getByRole('button', { name: 'Add' })).toBeEnabled();
+    expect(within(rowIn(dialog, 'Check Useful Skills first')).getByRole('button', { name: /^Install / })).toBeEnabled();
     expect(within(dialog).getByText('Harness Dashboard · Session start')).toBeInTheDocument();
-    expect(within(rowIn(dialog, 'Use the code graph first')).getByRole('button', { name: 'Add' })).toBeEnabled();
+    expect(within(rowIn(dialog, 'Use the code graph first')).getByRole('button', { name: 'Install Use the code graph first' })).toBeEnabled();
     expect(within(dialog).getAllByText('Harness Memory · Prompt submit')).toHaveLength(3);
-    expect(within(dialog).getByRole('button', { name: 'Add all 5 missing hooks' })).toBeEnabled();
+    // One action per row and a footer that only closes: nothing installs the rest in one go.
+    expect(within(dialog).queryByRole('button', { name: /Add all/ })).not.toBeInTheDocument();
+    expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(5);
 
-    await fireEvent.click(within(rowIn(dialog, 'Check limits before long work')).getByRole('button', { name: 'Add' }));
+    await fireEvent.click(within(rowIn(dialog, 'Check limits before long work')).getByRole('button', { name: /^Install / }));
 
     await waitFor(() => expect(within(rowIn(dialog, 'Check limits before long work')).getByText('Installed')).toBeInTheDocument());
     expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['dashboard-limits'] }]);
     expect(within(rowOf('Check limits before long work')).getByText('Active')).toBeInTheDocument();
     expect(toasts.items.map((toast) => toast.title)).toContain('1 family hook ready');
-    await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Add all 4 missing hooks' })).toBeEnabled());
+    await waitFor(() => expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(4));
   });
 
   it('updates a family hook whose text the catalog has since changed', async () => {
@@ -89,13 +91,35 @@ describe('Harness family hooks', () => {
 
     const row = await waitFor(() => {
       const found = rowIn(dialog, 'Save what you learned');
-      expect(within(found).getByText('Outdated')).toBeInTheDocument();
+      expect(within(found).getByRole('button', { name: /^Update / })).toBeInTheDocument();
 
       return found;
     });
-    await fireEvent.click(within(row).getByRole('button', { name: 'Update' }));
+    await fireEvent.click(within(row).getByRole('button', { name: /^Update / }));
 
     await waitFor(() => expect(within(rowIn(dialog, 'Save what you learned')).getByText('Installed')).toBeInTheDocument());
+    expect(screen.queryByRole('dialog', { name: 'Replace your edited version?' })).not.toBeInTheDocument();
+  });
+
+  it('asks before an update replaces a family hook the user edited, and leaves it alone when they keep it', async () => {
+    const { invoke } = fakeHooks('outdatedEdited');
+    await showHooks();
+    const dialog = await openFamily();
+
+    const update = await waitFor(() => within(rowIn(dialog, 'Save what you learned')).getByRole('button', { name: /^Update / }));
+    await fireEvent.click(update);
+
+    const confirm = await screen.findByRole('dialog', { name: 'Replace your edited version?' });
+    await fireEvent.click(within(confirm).getByRole('button', { name: 'Keep my version' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Replace your edited version?' })).not.toBeInTheDocument());
+    expect(calls(invoke, 'hooks_family_apply')).toEqual([]);
+
+    await fireEvent.click(within(rowIn(dialog, 'Save what you learned')).getByRole('button', { name: /^Update / }));
+    await fireEvent.click(within(await screen.findByRole('dialog', { name: 'Replace your edited version?' })).getByRole('button', { name: 'Update hook' }));
+
+    await waitFor(() => expect(within(rowIn(dialog, 'Save what you learned')).getByText('Installed')).toBeInTheDocument());
+    expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-save'] }]);
   });
 
   it('updates a family hook still on an earlier catalog version by itself while automatic updates are on, and says so', async () => {
@@ -117,7 +141,7 @@ describe('Harness family hooks', () => {
     expect(calls(invoke, 'hooks_family_apply')).toEqual([]);
   });
 
-  it('adds every missing family hook with one button, from an empty folder', async () => {
+  it('installs a hook from an empty folder one row at a time', async () => {
     const { invoke } = fakeHooks('empty');
     await showHooks();
 
@@ -125,9 +149,9 @@ describe('Harness family hooks', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Harness family hooks' }));
     const dialog = await screen.findByRole('dialog', { name: 'Harness family hooks' });
 
-    await fireEvent.click(await within(dialog).findByRole('button', { name: 'Add all 7 missing hooks' }));
+    await fireEvent.click(within(await waitFor(() => rowIn(dialog, 'Save what you learned'))).getByRole('button', { name: /^Install / }));
 
-    await waitFor(() => expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-search', 'memory-save', 'dashboard-limits', 'useful-skills', 'branch-sync', 'memory-first', 'code-graph-first'] }]));
+    await waitFor(() => expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-save'] }]));
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByText('No hooks yet')).not.toBeInTheDocument());
     expect(within(rowOf('Save what you learned')).getByText('Active')).toBeInTheDocument();

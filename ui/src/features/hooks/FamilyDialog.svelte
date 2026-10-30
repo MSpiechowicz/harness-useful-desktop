@@ -1,6 +1,7 @@
 <script lang="ts">
-  import Plus from '@lucide/svelte/icons/plus';
+  import Download from '@lucide/svelte/icons/download';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+  import Webhook from '@lucide/svelte/icons/webhook';
   import { fade } from 'svelte/transition';
 
   import Badge from '$lib/components/Badge.svelte';
@@ -9,9 +10,10 @@
   import { ICON } from '$lib/components/icon';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import { scaled } from '$lib/design/motion';
-  import { t, tn } from '$lib/i18n/i18n.svelte';
-  import type { HookSeed } from '$lib/ipc/bindings/HookSeed';
+  import { t } from '$lib/i18n/i18n.svelte';
+  import type { HookFamilyEntry } from '$lib/ipc/bindings/HookFamilyEntry';
 
+  import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import SettingRow from '../settings/SettingRow.svelte';
   import DesktopMcpHint from './DesktopMcpHint.svelte';
   import FamilyInstall from './FamilyInstall.svelte';
@@ -24,11 +26,11 @@
 
   let { open = $bindable(false) }: Props = $props();
 
-  /** The seeds a change is being written for. */
-  let working = $state<readonly HookSeed[]>([]);
+  /** The hook (by seed) a change is being written for: its button works, the others wait. */
+  let working = $state<HookFamilyEntry['seed'] | null>(null);
+  let confirmer: SessionConfirm | undefined = $state();
 
   const rows = $derived(hooks.family);
-  const missing = $derived((rows ?? []).filter((row) => row.status === 'missing').map((row) => row.seed));
 
   // Opening the dialog reads the catalog again: a hook may have been deleted or an agent may have changed one since.
   $effect(() => {
@@ -37,16 +39,30 @@
     }
   });
 
-  async function apply(seeds: HookSeed[]): Promise<void> {
-    working = seeds;
+  /** Installs a missing hook or updates an outdated one. A hook the user edited is only replaced after they confirm, as the update drops their changes. */
+  async function apply(row: HookFamilyEntry): Promise<void> {
+    if (row.status === 'outdated' && !row.stale) {
+      const confirmed = await confirmer?.ask({
+        title: t('hooks.family.overwrite.title'),
+        description: t('hooks.family.overwrite.body'),
+        subject: { icon: Webhook, name: row.name, details: t('hooks.family.row', { member: t(MEMBER_LABELS[memberOf(row.member)]), event: t(EVENT_LABELS[row.event]) }) },
+        confirmLabel: t('hooks.family.overwrite.confirm'),
+        cancelLabel: t('hooks.family.overwrite.keep'),
+      });
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    working = row.seed;
 
     try {
-      await hooks.applyFamily(seeds);
+      await hooks.applyFamily([row.seed]);
     } finally {
-      working = [];
+      working = null;
     }
   }
-
 </script>
 
 <Dialog bind:open size="lg" title={t('hooks.family.title')} description={t('hooks.family.description')}>
@@ -70,18 +86,18 @@
           {/snippet}
 
           {#snippet control()}
-            <div class="flex items-center justify-end gap-2.5">
+            <!-- One thing on the right in every state, in a column as wide for the button as for the chip. -->
+            <div class="flex min-w-32 items-center justify-end">
               {#if row.status === 'installed'}
                 <Badge tone="success" dot size="lg">{t('hooks.family.status.installed')}</Badge>
               {:else if row.status === 'needsMember'}
                 <FamilyInstall {member} />
               {:else}
-                {#if row.status === 'outdated'}<Badge tone="warning" size="lg">{t('hooks.family.status.outdated')}</Badge>{/if}
-                <Button loading={working.includes(row.seed)} disabled={working.length > 0} onclick={() => void apply([row.seed])}>
+                <Button class="w-32" loading={working === row.seed} disabled={working !== null} aria-label={`${t(row.status === 'outdated' ? 'hooks.family.update' : 'hooks.family.installHook')} ${row.name}`} onclick={() => void apply(row)}>
                   {#snippet leading()}
-                    {#if row.status === 'outdated'}<RefreshCw size={ICON.sm} aria-hidden="true" />{:else}<Plus size={ICON.sm} aria-hidden="true" />{/if}
+                    {#if row.status === 'outdated'}<RefreshCw size={ICON.sm} aria-hidden="true" />{:else}<Download size={ICON.sm} aria-hidden="true" />{/if}
                   {/snippet}
-                  {t(row.status === 'outdated' ? 'hooks.family.update' : 'hooks.family.add')}
+                  {t(row.status === 'outdated' ? 'hooks.family.update' : 'hooks.family.installHook')}
                 </Button>
               {/if}
             </div>
@@ -95,8 +111,7 @@
 
   {#snippet footer()}
     <Button variant="ghost" onclick={() => (open = false)}>{t('hooks.family.close')}</Button>
-    <Button variant="primary" loading={working.length > 1} disabled={missing.length === 0 || working.length > 0} onclick={() => void apply(missing)}>
-      {missing.length > 0 ? tn('hooks.family.addAll', missing.length) : t('hooks.family.addAll.none')}
-    </Button>
   {/snippet}
 </Dialog>
+
+<SessionConfirm bind:this={confirmer} />
