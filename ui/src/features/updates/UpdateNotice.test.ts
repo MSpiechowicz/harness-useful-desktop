@@ -26,6 +26,7 @@ describe('UpdateNotice', () => {
     render(UpdateNotice);
 
     expect(screen.getByRole('region', { name: 'Update' })).toHaveTextContent('0.1.5');
+    expect(screen.getByText('Restart after installing to finish')).toBeInTheDocument();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Later' }));
 

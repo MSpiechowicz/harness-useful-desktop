@@ -36,6 +36,7 @@ export const updates = {
   'updates.notice.updating': 'Updating to {version}',
   'updates.notice.installed': 'Version {version} is installed',
   'updates.notice.failed': 'The update was not installed',
+  'updates.notice.availableBody': 'Restart after installing to finish',
   'updates.notice.restartBody': 'Restart to finish. Running agents stop when the app restarts.',
   'updates.notice.install': 'Install',
   'updates.notice.view': 'View',

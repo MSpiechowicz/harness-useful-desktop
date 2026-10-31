@@ -39,6 +39,7 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.notice.updating': 'Aktualisierung auf {version}',
   'updates.notice.installed': 'Version {version} ist installiert',
   'updates.notice.failed': 'Das Update wurde nicht installiert',
+  'updates.notice.availableBody': 'Nach der Installation neu starten, um abzuschließen',
   'updates.notice.restartBody': 'Starte neu, um abzuschließen. Laufende Agenten werden beendet, wenn die App neu startet.',
   'updates.notice.install': 'Installieren',
   'updates.notice.view': 'Ansehen',

@@ -43,8 +43,8 @@
   const body = $derived.by(() => {
     switch (state.kind) {
       case 'available':
-        // Like the dashboard's card: a title and one button; Settings explains the rest.
-        return updates.closesApp ? installerClosesApp() : '';
+        // Like the dashboard's card: under the title, what installing does to the running app.
+        return updates.closesApp ? installerClosesApp() : t('updates.notice.availableBody');
 
       case 'downloading':
       case 'installing':
@@ -82,7 +82,7 @@
       class="shrink-0 overflow-hidden rounded-[8px] border border-line bg-accent-wash px-3 py-2.5 text-xs"
     >
       <div class="font-medium text-fg" role="status">{title}</div>
-      {#if body}<div class="mt-1 text-fg-2">{body}</div>{/if}
+      {#if body}<div class="mt-0.5 text-fg-2">{body}</div>{/if}
 
       {#if working}
         <div class="mt-1 flex items-center gap-1.5 text-fg-2"><Spinner size={13} />{t(state.kind === 'installing' ? 'updates.progress.installing' : 'updates.progress.downloading')}{#if state.kind === 'downloading' && fraction !== null}<span class="tabular">{Math.round(fraction * 100)}%</span>{/if}</div>
