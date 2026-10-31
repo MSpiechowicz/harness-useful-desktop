@@ -1,3 +1,15 @@
+# [0.48.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.47.0...v0.48.0) (2026-10-31)
+
+
+### Bug Fixes
+
+* **updates:** the sidebar notice says to restart after installing, like the dashboard's ([f7c7292](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f7c72925517854fcb5d444baa15201295eef2b43))
+
+
+### Features
+
+* **skills:** accept the assess model role and the release-assessment stage ([b603419](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b603419b51d3955630f07e9968052b7c2414abcc)), closes [MSpiechowicz/harness-useful-skills#25](https://github.com/MSpiechowicz/harness-useful-skills/issues/25)
+
 # [0.47.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.46.0...v0.47.0) (2026-10-30)
 
 
