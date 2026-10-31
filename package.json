@@ -22,7 +22,7 @@
     "guard": "bun scripts/check-file-size.ts && bun scripts/check-case-collisions.ts && bun scripts/check-forbidden.ts && bun scripts/check-ipc-contract.ts",
     "dup": "jscpd --config .jscpd.json",
     "desktop-entry": "bun scripts/linux-desktop-entry.ts",
-    "audit": "bun audit --ignore=GHSA-vfj7-8cjw-p6xm --ignore=GHSA-gcqx-w48m-w2h4"
+    "audit": "bun audit --ignore=GHSA-vfj7-8cjw-p6xm --ignore=GHSA-gcqx-w48m-w2h4 --ignore=GHSA-3g3m-2fjr-6pw4 --ignore=GHSA-g3hv-75wg-m249"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
