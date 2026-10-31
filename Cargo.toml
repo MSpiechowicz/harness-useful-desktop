@@ -34,9 +34,10 @@ uuid = { version = "1.27", features = ["v4"] }
 similar = "3.2.0"
 # Reads the CSV files of a notes import (RFC 4180 quoting, multi-line fields). MIT OR Unlicense.
 csv = "1.4.0"
-# Updater public-key validation (the same decoders tauri-plugin-updater verifies signatures with).
-base64 = "0.22"
-minisign-verify = "0.2"
+# Updater public-key validation. Keep both on the versions tauri-plugin-updater depends on, so the
+# app accepts exactly the keys the updater can verify signatures with (see business/src/update.rs).
+base64 = "0.23"
+minisign-verify = "0.3"
 # Compresses "Share setup" bundles (`hud1:` strings); already in the lockfile through Tauri.
 flate2 = "1.1"
 # Reads Harness Memory's `config.toml` (team database settings); already in the lockfile through Tauri.

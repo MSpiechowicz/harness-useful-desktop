@@ -266,12 +266,6 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "base64"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
-name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
@@ -1647,7 +1641,7 @@ dependencies = [
 name = "harness_business"
 version = "0.48.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "csv",
  "dirs",
  "dunce",
@@ -1655,7 +1649,7 @@ dependencies = [
  "harness_business",
  "insta",
  "jiff",
- "minisign-verify 0.2.5",
+ "minisign-verify",
  "nix",
  "pretty_assertions",
  "regex",
@@ -2416,12 +2410,6 @@ name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
-
-[[package]]
-name = "minisign-verify"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22f9645cb765ea72b8111f36c522475d2daa0d22c957a9826437e97534bc4e9e"
 
 [[package]]
 name = "minisign-verify"
@@ -4546,7 +4534,7 @@ dependencies = [
  "infer",
  "libc",
  "log",
- "minisign-verify 0.3.0",
+ "minisign-verify",
  "osakit",
  "percent-encoding",
  "reqwest",
