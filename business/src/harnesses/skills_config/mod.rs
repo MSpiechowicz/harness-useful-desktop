@@ -5,7 +5,7 @@
 //! - Model roles: `harness-useful-skills/models.yml` below an install scope, YAML with a `modelRoles` map
 //!   of role to selector. Listed only when the file exists. A project file that resolves outside
 //!   the project is listed with an error and not read.
-//! - Workflow: the repository master and the six stage switches of
+//! - Workflow: the repository master and the seven stage switches of
 //!   `harness-useful-skills/workflow-settings/` below the settings root ([`workflow`]), as
 //!   `key: "<value> (<source>)"` rows.
 //!

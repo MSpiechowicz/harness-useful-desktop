@@ -854,7 +854,7 @@ expression: "exported(config(&env, Some(&project)), &home, &project)"
     {
       "id": "user.harnessSkillsWorkflow",
       "title": "Harness Skills workflow",
-      "description": "The Harness Skills workflow for the Git checkout of this project and its six stages for every project. Change them with /useful-skills in OpenCode.",
+      "description": "The Harness Skills workflow for the Git checkout of this project and its seven stages for every project. Change them with /useful-skills in OpenCode.",
       "source": {
         "path": "/home/demo/.config/opencode/useful-skills/workflow-settings",
         "layer": "user",
@@ -893,6 +893,13 @@ expression: "exported(config(&env, Some(&project)), &home, &project)"
         },
         {
           "key": "security-review",
+          "value": {
+            "kind": "text",
+            "value": "default (enabled)"
+          }
+        },
+        {
+          "key": "release-assessment",
           "value": {
             "kind": "text",
             "value": "default (enabled)"

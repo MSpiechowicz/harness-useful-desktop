@@ -5,7 +5,7 @@
 //! - Model roles: `harness-useful-skills/models.yml` (`useful-skills/models.yml` before Harness
 //!   Skills 0.4.0, used when only it exists), YAML with a `modelRoles` map of role to selector
 //!   (`<model>[:<effort>]`). Listed only when the file exists.
-//! - Workflow: the repository master and the six stage switches. Listed when the Harness Skills
+//! - Workflow: the repository master and the seven stage switches. Listed when the Harness Skills
 //!   plugin (`harness-useful-skills@<marketplace>`, or `useful-skills@<marketplace>` before 0.4.0) is in
 //!   `installed_plugins.json` or the settings folder exists. The plugin's `/plugin` options reach only Claude Code's hooks, so a notice says they
 //!   apply where no saved file exists and are not shown.
@@ -34,7 +34,7 @@ const MODELS_TEXT: SectionText<'static> = SectionText {
 const WORKFLOW_TEXT: SectionText<'static> = SectionText {
     id: "user.harnessSkillsWorkflow",
     title: "Harness Skills workflow",
-    description: "The Harness Skills workflow for the Git checkout of this project and its six stages for every project. \
+    description: "The Harness Skills workflow for the Git checkout of this project and its seven stages for every project. \
                   Change them with /useful-skills in Claude Code.",
 };
 

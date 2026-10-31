@@ -26,7 +26,7 @@ use crate::security::SafeReader;
 const MAX_BYTES: u64 = 16 * 1024;
 
 /// The roles Harness Skills knows.
-const ROLES: [&str; 8] = [
+const ROLES: [&str; 9] = [
     "research",
     "frontend",
     "backend",
@@ -34,6 +34,7 @@ const ROLES: [&str; 8] = [
     "review",
     "security",
     "plan",
+    "assess",
     "default",
 ];
 
@@ -184,6 +185,12 @@ mod tests {
         );
         assert_eq!(parsed("modelRoles:\n  default: inherit\n"), selection("inherit", None));
         assert_eq!(parsed("modelRoles:\n  plan: opus\n"), None, "no default role");
+
+        assert_eq!(
+            parsed("modelRoles:\n  default: sonnet:low\n  assess: inherit\n"),
+            selection("sonnet", Some("low")),
+            "the assess role is a known one"
+        );
     }
 
     #[test]

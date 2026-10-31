@@ -3,7 +3,7 @@
 //! settings root (Claude Code's config directory, OpenCode's XDG config directory),
 //! `harness-useful-skills/workflow-settings/` (`useful-skills/…` before Harness Skills 0.4.0, used when
 //! only it exists) holds the repository master
-//! `repositories/<sha256 of the scope root>/workflow.json` and the six profile-wide stage files
+//! `repositories/<sha256 of the scope root>/workflow.json` and the seven profile-wide stage files
 //! `<stage>.json`. The scope root is the nearest enclosing Git checkout of the project (a `.git`
 //! folder, or a `.git` file naming its `gitdir:`), else the canonical project.
 //!
@@ -14,7 +14,7 @@
 //! for every key, unless it is missing and the harness reads that as no saved settings
 //! ([`MissingRoot`]). Nothing is created or changed.
 //!
-//! The sixth stage is `code-graph`. Before Harness Skills 0.5.0 it was `graphify-memory`: while
+//! The last stage is `code-graph`. Before Harness Skills 0.5.0 it was `graphify-memory`: while
 //! `code-graph.json` is missing, `graphify-memory.json` is read in its place, under the same safety
 //! rules.
 
@@ -29,11 +29,12 @@ use crate::ecosystem::skills_paths::skills_data_path;
 use crate::security::SafeReader;
 
 /// The profile-wide stages, in the plugin's order.
-const STAGES: [&str; 6] = [
+const STAGES: [&str; 7] = [
     "research",
     "plan",
     "review",
     "security-review",
+    "release-assessment",
     "backend-memory",
     "code-graph",
 ];

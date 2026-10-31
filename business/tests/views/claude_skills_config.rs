@@ -142,6 +142,7 @@ fn the_fixture_switches_show_saved_files_and_defaults() {
             "plan",
             "review",
             "security-review",
+            "release-assessment",
             "backend-memory",
             "code-graph"
         ]
@@ -249,6 +250,7 @@ fn an_invalid_stage_file_is_an_error_for_its_key_only() {
     );
     assert_eq!(label(&shown, "research"), "disabled (saved file)");
     assert_eq!(label(&shown, "security-review"), "default (enabled)");
+    assert_eq!(label(&shown, "release-assessment"), "default (enabled)");
 }
 
 #[cfg(unix)]

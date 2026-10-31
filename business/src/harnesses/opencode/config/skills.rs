@@ -7,7 +7,7 @@
 //!   `$XDG_CONFIG_HOME/opencode` (else `~/.config/opencode`), never `OPENCODE_CONFIG_DIR`, which is
 //!   no install target. The project scope is `<project>/.opencode`, left out when OpenCode ignores
 //!   the project's settings. Each is listed in its layer, only when the file exists.
-//! - Workflow: the repository master and the six stage switches in
+//! - Workflow: the repository master and the seven stage switches in
 //!   `harness-useful-skills/workflow-settings/` of the user scope, for both install scopes. Listed when
 //!   an install record of either scope or the settings folder exists. A user scope folder that does
 //!   not exist yet holds no saved settings. The plugin has no option tier, so there is no notice.
@@ -44,7 +44,7 @@ const PROJECT_MODELS_TEXT: SectionText<'static> = SectionText {
 const WORKFLOW_TEXT: SectionText<'static> = SectionText {
     id: "user.harnessSkillsWorkflow",
     title: "Harness Skills workflow",
-    description: "The Harness Skills workflow for the Git checkout of this project and its six stages for every project. \
+    description: "The Harness Skills workflow for the Git checkout of this project and its seven stages for every project. \
                   Change them with /useful-skills in OpenCode.",
 };
 
