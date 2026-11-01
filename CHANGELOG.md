@@ -1,3 +1,10 @@
+# [0.50.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.49.0...v0.50.0) (2026-11-01)
+
+
+### Features
+
+* **code:** Harness Code joins the family and takes over the code graph ([af2bcd3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/af2bcd35c1e5b09ad9a2cc4ddee34301feec60ca)), closes [#48](https://github.com/MSpiechowicz/harness-useful-desktop/issues/48)
+
 # [0.49.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.48.0...v0.49.0) (2026-11-01)
 
 
