@@ -146,8 +146,6 @@ async fn the_ecosystem_tab_lists_it_after_memory_with_its_version() {
     );
 
     let (_dir, env) = installed();
-    // The install folder and its `via` text are the Linux and macOS ones.
-    let env = env.with_os(OsKind::Linux);
     let status = ecosystem_status(&env, &cli(ALL_FEATURES)).await;
     let found = status
         .items
@@ -156,7 +154,10 @@ async fn the_ecosystem_tab_lists_it_after_memory_with_its_version() {
         .unwrap();
     assert!(found.installed);
     assert_eq!(found.version.as_deref(), Some("1.0.0"));
-    assert_eq!(found.via, ["binary ~/.local/bin/harness-knowledge"]);
+    // Windows installs under %LOCALAPPDATA%\\Programs: the `via` text is the Linux and macOS one.
+    if !cfg!(windows) {
+        assert_eq!(found.via, ["binary ~/.local/bin/harness-knowledge"]);
+    }
 
     let memory = status.items.iter().find(|item| item.id == EcosystemId::Memory).unwrap();
     assert!(!memory.installed);
