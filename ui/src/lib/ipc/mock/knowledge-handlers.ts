@@ -6,7 +6,7 @@ import type { KnowledgeHit } from '../bindings/KnowledgeHit';
 import type { KnowledgePulse } from '../bindings/KnowledgePulse';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
-import { bulkDocuments, DESKTOP_REPO, documentOf, outlineOf, sampleDocuments, sampleHeld } from './knowledge-fixtures';
+import { bulkDocuments, chunkText, DESKTOP_REPO, documentOf, outlineOf, sampleDocuments, sampleHeld } from './knowledge-fixtures';
 import { sortDocuments, visibleDocuments } from './knowledge-list';
 import type { Handlers } from './types';
 
@@ -91,10 +91,18 @@ function hitsOf(docs: KnowledgeDocument[], query: string): KnowledgeHit[] {
 
   return docs
     .filter((doc) => words.some((word) => doc.title.toLowerCase().includes(word)))
-    .map((doc, index) => {
-      const section = outlineOf(doc)[0];
+    .flatMap((doc, index) => {
+      // The first section, and the third when the document has one.
+      const sections = outlineOf(doc);
 
-      return { docId: doc.id, chunkId: section?.chunkId ?? doc.id * 100, title: doc.title, section: section?.headingPath ?? '', snippet: `${doc.title} explains how this part works and where to start.`, score: Math.round((0.92 - index * 0.07) * 100) / 100 };
+      return [sections[0], sections[2]].filter((section) => section !== undefined).map((section, rank) => ({
+        docId: doc.id,
+        chunkId: section.chunkId,
+        title: doc.title,
+        section: section.headingPath,
+        snippet: `This part of ${doc.title} mentions ${query.trim()} where it describes the ${section.headingPath.toLowerCase()} and the steps to follow.`,
+        score: Math.round((0.92 - index * 0.07 - rank * 0.03) * 100) / 100,
+      }));
     });
 }
 
@@ -146,7 +154,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
       const sections = outlineOf(document);
       const section = sections.find((candidate) => candidate.chunkId === chunkId);
 
-      return { document, sections, chunk: section ? { id: section.chunkId, docId: id, ordinal: section.ordinal, headingPath: section.headingPath, text: `${section.headingPath}\n\nThis part of ${document.title} describes the ${section.headingPath.toLowerCase()} in detail.`, tokens: section.tokens, charStart: section.charStart, charEnd: section.charEnd } : null };
+      return { document, sections, chunk: section ? { id: section.chunkId, docId: id, ordinal: section.ordinal, headingPath: section.headingPath, text: chunkText(document, section), tokens: section.tokens, charStart: section.charStart, charEnd: section.charEnd } : null };
     },
 
     knowledge_doc_rename: ({ id, title }) => {

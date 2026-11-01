@@ -76,19 +76,34 @@ export function bulkDocuments(count: number): KnowledgeDocument[] {
   });
 }
 
-/** The outline of a document: a few sections per document, derived from its chunk count. */
+/** The outline of a document: a few sections per document, derived from its chunk count. A longer document cuts Configuration into two chunks, as the server does a long section. */
 export function outlineOf(doc: KnowledgeDocument): KnowledgeSection[] {
   const names = ['Overview', 'Install', 'Configuration', 'Reference', 'Troubleshooting'];
-  const count = Math.min(names.length, Math.max(1, doc.chunkCount));
+  const headings = doc.chunkCount >= 6 ? [...names.slice(0, 3), 'Configuration', ...names.slice(3)] : names.slice(0, Math.max(1, doc.chunkCount));
 
-  return Array.from({ length: count }, (_, ordinal) => ({
+  return headings.map((headingPath, ordinal) => ({
     chunkId: doc.id * 100 + ordinal,
     ordinal,
-    headingPath: names[ordinal] ?? `Part ${ordinal + 1}`,
+    headingPath,
     tokens: 220 + ordinal * 40,
     charStart: ordinal * 900,
     charEnd: ordinal * 900 + 880,
   }));
+}
+
+/** The text of one chunk of a document: a few paragraphs, with a code block under Install. */
+export function chunkText(doc: KnowledgeDocument, section: KnowledgeSection): string {
+  const lines = [
+    `This part of ${doc.title} describes the ${section.headingPath.toLowerCase()} in detail. Upgrading from version 1 to version 2 keeps your settings and your history.`,
+    '',
+    'Read the steps in order. A step that fails leaves everything as it was, so it is safe to run it again once the cause is fixed.',
+  ];
+
+  if (section.headingPath === 'Install') {
+    lines.push('', '```sh', 'harness install --version 1', 'harness doctor', '```');
+  }
+
+  return lines.join('\n');
 }
 
 function held(seed: { id: string; title: string; name: string; text: string; client: string; age: number; links?: KnowledgeLink[]; replaces?: number }): KnowledgeHeldItem {

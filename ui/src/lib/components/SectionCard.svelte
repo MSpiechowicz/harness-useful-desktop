@@ -7,17 +7,20 @@
 
   interface Props {
     heading: string;
+    /** One line under the heading that says what the section is. */
+    hint?: string;
     /** No card: the section is told apart by a hairline above it and its small caps heading, so a pane of sections is one flat page. */
     flat?: boolean;
     class?: string;
     children: Snippet;
   }
 
-  let { heading, flat = false, class: className, children }: Props = $props();
+  let { heading, hint, flat = false, class: className, children }: Props = $props();
 </script>
 
 {#snippet content()}
-  <h3 class="mb-2.5 text-xs font-medium tracking-wider text-fg-3 uppercase">{heading}</h3>
+  <h3 class={cx('text-xs font-medium tracking-wider text-fg-3 uppercase', hint ? 'mb-1' : 'mb-2.5')}>{heading}</h3>
+  {#if hint}<p class="mb-2.5 text-sm text-fg-3">{hint}</p>{/if}
   {@render children()}
 {/snippet}
 

@@ -129,7 +129,7 @@ describe('Memory section', () => {
 
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search settings' }), { target: { value: 'teammate' } });
 
-    await waitFor(() => expect(within(nav).getAllByRole('button').map((button) => button.textContent?.trim())).toEqual(['Memory']));
+    await waitFor(() => expect(within(nav).getAllByRole('button').map((button) => button.textContent?.trim())).toEqual(['Memory', 'Knowledge']));
   });
 
   it('warns which entry to remove by hand, with a copyable name, when turning memory off left one behind', async () => {

@@ -128,3 +128,33 @@ export function pathsText(count: number): string | null {
 export function outlineOf<Section extends { headingPath: string }>(sections: readonly Section[]): Section[] {
   return sections.filter((section, index) => index === 0 || sections[index - 1]?.headingPath !== section.headingPath);
 }
+
+/** One heading of the outline with every chunk it is cut into, in document order. */
+export interface OutlineGroup {
+  headingPath: string;
+  chunkIds: number[];
+}
+
+/** The outline with the chunk ids of each heading kept, so the text of a section is all its parts. */
+export function outlineGroups(sections: readonly { headingPath: string; chunkId: number }[]): OutlineGroup[] {
+  const groups: OutlineGroup[] = [];
+
+  for (const section of sections) {
+    const last = groups.at(-1);
+
+    if (last?.headingPath === section.headingPath) {
+      last.chunkIds.push(section.chunkId);
+    } else {
+      groups.push({ headingPath: section.headingPath, chunkIds: [section.chunkId] });
+    }
+  }
+
+  return groups;
+}
+
+/** A heading path as the levels it has and its own title: `Guide > Install > Linux` is the third level, "Linux". */
+export function headingLevel(headingPath: string): { depth: number; title: string } {
+  const parts = headingPath.split('>').map((part) => part.trim()).filter(Boolean);
+
+  return { depth: Math.max(0, parts.length - 1), title: parts.at(-1) ?? t('knowledge.sections.intro') };
+}
