@@ -36,7 +36,7 @@
 {#if chunk?.status === 'ready'}
   {@const blocks = blocksOf(chunk.text)}
 
-  <div class="flex max-h-72 flex-col gap-2 overflow-y-auto text-sm text-fg-2 {inset ? '' : 'rounded-md bg-surface-2 px-3 py-2'}">
+  <div class="flex max-h-72 flex-col gap-2 overflow-y-auto overscroll-contain text-sm text-fg-2 {inset ? '' : 'rounded-md bg-surface-2 px-3 py-2'}">
     {#each blocks as block, index (index)}
       {#if block.kind === 'code'}
         <pre class="overflow-x-auto rounded-sm bg-surface-3 px-2 py-1.5 font-mono text-xs text-fg">{@render marked(block.text)}</pre>
