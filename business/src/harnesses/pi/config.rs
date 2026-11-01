@@ -111,6 +111,7 @@ pub fn pi_config_view(env: &Env, project: Option<&Path>) -> ConfigView {
         harness: HarnessId::Pi,
         sections,
         notices,
+        unmapped_roles: Vec::new(),
     }
 }
 

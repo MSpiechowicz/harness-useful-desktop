@@ -39,6 +39,7 @@ pub mod harness;
 pub mod harnesses;
 pub mod hooks;
 pub mod hooks_mcp;
+pub(crate) mod line_edit;
 pub mod model;
 pub mod opencode_server;
 pub mod opencode_server_v2;

@@ -67,7 +67,9 @@ pub use chat::{
 };
 pub use code::{CodeBuildEvent, CodeIndexState, CodeSwitchResult};
 pub use command::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
-pub use config::{ConfigFormat, ConfigLayer, ConfigSection, ConfigSource, ConfigView, Notice, NoticeLevel};
+pub use config::{
+    ConfigFormat, ConfigLayer, ConfigSection, ConfigSource, ConfigView, Notice, NoticeLevel, UnmappedRole,
+};
 pub use config_value::{ConfigField, ConfigValue, SecretKind};
 pub use dashboard::{DashboardArgs, DashboardAvailability, DashboardQuery, DashboardResult, DashboardTool};
 pub use dashboard_args::{

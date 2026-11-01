@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-omp-map-role"
+description = "Enables the omp_map_role command without any pre-configured scope."
+commands.allow = ["omp_map_role"]
+
+[[permission]]
+identifier = "deny-omp-map-role"
+description = "Denies the omp_map_role command without any pre-configured scope."
+commands.deny = ["omp_map_role"]

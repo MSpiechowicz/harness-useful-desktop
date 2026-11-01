@@ -6,6 +6,8 @@ import { IpcFailure } from '../transport';
 import { fixtures } from './fixtures';
 import type { MockState } from './state';
 import { withOpenCodeChat } from './opencode-chat';
+import { MockOmpRoles } from './omp-roles';
+import { MockSkillsRoles } from './skills-roles';
 import type { Handlers } from './types';
 
 type HarnessCommands =
@@ -14,6 +16,8 @@ type HarnessCommands =
   | 'harness_pick_binary'
   | 'harness_clear_binary'
   | 'config_view'
+  | 'omp_map_role'
+  | 'skills_set_role'
   | 'extensions_view'
   | 'commands_catalog';
 
@@ -58,6 +62,8 @@ function withoutProjectScope(view: ExtensionsView): ExtensionsView {
 export function harnessHandlers(state: MockState): Pick<Handlers, HarnessCommands> {
   const pristine = structuredClone(fixtures.harnesses.map(withOpenCodeChat));
   const summaries = structuredClone(pristine);
+  const ompRoles = new MockOmpRoles();
+  const skillsRoles = new MockSkillsRoles();
 
   function replace(id: HarnessId, next: HarnessSummary): HarnessSummary {
     summaries[summaries.findIndex((summary) => summary.info.id === id)] = next;
@@ -97,10 +103,15 @@ export function harnessHandlers(state: MockState): Pick<Handlers, HarnessCommand
 
     config_view: ({ harness, project }) => {
       state.requireKnown(project);
-      const view = structuredClone(fixtures.config[harness]);
+      const fixture = structuredClone(fixtures.config[harness]);
+      const view = harness === 'omp' ? ompRoles.decorate(fixture) : skillsRoles.decorate(fixture);
 
       return project === null ? withoutProjectLayer(view) : view;
     },
+
+    omp_map_role: ({ role, selector }) => ompRoles.map(role, selector),
+
+    skills_set_role: ({ harness, scope, role, selector }) => skillsRoles.change(harness, scope, role, selector, fixtures.config[harness]),
 
     extensions_view: ({ harness, project }) => {
       state.requireKnown(project);

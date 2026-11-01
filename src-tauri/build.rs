@@ -93,6 +93,8 @@ const COMMANDS: &[&str] = &[
     "harness_pick_binary",
     "harness_clear_binary",
     "config_view",
+    "omp_map_role",
+    "skills_set_role",
     "extensions_view",
     "commands_catalog",
     "project_pick",

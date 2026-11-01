@@ -9,13 +9,18 @@
 //!   `harness-useful-skills/workflow-settings/` below the settings root ([`workflow`]), as
 //!   `key: "<value> (<source>)"` rows.
 //!
+//! The model roles file is edited by [`set_skills_role`] (see [`set_role`]).
+//!
 //! Harness Skills before 0.4.0 used `useful-skills` for the folder. Both are read through
 //! [`skills_data_path`]: the new path, else the old one when only it exists.
 
+mod selector;
+mod set_role;
 mod workflow;
 
 use std::path::{Path, PathBuf};
 
+pub use self::set_role::{set_skills_role, set_skills_role_with};
 pub(super) use self::workflow::MissingRoot;
 use self::workflow::{read_settings, settings_dir};
 use crate::ecosystem::skills_paths::skills_data_path;

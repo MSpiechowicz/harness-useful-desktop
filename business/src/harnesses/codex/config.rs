@@ -115,6 +115,7 @@ pub(super) fn config_view(env: &Env, project: Option<&Path>) -> ConfigView {
         harness: HarnessId::Codex,
         sections,
         notices,
+        unmapped_roles: Vec::new(),
     }
 }
 

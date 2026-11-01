@@ -2,6 +2,7 @@
 import type { ConfigSection } from "./ConfigSection";
 import type { HarnessId } from "./HarnessId";
 import type { Notice } from "./Notice";
+import type { UnmappedRole } from "./UnmappedRole";
 
 /**
  * The readable configuration of one harness, user layer first, then profiles and project.
@@ -18,4 +19,9 @@ sections: Array<ConfigSection>,
 /**
  * View-level notices (e.g. untrusted project layer, skipped files).
  */
-notices: Array<Notice>, };
+notices: Array<Notice>, 
+/**
+ * Model roles Harness Skills uses that the settings file does not map yet (OMP only), so the
+ * Model roles card can offer to map them.
+ */
+unmappedRoles?: Array<UnmappedRole>, };

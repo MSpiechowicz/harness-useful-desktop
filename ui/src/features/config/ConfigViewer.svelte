@@ -29,6 +29,7 @@
   import ConfigMenu from './ConfigMenu.svelte';
   import { configMode, type ConfigMode } from './config-mode.svelte';
   import { splitProfileNotice } from './profiles';
+  import { roleEditingIn } from './role-edit';
   import SectionAside from './SectionAside.svelte';
   import SectionDetail from './SectionDetail.svelte';
   import SectionList from './SectionList.svelte';
@@ -200,7 +201,7 @@
 
               {#snippet main()}
                 {#key section.id}
-                  <SectionDetail bind:this={pane} bind:openCount {section} query={viewState.configQuery} mode={configMode.value} {profiles} fill={fillCentre} />
+                  <SectionDetail bind:this={pane} bind:openCount {section} roleEditing={roleEditingIn(view, section)} query={viewState.configQuery} mode={configMode.value} {profiles} fill={fillCentre} />
                 {/key}
               {/snippet}
 

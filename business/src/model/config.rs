@@ -106,4 +106,20 @@ pub struct ConfigView {
     pub sections: Vec<ConfigSection>,
     /// View-level notices (e.g. untrusted project layer, skipped files).
     pub notices: Vec<Notice>,
+    /// Model roles Harness Skills uses that the settings file does not map yet (OMP only), so the
+    /// Model roles card can offer to map them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<UnmappedRole>>", optional)]
+    pub unmapped_roles: Vec<UnmappedRole>,
+}
+
+/// A Harness Skills model role the harness settings do not map yet.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct UnmappedRole {
+    /// The role name (`assess`).
+    pub role: String,
+    /// True when the agents of the role follow the session model until it is mapped.
+    pub inherits_session_model: bool,
 }

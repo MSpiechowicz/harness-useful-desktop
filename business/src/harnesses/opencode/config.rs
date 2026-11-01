@@ -80,6 +80,7 @@ pub fn config_view(env: &Env, project: Option<&Path>, generation: OpenCodeGenera
         harness: HarnessId::OpenCode,
         sections,
         notices: notices(env, project, generation),
+        unmapped_roles: Vec::new(),
     }
 }
 

@@ -12,6 +12,7 @@ import type { BranchSync } from './bindings/BranchSync';
 import type { CliResult } from './bindings/CliResult';
 import type { CommandSpec as CatalogCommand } from './bindings/CommandSpec';
 import type { ComposedReview } from './bindings/ComposedReview';
+import type { ConfigLayer } from './bindings/ConfigLayer';
 import type { ConfigView } from './bindings/ConfigView';
 import type { AttachedFile } from './bindings/AttachedFile';
 import type { DropEvent } from './bindings/DropEvent';
@@ -99,6 +100,8 @@ export const commands = {
   harness_pick_binary: cmd<{ harness: HarnessId }, HarnessSummary | null>(),
   harness_clear_binary: cmd<{ harness: HarnessId }, HarnessSummary>(),
   config_view: cmd<{ harness: HarnessId; project: string | null }, ConfigView>(),
+  omp_map_role: cmd<{ role: string; selector: string }, null>(),
+  skills_set_role: cmd<{ harness: HarnessId; scope: ConfigLayer; project: string | null; role: string; selector: string }, null>(),
   extensions_view: cmd<{ harness: HarnessId; project: string | null }, ExtensionsView>(),
   commands_catalog: cmd<{ harness: HarnessId }, CatalogCommand[]>(),
   project_pick: cmd<undefined, ProjectInfo | null>(),

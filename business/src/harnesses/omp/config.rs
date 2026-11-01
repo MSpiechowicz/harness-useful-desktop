@@ -4,6 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use super::paths::{omp_paths, profile_names};
+use super::roles::unmapped_roles;
 use crate::env::Env;
 use crate::harness::HarnessPaths;
 use crate::model::{
@@ -159,7 +160,8 @@ pub fn project_settings(paths: &HarnessPaths) -> Option<(PathBuf, Document)> {
 pub fn omp_config_view(env: &Env, project: Option<&Path>) -> ConfigView {
     let paths = omp_paths(env, project);
     let user = UserLayer::of(&paths);
-    let mut sections = vec![settings_section(&paths, &user)];
+    let (settings_path, settings) = user_settings(&paths);
+    let mut sections = vec![settings_section(&settings_path, &settings, &user)];
 
     let mcp: Vec<McpFile> = mcp_files(&paths, project);
     let (user_mcp, project_mcp): (Vec<McpFile>, Vec<McpFile>) =
@@ -184,12 +186,12 @@ pub fn omp_config_view(env: &Env, project: Option<&Path>) -> ConfigView {
         harness: HarnessId::Omp,
         sections,
         notices,
+        unmapped_roles: unmapped_roles(&paths, &settings_path, settings.value()),
     }
 }
 
-fn settings_section(paths: &HarnessPaths, user: &UserLayer) -> ConfigSection {
-    let (path, document) = user_settings(paths);
-    let file = source(&path, user.layer, user.profile.as_deref(), ConfigFormat::Yaml);
+fn settings_section(path: &Path, document: &Document, user: &UserLayer) -> ConfigSection {
+    let file = source(path, user.layer, user.profile.as_deref(), ConfigFormat::Yaml);
 
     let text = match user.profile {
         Some(_) => SectionText {
@@ -204,7 +206,7 @@ fn settings_section(paths: &HarnessPaths, user: &UserLayer) -> ConfigSection {
         },
     };
 
-    section_from(text, file, &document)
+    section_from(text, file, document)
 }
 
 fn mcp_section(file: &McpFile, user: &UserLayer) -> Option<ConfigSection> {

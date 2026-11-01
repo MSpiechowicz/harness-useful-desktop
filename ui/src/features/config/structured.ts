@@ -1,5 +1,6 @@
 import type { ConfigField } from '$lib/ipc/bindings/ConfigField';
 import type { ConfigValue } from '$lib/ipc/bindings/ConfigValue';
+import type { UnmappedRole } from '$lib/ipc/bindings/UnmappedRole';
 import { childrenOf, isLongText, matchesDeep, matchIndices, normalizeNeedle } from '$lib/components/config-tree';
 
 export type GroupId = 'modelRoles' | 'appearance' | 'behavior' | 'memory' | 'developer' | 'other';
@@ -166,7 +167,8 @@ export function parseRoles(value: ConfigValue): RoleRow[] | null {
 }
 
 export type GroupBody =
-  | { kind: 'roles'; rows: RoleRow[] }
+  /** Mapped roles, then the Harness Skills roles the file does not map yet (after the search). */
+  | { kind: 'roles'; rows: RoleRow[]; unmapped: UnmappedRole[] }
   /** Settings rows for scalars, then the existing tree for everything with structure. */
   | { kind: 'rows'; scalars: ConfigField[]; nested: ConfigField[] };
 
@@ -196,12 +198,15 @@ function bodyCount(body: GroupBody): number {
   return body.kind === 'roles' ? body.rows.length : body.scalars.length + body.nested.length;
 }
 
-function buildGroup(id: GroupId, fields: ConfigField[], needle: string): Group | null {
+function buildGroup(id: GroupId, fields: ConfigField[], needle: string, unmapped: UnmappedRole[]): Group | null {
   let body: GroupBody;
 
   const roles = id === 'modelRoles' && fields.length === 1 ? parseRoles(fields[0].value) : null;
   if (roles !== null) {
-    body = { kind: 'roles', rows: needle === '' ? roles : roles.filter((row) => roleMatches(row, needle)) };
+    const rows = needle === '' ? roles : roles.filter((row) => roleMatches(row, needle));
+    const shown = needle === '' ? unmapped : unmapped.filter((item) => matchIndices(item.role, needle).length > 0);
+
+    body = { kind: 'roles', rows, unmapped: shown };
   } else if (id === 'modelRoles' && fields.length === 1 && fields[0].value.kind === 'map') {
     // Roles that are not all model references: the plain tree, with the roles themselves as its rows.
     const shown = childrenOf(fields[0].value).filter((role) => needle === '' || matchesDeep(role.key, role.value, needle));
@@ -211,17 +216,21 @@ function buildGroup(id: GroupId, fields: ConfigField[], needle: string): Group |
   }
 
   const count = bodyCount(body);
+  const extra = body.kind === 'roles' ? body.unmapped.length : 0;
 
-  return count === 0 ? null : { id, body, count };
+  return count + extra === 0 ? null : { id, body, count };
 }
 
-/** Splits top-level fields into cards in the fixed order; a card with nothing to show (or nothing matching the query) is left out. */
-export function buildGroups(fields: ConfigField[], query: string): Group[] {
+/**
+ * Splits top-level fields into cards in the fixed order; a card with nothing to show (or nothing matching the query) is left out.
+ * `unmapped` are the Harness Skills roles the model roles card offers to map after its rows.
+ */
+export function buildGroups(fields: ConfigField[], query: string, unmapped: UnmappedRole[] = []): Group[] {
   const needle = normalizeNeedle(query);
 
   return GROUP_ORDER.flatMap((id) => {
     const members = fields.filter((field) => groupOf(field.key) === id);
-    const group = members.length === 0 ? null : buildGroup(id, members, needle);
+    const group = members.length === 0 ? null : buildGroup(id, members, needle, unmapped);
 
     return group === null ? [] : [group];
   });

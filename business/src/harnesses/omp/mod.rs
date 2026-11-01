@@ -12,6 +12,8 @@ mod launch;
 mod marketplaces;
 mod paths;
 mod plugins;
+mod roles;
+mod roles_edit;
 mod sessions;
 mod subagent_steps;
 mod subagents;
@@ -30,6 +32,7 @@ pub(crate) use marketplaces::{MarketplaceRecord, marketplace_records};
 pub use paths::{active_profile, omp_paths};
 pub use plugins::{InstalledPlugins, installed_plugins};
 pub(crate) use plugins::{PluginOrigin, PluginRecord, user_plugin_records};
+pub use roles::{SkillsRoles, map_role, map_role_with, read_skills_roles};
 pub use sessions::{omp_session_store, omp_sessions_dir, omp_sessions_root};
 pub(crate) use subagent_steps::SubagentSteps;
 

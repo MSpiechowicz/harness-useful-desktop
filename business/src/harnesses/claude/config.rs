@@ -45,6 +45,7 @@ pub fn config_view(env: &Env, project: Option<&Path>) -> ConfigView {
         harness: HarnessId::Claude,
         sections,
         notices: notices::notices(env, project, skills_notice),
+        unmapped_roles: Vec::new(),
     }
 }
 

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConfigField } from '$lib/ipc/bindings/ConfigField';
 import type { ConfigValue } from '$lib/ipc/bindings/ConfigValue';
 
+import { selectorRules } from './role-selectors';
 import StructuredView from './StructuredView.svelte';
 
 const text = (value: string): ConfigValue => ({ kind: 'text', value });
@@ -161,5 +162,21 @@ describe('StructuredView', () => {
     await Promise.resolve();
     expect(cards()).toHaveLength(4);
     expect(screen.getByRole('treeitem', { name: /agentModelOverrides/ })).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+describe('StructuredView unmapped roles', () => {
+  const roleEditing = { rules: selectorRules('omp')!, unmapped: [{ role: 'assess', inheritsSessionModel: true }] };
+
+  it('shows them after the mapped roles and finds them by name', () => {
+    const { unmount } = render(StructuredView, { props: { fields: FIELDS, query: '', label: 'Settings', format: 'yaml', roleEditing } });
+    const rows = within(screen.getByRole('table', { name: 'Model roles' })).getAllByRole('row').slice(1);
+
+    expect(rows.map((row) => within(row).getAllByRole('rowheader')[0].textContent?.trim())).toEqual(['default', 'plan', 'review', 'assess']);
+    unmount();
+
+    render(StructuredView, { props: { fields: FIELDS, query: 'assess', label: 'Settings', format: 'yaml', roleEditing } });
+
+    expect(within(screen.getByRole('table', { name: 'Model roles' })).getAllByRole('row')).toHaveLength(2);
   });
 });

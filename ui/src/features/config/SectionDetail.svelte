@@ -8,11 +8,14 @@
   import { cx } from '$lib/utils/cx';
 
   import type { ConfigMode } from './config-mode.svelte';
+  import type { RoleEditing } from './role-edit';
   import SourceView from './SourceView.svelte';
   import StructuredView from './StructuredView.svelte';
 
   interface Props {
     section: ConfigSection;
+    /** What the Model roles card offers to do with its roles. */
+    roleEditing?: RoleEditing;
     /** The search over keys and values; the command palette sets it to jump to a key. */
     query?: string;
     mode: ConfigMode;
@@ -23,7 +26,7 @@
     fill?: boolean;
   }
 
-  let { section, query = '', mode, profiles = { names: [], hint: null }, openCount = $bindable(0), fill = false }: Props = $props();
+  let { section, roleEditing, query = '', mode, profiles = { names: [], hint: null }, openCount = $bindable(0), fill = false }: Props = $props();
 
   let structured: StructuredView | undefined = $state();
   let source: SourceView | undefined = $state();
@@ -66,7 +69,7 @@
     {:else if mode === 'source'}
       <SourceView bind:this={source} bind:openCount fields={section.entries} {query} format={section.source.format} label={t('config.detail.treeLabel', { title: section.title })} />
     {:else}
-      <StructuredView bind:this={structured} bind:openCount fields={section.entries} {query} format={section.source.format} label={t('config.detail.treeLabel', { title: section.title })} />
+      <StructuredView bind:this={structured} bind:openCount fields={section.entries} {roleEditing} {query} format={section.source.format} label={t('config.detail.treeLabel', { title: section.title })} />
     {/if}
   </div>
 </article>

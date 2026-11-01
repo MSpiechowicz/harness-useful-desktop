@@ -89,6 +89,8 @@
     "allow-harness-pick-binary",
     "allow-harness-clear-binary",
     "allow-config-view",
+    "allow-omp-map-role",
+    "allow-skills-set-role",
     "allow-extensions-view",
     "allow-commands-catalog",
     "allow-project-pick",

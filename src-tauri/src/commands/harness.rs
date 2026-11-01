@@ -6,7 +6,11 @@ use std::path::{Path, PathBuf};
 use harness_business::BusinessError;
 use harness_business::env::Env;
 use harness_business::harness::{Harness, HarnessRegistry};
-use harness_business::model::{BinaryOverride, CommandSpec, ConfigView, ExtensionsView, HarnessId, HarnessSummary};
+use harness_business::harnesses::omp::map_role;
+use harness_business::harnesses::set_skills_role;
+use harness_business::model::{
+    BinaryOverride, CommandSpec, ConfigLayer, ConfigView, ExtensionsView, HarnessId, HarnessSummary,
+};
 use harness_business::process::{ResolvedBinary, find_override};
 use harness_business::project::Projects;
 use tauri::{AppHandle, State};
@@ -91,6 +95,37 @@ pub async fn config_view(
 ) -> CommandResult<ConfigView> {
     with_project(&state, harness, project, |harness, env, project| {
         harness.config_view(env, project)
+    })
+    .await
+}
+
+/// Maps a Harness Skills model role in OMP's settings: adds `modelRoles.<role>` and `@<role>`
+/// overrides for the agents of the role, never changing a key that exists. `invalidInput` for a
+/// role Harness Skills does not use or a model that is not `provider/model[:thinking]`.
+#[tauri::command]
+pub async fn omp_map_role(state: State<'_, AppState>, role: String, selector: String) -> CommandResult<()> {
+    let env = state.env.clone();
+
+    blocking(move || Ok(map_role(&env, &role, &selector)?)).await
+}
+
+/// Changes the model of one Harness Skills role in `harness-useful-skills/models.yml` of Claude
+/// Code, OpenCode or Codex: only the value of the existing row of `role` in the file of `scope`
+/// (`project` for the project scope, which must be the active project or a recent one). The
+/// file is never created and no other byte of it changes. `invalidInput` for a model the harness's
+/// Harness Skills would not accept, `notFound` for a missing file or row, `forbidden` for a
+/// project file outside the project, `conflict` when the file changed meanwhile.
+#[tauri::command]
+pub async fn skills_set_role(
+    state: State<'_, AppState>,
+    harness: HarnessId,
+    scope: ConfigLayer,
+    project: Option<String>,
+    role: String,
+    selector: String,
+) -> CommandResult<()> {
+    with_project(&state, harness, project, move |_, env, project| {
+        set_skills_role(env, harness, scope, project, &role, &selector)
     })
     .await
 }

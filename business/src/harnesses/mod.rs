@@ -19,3 +19,4 @@ pub use codex::Codex;
 pub use omp::Omp;
 pub use opencode::OpenCode;
 pub use pi::Pi;
+pub use skills_config::{set_skills_role, set_skills_role_with};

@@ -13,6 +13,7 @@
   import { cx } from '$lib/utils/cx';
   import { formatCount } from '$lib/utils/format';
 
+  import type { RoleEditing } from './role-edit';
   import RolesTable from './RolesTable.svelte';
   import { buildGroups, GROUP_ORDER, type GroupId } from './structured';
 
@@ -24,11 +25,13 @@
     label: string;
     /** Which language the file is written in; the structure shown does not depend on it. */
     format: ConfigFormat;
+    /** What the Model roles card offers to do with its roles (map the missing ones, change a model). */
+    roleEditing?: RoleEditing;
     /** Out: open cards plus open rows of the trees inside them. */
     openCount?: number;
   }
 
-  let { fields, query, label, openCount = $bindable(0) }: Props = $props();
+  let { fields, query, label, roleEditing, openCount = $bindable(0) }: Props = $props();
 
   const GROUP_TITLES: Record<GroupId, () => string> = {
     modelRoles: () => t('components.configView.section.modelRoles'),
@@ -44,7 +47,7 @@
   let trees = $state<Partial<Record<GroupId, ReturnType<typeof ConfigTree> | undefined>>>({});
 
   const needle = $derived(normalizeNeedle(query));
-  const groups = $derived(buildGroups(fields, query));
+  const groups = $derived(buildGroups(fields, query, roleEditing?.unmapped ?? []));
 
   // While searching every card stays open, so no match hides behind a fold.
   const isOpen = (id: GroupId): boolean => needle !== '' || !closed.has(id);
@@ -108,7 +111,7 @@
         <!-- Hidden, not removed, when folded: the tree inside keeps what the person opened. -->
         <div id="config-group-{group.id}" role="region" aria-label={title} hidden={!open} class={cx('px-4 pb-3', bare && 'pt-3')}>
           {#if group.body.kind === 'roles'}
-            <RolesTable rows={group.body.rows} label={title} {needle} />
+            <RolesTable rows={group.body.rows} editing={roleEditing && { ...roleEditing, unmapped: group.body.unmapped }} label={title} {needle} />
           {:else}
             {#each group.body.scalars as field (field.key)}
               <div class="flex min-h-[44px] items-center gap-4 border-t border-line py-2 first:border-t-0">

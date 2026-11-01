@@ -35,9 +35,36 @@ pub(crate) fn replace_atomically_if(
     context: &str,
     still_current: impl FnOnce() -> Result<()>,
 ) -> Result<()> {
+    replace_with(target, bytes, context, None, still_current)
+}
+
+/// [`replace_atomically_if`], giving the new file `permissions` (the mode of the file it
+/// replaces) instead of the private default, so an edit does not change who can read the file.
+pub(crate) fn replace_atomically_keeping(
+    target: &Path,
+    bytes: &[u8],
+    context: &str,
+    permissions: &fs::Permissions,
+    still_current: impl FnOnce() -> Result<()>,
+) -> Result<()> {
+    replace_with(target, bytes, context, Some(permissions), still_current)
+}
+
+fn replace_with(
+    target: &Path,
+    bytes: &[u8],
+    context: &str,
+    permissions: Option<&fs::Permissions>,
+    still_current: impl FnOnce() -> Result<()>,
+) -> Result<()> {
     let temp = temp_sibling(target);
 
     let written = write_synced(&temp, bytes)
+        .and_then(|()| match permissions {
+            Some(permissions) => fs::set_permissions(&temp, permissions.clone())
+                .map_err(|error| BusinessError::from_io("setting the mode of a temporary file", error)),
+            None => Ok(()),
+        })
         .and_then(|()| still_current())
         .and_then(|()| fs::rename(&temp, target).map_err(|error| BusinessError::from_io(context, error)));
 
