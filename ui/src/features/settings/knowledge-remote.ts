@@ -56,17 +56,23 @@ const PROBLEMS: Record<Exclude<KnowledgeProblem, 'other'>, MessageKey> = {
   auth: 'knowledge.settings.problem.auth',
 };
 
+/** What a database lacks, in the app's language: what and how to fix it. `other` has no sentence of its own, the server's line stands in. */
+export function problemText(problem: KnowledgeProblem, message: string | null): string {
+  if (problem !== 'other') {
+    return t(PROBLEMS[problem]);
+  }
+
+  return t('knowledge.settings.problem.unknown', { message: message ?? t('knowledge.settings.problem.noMessage') });
+}
+
 /** What a check found, in the app's language. A database that has everything says so, one that lacks something says what and how to fix it. */
 export function checkText(check: KnowledgeCheck): string {
   if (check.ok) {
     return t('knowledge.settings.test.ok');
   }
 
-  if (check.problem !== null && check.problem !== 'other') {
-    return t(PROBLEMS[check.problem]);
-  }
-
-  return t('knowledge.settings.problem.unknown', { message: check.message ?? t('knowledge.settings.problem.noMessage') });
+  // A check that found no problem to name still failed: the server's line stands in.
+  return problemText(check.problem ?? 'other', check.message);
 }
 
 /** The answer of a connection test, as the form shows it. */

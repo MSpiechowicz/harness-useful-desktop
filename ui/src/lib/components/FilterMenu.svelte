@@ -33,23 +33,32 @@
     wide?: boolean;
     /** A field above the choices that keeps those whose label or hint has what was typed; for a menu with many. The list then has a fixed height with its own scroll. The texts are its accessible name, hint and the line shown when nothing matches. */
     search?: MenuSearchTexts;
+    /** Makes it a menu of actions instead of a filter: the button says what choosing does ("Link a repository") and shows no chosen value, and the choices are plain items that `onchange` is told of. `value` is then unused. */
+    action?: { label: string; icon: IconComponent };
+    /** Which side of the button the menu opens on; `auto` for a button inside a scrolling form or dialog, which would cut the menu off. */
+    side?: 'top' | 'bottom' | 'auto';
   }
 
-  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false, search }: Props = $props();
+  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false, search, action, side = 'bottom' }: Props = $props();
 
   let needle = $state('');
   const shown = $derived(matchOptions(options, needle));
 
   const current = $derived(options.find((option) => option.value === value) ?? options[0]);
-  const TriggerIcon = $derived(icon ?? current.icon ?? ListFilter);
+  const TriggerIcon = $derived(icon ?? current?.icon ?? ListFilter);
   const narrowing = $derived(options.length > 0 && value !== options[0].value);
   const counted = $derived(options.some((option) => option.count !== undefined));
 </script>
 
 <!-- A filter picks from a few ready-made choices; typing is for search. -->
-<Popover {label} kind="menu" {align} class={cx('min-w-0!', search ? 'w-72' : counted || wide ? 'w-60' : 'w-48')}>
+<Popover {label} kind="menu" {align} {side} class={cx('min-w-0!', search ? 'w-72' : counted || wide ? 'w-60' : 'w-48')}>
   {#snippet trigger({ props, open })}
-    {#if prefix}
+    {#if action}
+      <Button {...props}>
+        {#snippet leading()}<action.icon size={ICON.sm} aria-hidden="true" />{/snippet}
+        {action.label}
+      </Button>
+    {:else if prefix}
       <!-- The button and its clear x share one frame, so the pair reads as one control: the x clears, the rest opens the menu. -->
       <div
         class={cx(
@@ -93,8 +102,8 @@
       {#each shown as option (option.value)}
         <button
           type="button"
-          role="menuitemradio"
-          aria-checked={option.value === value}
+          role={action ? 'menuitem' : 'menuitemradio'}
+          aria-checked={action ? undefined : option.value === value}
           disabled={option.disabled}
           data-menu-item={option.disabled ? undefined : ''}
           class={cx(
@@ -118,7 +127,7 @@
           <span class="flex shrink-0 items-center gap-2">
             {#if option.count !== undefined}<span class={cx('tabular min-w-[2ch] text-right text-xs text-fg-3', option.count === 0 && 'opacity-60')}>{option.count}</span>{/if}
             <!-- The tick has a slot of its own in every row, so the counts line up whether or not one is chosen. -->
-            {#if counted || option.value === value}
+            {#if !action && (counted || option.value === value)}
               <span class="grid size-4 shrink-0 place-items-center" aria-hidden="true">
                 {#if option.value === value}<Check size={ICON.sm} class="text-accent-text" />{/if}
               </span>

@@ -54,7 +54,7 @@ export function sampleDocuments(): KnowledgeDocument[] {
   return [
     documentOf({ id: 1, title: 'Architecture overview', name: 'architecture.md', format: 'markdown', kb: 42, chunks: 18, age: 3, links: DESKTOP }),
     documentOf({ id: 2, title: 'Billing API', name: 'billing-openapi.yaml', format: 'openapi', kb: 188, chunks: 64, age: 20, links: [{ repo: DESKTOP_REPO, globs: ['src/billing/**', 'src/invoices/**'] }] }),
-    documentOf({ id: 3, title: 'Standup 28 October (transcript)', name: 'standup-2026-10-28.transcript.txt', format: 'text', kb: 31, chunks: 9, age: 30, warnings: ['No speaker names were found, so the lines are not attributed.'] }),
+    documentOf({ id: 3, title: 'Standup 28 October (transcript)', name: 'standup-2026-10-28.vtt', format: 'transcript', kb: 31, chunks: 9, age: 30, warnings: ['No speaker names were found, so the lines are not attributed.'] }),
     documentOf({ id: 4, title: 'Security review checklist', name: 'security-review.pdf', format: 'pdf', kb: 920, chunks: 77, age: 52 }),
     documentOf({ id: 5, title: 'Release process', name: 'release-process.adoc', format: 'asciidoc', kb: 27, chunks: 12, age: 75, links: [{ repo: WEBSITE_REPO, globs: [] }, ...DESKTOP] }),
     documentOf({ id: 6, title: 'Onboarding for new engineers', name: 'onboarding.html', format: 'html', kb: 64, chunks: 21, age: 96 }),

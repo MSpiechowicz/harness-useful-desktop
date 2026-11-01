@@ -29,7 +29,7 @@ describe('the knowledge preview backend', () => {
     expect(pdf.items.map((doc) => doc.title)).toEqual([...pdf.items.map((doc) => doc.title)].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).slice(0, 50));
 
     const found = knowledge_docs_list({ ...ALL, query: 'transcript' }) as typeof first;
-    expect(found.items.map((doc) => doc.format)).toEqual(['text']);
+    expect(found.items.map((doc) => doc.format)).toEqual(['transcript']);
   });
 
   it('scopes the list to one repository or to the global documents', () => {

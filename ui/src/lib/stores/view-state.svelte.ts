@@ -91,6 +91,21 @@ export class ViewState {
   scriptsSort = $state<Sort>({ key: 'updated', desc: true });
   scriptsPage = $state(0);
 
+  /**
+   * The Knowledge view: the list on screen, the open document and proposal, what each search holds, the documents' Scope filter choice (`all`, `global` or `repo:<key>`),
+   * their format (null for all), sort and page (from 0), and the review queue's page.
+   */
+  knowledgeTab = $state<'docs' | 'review'>('docs');
+  knowledgeDocId = $state<number | null>(null);
+  knowledgeQuery = $state('');
+  knowledgeScope = $state<string>('all');
+  knowledgeFormat = $state<string | null>(null);
+  knowledgeSort = $state<Sort>({ key: 'updated', desc: true });
+  knowledgePage = $state(0);
+  heldId = $state<string | null>(null);
+  heldQuery = $state('');
+  heldPage = $state(0);
+
   /** The hook whose panel is open (its row key), what the Hooks search holds, and the three filters (an event, a status, a source; 'all' for none). */
   hookId = $state<string | null>(null);
   hooksQuery = $state('');
@@ -154,6 +169,7 @@ export class ViewState {
     this.reset('scripts');
     this.reset('hooks');
     this.reset('routines');
+    this.reset('knowledge');
     this.memoryReach = 'all';
     this.settingsTarget = null;
     this.scrolls.clear();
@@ -205,6 +221,17 @@ export class ViewState {
       this.notesUseful = null;
       this.notesSort = { key: 'updated', desc: true };
       this.notesPage = 0;
+    } else if (view === 'knowledge') {
+      this.knowledgeTab = 'docs';
+      this.knowledgeDocId = null;
+      this.knowledgeQuery = '';
+      this.knowledgeScope = 'all';
+      this.knowledgeFormat = null;
+      this.knowledgeSort = { key: 'updated', desc: true };
+      this.knowledgePage = 0;
+      this.heldId = null;
+      this.heldQuery = '';
+      this.heldPage = 0;
     } else if (view === 'scripts') {
       this.scriptId = null;
       this.scriptsQuery = '';

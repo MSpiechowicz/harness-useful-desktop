@@ -45,7 +45,7 @@ function sortOf<T extends string>(allowed: readonly T[], key: string): T {
 const SEARCH_DELAY_MS = 250;
 
 /** What a search field held once typing paused. Clearing the field is applied at once. Call it while a component initialises. */
-function settled(read: () => string): { readonly value: string } {
+export function settled(read: () => string): { readonly value: string } {
   let value = $state(read());
 
   $effect(() => {

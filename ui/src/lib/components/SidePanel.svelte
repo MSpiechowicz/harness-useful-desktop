@@ -23,6 +23,10 @@
      * padding or gaps, so `top` and `footer` can run edge to edge and the content sets its own inset.
      */
     flat?: boolean;
+    /** Controls at the end of the title line, before the close button. */
+    actions?: Snippet;
+    /** Takes the place of the title while it is edited in place. */
+    titleField?: Snippet;
     /** Fixed under the header, above the scrolling body (a status card, tabs). */
     top?: Snippet;
     /** Fixed under the scrolling body, edge to edge (a message box). */
@@ -31,7 +35,7 @@
     children: Snippet;
   }
 
-  let { open, title, subtitle = '', mono = false, inline = false, flat = false, top, footer, onclose, children }: Props = $props();
+  let { open, title, subtitle = '', mono = false, inline = false, flat = false, actions, titleField, top, footer, onclose, children }: Props = $props();
 
   const SLIDE_PX = 560;
 </script>
@@ -42,7 +46,7 @@
 {#snippet subtitleLine()}{#if flat}<span class="block truncate py-[0.3em] -my-[0.3em] [text-box:trim-both_cap_alphabetic]">{subtitle}</span>{:else}{subtitle}{/if}{/snippet}
 
 {#snippet body()}
-  <PaneHeader {title} {mono} inset="panel" subtitle={subtitle ? subtitleLine : undefined} subtitleHint={subtitle} {onclose} />
+  <PaneHeader {title} {mono} inset="panel" subtitle={subtitle ? subtitleLine : undefined} subtitleHint={subtitle} {actions} {titleField} {onclose} />
 
   {@render top?.()}
 

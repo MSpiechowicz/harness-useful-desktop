@@ -49,7 +49,8 @@ export function knowledgeImportHandlers(store: MockKnowledge): Pick<Handlers, Im
   return {
     knowledge_pick_files: () => intakeOf(PICKED, []),
     knowledge_pick_folder: () => intakeOf([], ['team-docs']),
-    knowledge_drop_intake: () => null,
+    // Only asked after a drop, which the preview has as the window's own drag and drop: it drops the sample files.
+    knowledge_drop_intake: () => intakeOf(PICKED, []),
 
     knowledge_import: async ({ options, onEvent }) => {
       if (running) {

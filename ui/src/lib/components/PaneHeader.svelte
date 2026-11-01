@@ -19,6 +19,8 @@
     subtitle?: Snippet;
     /** The full subtitle, for the tooltip of a cut one. */
     subtitleHint?: string;
+    /** Takes the place of the title while it is edited in place (a field as tall as a control: it overhangs the line like the controls do). */
+    titleField?: Snippet;
     /** Small things on the title line after the title, such as a status badge. */
     meta?: Snippet;
     /** Controls at the end of the title line, before the close button. */
@@ -29,7 +31,7 @@
     inset?: 'page' | 'panel';
   }
 
-  let { title, titleId, label, mono = false, subtitle, subtitleHint, meta, actions, onclose, inset = 'page' }: Props = $props();
+  let { title, titleId, label, mono = false, subtitle, subtitleHint, titleField, meta, actions, onclose, inset = 'page' }: Props = $props();
 </script>
 
 <!-- The header band of a pane: the same height, line and type in every pane of a view, so the lines under the headers of the
@@ -38,7 +40,11 @@
      the glyphs of the title: centring puts the button's middle on the middle of the letters without making the row taller. -->
 <header class={cx('pane-header grid grid-cols-[minmax(var(--pane-title-min),1fr)_minmax(0,auto)] content-center items-center gap-y-[var(--pane-header-gap)] border-b border-panel-edge', inset === 'page' ? 'page-gutter' : 'panel-header-inset')}>
   <div class="flex min-w-0 items-center gap-3">
-    <h2 id={titleId} class={cx('pane-text min-w-0 truncate text-lg leading-6 font-semibold text-fg', mono && 'font-mono text-base')} title={label ?? title} aria-label={label}>{title}</h2>
+    {#if titleField}
+      {@render titleField()}
+    {:else}
+      <h2 id={titleId} class={cx('pane-text min-w-0 truncate text-lg leading-6 font-semibold text-fg', mono && 'font-mono text-base')} title={label ?? title} aria-label={label}>{title}</h2>
+    {/if}
     {@render meta?.()}
   </div>
 

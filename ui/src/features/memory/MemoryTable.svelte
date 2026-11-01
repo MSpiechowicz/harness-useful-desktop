@@ -1,4 +1,4 @@
-<script lang="ts" generics="T extends { id: number }">
+<script lang="ts" generics="T extends { id: number | string }">
   import type { Snippet } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
@@ -38,7 +38,7 @@
     /** What a search with no results says; null while there are rows to show. */
     noMatch: string | null;
     /** How much there is in the list ("3 scripts"), said once, in the row of the filters above the table. */
-    count: string;
+    count?: string;
     /** The filter menus of that row. */
     filters: Snippet;
     /** Something quiet at the far end of that row, e.g. the hint to update Harness Memory. */
@@ -59,9 +59,9 @@
     total: number;
     onpage: (page: number) => void;
     /** The row whose panel is open; null for none. */
-    openId: number | null;
+    openId: T['id'] | null;
     /** Opens the panel of a row, or closes it with null. */
-    onopen: (id: number | null) => void;
+    onopen: (id: T['id'] | null) => void;
     cell: Snippet<[T, Column]>;
     /** The panel of the open row. It is given the way to close itself, which also puts the focus back on the row, and whether it fills a column (a wide view) or slides over the view's edge. */
     panel: Snippet<[{ close: () => void; inline: boolean }]>;

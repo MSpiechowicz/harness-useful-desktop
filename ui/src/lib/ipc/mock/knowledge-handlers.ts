@@ -28,9 +28,9 @@ type KnowledgeCommands =
 
 /**
  * Browser-preview switch `?knowledge=`: `empty` starts without documents and proposals, `outdated` is a Harness Knowledge that predates
- * the features the app needs, and `bulk` adds 1500 documents for the scale of a long list. Anything else shows the sample documents.
+ * the features the app needs, `missing` is a database that lacks pgvector, and `bulk` adds 1500 documents for the scale of a long list. Anything else shows the sample documents.
  */
-export const KNOWLEDGE_SCENARIOS = ['ok', 'empty', 'outdated', 'bulk'] as const;
+export const KNOWLEDGE_SCENARIOS = ['ok', 'empty', 'outdated', 'bulk', 'missing'] as const;
 export type KnowledgeScenario = (typeof KNOWLEDGE_SCENARIOS)[number];
 
 export function knowledgeScenarioFromLocation(search: string = globalThis.location?.search ?? ''): KnowledgeScenario {
@@ -111,7 +111,14 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
       return { type: 'notInstalled' };
     }
 
-    return scenario() === 'outdated' ? { type: 'outdated' } : { type: 'available' };
+    switch (scenario()) {
+      case 'outdated':
+        return { type: 'outdated' };
+      case 'missing':
+        return { type: 'missing', problem: 'noPgvector', message: 'the extension "vector" is not installed' };
+      default:
+        return { type: 'available' };
+    }
   };
   const available = () => availability().type === 'available';
 
