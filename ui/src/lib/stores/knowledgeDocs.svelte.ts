@@ -153,7 +153,8 @@ export class KnowledgeDocsStore {
         deleted += gone;
       }
     } finally {
-      await this.refresh();
+      // A refresh that fails must not hide why the deletion stopped.
+      await this.refresh().catch(() => undefined);
     }
 
     return { deleted, total: total ?? 0 };
