@@ -1,52 +1,55 @@
-import type { MessageKey } from '$lib/i18n/i18n.svelte';
 import type { MemoryRemoteKind } from '$lib/ipc/bindings/MemoryRemoteKind';
 
-export const REMOTE_KINDS: readonly MemoryRemoteKind[] = ['postgres', 'libsql', 'mongodb', 'documentdb'];
+import type { RemoteDatabaseConfig } from './remote-database';
 
-/** The URL schemes each database accepts; the backend checks again and decides. */
-const SCHEMES: Record<MemoryRemoteKind, readonly string[]> = {
-  postgres: ['postgres://', 'postgresql://'],
-  libsql: ['libsql://', 'https://', 'http://'],
-  mongodb: ['mongodb://', 'mongodb+srv://'],
-  documentdb: ['mongodb://', 'mongodb+srv://'],
+/** The team databases Harness Memory can use. Only libSQL (Turso) takes a separate auth token. MongoDB and Amazon DocumentDB share the mongodb schemes. */
+export const MEMORY_REMOTE: RemoteDatabaseConfig<MemoryRemoteKind> = {
+  kinds: ['postgres', 'libsql', 'mongodb', 'documentdb'],
+  defaultKind: 'postgres',
+  schemes: {
+    postgres: ['postgres://', 'postgresql://'],
+    libsql: ['libsql://', 'https://', 'http://'],
+    mongodb: ['mongodb://', 'mongodb+srv://'],
+    documentdb: ['mongodb://', 'mongodb+srv://'],
+  },
+  tokenKinds: ['libsql'],
+  kindLabels: {
+    postgres: 'settings.memoryRemote.kind.postgres',
+    libsql: 'settings.memoryRemote.kind.libsql',
+    mongodb: 'settings.memoryRemote.kind.mongodb',
+    documentdb: 'settings.memoryRemote.kind.documentdb',
+  },
+  urlPlaceholders: {
+    postgres: 'settings.memoryRemote.url.placeholder.postgres',
+    libsql: 'settings.memoryRemote.url.placeholder.libsql',
+    mongodb: 'settings.memoryRemote.url.placeholder.mongodb',
+    documentdb: 'settings.memoryRemote.url.placeholder.documentdb',
+  },
+  urlProblems: {
+    postgres: 'settings.memoryRemote.url.invalid.postgres',
+    libsql: 'settings.memoryRemote.url.invalid.libsql',
+    mongodb: 'settings.memoryRemote.url.invalid.mongodb',
+    documentdb: 'settings.memoryRemote.url.invalid.documentdb',
+  },
+  copy: {
+    connectionHeading: 'settings.memoryRemote.section.connection',
+    databaseTitle: 'settings.memoryRemote.database.title',
+    databaseDescription: 'settings.memoryRemote.database.description',
+    restart: 'settings.memoryRemote.restart',
+    stored: 'settings.memoryRemote.stored',
+    urlLabel: 'settings.memoryRemote.url.label',
+    urlKeep: 'settings.memoryRemote.url.keep',
+    urlSaved: 'settings.memoryRemote.url.saved',
+    urlShow: 'settings.memoryRemote.url.show',
+    urlHide: 'settings.memoryRemote.url.hide',
+    tokenLabel: 'settings.memoryRemote.token.label',
+    tokenKeep: 'settings.memoryRemote.token.keep',
+    tokenPlaceholder: 'settings.memoryRemote.token.placeholder',
+    tokenShow: 'settings.memoryRemote.token.show',
+    tokenHide: 'settings.memoryRemote.token.hide',
+    test: 'settings.memoryRemote.test',
+    save: 'settings.memoryRemote.save',
+    saved: 'settings.memoryRemote.saved',
+    problem: 'settings.memoryRemote.problem',
+  },
 };
-
-export function urlMatchesKind(kind: MemoryRemoteKind, url: string): boolean {
-  const lower = url.trim().toLowerCase();
-
-  return SCHEMES[kind].some((scheme) => lower.startsWith(scheme) && lower.length > scheme.length);
-}
-
-/**
- * The saved URL can stand in for a typed one when its scheme fits the chosen database: MongoDB and Amazon DocumentDB
- * share the mongodb schemes, so switching between them keeps the saved URL. The backend checks again and decides.
- */
-export function savedUrlFits(kind: MemoryRemoteKind, urlRedacted: string | null): boolean {
-  return urlRedacted !== null && urlMatchesKind(kind, urlRedacted);
-}
-
-/** Only libSQL (Turso) databases take a separate auth token. */
-export function takesToken(kind: MemoryRemoteKind): boolean {
-  return kind === 'libsql';
-}
-
-export const KIND_LABELS = {
-  postgres: 'settings.memoryRemote.kind.postgres',
-  libsql: 'settings.memoryRemote.kind.libsql',
-  mongodb: 'settings.memoryRemote.kind.mongodb',
-  documentdb: 'settings.memoryRemote.kind.documentdb',
-} as const satisfies Record<MemoryRemoteKind, MessageKey>;
-
-export const URL_PLACEHOLDERS = {
-  postgres: 'settings.memoryRemote.url.placeholder.postgres',
-  libsql: 'settings.memoryRemote.url.placeholder.libsql',
-  mongodb: 'settings.memoryRemote.url.placeholder.mongodb',
-  documentdb: 'settings.memoryRemote.url.placeholder.documentdb',
-} as const satisfies Record<MemoryRemoteKind, MessageKey>;
-
-export const URL_PROBLEMS = {
-  postgres: 'settings.memoryRemote.url.invalid.postgres',
-  libsql: 'settings.memoryRemote.url.invalid.libsql',
-  mongodb: 'settings.memoryRemote.url.invalid.mongodb',
-  documentdb: 'settings.memoryRemote.url.invalid.documentdb',
-} as const satisfies Record<MemoryRemoteKind, MessageKey>;

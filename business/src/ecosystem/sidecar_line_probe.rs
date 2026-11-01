@@ -1,6 +1,7 @@
-//! A probe of the installed Harness Memory that runs one command printing one word per line
+//! A probe of an installed Harness family server that runs one command printing one word per line
 //! (`harness-memory kinds`, `harness-memory features`) and keeps the answer per binary, shared by
-//! [`memory_kinds`](super::memory_kinds) and [`memory_features`](super::memory_features).
+//! [`memory_kinds`](super::memory_kinds) and [`memory_features`](super::memory_features) and by
+//! every other product's list of features.
 //!
 //! [`LineProbe::ask`] runs the command once per binary: the answer is cached until the binary at
 //! that path changes (its modification time, length, or on Unix its device and inode). A usage
@@ -13,8 +14,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, SystemTime};
 
-use super::memory_binary::resolve_memory;
-use super::memory_cli::{CliAnswer, CliCall, USAGE_EXIT, run_memory_cli};
+use super::sidecar::Sidecar;
+use super::sidecar_binary::resolve_sidecar;
+use super::sidecar_cli::{CliAnswer, CliCall, USAGE_EXIT, run_sidecar_cli};
 use crate::env::Env;
 use crate::process::ProcessRunner;
 
@@ -31,7 +33,7 @@ pub(crate) enum LineAnswer {
     Listed(Vec<String>),
     /// It predates the command (or failed it).
     Unsupported,
-    /// Harness Memory is not installed.
+    /// The server is not installed.
     NotInstalled,
     /// The server could not be asked (it did not start or answer in time).
     Unknown,
@@ -50,6 +52,7 @@ impl LineAnswer {
 /// The cached probe of one command. See the module docs.
 #[derive(Debug)]
 pub(crate) struct LineProbe {
+    sidecar: &'static Sidecar,
     command: &'static str,
     probe: Mutex<Option<Probe>>,
 }
@@ -100,9 +103,10 @@ struct Answer {
 }
 
 impl LineProbe {
-    /// No probe yet of `harness-memory <command>`.
-    pub(crate) const fn new(command: &'static str) -> Self {
+    /// No probe yet of `<binary of sidecar> <command>`.
+    pub(crate) const fn new(sidecar: &'static Sidecar, command: &'static str) -> Self {
         Self {
+            sidecar,
             command,
             probe: Mutex::new(None),
         }
@@ -110,7 +114,7 @@ impl LineProbe {
 
     /// What the installed server answers (see the module docs).
     pub(crate) async fn ask(&self, env: &Env, runner: &dyn ProcessRunner) -> LineAnswer {
-        let Some(binary) = resolve_memory(env) else {
+        let Some(binary) = resolve_sidecar(self.sidecar, env) else {
             return LineAnswer::NotInstalled;
         };
 
@@ -161,7 +165,7 @@ impl LineProbe {
             stdin: None,
         };
 
-        match run_memory_cli(env, runner, server, call).await {
+        match run_sidecar_cli(self.sidecar, env, runner, server, call).await {
             Ok(CliAnswer::Done(stdout)) => {
                 let lines = stdout
                     .lines()
@@ -182,7 +186,7 @@ impl LineProbe {
                 let older = code == USAGE_EXIT || names_unknown_command(&message);
 
                 if !older {
-                    tracing::warn!(code, command, "a harness-memory probe failed");
+                    tracing::warn!(code, command, "a {} probe failed", self.sidecar.binary);
                 }
 
                 Answer {
@@ -191,11 +195,11 @@ impl LineProbe {
                 }
             }
             Ok(CliAnswer::Failed { status: None, .. }) => {
-                tracing::warn!(command, "a harness-memory probe was stopped");
+                tracing::warn!(command, "a {} probe was stopped", self.sidecar.binary);
                 unknown()
             }
             Err(error) => {
-                tracing::warn!(command, code = ?error.code(), "a harness-memory probe did not run");
+                tracing::warn!(command, code = ?error.code(), "a {} probe did not run", self.sidecar.binary);
                 unknown()
             }
         }

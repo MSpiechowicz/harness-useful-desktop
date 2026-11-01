@@ -18,29 +18,26 @@ mod gates;
 mod routing;
 mod url;
 
-use std::path::PathBuf;
-
 pub use check::{CHECK_TIMEOUT, memory_remote_test};
 pub use url::{MAX_SECRET_BYTES, is_documentdb_url, kind_of, redact_url, saved_kind, validate_token, validate_url};
+
+use std::path::PathBuf;
 
 use self::file::{ConfigFile, read_config, remove_config, render, write_config};
 use self::gates::{documentdb_unavailable, scripts_team_and_local_unavailable, team_and_local_unavailable};
 use self::routing::Routing;
-use self::url::{a_kind, kind_key, kind_name, scheme_fits};
+use self::url::kind_key;
+use super::catalog::MEMORY_SIDECAR;
 use super::memory_features::FeaturesSupport;
 use super::memory_hooks::HooksSupport;
 use super::memory_kinds::KindsSupport;
 use super::memory_team_docs::TeamDocsSupport;
-use crate::env::{Env, OsKind};
+use super::sidecar_config::{config_path, path_hint, unknown_path};
+use super::sidecar_remote_url::{a_kind, kind_name, scheme_fits};
+use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{MemoryNotesRouting, MemoryNotesTarget, MemoryRemote, MemoryRemoteKind};
 use crate::pi_family::tilde;
-
-/// The config file inside the config folder.
-const CONFIG_FILE: [&str; 2] = ["harness-memory", "config.toml"];
-
-/// Shown for the path on Windows while `APPDATA` is unset.
-const WINDOWS_PATH_HINT: &str = "%APPDATA%\\harness-memory\\config.toml";
 
 /// A change of the team database settings (`memory_remote_set`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -160,20 +157,7 @@ pub const CONFIG_VAR: &str = "HARNESS_MEMORY_CONFIG";
 /// [`CONFIG_VAR`] is relative (the server then refuses to start), and on Windows while `APPDATA` is
 /// unset.
 pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
-    if let Some(raw) = env.var(CONFIG_VAR) {
-        let path = env.expand_home(raw);
-        return path.has_root().then_some(path);
-    }
-
-    let rooted = |name: &str| env.var(name).map(PathBuf::from).filter(|dir| dir.has_root());
-
-    let dir = match env.os {
-        OsKind::Linux => rooted("XDG_CONFIG_HOME").unwrap_or_else(|| env.home_join(".config")),
-        OsKind::MacOs => env.home_join("Library/Application Support"),
-        OsKind::Windows => rooted("APPDATA")?,
-    };
-
-    Some(CONFIG_FILE.iter().fold(dir, |path, part| path.join(part)))
+    config_path(&MEMORY_SIDECAR, env)
 }
 
 /// The team database settings in the config file. Reads the file only (see [`file`]).
@@ -191,27 +175,13 @@ pub fn memory_remote_get(env: &Env, support: impl Into<MemorySupport>) -> Memory
     let support = support.into();
 
     let Some(path) = memory_config_path(env) else {
-        let hint = match env.var(CONFIG_VAR) {
-            Some(raw) => raw.to_owned(),
-            None => WINDOWS_PATH_HINT.to_owned(),
-        };
-
         return MemoryRemote {
-            problem: Some(unknown_path(env)),
-            ..remote_from(&ConfigFile::default(), hint, support)
+            problem: Some(unknown_path(&MEMORY_SIDECAR, env)),
+            ..remote_from(&ConfigFile::default(), path_hint(&MEMORY_SIDECAR, env), support)
         };
     };
 
     remote_from(&read_config(&path), tilde(env, &path), support)
-}
-
-/// Why [`memory_config_path`] found no file.
-fn unknown_path(env: &Env) -> String {
-    if env.var(CONFIG_VAR).is_some() {
-        "HARNESS_MEMORY_CONFIG is not an absolute path, so Harness Memory refuses it".to_owned()
-    } else {
-        "APPDATA is not set, so the config folder is unknown".to_owned()
-    }
 }
 
 fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport) -> MemoryRemote {
@@ -245,6 +215,7 @@ fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport)
         notes_useful_supported: support.features.notes_useful(),
         config_path,
         problem: config
+            .status
             .problem
             .clone()
             .or_else(|| url.filter(|_| kind.is_none()).map(|_| unsupported_scheme())),
@@ -272,10 +243,10 @@ pub fn memory_remote_set(
     support: impl Into<MemorySupport>,
 ) -> Result<MemoryRemote> {
     let support = support.into();
-    let path = memory_config_path(env).ok_or_else(|| BusinessError::Unsupported(unknown_path(env)))?;
+    let path = memory_config_path(env).ok_or_else(|| BusinessError::Unsupported(unknown_path(&MEMORY_SIDECAR, env)))?;
     let saved = read_config(&path);
 
-    if let Some(reason) = &saved.blocked {
+    if let Some(reason) = &saved.status.blocked {
         return Err(BusinessError::InvalidInput(format!(
             "{} is not changed: {reason}",
             tilde(env, &path)

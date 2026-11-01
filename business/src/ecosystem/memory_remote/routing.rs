@@ -5,7 +5,7 @@
 
 use toml::Table;
 
-use super::file::ConfigFile;
+use crate::ecosystem::sidecar_config::ConfigStatus;
 use crate::model::{MemoryNotesRouting, MemoryNotesTarget};
 
 /// The value of [`MemoryNotesRouting::RemoteLocal`] in the file.
@@ -31,19 +31,19 @@ pub(super) struct Routing {
 }
 
 /// The note routing `key` (`remote` when unset or not understood; another value is noted).
-pub(super) fn notes_value(table: &Table, key: &str, config: &mut ConfigFile) -> MemoryNotesRouting {
-    set_routing(table, key, config).unwrap_or_default()
+pub(super) fn notes_value(table: &Table, key: &str, status: &mut ConfigStatus) -> MemoryNotesRouting {
+    set_routing(table, key, status).unwrap_or_default()
 }
 
 /// The routing `key` of notes or scripts when it is set to `remote`, `local` or `remote+local`;
 /// another value is noted.
-pub(super) fn set_routing(table: &Table, key: &str, config: &mut ConfigFile) -> Option<MemoryNotesRouting> {
+pub(super) fn set_routing(table: &Table, key: &str, status: &mut ConfigStatus) -> Option<MemoryNotesRouting> {
     match table.get(key)?.as_str() {
         Some("remote") => Some(MemoryNotesRouting::Remote),
         Some("local") => Some(MemoryNotesRouting::Local),
         Some(REMOTE_LOCAL) => Some(MemoryNotesRouting::RemoteLocal),
         _ => {
-            config.note(format!("{key} must be \"remote\", \"local\" or \"{REMOTE_LOCAL}\""));
+            status.note(format!("{key} must be \"remote\", \"local\" or \"{REMOTE_LOCAL}\""));
             None
         }
     }
@@ -51,12 +51,12 @@ pub(super) fn set_routing(table: &Table, key: &str, config: &mut ConfigFile) -> 
 
 /// The routing `key` of hooks or routines when it is set to `remote` or `local`; another value is
 /// noted.
-pub(super) fn set_target(table: &Table, key: &str, config: &mut ConfigFile) -> Option<MemoryNotesTarget> {
+pub(super) fn set_target(table: &Table, key: &str, status: &mut ConfigStatus) -> Option<MemoryNotesTarget> {
     match table.get(key)?.as_str() {
         Some("remote") => Some(MemoryNotesTarget::Remote),
         Some("local") => Some(MemoryNotesTarget::Local),
         _ => {
-            config.note(format!("{key} must be \"remote\" or \"local\""));
+            status.note(format!("{key} must be \"remote\" or \"local\""));
             None
         }
     }

@@ -1,4 +1,4 @@
-//! The embedder behind vector search (see `harness_business::ecosystem::memory_embedder_supervisor`):
+//! The embedder behind vector search (see `harness_business::ecosystem::sidecar_embedder_supervisor`):
 //! it runs while project memory and the `vectorSearch` pref are on and the installed Harness Memory
 //! lists `embedder`, from launch (also after an update that finds the pref on and the embedder's own
 //! switch off), after the server's install, and after each switch of either pref. It stops when
@@ -13,6 +13,7 @@ use harness_business::model::MemoryEmbedderState;
 use tauri::async_runtime::{self, JoinHandle};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager};
+use tokio::sync::watch;
 
 use crate::state::AppState;
 
@@ -24,10 +25,9 @@ pub const EXIT_STOP_LIMIT: Duration = Duration::from_secs(5);
 pub struct EmbedderWatch(Mutex<Option<JoinHandle<()>>>);
 
 impl EmbedderWatch {
-    /// Sends the state now and on every change to `channel`, replacing the previous listener.
-    pub fn listen(&self, state: &AppState, channel: Channel<MemoryEmbedderState>) {
-        let mut updates = state.memory_embedder.subscribe();
-
+    /// Sends the state `updates` holds now and on every change to `channel`, replacing the previous
+    /// listener.
+    pub fn listen(&self, mut updates: watch::Receiver<MemoryEmbedderState>, channel: Channel<MemoryEmbedderState>) {
         let task = async_runtime::spawn(async move {
             loop {
                 let current = updates.borrow_and_update().clone();

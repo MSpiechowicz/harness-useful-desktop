@@ -9,7 +9,7 @@
 //!   `mcp.<name>` count. It is disabled when the target file's `disabledServers` names it, or it
 //!   switches itself off ([`Shape::switched_off`]: `"enabled": false`, on OpenCode 2 also
 //!   `"disabled": true`) and `enabledServers` does not name it. The memory server is found the
-//!   same way, by [`MEMORY_MCP_SERVER`] and `harness-memory`.
+//!   same way, by [`MEMORY_MCP_SERVER`](super::catalog::MEMORY_MCP_SERVER) and `harness-memory`.
 //! - Register: adds the file's [`Shape::entry`] for `harness-dashboard` (on OpenCode 2 under
 //!   `mcp.servers`) under [`change_file`](super::mcp_merge::change_file)'s rules: other keys,
 //!   servers and values kept in order, a missing file created (mode `0600`), a blank file counted
@@ -24,10 +24,11 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER};
+use super::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_SIDECAR};
 use super::mcp_merge::{Blocked, Change, Shape, Target, change_file, load, servers, servers_mut};
-use super::memory_binary::resolve_memory;
 use super::setup::McpFile;
+use super::sidecar::Sidecar;
+use super::sidecar_binary::resolve_sidecar;
 use crate::env::Env;
 use crate::model::{McpRefusal, McpState};
 use crate::pi_family::{string_list, tilde};
@@ -48,14 +49,14 @@ pub fn memory_mcp_state(env: &Env, file: &McpFile) -> McpState {
 struct Server {
     name: &'static str,
     binary: &'static str,
-    /// Whether the app's entry runs the binary by its resolved path rather than by name.
-    by_path: bool,
+    /// The server whose resolved path the app's entry runs rather than the binary's name.
+    by_path: Option<&'static Sidecar>,
 }
 
 impl Server {
     /// The command the app's entry runs (the binary's name when it does not resolve).
     fn command(self, env: &Env) -> String {
-        let resolved = if self.by_path { resolve_memory(env) } else { None };
+        let resolved = self.by_path.and_then(|sidecar| resolve_sidecar(sidecar, env));
 
         match resolved {
             Some(binary) => binary.path.to_string_lossy().into_owned(),
@@ -67,13 +68,13 @@ impl Server {
 const DASHBOARD: Server = Server {
     name: DASHBOARD_MCP_SERVER,
     binary: DASHBOARD_BINARY,
-    by_path: false,
+    by_path: None,
 };
 
 const MEMORY: Server = Server {
-    name: MEMORY_MCP_SERVER,
-    binary: MEMORY_BINARY,
-    by_path: true,
+    name: MEMORY_SIDECAR.mcp_server,
+    binary: MEMORY_SIDECAR.binary,
+    by_path: Some(&MEMORY_SIDECAR),
 };
 
 fn server_state(env: &Env, file: &McpFile, server: Server) -> McpState {

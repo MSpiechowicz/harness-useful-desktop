@@ -26,9 +26,9 @@ use std::time::{Duration, SystemTime};
 use serde::Deserialize;
 use serde_json::Value;
 
+use super::catalog::MEMORY_SIDECAR;
 use super::memory_scripts::parse;
 use crate::agent::rfc3339;
-use crate::app_dirs::shared_data_dir;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{refuse_link, replace_atomically};
@@ -63,16 +63,13 @@ const MAX_PENDING: usize = 32;
 /// The request file format this app reads.
 const REQUEST_VERSION: u32 = 1;
 
-/// The folder the server creates inside the platform data folder.
-const APP_FOLDER: &str = "harness-memory";
-
 /// Harness Memory's data folder, as the server finds it: [`DIR_VAR`] when set to an absolute path
 /// (a leading `~` expanded; a relative one is ignored), else `$XDG_DATA_HOME` (absolute only, or
 /// `~/.local/share`) on Linux, `~/Library/Application Support` on macOS and `%LOCALAPPDATA%`
 /// (absolute only) on Windows, followed by `harness-memory`. `None` on Windows while
 /// `LOCALAPPDATA` is unset.
 pub fn memory_data_dir(env: &Env) -> Option<PathBuf> {
-    shared_data_dir(env, DIR_VAR, APP_FOLDER)
+    MEMORY_SIDECAR.data_dir(env)
 }
 
 /// Touches `<data_dir>/desktop.alive` (created `0600` when missing). `false`, with nothing written,

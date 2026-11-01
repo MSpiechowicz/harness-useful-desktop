@@ -53,8 +53,9 @@ use super::dashboard::resolve_dashboard;
 use super::desktop_register::{DesktopRegistration, desktop_change, desktop_outcome};
 use super::mcp_merge::{Blocked, Change, Shape, Target, load, servers};
 use super::mcp_register::{dashboard_change, dashboard_outcome};
-use super::memory_register::{MemoryRegistration, memory_change, memory_outcome, memory_removal, target_only};
 use super::setup::McpFile;
+use super::sidecar::Sidecar;
+use super::sidecar_register::{SidecarRegistration, sidecar_change, sidecar_outcome, sidecar_removal, target_only};
 use crate::harness::HarnessCli;
 use crate::model::{McpRefusal, McpState};
 use crate::security::{is_safe_arg, redact_text};
@@ -80,24 +81,32 @@ pub async fn register_dashboard_mcp_cli(cli: HarnessCli<'_>, file: &McpFile) -> 
     dashboard_outcome(cli.env, file, &entry, changed)
 }
 
-/// [`super::register_memory_mcp`] through the CLI.
-pub async fn register_memory_mcp_cli(
+/// [`super::register_sidecar_mcp`] through the CLI.
+pub async fn register_sidecar_mcp_cli(
+    sidecar: &Sidecar,
     cli: HarnessCli<'_>,
     file: &McpFile,
     command: &Path,
     recorded: bool,
-) -> MemoryRegistration {
+) -> SidecarRegistration {
     let command = command.to_string_lossy();
-    let changed = change_via_cli(cli, file, |target| memory_change(file, target, &command, recorded)).await;
+    let changed = change_via_cli(cli, file, |target| {
+        sidecar_change(sidecar, file, target, &command, recorded)
+    })
+    .await;
 
-    memory_outcome(changed)
+    sidecar_outcome(changed)
 }
 
-/// [`super::unregister_memory_mcp`] through the CLI.
-pub async fn unregister_memory_mcp_cli(cli: HarnessCli<'_>, file: &McpFile) -> Result<bool, Blocked> {
+/// [`super::unregister_sidecar_mcp`] through the CLI.
+pub async fn unregister_sidecar_mcp_cli(
+    sidecar: &Sidecar,
+    cli: HarnessCli<'_>,
+    file: &McpFile,
+) -> Result<bool, Blocked> {
     let target_only = target_only(file);
 
-    change_via_cli(cli, file, |target| memory_removal(&target_only, target)).await
+    change_via_cli(cli, file, |target| sidecar_removal(sidecar, &target_only, target)).await
 }
 
 /// [`super::register_desktop_mcp`] through the CLI.

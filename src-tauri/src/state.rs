@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::app_dirs::{child_processes_dir, local_data_dir};
+use harness_business::ecosystem::catalog::MEMORY_SIDECAR;
 use harness_business::ecosystem::{
     ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor, MemoryFeatures, MemoryKinds,
     MemoryScripts, NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport,
@@ -136,7 +137,7 @@ impl AppState {
         Ok(Self {
             updates: Updates::from_config(app.config()),
             attachments_dir,
-            memory_embedder: Arc::new(EmbedderSupervisor::new(agents.spawner())),
+            memory_embedder: Arc::new(EmbedderSupervisor::new(&MEMORY_SIDECAR, agents.spawner())),
             agents: Arc::new(agents),
             ..Self::new(config_dir, env)
         })
@@ -169,7 +170,7 @@ impl AppState {
             memory_scripts,
             memory_kinds: MemoryKinds::new(),
             memory_features: MemoryFeatures::new(),
-            memory_embedder: Arc::new(EmbedderSupervisor::new(Arc::new(TokioSpawner))),
+            memory_embedder: Arc::new(EmbedderSupervisor::new(&MEMORY_SIDECAR, Arc::new(TokioSpawner))),
             embedder_watch: EmbedderWatch::default(),
             script_requests: Arc::new(ScriptRequests::default()),
             memory_held: Arc::new(HeldWatcher::default()),

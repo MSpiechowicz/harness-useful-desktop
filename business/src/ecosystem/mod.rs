@@ -12,6 +12,13 @@
 //!   [`mcp_cli`]: the companion servers in a file only the harness's CLI changes (Claude Code).
 //! - [`mcp_register`]: the dashboard's MCP server in a harness's user MCP file, and the state of
 //!   the memory server's.
+//! - [`sidecar`]: the names of a Harness family server. The `sidecar_*` modules do what the app
+//!   does for every such server and take them: [`sidecar_binary`] (its binary and version),
+//!   [`sidecar_cli`] (one run of its commands), `sidecar_line_probe` (the lines a command lists),
+//!   [`sidecar_embedder`] and [`sidecar_embedder_supervisor`] (its embedder), `sidecar_config` and
+//!   [`sidecar_remote_url`] (its config file and team database URL), [`sidecar_remote_check`]
+//!   (`check`), and [`sidecar_register`] (its MCP entry). The `memory_*` modules below are the
+//!   memory server's own, on top of them.
 //! - [`memory_binary`]: the installed `harness-memory` server and its version.
 //! - [`memory_register`]: that server in a harness's user MCP file, [`memory_record`]: the files
 //!   the app registered it in, and [`memory_migrate`]: the old copy of the bundled server retired.
@@ -24,7 +31,8 @@
 //! - [`releases`]: the latest GitHub release of each installed tool (`ecosystem_releases`).
 //! - [`dashboard`]: the pooled `harness-dashboard mcp` connection (`dashboard_query`,
 //!   `dashboard_availability`).
-//! - [`memory_cli`]: one run of a `harness-memory` command for the user, and the page of a list.
+//! - [`memory_cli`]: one run of a `harness-memory` command for the user, and the page of a list
+//!   (both [`sidecar_cli`]'s).
 //! - [`memory_notes`]: the agents' notes through `harness-memory notes` (`memory_notes_list`,
 //!   `memory_note_get`, `memory_note_delete`, `memory_notes_delete_all`), [`memory_notes_save`]:
 //!   one created or edited through `harness-memory mcp` (`memory_note_save`), and
@@ -45,7 +53,7 @@
 //!   the same for hooks (`harness-memory hooks …`).
 //! - [`memory_kinds`]: which team databases the installed server can use (`harness-memory
 //!   kinds`), [`memory_features`]: what else it can do (`harness-memory features`), both probed
-//!   through [`memory_line_probe`].
+//!   through [`sidecar_line_probe`].
 //! - [`memory_guards`]: the save guards of every chat and of each one (`memory_guards_get`,
 //!   `memory_guards_update`, `memory_chat_guards_set`), [`memory_held`]: the saves held for the user's
 //!   review (`memory_held_list`, `memory_held_save`, `memory_held_skip`), and
@@ -72,15 +80,12 @@ pub mod memory_code;
 pub mod memory_code_prepare;
 mod memory_copy_answer;
 pub mod memory_embedder;
-mod memory_embedder_lines;
-pub mod memory_embedder_supervisor;
 pub mod memory_features;
 pub mod memory_guards;
 pub mod memory_held;
 pub mod memory_hidden;
 pub mod memory_hooks;
 pub mod memory_kinds;
-mod memory_line_probe;
 mod memory_list;
 pub mod memory_list_cache;
 pub mod memory_migrate;
@@ -103,6 +108,17 @@ pub mod memory_trust;
 pub mod memory_user_save;
 pub mod releases;
 pub mod setup;
+pub mod sidecar;
+pub mod sidecar_binary;
+pub mod sidecar_cli;
+pub(crate) mod sidecar_config;
+pub mod sidecar_embedder;
+mod sidecar_embedder_lines;
+pub mod sidecar_embedder_supervisor;
+mod sidecar_line_probe;
+pub mod sidecar_register;
+pub mod sidecar_remote_check;
+pub mod sidecar_remote_url;
 pub mod skills_migration;
 pub mod skills_paths;
 pub mod skills_record;
@@ -116,8 +132,8 @@ pub use desktop_register::{
 pub use detect::ecosystem_status;
 pub use installer::{Companion, Installed, InstallerSpec, installer, run_installer, run_installer_with};
 pub use mcp_cli::{
-    MCP_CLI_TIMEOUT, register_dashboard_mcp_cli, register_desktop_mcp_cli, register_memory_mcp_cli,
-    unregister_memory_mcp_cli,
+    MCP_CLI_TIMEOUT, register_dashboard_mcp_cli, register_desktop_mcp_cli, register_sidecar_mcp_cli,
+    unregister_sidecar_mcp_cli,
 };
 pub use mcp_client::{McpClient, McpOptions, McpTool, ToolOutput};
 pub use mcp_merge::{Blocked, MergeOutcome, MergeResult, MergedServer, Shape, existing_server, merge_servers};
@@ -135,7 +151,6 @@ pub use memory_embedder::{
     EmbedderEvent, EmbedderStatus, EmbedderTracker, embedder_status, feature_server, get_settings, parse_event,
     remove_embedder_model, set_embedder_enabled, set_settings,
 };
-pub use memory_embedder_supervisor::{EmbedderSupervisor, Reconciled, SupervisorOptions, embedder_spec};
 pub use memory_features::{FeaturesSupport, MemoryFeatures};
 pub use memory_guards::{
     CHAT_MAX_AGE, ChatGuardWrites, SESSION_VAR, chat_repo_root, check_chat_key, is_chat_key, read_chat, read_chat_repo,
@@ -157,7 +172,8 @@ pub use memory_notes_import::{
 pub use memory_notes_save::save_note;
 pub use memory_record::{MEMORY_RECORD_FILE, MemoryRecord, RecordedFile};
 pub use memory_register::{
-    MemoryRegistration, names_command, register_memory_mcp, repoint_memory_mcp, unregister_memory_mcp,
+    MemoryRegistration, names_command, register_memory_mcp, register_memory_mcp_cli, repoint_memory_mcp,
+    unregister_memory_mcp, unregister_memory_mcp_cli,
 };
 pub use memory_remote::{
     MemoryRemoteChange, MemorySupport, ScriptsSupport, memory_config_path, memory_remote_get, memory_remote_set,
@@ -173,6 +189,9 @@ pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{
     LegacySkillsStep, McpFile, legacy_skills_step, mcp_target, mcp_target_paths, memory_server_setup, setup_status,
     share_mcp_target,
+};
+pub use sidecar_embedder_supervisor::{
+    EmbedderFeatures, EmbedderSupervisor, Reconciled, SupervisorOptions, embedder_spec,
 };
 pub use skills_migration::{MIGRATION_RECORD_FILE, MigrationExecutor, MigrationRecord, migrate_skills_names};
 pub use skills_paths::skills_data_path;

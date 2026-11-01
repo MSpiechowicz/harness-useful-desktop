@@ -1,4 +1,4 @@
-//! Keeps `harness-memory embedder run` running while vector search is on.
+//! Keeps `<binary> embedder run` of a Harness family server running while vector search is on.
 //!
 //! The embedder is one process per computer. The app spawns it through the tracked spawner (so a
 //! crash of the app does not leave it behind, see [`crate::process::TrackedSpawner`]) with a piped
@@ -6,7 +6,9 @@
 //! waiting briefly, then killing what is left.
 //!
 //! - Its stdout lines are folded into a [`MemoryEmbedderState`] ([`EmbedderTracker`]) that
-//!   [`EmbedderSupervisor::subscribe`] watches.
+//!   [`EmbedderSupervisor::subscribe`] watches. The state is the same for every server: the
+//!   supervisor of each is told which one it keeps ([`Sidecar`]) and asks its own features
+//!   ([`EmbedderFeatures`]).
 //! - `busy` means another app instance runs the embedder: the state is `elsewhere`, the process
 //!   exited, and it is not started again (until [`EmbedderSupervisor::start`] is called again).
 //! - A process that crashes (or cannot be started) is started again after 1, 5 and 30 seconds, at
@@ -16,7 +18,8 @@
 //! Only the phases are logged, never what the embedder printed.
 
 use std::collections::VecDeque;
-use std::path::Path;
+use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -24,13 +27,11 @@ use tokio::io::{AsyncWrite, BufReader};
 use tokio::sync::{Notify, watch};
 use tokio::task::JoinHandle;
 
-use super::catalog::MEMORY_BINARY;
-use super::memory_embedder::{
-    EmbedderTracker, embedder_status, feature_server, parse_event, remove_embedder_model, set_embedder_enabled,
+use super::sidecar::Sidecar;
+use super::sidecar_embedder::{
+    EmbedderTracker, parse_event, remove_sidecar_embedder_model, set_sidecar_embedder_enabled, sidecar_embedder_status,
 };
-use super::memory_embedder_lines::{discard, next_line};
-use super::memory_features::{FeaturesSupport, MemoryFeatures};
-use super::memory_requests::memory_data_dir;
+use super::sidecar_embedder_lines::{discard, next_line};
 use crate::env::Env;
 use crate::error::Result;
 use crate::model::MemoryEmbedderState;
@@ -39,6 +40,13 @@ use crate::process::{ChildHandle, ExecSpec, ProcessRunner, ProcessSpawner, Spawn
 /// The file in the server's data folder that `embedder enable|disable` writes. It does not exist
 /// until a choice was made.
 const SWITCH_FILE: &str = "embedder.toml";
+
+/// The features of the installed server, as far as the embedder is concerned.
+pub trait EmbedderFeatures: Sync {
+    /// The installed server when its features list the embedder: `notFound` when it is not
+    /// installed, `unsupported` when it predates the embedder.
+    fn embedder_server(&self, env: &Env, runner: &dyn ProcessRunner) -> impl Future<Output = Result<PathBuf>> + Send;
+}
 
 /// How the supervisor restarts and stops the embedder.
 #[derive(Debug, Clone)]
@@ -62,7 +70,7 @@ impl Default for SupervisorOptions {
     }
 }
 
-/// `harness-memory embedder run` for `server`, in the home directory.
+/// `<binary> embedder run` for `server`, in the home directory.
 pub fn embedder_spec(env: &Env, server: &Path) -> ExecSpec {
     ExecSpec::new(server)
         .args(["embedder", "run"])
@@ -111,6 +119,7 @@ struct Running {
 
 /// See the module docs.
 pub struct EmbedderSupervisor {
+    sidecar: &'static Sidecar,
     spawner: Arc<dyn ProcessSpawner>,
     options: SupervisorOptions,
     shared: Arc<Shared>,
@@ -120,16 +129,21 @@ pub struct EmbedderSupervisor {
 }
 
 impl EmbedderSupervisor {
-    /// A supervisor in the `off` state that starts the embedder through `spawner`.
-    pub fn new(spawner: Arc<dyn ProcessSpawner>) -> Self {
-        Self::with_options(spawner, SupervisorOptions::default())
+    /// A supervisor in the `off` state that starts the embedder of `sidecar` through `spawner`.
+    pub fn new(sidecar: &'static Sidecar, spawner: Arc<dyn ProcessSpawner>) -> Self {
+        Self::with_options(sidecar, spawner, SupervisorOptions::default())
     }
 
     /// [`Self::new`] with other timing.
-    pub fn with_options(spawner: Arc<dyn ProcessSpawner>, options: SupervisorOptions) -> Self {
+    pub fn with_options(
+        sidecar: &'static Sidecar,
+        spawner: Arc<dyn ProcessSpawner>,
+        options: SupervisorOptions,
+    ) -> Self {
         let (state, _) = watch::channel(MemoryEmbedderState::default());
 
         Self {
+            sidecar,
             spawner,
             options,
             shared: Arc::new(Shared {
@@ -177,6 +191,7 @@ impl EmbedderSupervisor {
 
         let stop = Arc::new(Notify::new());
         let task = tokio::spawn(supervise(
+            self.sidecar,
             self.spawner.clone(),
             self.options.clone(),
             self.shared.clone(),
@@ -188,8 +203,8 @@ impl EmbedderSupervisor {
         true
     }
 
-    /// Makes the embedder run when `wanted` (project memory and vector search are on) and the
-    /// installed Harness Memory lists `embedder`, and stop otherwise. A server that does not know
+    /// Makes the embedder run when `wanted` (the product and vector search are on) and the
+    /// installed server lists `embedder` (`features`), and stop otherwise. A server that does not know
     /// the embedder, or is not installed, starts nothing. `embedder status` also tells whether a
     /// downloaded model is on this computer (`modelPresent`), whether the embedder starts or not.
     /// The embedder's own switch is turned on first when the status says it is off and was never
@@ -201,13 +216,13 @@ impl EmbedderSupervisor {
         &self,
         env: &Env,
         runner: &dyn ProcessRunner,
-        features: &MemoryFeatures,
+        features: &impl EmbedderFeatures,
         wanted: bool,
         closing: &(dyn Fn() -> bool + Sync),
     ) -> Reconciled {
         let _deciding = self.reconciling.lock().await;
 
-        let server = feature_server(env, runner, features, FeaturesSupport::embedder, "vector search").await;
+        let server = features.embedder_server(env, runner).await;
 
         if !wanted {
             self.stop().await;
@@ -224,18 +239,18 @@ impl EmbedderSupervisor {
             return Reconciled::Settled;
         };
 
-        match embedder_status(env, runner, &server).await {
+        match sidecar_embedder_status(self.sidecar, env, runner, &server).await {
             Ok(status) => {
                 self.set_model_present(status.model_present);
 
                 if !status.enabled {
-                    if switched_off_on_purpose(env) {
+                    if switched_off_on_purpose(self.sidecar, env) {
                         tracing::info!("the embedder was switched off outside the app; leaving it off");
                         self.stop().await;
                         return Reconciled::OptedOut;
                     }
 
-                    if let Err(error) = set_embedder_enabled(env, runner, &server, true).await {
+                    if let Err(error) = set_sidecar_embedder_enabled(self.sidecar, env, runner, &server, true).await {
                         tracing::warn!(%error, "the embedder could not be switched on");
                         return Reconciled::Settled;
                     }
@@ -259,7 +274,7 @@ impl EmbedderSupervisor {
         let _deciding = self.reconciling.lock().await;
 
         self.stop().await;
-        remove_embedder_model(env, runner, server).await?;
+        remove_sidecar_embedder_model(self.sidecar, env, runner, server).await?;
         self.set_model_present(Some(false));
 
         Ok(())
@@ -274,7 +289,7 @@ impl EmbedderSupervisor {
     /// Asks `embedder status` whether a downloaded model is on this computer. A server that does
     /// not say, or cannot be asked, leaves what is known as it is.
     async fn read_model_present(&self, env: &Env, runner: &dyn ProcessRunner, server: &Path) {
-        match embedder_status(env, runner, server).await {
+        match sidecar_embedder_status(self.sidecar, env, runner, server).await {
             Ok(status) if status.model_present.is_some() => self.set_model_present(status.model_present),
             Ok(_) => {}
             Err(error) => tracing::warn!(%error, "the embedder's status could not be read"),
@@ -299,8 +314,8 @@ impl EmbedderSupervisor {
 }
 
 /// True when the embedder's switch file exists: someone chose, and it is off (the status said so).
-fn switched_off_on_purpose(env: &Env) -> bool {
-    let Some(folder) = memory_data_dir(env) else {
+fn switched_off_on_purpose(sidecar: &Sidecar, env: &Env) -> bool {
+    let Some(folder) = sidecar.data_dir(env) else {
         return false;
     };
 
@@ -316,10 +331,11 @@ enum Outcome {
     /// It exited 0 by itself.
     Exited,
     /// It crashed, or could not be started.
-    Crashed(&'static str),
+    Crashed(String),
 }
 
 async fn supervise(
+    sidecar: &'static Sidecar,
     spawner: Arc<dyn ProcessSpawner>,
     options: SupervisorOptions,
     shared: Arc<Shared>,
@@ -331,7 +347,7 @@ async fn supervise(
     loop {
         shared.update(EmbedderTracker::starting);
 
-        match run_once(spawner.as_ref(), &options, &shared, &spec, &stop).await {
+        match run_once(sidecar, spawner.as_ref(), &options, &shared, &spec, &stop).await {
             Outcome::Stopped | Outcome::Exited => {
                 shared.update(EmbedderTracker::stopped);
                 return;
@@ -346,7 +362,7 @@ async fn supervise(
 
                 let Some(backoff) = options.backoff.get(restarts.len()).copied() else {
                     tracing::warn!("the embedder keeps stopping; giving up");
-                    shared.update(|tracker| tracker.failed(reason));
+                    shared.update(|tracker| tracker.failed(&reason));
                     return;
                 };
 
@@ -371,6 +387,7 @@ async fn supervise(
 
 /// One process, from its spawn to its exit.
 async fn run_once(
+    sidecar: &Sidecar,
     spawner: &dyn ProcessSpawner,
     options: &SupervisorOptions,
     shared: &Shared,
@@ -380,8 +397,8 @@ async fn run_once(
     let process = match spawner.spawn(spec) {
         Ok(process) => process,
         Err(error) => {
-            tracing::warn!(%error, "{MEMORY_BINARY} embedder could not be started");
-            return Outcome::Crashed("Harness Memory could not start the embedder");
+            tracing::warn!(%error, "{} embedder could not be started", sidecar.binary);
+            return Outcome::Crashed(format!("{} could not start the embedder", sidecar.product));
         }
     };
 
@@ -415,7 +432,7 @@ async fn run_once(
         close_and_wait(stdin, child.as_mut(), options.stop_grace).await;
         Outcome::Stopped
     } else {
-        finish(stdin, child.as_mut(), options.stop_grace, shared.is_busy()).await
+        finish(sidecar, stdin, child.as_mut(), options.stop_grace, shared.is_busy()).await
     };
 
     drain.abort();
@@ -425,6 +442,7 @@ async fn run_once(
 /// The process closed its stdout: waits for its exit (a process that stays alive without stdout is
 /// stopped like any other).
 async fn finish(
+    sidecar: &Sidecar,
     stdin: Box<dyn AsyncWrite + Send + Unpin>,
     child: &mut dyn ChildHandle,
     grace: Duration,
@@ -446,7 +464,7 @@ async fn finish(
 
     match exit.and_then(|exit| exit.code) {
         Some(0) => Outcome::Exited,
-        _ => Outcome::Crashed("Harness Memory's embedder stopped unexpectedly"),
+        _ => Outcome::Crashed(format!("{}'s embedder stopped unexpectedly", sidecar.product)),
     }
 }
 

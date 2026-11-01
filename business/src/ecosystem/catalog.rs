@@ -6,6 +6,7 @@
 //! server's or the Harness Skills' OpenCode installer (see [`super::installer`]) after the user
 //! confirms it.
 
+use super::sidecar::Sidecar;
 use crate::env::OsKind;
 use crate::model::{EcosystemId, EcosystemItem, InstallStep};
 
@@ -34,6 +35,16 @@ pub const MEMORY_BINARY: &str = "harness-memory";
 
 /// The name the app gives the memory server in a harness's `mcpServers`.
 pub const MEMORY_MCP_SERVER: &str = "harness-memory";
+
+/// The names of the memory server, for the modules that serve every Harness family server (see
+/// [`super::sidecar`]).
+pub const MEMORY_SIDECAR: Sidecar = Sidecar {
+    binary: MEMORY_BINARY,
+    product: "Harness Memory",
+    mcp_server: MEMORY_MCP_SERVER,
+    env_prefix: "HARNESS_MEMORY",
+    feature: "project memory",
+};
 
 /// The name the skills' installers give their MCP server (Harness Skills 0.4.0 and newer): in
 /// OpenCode's `mcp` (a `local` server running the installed `mcp-server.js` by absolute path), in

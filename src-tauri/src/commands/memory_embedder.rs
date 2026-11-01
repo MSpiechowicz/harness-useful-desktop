@@ -88,7 +88,7 @@ pub async fn memory_embedder_watch(
     state: State<'_, AppState>,
     on_event: Channel<MemoryEmbedderState>,
 ) -> CommandResult<()> {
-    state.embedder_watch.listen(&state, on_event);
+    state.embedder_watch.listen(state.memory_embedder.subscribe(), on_event);
 
     Ok(())
 }

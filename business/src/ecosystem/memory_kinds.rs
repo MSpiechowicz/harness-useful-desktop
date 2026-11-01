@@ -6,7 +6,8 @@
 //! [`MemoryKinds::support`] asks once per binary through a [`LineProbe`] (cached per binary, an
 //! older server cached as one without DocumentDB, a failed probe not cached).
 
-use super::memory_line_probe::{LineAnswer, LineProbe};
+use super::catalog::MEMORY_SIDECAR;
+use super::sidecar_line_probe::{LineAnswer, LineProbe};
 use crate::env::Env;
 use crate::process::ProcessRunner;
 
@@ -46,7 +47,7 @@ pub struct MemoryKinds {
 impl Default for MemoryKinds {
     fn default() -> Self {
         Self {
-            probe: LineProbe::new("kinds"),
+            probe: LineProbe::new(&MEMORY_SIDECAR, "kinds"),
         }
     }
 }

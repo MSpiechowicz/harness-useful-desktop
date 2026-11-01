@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="Kind extends string">
   import Check from '@lucide/svelte/icons/check';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
@@ -6,22 +6,22 @@
   import { ICON } from '$lib/components/icon';
   import Popover from '$lib/components/Popover.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
-  import type { MemoryRemoteKind } from '$lib/ipc/bindings/MemoryRemoteKind';
   import { cx } from '$lib/utils/cx';
 
-  import { KIND_LABELS, REMOTE_KINDS } from './memory-remote';
+  import type { RemoteDatabaseConfig } from './remote-database';
 
   interface Props {
-    value: MemoryRemoteKind;
-    onchange: (kind: MemoryRemoteKind) => void;
+    config: RemoteDatabaseConfig<Kind>;
+    value: Kind;
+    onchange: (kind: Kind) => void;
   }
 
-  let { value, onchange }: Props = $props();
+  let { config, value, onchange }: Props = $props();
 
   let open = $state(false);
 
-  const label = $derived(t('settings.memoryRemote.database.title'));
-  const current = $derived(t(KIND_LABELS[value]));
+  const label = $derived(t(config.copy.databaseTitle));
+  const current = $derived(t(config.kindLabels[value]));
 </script>
 
 <!-- A short list of ready-made choices, so a menu rather than a free-text field. -->
@@ -36,7 +36,7 @@
 
   {#snippet children({ close })}
     <div role="none" class="flex flex-col">
-      {#each REMOTE_KINDS as kind (kind)}
+      {#each config.kinds as kind (kind)}
         <button
           type="button"
           role="menuitemradio"
@@ -51,7 +51,7 @@
             onchange(kind);
           }}
         >
-          {t(KIND_LABELS[kind])}
+          {t(config.kindLabels[kind])}
           {#if kind === value}<Check size={ICON.sm} class="text-accent-text" aria-hidden="true" />{/if}
         </button>
       {/each}

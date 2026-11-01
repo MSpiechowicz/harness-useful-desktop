@@ -10,6 +10,7 @@
   import { prefs } from '$lib/stores/prefs.svelte';
 
   import SettingRow from './SettingRow.svelte';
+  import { MEMORY_EMBEDDER_COPY } from './embedder-status';
   import VectorSearchStatus from './VectorSearchStatus.svelte';
 
   let confirmingRemoval = $state(false);
@@ -51,7 +52,7 @@
 
     {#if memorySearch.vectorOn && embedder}
       <div transition:slide={{ duration: scaled(200) }}>
-        <VectorSearchStatus state={embedder} />
+        <VectorSearchStatus state={embedder} copy={MEMORY_EMBEDDER_COPY} />
       </div>
     {/if}
   </div>

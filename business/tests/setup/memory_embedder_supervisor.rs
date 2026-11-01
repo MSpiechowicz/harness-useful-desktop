@@ -9,6 +9,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use harness_business::ecosystem::catalog::MEMORY_SIDECAR;
 use harness_business::ecosystem::{EmbedderSupervisor, MemoryFeatures, SupervisorOptions, embedder_spec};
 use harness_business::model::{EmbedderPhase, MemoryEmbedderState};
 use harness_business::process::{
@@ -63,7 +64,7 @@ fn embedder(vars: Vars, backoff: &[u64]) -> Embedder {
     };
 
     Embedder {
-        supervisor: EmbedderSupervisor::with_options(spawner.clone(), options),
+        supervisor: EmbedderSupervisor::with_options(&MEMORY_SIDECAR, spawner.clone(), options),
         setup,
         registry_dir,
         registry,
@@ -390,7 +391,7 @@ async fn an_enabled_embedder_is_not_enabled_again_and_a_missing_server_runs_noth
     enabled.supervisor.stop().await;
 
     let absent = Setup::without_server(EMBEDDER, &[]);
-    let supervisor = EmbedderSupervisor::new(absent.stand_in.clone());
+    let supervisor = EmbedderSupervisor::new(&MEMORY_SIDECAR, absent.stand_in.clone());
     supervisor
         .reconcile(&absent.env, absent.runner(), &MemoryFeatures::new(), true, &|| false)
         .await;

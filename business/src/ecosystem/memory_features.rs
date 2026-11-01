@@ -27,7 +27,8 @@
 //! once per binary through a [`LineProbe`] (cached per binary, an older server cached as one
 //! without features, a failed probe not cached).
 
-use super::memory_line_probe::{LineAnswer, LineProbe};
+use super::catalog::MEMORY_SIDECAR;
+use super::sidecar_line_probe::{LineAnswer, LineProbe};
 use crate::env::Env;
 use crate::process::ProcessRunner;
 
@@ -186,7 +187,7 @@ pub struct MemoryFeatures {
 impl Default for MemoryFeatures {
     fn default() -> Self {
         Self {
-            probe: LineProbe::new("features"),
+            probe: LineProbe::new(&MEMORY_SIDECAR, "features"),
         }
     }
 }
