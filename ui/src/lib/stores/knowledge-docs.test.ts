@@ -26,7 +26,7 @@ function listing(documents: KnowledgeDocument[]) {
 
       return { availability: { type: 'available' }, items: documents.slice(args.offset ?? 0, (args.offset ?? 0) + (args.limit ?? 50)), total: documents.length };
     },
-    knowledge_docs_delete: ({ ids }: { ids: number[] }) => {
+    knowledge_docs_delete: ({ ids }: { ids: (number | string)[] }) => {
       const before = documents.length;
       documents = documents.filter((candidate) => !ids.includes(candidate.id));
 

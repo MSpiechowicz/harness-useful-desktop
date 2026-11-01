@@ -21,9 +21,9 @@ use super::sidecar_cli::{CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListWindow, i
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocument, KnowledgeLink,
-    KnowledgeListFilter, KnowledgePage, KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope, KnowledgeSort,
-    KnowledgeStats,
+    KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches, KnowledgeDocument,
+    KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgePage, KnowledgeRepoCount, KnowledgeReposPage,
+    KnowledgeScope, KnowledgeSort, KnowledgeStats,
 };
 use crate::process::ProcessRunner;
 
@@ -38,6 +38,9 @@ const MAX_LINKS: usize = 32;
 
 /// The longest path glob, in characters.
 const MAX_GLOB_CHARS: usize = 256;
+
+/// The most matches `docs matches` returns (and its default).
+const MAX_MATCHES: u32 = 50;
 
 /// The most ids one delete takes.
 const MAX_DELETE_IDS: usize = 1000;
@@ -145,14 +148,14 @@ pub async fn get_doc(
     env: &Env,
     runner: &dyn ProcessRunner,
     server: &Path,
-    id: i64,
-    chunk: Option<i64>,
+    id: &KnowledgeId,
+    chunk: Option<&KnowledgeId>,
 ) -> Result<KnowledgeDetail> {
     let mut args = words(&["docs", "get", "--json"]);
-    args.extend([check_id(id)?.to_string().into(), "--sections".into()]);
+    args.extend([check_id(id)?.into(), "--sections".into()]);
 
     if let Some(chunk) = chunk {
-        args.extend(["--chunk".into(), check_id(chunk)?.to_string().into()]);
+        args.extend(["--chunk".into(), check_id(chunk)?.into()]);
     }
 
     let data = run_json(env, runner, server, call("docs get", args)).await?;
@@ -170,19 +173,58 @@ pub async fn get_doc(
     })
 }
 
+/// The chunks of document `id` that match `query` (`docs matches --json ID --query Q --limit N`),
+/// in document order. `process` with the server's line for a document that does not exist.
+pub async fn doc_matches(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    server: &Path,
+    id: &KnowledgeId,
+    query: &str,
+    limit: Option<u32>,
+) -> Result<KnowledgeDocMatches> {
+    let query = query.trim();
+
+    if query.is_empty() || query.chars().count() > MAX_QUERY_CHARS {
+        return Err(invalid(&format!("a search has 1 to {MAX_QUERY_CHARS} characters")));
+    }
+
+    let limit = limit.unwrap_or(MAX_MATCHES);
+
+    if !(1..=MAX_MATCHES).contains(&limit) {
+        return Err(invalid(&format!("matches are 1 to {MAX_MATCHES} at a time")));
+    }
+
+    let mut args = words(&["docs", "matches", "--json"]);
+    args.extend([
+        check_id(id)?.into(),
+        "--query".into(),
+        query.into(),
+        "--limit".into(),
+        limit.to_string().into(),
+    ]);
+
+    let data = run_json(env, runner, server, call("docs matches", args)).await?;
+
+    Ok(KnowledgeDocMatches {
+        matches: field(&data, "matches", "docs matches")?,
+        total: count_of(data.get("total")),
+    })
+}
+
 /// Replaces the links of document `id` (`docs links set --json ID`, the links as JSON on stdin);
 /// none makes it global. Answers the links as stored.
 pub async fn set_links(
     env: &Env,
     runner: &dyn ProcessRunner,
     server: &Path,
-    id: i64,
+    id: &KnowledgeId,
     links: &[KnowledgeLink],
 ) -> Result<Vec<KnowledgeLink>> {
     check_links(links)?;
 
     let mut args = words(&["docs", "links", "set", "--json"]);
-    args.push(check_id(id)?.to_string().into());
+    args.push(check_id(id)?.into());
 
     let stdin = serde_json::to_vec(links).map_err(|error| BusinessError::Internal(error.to_string()))?;
     let command = CliCall {
@@ -199,7 +241,13 @@ pub async fn set_links(
 }
 
 /// Renames document `id` (`docs rename --json ID --title TITLE`); answers the title as stored.
-pub async fn rename_doc(env: &Env, runner: &dyn ProcessRunner, server: &Path, id: i64, title: &str) -> Result<String> {
+pub async fn rename_doc(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    server: &Path,
+    id: &KnowledgeId,
+    title: &str,
+) -> Result<String> {
     let title = title.trim();
 
     if title.is_empty() || title.chars().count() > MAX_TITLE_CHARS {
@@ -207,7 +255,7 @@ pub async fn rename_doc(env: &Env, runner: &dyn ProcessRunner, server: &Path, id
     }
 
     let mut args = words(&["docs", "rename", "--json"]);
-    args.extend([check_id(id)?.to_string().into(), "--title".into(), title.into()]);
+    args.extend([check_id(id)?.into(), "--title".into(), title.into()]);
 
     let data = run_json(env, runner, server, call("docs rename", args)).await?;
 
@@ -219,7 +267,7 @@ pub async fn delete_docs(
     env: &Env,
     runner: &dyn ProcessRunner,
     server: &Path,
-    ids: &[i64],
+    ids: &[KnowledgeId],
 ) -> Result<KnowledgeDeleted> {
     if ids.is_empty() || ids.len() > MAX_DELETE_IDS {
         return Err(invalid(&format!("delete 1 to {MAX_DELETE_IDS} documents at a time")));
@@ -228,7 +276,7 @@ pub async fn delete_docs(
     let mut args = words(&["docs", "delete", "--json"]);
 
     for id in ids {
-        args.push(check_id(*id)?.to_string().into());
+        args.push(check_id(id)?.into());
     }
 
     let data = run_json(env, runner, server, call("docs delete", args)).await?;
@@ -274,10 +322,11 @@ pub async fn read_stats(env: &Env, runner: &dyn ProcessRunner, server: &Path) ->
         .map_err(|_| BusinessError::Protocol("harness-knowledge stats answered counts this app cannot read".to_owned()))
 }
 
-/// `id` when it is a document or chunk id (a positive number).
-fn check_id(id: i64) -> Result<i64> {
-    if id >= 1 {
-        Ok(id)
+/// `id` as the server's argument when it is a document or chunk id: a positive number or
+/// `local:N`, `local:N:M`. It goes back exactly as the server gave it.
+pub(super) fn check_id(id: &KnowledgeId) -> Result<String> {
+    if id.is_valid() {
+        Ok(id.to_string())
     } else {
         Err(invalid("that is not a document id"))
     }

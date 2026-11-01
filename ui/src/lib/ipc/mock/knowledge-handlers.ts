@@ -3,17 +3,21 @@ import type { KnowledgeDecided } from '../bindings/KnowledgeDecided';
 import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeHeldItem } from '../bindings/KnowledgeHeldItem';
 import type { KnowledgeHit } from '../bindings/KnowledgeHit';
+import type { KnowledgeId } from '../bindings/KnowledgeId';
 import type { KnowledgePulse } from '../bindings/KnowledgePulse';
 import type { CommandArgs } from '../commands';
+import { idKey } from '../knowledge-id';
 import { IpcFailure } from '../transport';
 import { bulkDocuments, chunkText, DESKTOP_REPO, documentOf, outlineOf, sampleDocuments, sampleHeld } from './knowledge-fixtures';
 import { sortDocuments, visibleDocuments } from './knowledge-list';
+import { numberOf, placed } from './knowledge-routing';
 import type { Handlers } from './types';
 
 type KnowledgeCommands =
   | 'knowledge_status'
   | 'knowledge_docs_list'
   | 'knowledge_doc_get'
+  | 'knowledge_doc_matches'
   | 'knowledge_doc_rename'
   | 'knowledge_doc_links_set'
   | 'knowledge_docs_delete'
@@ -51,8 +55,14 @@ export class MockKnowledge {
 
   private sink: ((pulse: KnowledgePulse) => void) | null = null;
 
-  constructor(scenario: KnowledgeScenario) {
-    this.documents = scenario === 'empty' ? [] : [...sampleDocuments(), ...(scenario === 'bulk' ? bulkDocuments(BULK_COUNT) : [])];
+  /** `split`: both places are in use, so every third document is kept on this computer and has a `local:N` id. */
+  constructor(
+    scenario: KnowledgeScenario,
+    readonly split = false,
+  ) {
+    const all = scenario === 'empty' ? [] : [...sampleDocuments(), ...(scenario === 'bulk' ? bulkDocuments(BULK_COUNT) : [])];
+
+    this.documents = split ? all.map((doc) => placed(doc, numberOf(doc.id) % 3 === 0)) : all;
     this.held = scenario === 'empty' ? [] : sampleHeld();
   }
 
@@ -72,11 +82,16 @@ export class MockKnowledge {
   }
 
   nextId(): number {
-    return this.documents.reduce((most, doc) => Math.max(most, doc.id), 0) + 1;
+    return this.documents.reduce((most, doc) => Math.max(most, numberOf(doc.id)), 0) + 1;
   }
 
-  find(id: number): KnowledgeDocument {
-    const doc = this.documents.find((candidate) => candidate.id === id);
+  /** The id a new document gets in `place` (a plain number, or `local:N` when both places are in use and it is kept here). */
+  newId(place: 'remote' | 'local' | undefined): KnowledgeId {
+    return this.split && place === 'local' ? `local:${this.nextId()}` : this.nextId();
+  }
+
+  find(id: KnowledgeId): KnowledgeDocument {
+    const doc = this.documents.find((candidate) => idKey(candidate.id) === idKey(id));
 
     if (!doc) {
       throw IpcFailure.from({ code: 'process', message: `error: no document with id ${id}` });
@@ -104,6 +119,22 @@ function hitsOf(docs: KnowledgeDocument[], query: string): KnowledgeHit[] {
         score: Math.round((0.92 - index * 0.07 - rank * 0.03) * 100) / 100,
       }));
     });
+}
+
+/** The start of a chunk's text around the first word of the search, on one line. */
+function snippetOf(text: string, phrase: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  const at = Math.max(0, flat.toLowerCase().indexOf(phrase.split(' ')[0] ?? ''));
+
+  return flat.slice(Math.max(0, at - 10), at + 30);
+}
+
+/** What one place holds, for the `places` of the counts. */
+function placeStats(documents: KnowledgeDocument[], place: 'remote' | 'local'): { documents: number; chunks: number; embeddedChunks: number; globalDocuments: number } {
+  const kept = documents.filter((doc) => doc.place === place);
+  const chunks = kept.reduce((sum, doc) => sum + doc.chunkCount, 0);
+
+  return { documents: kept.length, chunks, embeddedChunks: chunks, globalDocuments: kept.filter((doc) => doc.links.length === 0).length };
 }
 
 function heldNotFound(): KnowledgeDecided {
@@ -135,7 +166,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
     knowledge_status: () => {
       const on = available();
 
-      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on } };
+      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on } };
     },
 
     knowledge_docs_list: ({ filter, offset, limit, query }) => {
@@ -152,9 +183,22 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
     knowledge_doc_get: ({ id, chunkId }) => {
       const document = store.find(id);
       const sections = outlineOf(document);
-      const section = sections.find((candidate) => candidate.chunkId === chunkId);
+      const section = sections.find((candidate) => chunkId !== null && idKey(candidate.chunkId) === idKey(chunkId));
 
       return { document, sections, chunk: section ? { id: section.chunkId, docId: id, ordinal: section.ordinal, headingPath: section.headingPath, text: chunkText(document, section), tokens: section.tokens, charStart: section.charStart, charEnd: section.charEnd } : null };
+    },
+
+    knowledge_doc_matches: ({ id, query, limit }) => {
+      const document = store.find(id);
+      const phrase = query.trim().toLowerCase();
+      const found = outlineOf(document)
+        .map((section) => ({ section, text: chunkText(document, section) }))
+        .filter(({ section, text }) => phrase !== '' && `${section.headingPath}\n${text}`.toLowerCase().includes(phrase));
+
+      return {
+        total: found.length,
+        matches: found.slice(0, limit ?? 20).map(({ section, text }) => ({ chunkId: section.chunkId, ordinal: section.ordinal, section: section.headingPath, snippet: snippetOf(text, phrase) })),
+      };
     },
 
     knowledge_doc_rename: ({ id, title }) => {
@@ -180,7 +224,8 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
 
     knowledge_docs_delete: ({ ids }) => {
       const before = store.documents.length;
-      store.documents = store.documents.filter((doc) => !ids.includes(doc.id));
+      const gone = new Set(ids.map(idKey));
+      store.documents = store.documents.filter((doc) => !gone.has(idKey(doc.id)));
       store.changed();
 
       return { deleted: before - store.documents.length };
@@ -205,6 +250,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
         generation: store.generation,
         schema: 1,
         model: chunks > 0 ? 'multilingual-e5-small' : null,
+        ...(store.split ? { places: { remote: placeStats(store.documents, 'remote'), local: placeStats(store.documents, 'local') } } : {}),
       };
     },
 
@@ -249,13 +295,15 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
         return { type: 'rejected' };
       }
 
-      const replaced = item.replaces === null ? null : store.documents.find((doc) => doc.id === item.replaces);
-      const docId = replaced?.id ?? store.nextId();
+      const replaced = item.replaces === null ? null : store.documents.find((doc) => idKey(doc.id) === idKey(item.replaces as KnowledgeId));
+      const docId = replaced?.id ?? store.newId(args.place);
 
       if (replaced) {
         replaced.updatedAt = new Date().toISOString();
       } else {
-        store.documents.push(documentOf({ id: docId, title: item.title, name: item.name, format: item.format, kb: Math.max(1, Math.ceil(item.bytes / 1024)), chunks: 4, age: 0, origin: 'agentApproved', links: item.links }));
+        const doc = documentOf({ id: docId, title: item.title, name: item.name, format: item.format, kb: Math.max(1, Math.ceil(item.bytes / 1024)), chunks: 4, age: 0, origin: 'agentApproved', links: item.links });
+
+        store.documents.push(store.split ? { ...doc, place: args.place ?? 'remote' } : doc);
       }
 
       store.changed();

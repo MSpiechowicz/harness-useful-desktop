@@ -3,7 +3,7 @@
 //!
 //! - One import runs at a time ([`KnowledgeImporter::begin`]): a second one is refused
 //!   (`invalidInput`) until the first one ended.
-//! - The manifest is `{"paths": [...], "folders": [...], "links": [...], "replaces": ID}`, all
+//! - The manifest is `{"paths": [...], "folders": [...], "links": [...], "replaces": ID, "place": "remote"|"local"}`, all
 //!   optional, at most 4 MiB. It is written to the child's stdin, which is closed after it.
 //! - Each stdout line is one event ([`parse_import_event`]); a line that is no event (a newer
 //!   event, a stray line) is skipped. Every event goes to the sink as it arrives. An import that
@@ -32,8 +32,8 @@ use super::sidecar_embedder_lines::next_line;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    KnowledgeEmbedding, KnowledgeFileStatus, KnowledgeImportCounts, KnowledgeImportEvent, KnowledgeImportOptions,
-    KnowledgeImportResult,
+    KnowledgeEmbedding, KnowledgeFileStatus, KnowledgeId, KnowledgeImportCounts, KnowledgeImportEvent,
+    KnowledgeImportOptions, KnowledgeImportResult,
 };
 use crate::process::{ChildHandle, ExecSpec, ProcessSpawner, SpawnedProcess, launcher_search_dirs};
 
@@ -60,7 +60,10 @@ pub struct ImportManifest {
     pub links: Vec<crate::model::KnowledgeLink>,
     /// The document the one file of this import replaces.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub replaces: Option<i64>,
+    pub replaces: Option<crate::model::KnowledgeId>,
+    /// Where the documents are kept (`remote` or `local`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub place: Option<crate::model::KnowledgePlace>,
 }
 
 impl ImportManifest {
@@ -69,6 +72,10 @@ impl ImportManifest {
     /// `replaces` unless the import is exactly one file.
     pub fn new(paths: Vec<String>, folders: Vec<String>, options: KnowledgeImportOptions) -> Result<Self> {
         check_links(&options.links)?;
+
+        if options.replaces.as_ref().is_some_and(|id| !id.is_valid()) {
+            return Err(BusinessError::InvalidInput("that is not a document id".to_owned()));
+        }
 
         if options.replaces.is_some() && !(paths.len() == 1 && folders.is_empty()) {
             return Err(BusinessError::InvalidInput(
@@ -81,6 +88,7 @@ impl ImportManifest {
             folders,
             links: options.links,
             replaces: options.replaces,
+            place: options.place,
         })
     }
 
@@ -120,7 +128,10 @@ pub fn parse_import_event(line: &str) -> Option<KnowledgeImportEvent> {
             path: value.get("path")?.as_str()?.to_owned(),
             status: file_status(value.get("status")?.as_str()?)?,
             reason: value.get("reason").and_then(Value::as_str).map(clean),
-            doc_id: value.get("docId").and_then(Value::as_i64),
+            doc_id: value
+                .get("docId")
+                .and_then(|id| serde_json::from_value::<KnowledgeId>(id.clone()).ok())
+                .filter(KnowledgeId::is_valid),
             chunks: value.get("chunks").map(|_| number(&value, "chunks")),
             embedding: match value.get("embedding").and_then(Value::as_str) {
                 Some("done") => Some(KnowledgeEmbedding::Done),

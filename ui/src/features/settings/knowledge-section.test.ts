@@ -62,7 +62,7 @@ describe('the words of a database check', () => {
 
   it('offers PostgreSQL, MongoDB and libSQL, and never Amazon DocumentDB', () => {
     expect(KNOWLEDGE_REMOTE.kinds).toEqual(['postgres', 'mongodb', 'libsql']);
-    expect(savedConnection({ enabled: true, kind: 'documentdb', urlRedacted: 'mongodb://x@h/db', hasToken: false, embedderSupported: true, configPath: '', problem: null }).kind).toBeNull();
+    expect(savedConnection({ enabled: true, kind: 'documentdb', urlRedacted: 'mongodb://x@h/db', hasToken: false, embedderSupported: true, repositoryDocuments: 'remote', globalDocuments: 'remote', routingSupported: true, configPath: '', problem: null }).kind).toBeNull();
   });
 });
 
@@ -127,7 +127,7 @@ describe('Knowledge section', () => {
 
     await fireEvent.click(within(section()).getByRole('button', { name: 'Save' }));
     expect(await within(section()).findByText('Saved. Remote knowledge is on.')).toBeInTheDocument();
-    expect(invoke).toHaveBeenCalledWith('knowledge_remote_set', { enabled: true, kind: 'postgres', url: 'postgres://me:pw@db.ok.example/knowledge', token: null });
+    expect(invoke).toHaveBeenCalledWith('knowledge_remote_set', { enabled: true, kind: 'postgres', url: 'postgres://me:pw@db.ok.example/knowledge', token: null, repositoryDocuments: 'remote', globalDocuments: 'remote' });
     expect(knowledgeRemote.value?.urlRedacted).toBe('postgres://me@db.ok.example/knowledge');
   });
 });

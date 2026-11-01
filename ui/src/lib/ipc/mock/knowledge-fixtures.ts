@@ -1,9 +1,11 @@
 import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeHeldItem } from '../bindings/KnowledgeHeldItem';
+import type { KnowledgeId } from '../bindings/KnowledgeId';
 import type { KnowledgeLink } from '../bindings/KnowledgeLink';
 import type { KnowledgeOrigin } from '../bindings/KnowledgeOrigin';
 import type { KnowledgeSection } from '../bindings/KnowledgeSection';
 import { fakeSha } from './fake-sha';
+import { numberOf } from './knowledge-routing';
 
 const HOUR = 3_600_000;
 
@@ -16,7 +18,7 @@ function ago(hours: number): string {
 }
 
 export interface Seed {
-  id: number;
+  id: KnowledgeId;
   title: string;
   name: string;
   format: string;
@@ -82,7 +84,7 @@ export function outlineOf(doc: KnowledgeDocument): KnowledgeSection[] {
   const headings = doc.chunkCount >= 6 ? [...names.slice(0, 3), 'Configuration', ...names.slice(3)] : names.slice(0, Math.max(1, doc.chunkCount));
 
   return headings.map((headingPath, ordinal) => ({
-    chunkId: doc.id * 100 + ordinal,
+    chunkId: doc.place === 'local' ? `local:${numberOf(doc.id) * 100 + ordinal}` : numberOf(doc.id) * 100 + ordinal,
     ordinal,
     headingPath,
     tokens: 220 + ordinal * 40,

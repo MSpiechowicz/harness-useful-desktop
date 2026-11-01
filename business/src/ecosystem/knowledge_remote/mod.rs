@@ -21,7 +21,7 @@ use std::path::PathBuf;
 
 pub use check::{knowledge_remote_test, read_check};
 
-use self::file::{ConfigFile, read_config, remove_config, render, write_config};
+use self::file::{ConfigFile, Routes, read_config, remove_config, render, write_config};
 use super::catalog::KNOWLEDGE_SIDECAR;
 use super::knowledge_features::KnowledgeSupport;
 use super::memory_remote::is_documentdb_url;
@@ -29,7 +29,7 @@ use super::sidecar_config::{config_path, path_hint, refuse_blocked, unknown_path
 use super::sidecar_remote_url::{kind_name, kind_of, redact_url, url_and_token};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{KnowledgeRemote, MemoryRemoteKind};
+use crate::model::{KnowledgeRemote, MemoryNotesRouting, MemoryRemoteKind};
 use crate::pi_family::tilde;
 
 /// A change of the team database settings (`knowledge_remote_set`).
@@ -44,6 +44,10 @@ pub struct KnowledgeRemoteChange {
     /// The libSQL token; `None` keeps the saved one, an empty string removes it. Not saved for
     /// PostgreSQL and MongoDB, which take their credentials in the URL.
     pub token: Option<String>,
+    /// Where project documents go (`[routing] repository_documents`); `None` keeps the saved one.
+    pub repository_documents: Option<MemoryNotesRouting>,
+    /// Where global documents go (`[routing] global_documents`); `None` keeps the saved one.
+    pub global_documents: Option<MemoryNotesRouting>,
 }
 
 /// Harness Knowledge's config file, found as the server finds it: `HARNESS_KNOWLEDGE_CONFIG` when
@@ -98,6 +102,9 @@ fn remote_from(config: &ConfigFile, config_path: String, support: KnowledgeSuppo
         url_redacted: url.map(redact_url),
         has_token: config.token.is_some(),
         embedder_supported: support.embedder(),
+        repository_documents: config.repository_documents,
+        global_documents: config.global_documents,
+        routing_supported: support.routing(),
         config_path,
         problem,
     }
@@ -148,7 +155,22 @@ pub fn knowledge_remote_set(
         ));
     }
 
-    write_config(&path, &render(&url, token.as_deref()))?;
+    let routes = Routes {
+        repository: change.repository_documents.unwrap_or(saved.repository_documents),
+        global: change.global_documents.unwrap_or(saved.global_documents),
+    };
+
+    // A server that predates routing refuses the table, so the app never writes one for it.
+    if !support.routing()
+        && (routes.repository != saved.repository_documents || routes.global != saved.global_documents)
+    {
+        return Err(BusinessError::Unsupported(format!(
+            "this {} cannot route documents yet, so update {}",
+            KNOWLEDGE_SIDECAR.binary, KNOWLEDGE_SIDECAR.product
+        )));
+    }
+
+    write_config(&path, &render(&url, token.as_deref(), routes))?;
     tracing::info!(
         kind = kind_name(kind),
         "team knowledge database saved to the Harness Knowledge config"

@@ -5,7 +5,7 @@
 //! See `harness_business::ecosystem::knowledge_embedder` and `crate::sidecar_embedder`.
 
 use harness_business::ecosystem::{KnowledgeSupport, reindex_knowledge};
-use harness_business::model::{KnowledgeReindexed, MemoryEmbedderState, MemoryVectorSwitchResult};
+use harness_business::model::{KnowledgeId, KnowledgeReindexed, MemoryEmbedderState, MemoryVectorSwitchResult};
 use tauri::State;
 use tauri::ipc::Channel;
 
@@ -53,7 +53,10 @@ pub async fn knowledge_embedder_remove_model(state: State<'_, AppState>) -> Comm
 /// the documents `ids` or every document when none are given (30 minutes at most). `process` with
 /// the server's line while no embedder runs.
 #[tauri::command]
-pub async fn knowledge_reindex(state: State<'_, AppState>, ids: Option<Vec<i64>>) -> CommandResult<KnowledgeReindexed> {
+pub async fn knowledge_reindex(
+    state: State<'_, AppState>,
+    ids: Option<Vec<KnowledgeId>>,
+) -> CommandResult<KnowledgeReindexed> {
     let server = state
         .knowledge_features
         .feature_server(&state.env, &state.runner, KnowledgeSupport::embedder, "vector search")

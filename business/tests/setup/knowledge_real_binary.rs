@@ -20,15 +20,16 @@ use std::path::{Path, PathBuf};
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
-    ImportManifest, KnowledgeFeatures, KnowledgeImporter, ListWindow, decide_knowledge_held, docs_server, get_doc,
-    get_knowledge_held, knowledge_held_server, knowledge_pulse, knowledge_recall, list_docs, list_knowledge_held,
-    read_check, read_stats, run_import, search_knowledge,
+    ImportManifest, KnowledgeFeatures, KnowledgeImporter, KnowledgeRemoteChange, ListWindow, decide_knowledge_held,
+    docs_server, get_doc, get_knowledge_held, knowledge_doc_matches, knowledge_held_server, knowledge_pulse,
+    knowledge_recall, knowledge_remote_get, knowledge_remote_set, knowledge_remote_test, list_docs,
+    list_knowledge_held, read_check, read_stats, run_import, search_knowledge,
 };
 use harness_business::env::Env;
 use harness_business::model::{
     KnowledgeApproval, KnowledgeAvailability, KnowledgeDecided, KnowledgeDecision, KnowledgeEmbedding,
     KnowledgeFileStatus, KnowledgeImportEvent, KnowledgeImportOptions, KnowledgeListFilter, KnowledgeOrigin,
-    KnowledgeSearchScope,
+    KnowledgeSearchScope, MemoryNotesRouting, MemoryRemoteKind,
 };
 use harness_business::process::{ExecSpec, ProcessRunner, TokioRunner, TokioSpawner};
 use pretty_assertions::assert_eq;
@@ -167,13 +168,38 @@ fn a_real_server_imports_lists_searches_and_checks() {
     assert!(gateway.links.is_empty(), "an import without links is global");
 
     let docs = wait(docs_server(&env, &runner, &probe)).unwrap();
-    let detail = wait(get_doc(&env, &runner, &docs, gateway.id, None)).unwrap();
+    let detail = wait(get_doc(&env, &runner, &docs, &gateway.id, None)).unwrap();
     assert_eq!(detail.document.id, gateway.id);
     assert!(!detail.sections.is_empty());
 
-    let chunk = detail.sections[0].chunk_id;
-    let detail = wait(get_doc(&env, &runner, &docs, gateway.id, Some(chunk))).unwrap();
+    let chunk = detail.sections[0].chunk_id.clone();
+    let detail = wait(get_doc(&env, &runner, &docs, &gateway.id, Some(&chunk))).unwrap();
     assert!(detail.chunk.expect("the chunk asked for").text.contains("gateway"));
+
+    // the matches inside one document
+    assert!(features.doc_matches && features.routing);
+    let found = wait(knowledge_doc_matches(
+        &env,
+        &runner,
+        &docs,
+        &gateway.id,
+        "thirty seconds",
+        None,
+    ))
+    .unwrap();
+    assert_eq!((found.total, found.matches.len()), (1, 1));
+    assert_eq!(found.matches[0].section, "Timeouts");
+    assert!(found.matches[0].snippet.contains("thirty"));
+    let none = wait(knowledge_doc_matches(
+        &env,
+        &runner,
+        &docs,
+        &gateway.id,
+        "zzzunmatchable",
+        None,
+    ))
+    .unwrap();
+    assert_eq!((none.total, none.matches.len()), (0, 0));
 
     let stats = wait(read_stats(&env, &runner, &docs)).unwrap();
     assert_eq!((stats.documents, stats.embedded_chunks), (2, 0));
@@ -202,7 +228,7 @@ fn a_real_server_imports_lists_searches_and_checks() {
     assert!(!hits.is_empty());
     assert_eq!(hits[0].doc_id, gateway.id);
     assert_eq!(hits[0].title, "Gateway");
-    assert!(hits[0].chunk_id > 0 && hits[0].snippet.to_lowercase().contains("gateway"));
+    assert!(hits[0].chunk_id.is_valid() && hits[0].snippet.to_lowercase().contains("gateway"));
 
     let none = wait(search_knowledge(
         &env,
@@ -238,7 +264,10 @@ fn a_real_server_refuses_an_unknown_proposal_as_not_found() {
     assert!(matches!(error, BusinessError::NotFound(_)), "{error:?}");
 
     for decision in [KnowledgeDecision::Approve, KnowledgeDecision::Reject] {
-        let outcome = wait(decide_knowledge_held(&env, &runner, &held, unknown, decision, None)).unwrap();
+        let outcome = wait(decide_knowledge_held(
+            &env, &runner, &held, unknown, decision, None, None,
+        ))
+        .unwrap();
 
         assert!(matches!(outcome, KnowledgeDecided::NotFound { .. }), "{outcome:?}");
     }
@@ -304,6 +333,7 @@ fn a_real_server_holds_a_proposal_and_approves_only_the_version_shown() {
         &item.id,
         KnowledgeDecision::Approve,
         Some(&stale),
+        None,
     ))
     .unwrap();
     assert!(matches!(outcome, KnowledgeDecided::Changed { .. }), "{outcome:?}");
@@ -315,6 +345,7 @@ fn a_real_server_holds_a_proposal_and_approves_only_the_version_shown() {
         &item.id,
         KnowledgeDecision::Approve,
         Some(&item.revision),
+        None,
     ))
     .unwrap();
     let KnowledgeDecided::Approved {
@@ -332,6 +363,7 @@ fn a_real_server_holds_a_proposal_and_approves_only_the_version_shown() {
         &item.id,
         KnowledgeDecision::Reject,
         None,
+        None,
     ))
     .unwrap();
     assert!(matches!(outcome, KnowledgeDecided::NotFound { .. }), "{outcome:?}");
@@ -348,7 +380,7 @@ fn a_real_server_holds_a_proposal_and_approves_only_the_version_shown() {
     ))
     .unwrap();
     assert_eq!(
-        (docs.total, docs.items[0].id, docs.items[0].origin),
+        (docs.total, docs.items[0].id.clone(), docs.items[0].origin),
         (1, doc_id, KnowledgeOrigin::AgentApproved)
     );
 }
@@ -391,4 +423,49 @@ fn a_real_server_recalls_pointers_for_a_prompt_and_nothing_for_an_unrelated_one(
 
     let unrelated = "What should we order for the team lunch on Friday afternoon?";
     assert_eq!(wait(knowledge_recall(&env, &runner, &probe, unrelated, None)), None);
+}
+
+#[test]
+fn a_real_server_accepts_the_routing_table_the_app_writes() {
+    let Some(real) = real_binary() else { return };
+    let (_home, env) = scene(&real);
+    let runner = TokioRunner;
+    let support = wait(KnowledgeFeatures::new().support(&env, &runner));
+    assert!(support.routing());
+
+    let saved = knowledge_remote_set(
+        &env,
+        KnowledgeRemoteChange {
+            enabled: true,
+            kind: Some(MemoryRemoteKind::Postgres),
+            url: Some("postgres://ana@127.0.0.1:1/knowledge".to_owned()),
+            token: None,
+            repository_documents: Some(MemoryNotesRouting::RemoteLocal),
+            global_documents: Some(MemoryNotesRouting::Local),
+        },
+        support,
+    )
+    .unwrap();
+    assert_eq!(saved.repository_documents, MemoryNotesRouting::RemoteLocal);
+    assert_eq!(
+        knowledge_remote_get(&env, support).global_documents,
+        MemoryNotesRouting::Local
+    );
+
+    // The server reads the file (it refuses an unknown table or value before it checks anything)
+    // and says what each place in use can do.
+    let check = wait(knowledge_remote_test(
+        &env,
+        &runner,
+        MemoryRemoteKind::Postgres,
+        None,
+        None,
+    ));
+    assert!(
+        check
+            .places
+            .as_ref()
+            .is_some_and(|places| places.local.as_ref().is_some_and(|local| local.ok)),
+        "{check:?}"
+    );
 }

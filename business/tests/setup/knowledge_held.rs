@@ -157,13 +157,14 @@ fn an_approval_passes_the_revision_shown_and_answers_the_document_it_made() {
         HELD_ID,
         KnowledgeDecision::Approve,
         Some(REVISION),
+        None,
     ))
     .unwrap();
 
     assert_eq!(
         approved,
         KnowledgeDecided::Approved {
-            doc_id: 12,
+            doc_id: 12.into(),
             status: KnowledgeApproval::Added,
             title: "Retry policy".to_owned(),
             chunks: Some(3),
@@ -181,6 +182,7 @@ fn an_approval_passes_the_revision_shown_and_answers_the_document_it_made() {
         &path,
         HELD_ID,
         KnowledgeDecision::Reject,
+        None,
         None,
     ))
     .unwrap();
@@ -210,13 +212,14 @@ fn an_unchanged_approval_has_no_chunks_to_report() {
         HELD_ID,
         KnowledgeDecision::Approve,
         None,
+        None,
     ))
     .unwrap();
 
     assert_eq!(
         approved,
         KnowledgeDecided::Approved {
-            doc_id: 5,
+            doc_id: 5.into(),
             status: KnowledgeApproval::Unchanged,
             title: "Retry policy".to_owned(),
             chunks: None,
@@ -241,6 +244,7 @@ fn the_servers_refusals_are_outcomes_with_its_sentence() {
             HELD_ID,
             KnowledgeDecision::Approve,
             Some(REVISION),
+            None,
         ))
         .unwrap();
 
@@ -271,6 +275,7 @@ fn a_failure_that_is_no_refusal_is_an_error_and_an_old_server_is_unsupported() {
         HELD_ID,
         KnowledgeDecision::Approve,
         None,
+        None,
     ))
     .expect_err("failed");
     assert!(matches!(error, BusinessError::Process(message) if message.contains("data folder")));
@@ -282,6 +287,7 @@ fn a_failure_that_is_no_refusal_is_an_error_and_an_old_server_is_unsupported() {
         &path,
         HELD_ID,
         KnowledgeDecision::Reject,
+        None,
         None,
     ))
     .expect_err("usage");
@@ -315,7 +321,8 @@ fn an_id_or_revision_that_is_not_one_runs_nothing() {
                 &path,
                 HELD_ID,
                 KnowledgeDecision::Approve,
-                Some(revision)
+                Some(revision),
+                None,
             )),
             Err(BusinessError::InvalidInput(_))
         ));
@@ -357,4 +364,38 @@ fn the_counts_follow_the_generation_and_the_queue_when_there_is_one() {
 
     let broken = cli(ALL_FEATURES).starting(&["stats"], exits(1, "", "harness-knowledge: locked\n"));
     assert!(wait(knowledge_pulse(&env, &broken, &KnowledgeFeatures::new())).is_none());
+}
+
+#[test]
+fn an_approval_names_the_place_when_given_and_a_local_doc_id_stays_a_string() {
+    use harness_business::model::{KnowledgeId, KnowledgePlace};
+
+    let (_dir, env) = installed();
+    let server_cli = cli(ALL_FEATURES).starting(
+        &["held", "approve"],
+        answers(json!({
+            "approved": { "heldId": HELD_ID, "docId": "local:12", "status": "added", "title": "Retry policy", "chunks": 3, "embedding": "done" }
+        })),
+    );
+
+    let approved = wait(decide_knowledge_held(
+        &env,
+        &server_cli,
+        &server(&env),
+        HELD_ID,
+        KnowledgeDecision::Approve,
+        Some(REVISION),
+        Some(KnowledgePlace::Local),
+    ))
+    .unwrap();
+
+    assert!(
+        matches!(approved, KnowledgeDecided::Approved { doc_id, .. } if doc_id == KnowledgeId::Local("local:12".to_owned()))
+    );
+    assert_eq!(
+        server_cli.commands().pop().unwrap(),
+        [
+            "held", "approve", "--json", HELD_ID, "--expect", REVISION, "--place", "local"
+        ]
+    );
 }

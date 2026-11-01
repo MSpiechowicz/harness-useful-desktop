@@ -5,6 +5,7 @@
   import Badge from '$lib/components/Badge.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { KnowledgeId } from '$lib/ipc/knowledge-id';
 
   import type { ChunkTexts } from './chunk-texts.svelte';
   import ChunkPart from './ChunkPart.svelte';
@@ -12,7 +13,7 @@
   interface Props {
     texts: ChunkTexts;
     /** The chunks one section is cut into, in order. */
-    chunkIds: number[];
+    chunkIds: KnowledgeId[];
   }
 
   let { texts, chunkIds }: Props = $props();

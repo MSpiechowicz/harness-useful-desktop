@@ -3,9 +3,11 @@ import type { KnowledgeDecided } from './bindings/KnowledgeDecided';
 import type { KnowledgeDecision } from './bindings/KnowledgeDecision';
 import type { KnowledgeDeleted } from './bindings/KnowledgeDeleted';
 import type { KnowledgeDetail } from './bindings/KnowledgeDetail';
+import type { KnowledgeDocMatches } from './bindings/KnowledgeDocMatches';
 import type { KnowledgeHeldItem } from './bindings/KnowledgeHeldItem';
 import type { KnowledgeHeldPage } from './bindings/KnowledgeHeldPage';
 import type { KnowledgeHit } from './bindings/KnowledgeHit';
+import type { KnowledgeId } from './bindings/KnowledgeId';
 import type { KnowledgeImportEvent } from './bindings/KnowledgeImportEvent';
 import type { KnowledgeImportOptions } from './bindings/KnowledgeImportOptions';
 import type { KnowledgeImportResult } from './bindings/KnowledgeImportResult';
@@ -13,6 +15,7 @@ import type { KnowledgeIntake } from './bindings/KnowledgeIntake';
 import type { KnowledgeLink } from './bindings/KnowledgeLink';
 import type { KnowledgeListFilter } from './bindings/KnowledgeListFilter';
 import type { KnowledgePage } from './bindings/KnowledgePage';
+import type { KnowledgePlace } from './bindings/KnowledgePlace';
 import type { KnowledgePulse } from './bindings/KnowledgePulse';
 import type { KnowledgeReindexed } from './bindings/KnowledgeReindexed';
 import type { KnowledgeRemote } from './bindings/KnowledgeRemote';
@@ -22,10 +25,21 @@ import type { KnowledgeStats } from './bindings/KnowledgeStats';
 import type { KnowledgeStatus } from './bindings/KnowledgeStatus';
 import type { KnowledgeSwitchResult } from './bindings/KnowledgeSwitchResult';
 import type { MemoryEmbedderState } from './bindings/MemoryEmbedderState';
+import type { MemoryNotesRouting } from './bindings/MemoryNotesRouting';
 import type { MemoryRemoteKind } from './bindings/MemoryRemoteKind';
 import type { MemoryVectorSwitchResult } from './bindings/MemoryVectorSwitchResult';
 import { cmd } from './command-spec';
 import type { EventSink } from './transport';
+
+/** What `knowledge_remote_set` takes. */
+export interface KnowledgeRemoteSetArgs {
+  enabled: boolean;
+  kind: MemoryRemoteKind | null;
+  url: string | null;
+  token: string | null;
+  repositoryDocuments?: MemoryNotesRouting;
+  globalDocuments?: MemoryNotesRouting;
+}
 
 /** The `knowledge_*` commands, spread into `commands`. */
 export const knowledgeCommands = {
@@ -43,9 +57,10 @@ export const knowledgeCommands = {
   knowledge_remote_get: cmd<undefined, KnowledgeRemote>(),
   /**
    * Saves the team database (`enabled`) or removes it (the file is deleted). A null `url`/`token` keeps the saved one, `token: ''` clears it,
-   * the token is stored for libSQL only. `invalidInput` for a URL or token the server would refuse, or a file the app must not overwrite.
+   * the token is stored for libSQL only. `repositoryDocuments` and `globalDocuments` say where documents are kept (omitted keeps the saved
+   * ones, `unsupported` while the server lacks `routing`). `invalidInput` for a URL or token the server would refuse, or a file the app must not overwrite.
    */
-  knowledge_remote_set: cmd<{ enabled: boolean; kind: MemoryRemoteKind | null; url: string | null; token: string | null }, KnowledgeRemote>(),
+  knowledge_remote_set: cmd<KnowledgeRemoteSetArgs, KnowledgeRemote>(),
   /** Runs `harness-knowledge check` with the given URL/token, or the saved ones where null. Never rejects for a failed check: see `ok` and `problem`. */
   knowledge_remote_test: cmd<{ kind: MemoryRemoteKind; url: string | null; token: string | null }, KnowledgeCheck>(),
   /**
@@ -58,20 +73,22 @@ export const knowledgeCommands = {
   /** Stops the embedder, deletes the model files and the vectors and answers its state (`off`). Leaves `knowledgeVectorSearch` as it is. */
   knowledge_embedder_remove_model: cmd<undefined, MemoryEmbedderState>(),
   /** Embeds the chunks that have no vector yet (all documents, or the given ones). */
-  knowledge_reindex: cmd<{ ids: number[] | null }, KnowledgeReindexed>(),
+  knowledge_reindex: cmd<{ ids: KnowledgeId[] | null }, KnowledgeReindexed>(),
   /**
    * One page of documents. `offset` is a multiple of `limit` (1 to 200, 50 when null). Never rejects for a missing or old server: see
    * `availability` (`items` is empty unless `available`). `invalidInput` for a bad limit, offset, format or repository key.
    */
   knowledge_docs_list: cmd<{ filter: KnowledgeListFilter | null; offset: number | null; limit: number | null; query: string | null }, KnowledgePage>(),
   /** A document with its outline, and the chunk `chunkId` of it with its text when given. */
-  knowledge_doc_get: cmd<{ id: number; chunkId: number | null }, KnowledgeDetail>(),
+  knowledge_doc_get: cmd<{ id: KnowledgeId; chunkId: KnowledgeId | null }, KnowledgeDetail>(),
+  /** The chunks of a document that match `query` (a phrase, in heading and text), in document order, with their total. Needs `docMatches`. */
+  knowledge_doc_matches: cmd<{ id: KnowledgeId; query: string; limit: number | null }, KnowledgeDocMatches>(),
   /** Renames a document (1 to 300 characters) and answers the title as stored. */
-  knowledge_doc_rename: cmd<{ id: number; title: string }, string>(),
+  knowledge_doc_rename: cmd<{ id: KnowledgeId; title: string }, string>(),
   /** Replaces the repositories and path globs a document links to (none: global) and answers them as stored. */
-  knowledge_doc_links_set: cmd<{ id: number; links: KnowledgeLink[] }, KnowledgeLink[]>(),
+  knowledge_doc_links_set: cmd<{ id: KnowledgeId; links: KnowledgeLink[] }, KnowledgeLink[]>(),
   /** Deletes documents with their chunks. Ids that do not exist count nothing. */
-  knowledge_docs_delete: cmd<{ ids: number[] }, KnowledgeDeleted>(),
+  knowledge_docs_delete: cmd<{ ids: KnowledgeId[] }, KnowledgeDeleted>(),
   /** The repositories that have documents, most documents first, and how many documents are global. */
   knowledge_repos_list: cmd<undefined, KnowledgeReposPage>(),
   /** What the database holds: documents, chunks, vectors, size. */
@@ -86,7 +103,7 @@ export const knowledgeCommands = {
    * Approves (imports) or rejects (throws away) a proposal, only the version whose `revision` is given. A refusal is an answer
    * (`notFound`, `changed`, `refused`), not an error.
    */
-  knowledge_held_decide: cmd<{ id: string; decision: KnowledgeDecision; revision: string | null }, KnowledgeDecided>(),
+  knowledge_held_decide: cmd<{ id: string; decision: KnowledgeDecision; revision: string | null; place?: KnowledgePlace }, KnowledgeDecided>(),
   /** Sends the database's counts to `onEvent` now and whenever one changes, replacing the previous listener: the live list and the review badge. */
   knowledge_changes_listen: cmd<{ onEvent: EventSink<KnowledgePulse> }, null>(),
   /** Tells that the Knowledge view is open or closed: the counts are read every 4 s while it is, every 30 s otherwise. */

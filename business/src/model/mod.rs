@@ -99,9 +99,10 @@ pub use hook::{
 };
 pub use ipc_error::{IpcError, IpcErrorCode};
 pub use knowledge::{
-    KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocument, KnowledgeFeatures,
-    KnowledgeLink, KnowledgeListFilter, KnowledgeOrigin, KnowledgePage, KnowledgeRepoCount, KnowledgeReposPage,
-    KnowledgeScope, KnowledgeSection, KnowledgeSort, KnowledgeStats, KnowledgeStatus, KnowledgeSwitchResult,
+    KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatch, KnowledgeDocMatches,
+    KnowledgeDocument, KnowledgeFeatures, KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgeOrigin,
+    KnowledgePage, KnowledgePlace, KnowledgePlaceStats, KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope,
+    KnowledgeSection, KnowledgeSort, KnowledgeStats, KnowledgeStatsPlaces, KnowledgeStatus, KnowledgeSwitchResult,
 };
 pub use knowledge_held::{
     KnowledgeApproval, KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeHit,
@@ -113,7 +114,8 @@ pub use knowledge_import::{
     KnowledgeSkipped,
 };
 pub use knowledge_remote::{
-    KnowledgeCapabilities, KnowledgeCheck, KnowledgeIndexState, KnowledgeProblem, KnowledgeRemote,
+    KnowledgeCapabilities, KnowledgeCheck, KnowledgeIndexState, KnowledgePlaceCheck, KnowledgePlaceChecks,
+    KnowledgeProblem, KnowledgeRemote,
 };
 pub use memory_code::{CodeBuildEvent, CodeIndexState};
 pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};

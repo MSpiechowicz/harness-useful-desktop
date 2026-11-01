@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::KnowledgeLink;
+use super::{KnowledgeId, KnowledgeLink, KnowledgePlace};
 
 /// A file or folder the user picked or dropped, as the shell checked it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -131,8 +131,7 @@ pub enum KnowledgeImportEvent {
         /// Why it was skipped or failed.
         reason: Option<String>,
         /// Its document, when it has one.
-        #[ts(type = "number | null")]
-        doc_id: Option<i64>,
+        doc_id: Option<KnowledgeId>,
         /// How many chunks it has.
         chunks: Option<u32>,
         /// Whether its chunks got their vectors.
@@ -175,8 +174,12 @@ pub struct KnowledgeImportOptions {
     #[serde(default)]
     pub links: Vec<KnowledgeLink>,
     /// The document the one file of this import replaces in place, whatever its source.
-    #[ts(type = "number | null")]
-    pub replaces: Option<i64>,
+    pub replaces: Option<KnowledgeId>,
+    /// Where the documents are kept when both places are in use (the routing's default for
+    /// their kind when not given).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub place: Option<KnowledgePlace>,
 }
 
 /// How a finished import ended, for the command's answer.

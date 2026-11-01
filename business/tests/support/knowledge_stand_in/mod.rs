@@ -19,7 +19,7 @@ use crate::setup_support::play;
 use crate::team_support::{Cli, exits};
 
 /// What a current server lists.
-pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\n";
+pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\n";
 
 /// A repository key the tests link documents to.
 pub const REPO: &str = "git:github.com/acme/widget";

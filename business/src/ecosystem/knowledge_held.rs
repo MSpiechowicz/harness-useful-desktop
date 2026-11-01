@@ -10,7 +10,7 @@
 //!   of its text), `held get --json ID` prints `{"held": {...}}` with the whole `content`. The
 //!   queue is small and has no paging of its own, so a [`ListWindow`] filters it (`query` finds
 //!   its words in the title or the file name), orders it and cuts the page here.
-//! - `held approve --json ID [--expect REVISION]` prints `{"approved": {heldId, docId, status,
+//! - `held approve --json ID [--expect REVISION] [--place remote|local]` prints `{"approved": {heldId, docId, status,
 //!   title, chunks, embedding}}`, `held reject --json ID [--expect REVISION]` `{"rejected": ID}`.
 //!   The id is the proposal's UUID, the revision the one its item showed.
 //! - A refusal exits 1 and prints `{"error": "notFound" | "changed" | "refused", "message"}` on
@@ -36,7 +36,7 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     KnowledgeApproval, KnowledgeAvailability, KnowledgeDecided, KnowledgeDecision, KnowledgeEmbedding,
-    KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeLink, KnowledgePulse,
+    KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeId, KnowledgeLink, KnowledgePlace, KnowledgePulse,
 };
 use crate::process::ProcessRunner;
 
@@ -139,6 +139,7 @@ pub async fn decide_knowledge_held(
     id: &str,
     decision: KnowledgeDecision,
     expect: Option<&str>,
+    place: Option<KnowledgePlace>,
 ) -> Result<KnowledgeDecided> {
     let (verb, name) = match decision {
         KnowledgeDecision::Approve => ("approve", "held approve"),
@@ -150,6 +151,15 @@ pub async fn decide_knowledge_held(
 
     if let Some(revision) = expect {
         args.extend(["--expect".into(), check_revision(revision)?.into()]);
+    }
+
+    if let Some(place) = place.filter(|_| decision == KnowledgeDecision::Approve) {
+        let name = match place {
+            KnowledgePlace::Remote => "remote",
+            KnowledgePlace::Local => "local",
+        };
+
+        args.extend(["--place".into(), name.into()]);
     }
 
     let data = match run_held(env, runner, server, call(name, args)).await? {
@@ -228,7 +238,7 @@ async fn held_total(env: &Env, runner: &dyn ProcessRunner, server: &Path) -> Opt
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Approved {
-    doc_id: i64,
+    doc_id: KnowledgeId,
     status: KnowledgeApproval,
     title: String,
     chunks: Option<u32>,
@@ -250,7 +260,7 @@ struct HeldFields {
     project_path: Option<String>,
     repo_key: Option<String>,
     source_path: Option<String>,
-    replaces: Option<i64>,
+    replaces: Option<KnowledgeId>,
     revision: String,
     created_at: String,
 }

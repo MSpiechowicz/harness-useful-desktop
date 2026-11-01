@@ -228,7 +228,7 @@ fn a_failing_server_is_its_line_and_an_older_one_is_outdated() {
 
     // `docs get` is a usage error (exit 2) on a server that predates it.
     let old = cli(ALL_FEATURES);
-    let error = wait(get_doc(&env, &old, &server(&env), 7, None)).expect_err("old");
+    let error = wait(get_doc(&env, &old, &server(&env), &7.into(), None)).expect_err("old");
     assert!(matches!(error, BusinessError::Unsupported(message) if message.contains("predates `docs get`")));
 }
 
@@ -244,7 +244,7 @@ fn a_document_comes_with_its_outline_and_a_chunk_when_asked() {
         })),
     );
 
-    let detail = wait(get_doc(&env, &server_cli, &server(&env), 7, Some(31))).unwrap();
+    let detail = wait(get_doc(&env, &server_cli, &server(&env), &7.into(), Some(&31.into()))).unwrap();
 
     assert_eq!(detail.document.title, "guide");
     assert_eq!(detail.sections[0].heading_path, "Guide > Setup");
@@ -253,7 +253,7 @@ fn a_document_comes_with_its_outline_and_a_chunk_when_asked() {
         last_args(&server_cli),
         ["docs", "get", "--json", "7", "--sections", "--chunk", "31"]
     );
-    assert!(wait(get_doc(&env, &server_cli, &server(&env), 0, None)).is_err());
+    assert!(wait(get_doc(&env, &server_cli, &server(&env), &0.into(), None)).is_err());
 }
 
 #[test]
@@ -268,7 +268,7 @@ fn links_travel_on_stdin_and_are_checked_first() {
         answers(json!({ "id": 7, "links": [{ "repo": REPO, "globs": ["src/api/**"] }] })),
     );
 
-    let stored = wait(set_links(&env, &server_cli, &server(&env), 7, &links)).unwrap();
+    let stored = wait(set_links(&env, &server_cli, &server(&env), &7.into(), &links)).unwrap();
 
     assert_eq!(stored, links);
     assert_eq!(last_args(&server_cli), ["docs", "links", "set", "--json", "7"]);
@@ -283,7 +283,7 @@ fn links_travel_on_stdin_and_are_checked_first() {
         globs: vec![],
     }];
     assert!(matches!(
-        wait(set_links(&env, &server_cli, &server(&env), 7, &bad)),
+        wait(set_links(&env, &server_cli, &server(&env), &7.into(), &bad)),
         Err(BusinessError::InvalidInput(_))
     ));
     assert_eq!(server_cli.commands().len(), 1, "the refused links ran nothing");
@@ -310,19 +310,24 @@ fn rename_delete_repos_and_stats_read_what_the_server_prints() {
     let path = server(&env);
 
     assert_eq!(
-        wait(rename_doc(&env, &server_cli, &path, 7, "  Guide v2 ")).unwrap(),
+        wait(rename_doc(&env, &server_cli, &path, &7.into(), "  Guide v2 ")).unwrap(),
         "Guide v2"
     );
     assert_eq!(
         last_args(&server_cli),
         ["docs", "rename", "--json", "7", "--title", "Guide v2"]
     );
-    assert!(wait(rename_doc(&env, &server_cli, &path, 7, "   ")).is_err());
+    assert!(wait(rename_doc(&env, &server_cli, &path, &7.into(), "   ")).is_err());
 
-    assert_eq!(wait(delete_docs(&env, &server_cli, &path, &[7, 8])).unwrap().deleted, 2);
+    assert_eq!(
+        wait(delete_docs(&env, &server_cli, &path, &[7.into(), 8.into()]))
+            .unwrap()
+            .deleted,
+        2
+    );
     assert_eq!(last_args(&server_cli), ["docs", "delete", "--json", "7", "8"]);
     assert!(wait(delete_docs(&env, &server_cli, &path, &[])).is_err());
-    assert!(wait(delete_docs(&env, &server_cli, &path, &[0])).is_err());
+    assert!(wait(delete_docs(&env, &server_cli, &path, &[0.into()])).is_err());
 
     let repos = wait(list_knowledge_repos(&env, &server_cli, &probe));
     assert_eq!(
@@ -333,4 +338,96 @@ fn rename_delete_repos_and_stats_read_what_the_server_prints() {
     let stats = wait(read_stats(&env, &server_cli, &path)).unwrap();
     assert_eq!((stats.documents, stats.embedded_chunks, stats.generation), (13, 88, 17));
     assert_eq!(stats.model.as_deref(), Some("multilingual-e5-small"));
+}
+
+#[test]
+fn local_ids_travel_back_exactly_through_get_delete_and_matches() {
+    use harness_business::ecosystem::knowledge_doc_matches;
+    use harness_business::model::{KnowledgeId, KnowledgePlace};
+
+    let (_dir, env) = installed();
+    let local = KnowledgeId::Local("local:12".to_owned());
+    let chunk = KnowledgeId::Local("local:340".to_owned());
+    let mut guide = document(12, "guide");
+    guide["id"] = json!("local:12");
+    guide["place"] = json!("local");
+    let server_cli = cli(ALL_FEATURES)
+        .starting(
+            &["docs", "list"],
+            answers(json!({
+                "items": [guide, document(8, "api")],
+                "total": 2
+            })),
+        )
+        .starting(
+            &["docs", "get"],
+            answers(json!({
+                "document": document(7, "guide"),
+                "sections": [{"chunkId": "local:340", "ordinal": 0, "headingPath": "Guide", "tokens": 2, "charStart": 0, "charEnd": 9}],
+            })),
+        )
+        .starting(&["docs", "delete"], answers(json!({ "deleted": 1 })))
+        .starting(
+            &["docs", "matches"],
+            answers(json!({
+                "matches": [{ "chunkId": "local:340", "ordinal": 0, "section": "Guide > Setup", "snippet": "install the gateway" }],
+                "total": 3
+            })),
+        );
+    let path = server(&env);
+
+    let detail = wait(get_doc(&env, &server_cli, &path, &local, Some(&chunk))).unwrap();
+    assert_eq!(detail.sections[0].chunk_id, chunk);
+    assert_eq!(
+        last_args(&server_cli),
+        [
+            "docs",
+            "get",
+            "--json",
+            "local:12",
+            "--sections",
+            "--chunk",
+            "local:340"
+        ]
+    );
+
+    wait(delete_docs(&env, &server_cli, &path, &[local.clone(), 8.into()])).unwrap();
+    assert_eq!(last_args(&server_cli), ["docs", "delete", "--json", "local:12", "8"]);
+
+    let found = wait(knowledge_doc_matches(
+        &env,
+        &server_cli,
+        &path,
+        &local,
+        "  gateway ",
+        Some(5),
+    ))
+    .unwrap();
+    assert_eq!((found.total, found.matches[0].chunk_id.clone()), (3, chunk));
+    assert_eq!(
+        last_args(&server_cli),
+        [
+            "docs", "matches", "--json", "local:12", "--query", "gateway", "--limit", "5"
+        ]
+    );
+    assert!(wait(knowledge_doc_matches(&env, &server_cli, &path, &local, "  ", None)).is_err());
+    assert!(wait(knowledge_doc_matches(&env, &server_cli, &path, &local, "x", Some(51))).is_err());
+
+    for bad in ["local:", "local:0", "local:1:2:3", "remote:1", "12"] {
+        let id = KnowledgeId::Local(bad.to_owned());
+        assert!(wait(get_doc(&env, &server_cli, &path, &id, None)).is_err(), "{bad}");
+    }
+
+    let probe = KnowledgeFeatures::new();
+    let page = wait(list_docs(
+        &env,
+        &server_cli,
+        &probe,
+        &KnowledgeListFilter::default(),
+        &window(0, 50, None, None),
+    ))
+    .unwrap();
+    assert_eq!(page.items[0].id, local);
+    assert_eq!(page.items[0].place, Some(KnowledgePlace::Local));
+    assert_eq!(page.items[1].place, None);
 }

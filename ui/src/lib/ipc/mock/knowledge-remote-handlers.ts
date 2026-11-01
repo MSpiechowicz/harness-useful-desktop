@@ -4,6 +4,8 @@ import type { KnowledgeRemote } from '../bindings/KnowledgeRemote';
 import type { MemoryRemoteKind } from '../bindings/MemoryRemoteKind';
 import type { CommandArgs } from '../commands';
 import { CHECK_MS, invalid, KIND_NAMES, kindOf, redact, tokenToSave, urlToSave, urlToTest } from './memory-remote-handlers';
+import type { DocumentRouting } from '$lib/utils/knowledge-routing';
+
 import type { Handlers } from './types';
 
 /** Starting states of the Knowledge team database settings, picked with `?kremote=` in the preview. */
@@ -73,8 +75,9 @@ function check(url: string, kind: MemoryRemoteKind): KnowledgeCheck {
 }
 
 /** Team database settings kept in memory: `knowledge_remote_get/set/test` like the real backend, without a real server. `hasEmbedder` is whether the installed Harness Knowledge lists an embedder (none installed, or an old one, does not). */
-export function knowledgeRemoteHandlers(scenario: () => KnowledgeRemoteScenario = knowledgeRemoteScenarioFromLocation, hasEmbedder: () => boolean = () => true): Pick<Handlers, 'knowledge_remote_get' | 'knowledge_remote_set' | 'knowledge_remote_test'> {
+export function knowledgeRemoteHandlers(scenario: () => KnowledgeRemoteScenario = knowledgeRemoteScenarioFromLocation, hasEmbedder: () => boolean = () => true, routing: DocumentRouting = { repositoryDocuments: 'remote', globalDocuments: 'remote' }): Pick<Handlers, 'knowledge_remote_get' | 'knowledge_remote_set' | 'knowledge_remote_test'> {
   let saved: Saved | null = null;
+  const routes = { ...routing };
   const current = (): Saved => (saved ??= initial(scenario()));
 
   function view(): KnowledgeRemote {
@@ -86,6 +89,9 @@ export function knowledgeRemoteHandlers(scenario: () => KnowledgeRemoteScenario 
       urlRedacted: file.url ? redact(file.url) : null,
       hasToken: file.token !== null,
       embedderSupported: hasEmbedder(),
+      repositoryDocuments: routes.repositoryDocuments,
+      globalDocuments: routes.globalDocuments,
+      routingSupported: hasEmbedder(),
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };
@@ -107,6 +113,9 @@ export function knowledgeRemoteHandlers(scenario: () => KnowledgeRemoteScenario 
     if (!args.kind) {
       throw invalid('pick the kind of remote database');
     }
+
+    routes.repositoryDocuments = args.repositoryDocuments ?? routes.repositoryDocuments;
+    routes.globalDocuments = args.globalDocuments ?? routes.globalDocuments;
 
     const url = urlToSave(file.url, args.url, args.kind);
 

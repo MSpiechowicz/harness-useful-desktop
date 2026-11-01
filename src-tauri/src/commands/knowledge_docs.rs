@@ -8,13 +8,14 @@
 //! Knowledge is not installed, `unsupported` when it predates it. A list never fails for that:
 //! see the page's `availability`.
 
+use harness_business::ecosystem::KnowledgeSupport;
 use harness_business::ecosystem::{
-    ListWindow, delete_docs, docs_server, get_doc, list_docs, list_knowledge_repos, read_stats, rename_doc,
-    search_knowledge, set_links,
+    ListWindow, delete_docs, docs_server, get_doc, knowledge_doc_matches as find_matches, list_docs,
+    list_knowledge_repos, read_stats, rename_doc, search_knowledge, set_links,
 };
 use harness_business::model::{
-    KnowledgeDeleted, KnowledgeDetail, KnowledgeHit, KnowledgeLink, KnowledgeListFilter, KnowledgePage,
-    KnowledgeReposPage, KnowledgeSearchScope, KnowledgeStats,
+    KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches, KnowledgeHit, KnowledgeId, KnowledgeLink,
+    KnowledgeListFilter, KnowledgePage, KnowledgeReposPage, KnowledgeSearchScope, KnowledgeStats,
 };
 use tauri::State;
 
@@ -46,20 +47,43 @@ pub async fn knowledge_docs_list(
 #[tauri::command]
 pub async fn knowledge_doc_get(
     state: State<'_, AppState>,
-    id: i64,
-    chunk_id: Option<i64>,
+    id: KnowledgeId,
+    chunk_id: Option<KnowledgeId>,
 ) -> CommandResult<KnowledgeDetail> {
     let server = docs_server(&state.env, &state.runner, &state.knowledge_features).await?;
 
-    Ok(get_doc(&state.env, &state.runner, &server, id, chunk_id).await?)
+    Ok(get_doc(&state.env, &state.runner, &server, &id, chunk_id.as_ref()).await?)
+}
+
+/// The chunks of a document that match `query` (all its words as a phrase, in heading and text), in
+/// document order, at most `limit` (1 to 50, 20 when not given) with their total. `unsupported`
+/// for a server without `doc-matches`.
+#[tauri::command]
+pub async fn knowledge_doc_matches(
+    state: State<'_, AppState>,
+    id: KnowledgeId,
+    query: String,
+    limit: Option<u32>,
+) -> CommandResult<KnowledgeDocMatches> {
+    let server = state
+        .knowledge_features
+        .feature_server(
+            &state.env,
+            &state.runner,
+            KnowledgeSupport::doc_matches,
+            "matches in a document",
+        )
+        .await?;
+
+    Ok(find_matches(&state.env, &state.runner, &server, &id, &query, limit).await?)
 }
 
 /// Renames a document (1 to 300 characters) and answers the title as stored.
 #[tauri::command]
-pub async fn knowledge_doc_rename(state: State<'_, AppState>, id: i64, title: String) -> CommandResult<String> {
+pub async fn knowledge_doc_rename(state: State<'_, AppState>, id: KnowledgeId, title: String) -> CommandResult<String> {
     let server = docs_server(&state.env, &state.runner, &state.knowledge_features).await?;
 
-    Ok(rename_doc(&state.env, &state.runner, &server, id, &title).await?)
+    Ok(rename_doc(&state.env, &state.runner, &server, &id, &title).await?)
 }
 
 /// Replaces the links of a document (at most 32 repositories with at most 32 path globs each, none
@@ -68,18 +92,21 @@ pub async fn knowledge_doc_rename(state: State<'_, AppState>, id: i64, title: St
 #[tauri::command]
 pub async fn knowledge_doc_links_set(
     state: State<'_, AppState>,
-    id: i64,
+    id: KnowledgeId,
     links: Vec<KnowledgeLink>,
 ) -> CommandResult<Vec<KnowledgeLink>> {
     let server = docs_server(&state.env, &state.runner, &state.knowledge_features).await?;
 
-    Ok(set_links(&state.env, &state.runner, &server, id, &links).await?)
+    Ok(set_links(&state.env, &state.runner, &server, &id, &links).await?)
 }
 
 /// Deletes 1 to 1000 documents with their chunks and index entries (ids that do not exist count
 /// nothing).
 #[tauri::command]
-pub async fn knowledge_docs_delete(state: State<'_, AppState>, ids: Vec<i64>) -> CommandResult<KnowledgeDeleted> {
+pub async fn knowledge_docs_delete(
+    state: State<'_, AppState>,
+    ids: Vec<KnowledgeId>,
+) -> CommandResult<KnowledgeDeleted> {
     let server = docs_server(&state.env, &state.runner, &state.knowledge_features).await?;
 
     Ok(delete_docs(&state.env, &state.runner, &server, &ids).await?)

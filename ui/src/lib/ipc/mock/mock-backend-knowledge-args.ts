@@ -13,6 +13,7 @@ export const KNOWLEDGE_ARGS: { [K in Extract<CommandName, `knowledge_${string}`>
   knowledge_reindex: { ids: null },
   knowledge_docs_list: { filter: null, offset: 0, limit: 50, query: null },
   knowledge_doc_get: { id: 1, chunkId: 100 },
+  knowledge_doc_matches: { id: 1, query: 'install', limit: null },
   knowledge_doc_rename: { id: 1, title: 'Architecture' },
   knowledge_doc_links_set: { id: 1, links: [{ repo: 'git:github.com/useful/harness-desktop', globs: ['src/**'] }] },
   knowledge_docs_delete: { ids: [10] },

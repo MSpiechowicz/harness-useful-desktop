@@ -8,6 +8,7 @@ import type { KnowledgeScope } from '$lib/ipc/bindings/KnowledgeScope';
 import type { KnowledgeSort } from '$lib/ipc/bindings/KnowledgeSort';
 import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
+import { idFromKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
 import { reachKey } from './memory-reach';
@@ -65,7 +66,7 @@ export class KnowledgeDocsStore {
         query: search === '' ? null : search,
       });
     });
-    this.detail = new ViewLoader((key) => transport.invoke('knowledge_doc_get', { id: Number(key), chunkId: null }), { goneIsFinal: true });
+    this.detail = new ViewLoader((key) => transport.invoke('knowledge_doc_get', { id: idFromKey(key), chunkId: null }), { goneIsFinal: true });
     this.repos = new ViewLoader(() => transport.invoke('knowledge_repos_list', undefined));
   }
 
@@ -75,7 +76,7 @@ export class KnowledgeDocsStore {
   }
 
   /** Renames a document and answers the title as stored; null (with a toast) when the server refused. */
-  async rename(id: number, title: string): Promise<string | null> {
+  async rename(id: KnowledgeId, title: string): Promise<string | null> {
     try {
       const stored = await this.transport.invoke('knowledge_doc_rename', { id, title });
 
@@ -90,7 +91,7 @@ export class KnowledgeDocsStore {
   }
 
   /** Replaces what a document links to and answers the links as stored; null (with a toast) when the server refused. */
-  async setLinks(id: number, links: KnowledgeLink[]): Promise<KnowledgeLink[] | null> {
+  async setLinks(id: KnowledgeId, links: KnowledgeLink[]): Promise<KnowledgeLink[] | null> {
     try {
       const stored = await this.transport.invoke('knowledge_doc_links_set', { id, links });
 
@@ -105,7 +106,7 @@ export class KnowledgeDocsStore {
   }
 
   /** Deletes documents, then reads again so their rows are gone (or back, when the call failed). Answers how many went; null (with a toast) on failure. */
-  async remove(ids: number[]): Promise<KnowledgeDeleted | null> {
+  async remove(ids: KnowledgeId[]): Promise<KnowledgeDeleted | null> {
     try {
       const deleted = await this.transport.invoke('knowledge_docs_delete', { ids });
 

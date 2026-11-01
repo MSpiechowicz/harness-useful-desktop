@@ -1,6 +1,7 @@
 import type { Sort } from '$lib/components/table';
 import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
+import type { KnowledgeId } from '$lib/ipc/knowledge-id';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
 import type { NoteUsefulFilter } from '$lib/ipc/bindings/NoteUsefulFilter';
 import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
@@ -96,7 +97,7 @@ export class ViewState {
    * their format (null for all), sort and page (from 0), and the review queue's page.
    */
   knowledgeTab = $state<'docs' | 'review'>('docs');
-  knowledgeDocId = $state<number | null>(null);
+  knowledgeDocId = $state<KnowledgeId | null>(null);
   knowledgeQuery = $state('');
   knowledgeScope = $state<string>('all');
   knowledgeFormat = $state<string | null>(null);

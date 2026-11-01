@@ -21,7 +21,7 @@ use super::sidecar_embedder::{
 };
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::KnowledgeReindexed;
+use crate::model::{KnowledgeId, KnowledgeReindexed};
 use crate::process::ProcessRunner;
 
 /// How long a reindex may take (30 minutes: a large library embeds at a few chunks a second).
@@ -54,9 +54,9 @@ pub async fn reindex_knowledge(
     env: &Env,
     runner: &dyn ProcessRunner,
     server: &Path,
-    ids: &[i64],
+    ids: &[KnowledgeId],
 ) -> Result<KnowledgeReindexed> {
-    if ids.len() > 1000 || ids.iter().any(|id| *id < 1) {
+    if ids.len() > 1000 || ids.iter().any(|id| !id.is_valid()) {
         return Err(BusinessError::InvalidInput(
             "reindex up to 1000 documents at a time".to_owned(),
         ));

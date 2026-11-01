@@ -44,6 +44,7 @@ fn manifest() -> ImportManifest {
                 globs: vec!["src/**".to_owned()],
             }],
             replaces: None,
+            place: None,
         },
     )
     .unwrap()
@@ -139,7 +140,7 @@ async fn the_manifest_reaches_stdin_and_every_event_is_forwarded_in_order() {
             path: "/docs/a.md".to_owned(),
             status: KnowledgeFileStatus::Added,
             reason: None,
-            doc_id: Some(7),
+            doc_id: Some(7.into()),
             chunks: Some(3),
             embedding: Some(KnowledgeEmbedding::Done),
             warnings: vec![],
@@ -338,13 +339,15 @@ fn a_manifest_refuses_links_the_server_would_refuse_and_replaces_without_exactly
             globs: Vec::new(),
         }],
         replaces: None,
+        place: None,
     };
     let error = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], bad_link).expect_err("bad link");
     assert!(matches!(error, BusinessError::InvalidInput(_)));
 
     let replaces = KnowledgeImportOptions {
         links: vec![],
-        replaces: Some(7),
+        replaces: Some(7.into()),
+        place: None,
     };
     for (paths, folders) in [
         (vec!["/docs/a.md", "/docs/b.md"], vec![]),
@@ -359,5 +362,34 @@ fn a_manifest_refuses_links_the_server_would_refuse_and_replaces_without_exactly
     }
 
     let one = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], replaces).unwrap();
-    assert_eq!(one.replaces, Some(7));
+    assert_eq!(one.replaces, Some(7.into()));
+}
+
+#[test]
+fn a_place_and_a_local_replaces_id_are_written_into_the_manifest_as_given() {
+    use harness_business::model::KnowledgeId;
+    use harness_business::model::KnowledgePlace;
+
+    let options = KnowledgeImportOptions {
+        links: vec![],
+        replaces: Some(KnowledgeId::Local("local:12".to_owned())),
+        place: Some(KnowledgePlace::Local),
+    };
+    let one = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], options).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&one.to_json().unwrap()).unwrap();
+
+    assert_eq!(json["place"], "local");
+    assert_eq!(json["replaces"], "local:12", "a local id stays a string");
+    assert!(
+        manifest()
+            .to_json()
+            .is_ok_and(|bytes| !String::from_utf8_lossy(&bytes).contains("place"))
+    );
+
+    let bad = KnowledgeImportOptions {
+        links: vec![],
+        replaces: Some(KnowledgeId::Local("local:x".to_owned())),
+        place: None,
+    };
+    assert!(ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], bad).is_err());
 }

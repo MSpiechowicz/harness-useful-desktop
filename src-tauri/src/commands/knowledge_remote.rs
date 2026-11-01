@@ -13,7 +13,7 @@ use harness_business::ecosystem::{
     KnowledgeRemoteChange, knowledge_remote_get as read_remote, knowledge_remote_set as write_remote,
     knowledge_remote_test as run_test,
 };
-use harness_business::model::{KnowledgeCheck, KnowledgeRemote, MemoryRemoteKind};
+use harness_business::model::{KnowledgeCheck, KnowledgeRemote, MemoryNotesRouting, MemoryRemoteKind};
 use tauri::State;
 
 use super::blocking;
@@ -34,7 +34,9 @@ pub async fn knowledge_remote_get(state: State<'_, AppState>) -> CommandResult<K
 /// `token` keeps the saved one, an empty `token` removes it. `invalidInput` for a URL or token
 /// Harness Knowledge would refuse, and for a file the app must not overwrite (see `problem` in the
 /// result of `knowledge_remote_get`). `unsupported` for Amazon DocumentDB, also as a MongoDB URL
-/// at its hosts.
+/// at its hosts. `repository_documents` and `global_documents` (null keeps the saved ones) say where
+/// documents are kept (`remote`, `local`, `remoteLocal`), `unsupported` while the installed server
+/// lacks `routing`.
 #[tauri::command]
 pub async fn knowledge_remote_set(
     state: State<'_, AppState>,
@@ -42,6 +44,8 @@ pub async fn knowledge_remote_set(
     kind: Option<MemoryRemoteKind>,
     url: Option<String>,
     token: Option<String>,
+    repository_documents: Option<MemoryNotesRouting>,
+    global_documents: Option<MemoryNotesRouting>,
 ) -> CommandResult<KnowledgeRemote> {
     let env = state.env.clone();
     let support = state.knowledge_features.support(&state.env, &state.runner).await;
@@ -50,6 +54,8 @@ pub async fn knowledge_remote_set(
         kind,
         url,
         token,
+        repository_documents,
+        global_documents,
     };
 
     blocking(move || Ok(write_remote(&env, change, support)?)).await

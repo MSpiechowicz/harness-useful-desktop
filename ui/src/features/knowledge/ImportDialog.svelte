@@ -10,15 +10,29 @@
   import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
   import { knowledgeImport as flow } from '$lib/stores/knowledgeImport.svelte';
+  import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
+  import { choosesPlace, effectivePlace } from '$lib/utils/knowledge-routing';
 
   import ImportDrop from './ImportDrop.svelte';
+  import ImportPlace from './ImportPlace.svelte';
   import ImportProgress from './ImportProgress.svelte';
   import ImportStaged from './ImportStaged.svelte';
   import { knowledgeScopeOptions } from './knowledge-repos';
   import LinksEditor from './LinksEditor.svelte';
 
   const refused = NOTICE_LOOKS.error;
+
+  void knowledgeRemote.load();
+
+  const remote = $derived(knowledgeRemote.value);
+  /** Where a document goes is chosen only while a kind of document reads Remote + this computer. */
+  const choosing = $derived(remote !== null && remote.routingSupported && choosesPlace(remote.enabled, remote));
+
+  function start(): void {
+    flow.place = choosing && remote ? effectivePlace(remote, flow.links.length === 0, flow.place) : null;
+    void flow.start();
+  }
 
   const running = $derived(flow.phase === 'running');
   const finished = $derived(flow.phase === 'done');
@@ -67,6 +81,10 @@
         <p class="mb-3 text-sm text-fg-3">{t('knowledge.import.links.help')}</p>
         <LinksEditor links={flow.links} onchange={(next) => (flow.links = next)} {options} />
       </SectionCard>
+
+      {#if choosing && remote}
+        <ImportPlace {remote} global={flow.links.length === 0} place={flow.place} onchange={(next) => (flow.place = next)} />
+      {/if}
     </div>
   {:else}
     <div class="flex flex-col gap-4">
@@ -96,7 +114,7 @@
       <Button onclick={() => flow.close()}>{t('common.close')}</Button>
     {:else if flow.phase === 'staged'}
       <Button disabled={flow.picking} onclick={() => void flow.pick('files')}>{t('knowledge.import.chooseOther')}</Button>
-      <Button variant="primary" onclick={() => void flow.start()}>
+      <Button variant="primary" onclick={start}>
         {#snippet leading()}<Play size={ICON.sm} aria-hidden="true" />{/snippet}
         {t('knowledge.import.start')}
       </Button>

@@ -8,7 +8,9 @@
 //! - `search`: `search --json`;
 //! - `recall`: `recall --hook`, the pointers added to a prompt;
 //! - `held`: the review queue of proposed documents (`held list|get|approve|reject`);
-//! - `mcp`: the MCP server the harnesses run.
+//! - `mcp`: the MCP server the harnesses run;
+//! - `routing`: `[routing]` in the config, ids `local:N` and the `place` of documents;
+//! - `doc-matches`: `docs matches`.
 //!
 //! An older server does not know the command and exits 2. [`KnowledgeFeatures::support`] asks once
 //! per binary through a [`LineProbe`] (cached per binary, an older server cached as one without
@@ -44,6 +46,12 @@ const HELD: &str = "held";
 
 /// The line for the MCP server.
 const MCP: &str = "mcp";
+
+/// The line for routing documents between the remote database and this computer.
+const ROUTING: &str = "routing";
+
+/// The line for `docs matches`.
+const DOC_MATCHES: &str = "doc-matches";
 
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,6 +121,16 @@ impl KnowledgeSupport {
     pub fn held(self) -> bool {
         self.features().held
     }
+
+    /// Whether the server routes documents: `routing` is listed.
+    pub fn routing(self) -> bool {
+        self.features().routing
+    }
+
+    /// Whether the server has `docs matches`: `doc-matches` is listed.
+    pub fn doc_matches(self) -> bool {
+        self.features().doc_matches
+    }
 }
 
 /// The probe of the installed server's features. See the module docs.
@@ -146,6 +164,8 @@ impl KnowledgeFeatures {
                 recall: answer.lists(RECALL),
                 held: answer.lists(HELD),
                 mcp: answer.lists(MCP),
+                routing: answer.lists(ROUTING),
+                doc_matches: answer.lists(DOC_MATCHES),
             }),
             LineAnswer::Unsupported => KnowledgeSupport::Unsupported,
             LineAnswer::NotInstalled => KnowledgeSupport::NotInstalled,

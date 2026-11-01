@@ -7,10 +7,12 @@
   import { ICON } from '$lib/components/icon';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import { scaled } from '$lib/design/motion';
-  import { t } from '$lib/i18n/i18n.svelte';
-  import type { KnowledgeHit } from '$lib/ipc/bindings/KnowledgeHit';
+  import { t, tn } from '$lib/i18n/i18n.svelte';
+  import type { KnowledgeDocMatch } from '$lib/ipc/bindings/KnowledgeDocMatch';
   import { ipc } from '$lib/ipc/client';
+  import { idKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
   import { IpcFailure } from '$lib/ipc/transport';
+  import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
   import { uid } from '$lib/utils/ids';
 
   import type { ChunkTexts } from './chunk-texts.svelte';
@@ -19,7 +21,7 @@
   import { highlightPieces } from './knowledge-text';
 
   interface Props {
-    docId: number;
+    docId: KnowledgeId;
     /** The search of the documents table, once typing settled. */
     query: string;
     texts: ChunkTexts;
@@ -27,16 +29,18 @@
 
   let { docId, query, texts }: Props = $props();
 
-  /** How many passages the search is asked for across all documents: this document shows the ones that are its own. */
+  /** How many passages one document lists. A server without `doc-matches` is asked for this many across all documents instead and this document shows the ones that are its own. */
   const LIMIT = 20;
 
   const prefix = uid('match');
 
   /** The passages of this document, or null before the first answer. A newer search keeps showing the last ones until its answer is in. */
-  let hits = $state.raw<KnowledgeHit[] | null>(null);
+  let hits = $state.raw<KnowledgeDocMatch[] | null>(null);
+  /** How many passages match in all, which can be more than the ones listed. */
+  let total = $state(0);
   let error = $state<string | null>(null);
   let attempt = $state(0);
-  let open = $state.raw<Record<number, boolean>>({});
+  let open = $state.raw<Record<string, boolean>>({});
 
   // Another document starts with no passages of the last one.
   $effect(() => {
@@ -53,13 +57,35 @@
     let stale = false;
 
     void attempt;
+    void knowledgeStatus.value;
     error = null;
 
-    ipc
-      .invoke('knowledge_search', { query: asked, project: null, scope: 'all', limit: LIMIT })
-      .then((found) => {
+    /** What the server can do is read once, and the first search waits for it. A server that cannot say is asked the old way. */
+    async function ask(): Promise<{ matches: KnowledgeDocMatch[]; total: number }> {
+      if (knowledgeStatus.value === null) {
+        await knowledgeStatus.load();
+
+        // The status arriving ran this search again: that run asks.
+        if (stale) {
+          return { matches: [], total: 0 };
+        }
+      }
+
+      if (knowledgeStatus.value?.features.docMatches) {
+        return ipc.invoke('knowledge_doc_matches', { id, query: asked, limit: LIMIT });
+      }
+
+      const all = await ipc.invoke('knowledge_search', { query: asked, project: null, scope: 'all', limit: LIMIT });
+      const own = all.filter((hit) => idKey(hit.docId) === idKey(id)).map((hit) => ({ chunkId: hit.chunkId, ordinal: 0, section: hit.section, snippet: hit.snippet }));
+
+      return { matches: own, total: own.length };
+    }
+
+    ask()
+      .then((answer) => {
         if (!stale) {
-          hits = found.filter((hit) => hit.docId === id);
+          hits = answer.matches;
+          total = answer.total;
         }
       })
       .catch((failure: unknown) => {
@@ -73,8 +99,10 @@
     };
   });
 
-  function toggle(chunkId: number): void {
-    open = { ...open, [chunkId]: !open[chunkId] };
+  function toggle(chunkId: KnowledgeId): void {
+    const key = idKey(chunkId);
+
+    open = { ...open, [key]: !open[key] };
   }
 </script>
 
@@ -95,18 +123,20 @@
     {t('knowledge.matches.none')}
   </p>
 {:else}
+  <p class="pb-1.5 text-xs text-fg-3" role="status">{tn('knowledge.matches.count', total)}</p>
   <ul class="-mx-2 flex flex-col gap-0.5">
-    {#each hits as hit (hit.chunkId)}
-      <li class="rounded-md transition-colors duration-[var(--dur-fast)] {open[hit.chunkId] ? 'bg-surface-2' : ''}">
+    {#each hits as hit (idKey(hit.chunkId))}
+      {@const key = idKey(hit.chunkId)}
+      <li class="rounded-md transition-colors duration-[var(--dur-fast)] {open[key] ? 'bg-surface-2' : ''}">
         <button
           type="button"
-          aria-expanded={open[hit.chunkId] === true}
-          aria-controls="{prefix}-{hit.chunkId}"
+          aria-expanded={open[key] === true}
+          aria-controls="{prefix}-{key}"
           title={hit.section}
-          class="flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors duration-[var(--dur-fast)] {open[hit.chunkId] ? '' : 'hover:bg-surface-2'}"
+          class="flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors duration-[var(--dur-fast)] {open[key] ? '' : 'hover:bg-surface-2'}"
           onclick={() => toggle(hit.chunkId)}
         >
-          <ChevronRight size={ICON.sm} aria-hidden="true" class="mt-0.5 shrink-0 text-fg-3 transition-transform duration-[var(--dur-fast)] {open[hit.chunkId] ? 'rotate-90' : ''}" />
+          <ChevronRight size={ICON.sm} aria-hidden="true" class="mt-0.5 shrink-0 text-fg-3 transition-transform duration-[var(--dur-fast)] {open[key] ? 'rotate-90' : ''}" />
           <span class="flex min-w-0 flex-col gap-0.5">
             <span class="truncate text-fg">{headingLevel(hit.section).title}</span>
             <span class="line-clamp-3 text-fg-2">
@@ -115,8 +145,8 @@
           </span>
         </button>
 
-        <div id="{prefix}-{hit.chunkId}">
-          {#if open[hit.chunkId]}
+        <div id="{prefix}-{key}">
+          {#if open[key]}
             <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
               <div class="pt-1.5 pr-3 pb-3 pl-7.5"><ChunkPart {texts} chunkId={hit.chunkId} {query} inset /></div>
             </div>

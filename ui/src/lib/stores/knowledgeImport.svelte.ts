@@ -5,6 +5,7 @@ import type { KnowledgeImportCounts } from '$lib/ipc/bindings/KnowledgeImportCou
 import type { KnowledgeImportEvent } from '$lib/ipc/bindings/KnowledgeImportEvent';
 import type { KnowledgeIntake } from '$lib/ipc/bindings/KnowledgeIntake';
 import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
+import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -85,6 +86,8 @@ export class KnowledgeImportStore {
   intake = $state.raw<KnowledgeIntake | null>(null);
   /** Where every imported document is linked to; none means global. */
   links = $state.raw<KnowledgeLink[]>([]);
+  /** Where every imported document is kept when the user chose (both places in use), none for the routing's own choice. */
+  place = $state<KnowledgePlace | null>(null);
   run = $state.raw<ImportRun>(emptyRun(0));
   /** A native dialog is open. */
   picking = $state(false);
@@ -190,7 +193,7 @@ export class KnowledgeImportStore {
     try {
       const result = await this.transport.invoke('knowledge_import', {
         token: intake.token,
-        options: { links: this.links, replaces: null },
+        options: { links: this.links, replaces: null, ...(this.place === null ? {} : { place: this.place }) },
         onEvent: (event) => {
           this.run = reduceImport(this.run, event);
         },
@@ -260,6 +263,7 @@ export class KnowledgeImportStore {
     this.open = false;
     this.clear();
     this.links = [];
+    this.place = null;
     this.picking = false;
     this.embeddingPending = 0;
   }

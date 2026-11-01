@@ -2,11 +2,14 @@ import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
 import type { KnowledgeCheck } from '$lib/ipc/bindings/KnowledgeCheck';
 import type { KnowledgeProblem } from '$lib/ipc/bindings/KnowledgeProblem';
 import type { KnowledgeRemote } from '$lib/ipc/bindings/KnowledgeRemote';
+import type { MemoryNotesRouting } from '$lib/ipc/bindings/MemoryNotesRouting';
 import type { MemoryRemoteKind } from '$lib/ipc/bindings/MemoryRemoteKind';
+import type { DocumentRouting } from '$lib/utils/knowledge-routing';
 
 import { MEMORY_REMOTE } from './memory-remote';
 import type { ConnectionTested, SavedConnection } from './remote-connection.svelte';
 import type { RemoteDatabaseConfig, TeamDatabaseCopy } from './remote-database';
+import { kindOf, type RoutingConfirmCopy, type RoutingEffect, type RoutingEffectKind } from './routing-change';
 
 /** The team databases Harness Knowledge can use. Amazon DocumentDB is not one of them. */
 export type KnowledgeKind = Exclude<MemoryRemoteKind, 'documentdb'>;
@@ -88,4 +91,46 @@ function supportedKind(kind: MemoryRemoteKind | null): KnowledgeKind | null {
 /** What the backend has saved, as the connection form reads it. */
 export function savedConnection(remote: KnowledgeRemote): SavedConnection<KnowledgeKind> {
   return { ...remote, kind: supportedKind(remote.kind) };
+}
+
+/** The two kinds of documents whose place the user chooses. */
+export type DocumentScope = 'repositoryDocuments' | 'globalDocuments';
+
+const SCOPES: readonly DocumentScope[] = ['repositoryDocuments', 'globalDocuments'];
+
+/** The line under a row's control, per place. */
+export function documentHints(): Record<MemoryNotesRouting, string> {
+  return {
+    remote: t('knowledge.settings.hint.remote'),
+    local: t('knowledge.settings.hint.local'),
+    remoteLocal: t('knowledge.settings.hint.remoteLocal'),
+  };
+}
+
+/** What saving `to` instead of `from` changes in what the user sees, per kind of document that moves. */
+export function documentEffects(from: DocumentRouting, to: DocumentRouting): RoutingEffect<DocumentScope>[] {
+  return SCOPES.flatMap((scope) => {
+    const kind = kindOf(from[scope], to[scope]);
+
+    return kind === null ? [] : [{ scope, kind, count: null }];
+  });
+}
+
+const EFFECT_TEXTS: Record<RoutingEffectKind, MessageKey> = {
+  hideTeam: 'knowledge.settings.change.hideTeam',
+  showTeam: 'knowledge.settings.change.showTeam',
+  saveHere: 'knowledge.settings.change.saveHere',
+  hideLocal: 'knowledge.settings.change.hideLocal',
+};
+
+/** The words of the warning shown before a change of where documents are kept. */
+export function documentConfirmCopy(): RoutingConfirmCopy {
+  return {
+    title: t('knowledge.settings.change.title'),
+    description: t('knowledge.settings.change.description'),
+    describe: (effect) => ({
+      title: t(effect.scope === 'repositoryDocuments' ? 'knowledge.settings.projectDocs.title' : 'knowledge.settings.globalDocs.title'),
+      text: t(EFFECT_TEXTS[effect.kind]),
+    }),
+  };
 }

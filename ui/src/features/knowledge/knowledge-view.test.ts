@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { documentOf } from '$lib/ipc/mock/knowledge-fixtures';
+import type { KnowledgeRemote } from '$lib/ipc/bindings/KnowledgeRemote';
 import { knowledgeHandlers, MockKnowledge, type KnowledgeScenario } from '$lib/ipc/mock/knowledge-handlers';
 import { knowledgeImportHandlers } from '$lib/ipc/mock/knowledge-import-handlers';
 import { fixtures } from '$lib/ipc/mock/fixtures';
@@ -9,6 +10,7 @@ import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
 import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
 import { knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
 import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
+import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -19,12 +21,12 @@ import { startMockApp } from '../../../tests/mock-app';
 import KnowledgeView from './KnowledgeView.svelte';
 
 /** A Harness Knowledge that keeps its documents in memory, as the preview does, and the spy that records what the view asked of it. */
-function fakeKnowledge(scenario: KnowledgeScenario = 'ok') {
-  const store = new MockKnowledge(scenario);
+function fakeKnowledge(scenario: KnowledgeScenario = 'ok', split = false, extra: Record<string, (args: unknown) => unknown> = {}) {
+  const store = new MockKnowledge(scenario, split);
   const handlers = { ...knowledgeHandlers(store, () => scenario, () => true), ...knowledgeImportHandlers(store) } as unknown as Record<string, (args: unknown) => unknown>;
   // The real server answers with what it has now, not with the objects it keeps: a read after a change must not find the old answer changed under it.
   const answering = Object.fromEntries(Object.entries(handlers).map(([name, handler]) => [name, async (args: unknown) => structuredClone(await handler(args))]));
-  const invoke = spyOnInvoke(answering);
+  const invoke = spyOnInvoke({ ...answering, ...extra });
 
   return { store, invoke };
 }
@@ -48,6 +50,7 @@ beforeEach(() => {
   knowledgeHeld.list.sync(null, null);
   knowledgeHeld.detail.sync(null, null);
   knowledgeImport.reset();
+  knowledgeRemote.value = null;
   knowledgeChanges.reset();
   projectScopes.sync(null, null);
 });
@@ -264,6 +267,107 @@ describe('adding documents', () => {
 
     drag('drop');
     expect(await screen.findByRole('button', { name: 'Start import' })).toBeInTheDocument();
+  });
+});
+
+/** The settings a server with a remote database reports, with the routing of documents given. */
+function routedRemote(repositoryDocuments: KnowledgeRemote['repositoryDocuments'], globalDocuments: KnowledgeRemote['globalDocuments']): Record<string, (args: unknown) => unknown> {
+  const remote: KnowledgeRemote = { enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/knowledge', hasToken: false, embedderSupported: true, repositoryDocuments, globalDocuments, routingSupported: true, configPath: '', problem: null };
+
+  return { knowledge_remote_get: () => remote };
+}
+
+async function stage(): Promise<void> {
+  await fireEvent.click(screen.getAllByRole('button', { name: 'Add documents' })[0]);
+  await fireEvent.click(await screen.findByRole('button', { name: 'Choose files' }));
+  await screen.findByText('5 files');
+}
+
+describe('where an import is saved', () => {
+  it('is chosen only while a kind of document reads Remote + this computer, and goes with the import', async () => {
+    const { invoke } = fakeKnowledge('ok', true, routedRemote('remoteLocal', 'remoteLocal'));
+    await show();
+    await stage();
+
+    const group = await screen.findByRole('radiogroup', { name: 'Save to' });
+    const [remote, local] = within(group).getAllByRole('radio');
+
+    expect(remote).toBeChecked();
+    expect(local).toBeEnabled();
+
+    await fireEvent.click(local);
+    await fireEvent.click(screen.getByRole('button', { name: 'Start import' }));
+    await screen.findByText('Import finished');
+
+    expect(calls(invoke, 'knowledge_import').at(-1)).toMatchObject({ options: { place: 'local' } });
+  });
+
+  it('greys out a place the routing does not allow for the kind of the import, and sends the default for it', async () => {
+    const { invoke } = fakeKnowledge('ok', true, routedRemote('remoteLocal', 'remote'));
+    await show();
+    await stage();
+
+    // No links make the documents global, and global documents are kept remotely only.
+    const group = await screen.findByRole('radiogroup', { name: 'Save to' });
+
+    expect(within(group).getByRole('radio', { name: 'This computer' })).toBeDisabled();
+    expect(within(group).getByRole('radio', { name: 'Remote' })).toBeChecked();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Start import' }));
+    await screen.findByText('Import finished');
+
+    expect(calls(invoke, 'knowledge_import').at(-1)).toMatchObject({ options: { place: 'remote' } });
+  });
+
+  it.each([
+    ['remote', 'remote'],
+    ['local', 'local'],
+  ] as const)('is not asked for with one place for every kind (%s)', async (repository, global) => {
+    const { invoke } = fakeKnowledge('ok', false, routedRemote(repository, global));
+    await show();
+    await stage();
+
+    expect(screen.queryByRole('radiogroup', { name: 'Save to' })).toBeNull();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Start import' }));
+    await screen.findByText('Import finished');
+
+    expect((calls(invoke, 'knowledge_import').at(-1) as { options: object }).options).not.toHaveProperty('place');
+  });
+
+  it('is not asked for when the kinds are split between the places, the server decides by kind', async () => {
+    fakeKnowledge('ok', true, routedRemote('remote', 'local'));
+    await show();
+    await stage();
+
+    expect(screen.queryByRole('radiogroup', { name: 'Save to' })).toBeNull();
+  });
+});
+
+describe('where each document is kept', () => {
+  it('shows the place of every document while both are in use, and gives a local id back exactly as the server gave it', async () => {
+    const { invoke } = fakeKnowledge('ok', true);
+    await show();
+
+    const row = (await screen.findByText('Standup 28 October (transcript)')).closest('[data-row]') as HTMLElement;
+
+    expect(within(row).getByText('This computer')).toBeInTheDocument();
+    expect(within(screen.getByText('Architecture overview').closest('[data-row]') as HTMLElement).getByText('Remote')).toBeInTheDocument();
+
+    await fireEvent.click(within(row).getByText('Standup 28 October (transcript)'));
+    const panel = await screen.findByRole('region', { name: 'Standup 28 October (transcript)' });
+
+    await waitFor(() => expect(calls(invoke, 'knowledge_doc_get')).toContainEqual({ id: 'local:3', chunkId: null }));
+    expect(within(panel).getAllByText('This computer').length).toBeGreaterThan(0);
+  });
+
+  it('shows no place with one place in use', async () => {
+    fakeKnowledge();
+    await show();
+
+    await screen.findByText('Architecture overview');
+
+    expect(screen.queryByText('This computer')).toBeNull();
   });
 });
 

@@ -32,4 +32,12 @@ held: boolean,
 /**
  * `mcp`: the MCP server the harnesses run.
  */
-mcp: boolean, };
+mcp: boolean, 
+/**
+ * `routing`: `[routing]` in the config, ids `local:N` and `place` fields.
+ */
+routing: boolean, 
+/**
+ * `doc-matches`: `docs matches`.
+ */
+docMatches: boolean, };

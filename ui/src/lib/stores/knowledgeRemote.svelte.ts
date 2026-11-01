@@ -1,5 +1,6 @@
 import type { KnowledgeCheck } from '$lib/ipc/bindings/KnowledgeCheck';
 import type { KnowledgeRemote } from '$lib/ipc/bindings/KnowledgeRemote';
+import type { MemoryNotesRouting } from '$lib/ipc/bindings/MemoryNotesRouting';
 import type { MemoryRemoteKind } from '$lib/ipc/bindings/MemoryRemoteKind';
 import { ipc } from '$lib/ipc/client';
 import type { Transport } from '$lib/ipc/transport';
@@ -13,6 +14,9 @@ export interface KnowledgeRemoteSave {
   url: string | null;
   /** Null keeps the saved token, and an empty string clears it. */
   token: string | null;
+  /** Where project and global documents are kept. Left out keeps the saved ones. */
+  repositoryDocuments?: MemoryNotesRouting;
+  globalDocuments?: MemoryNotesRouting;
 }
 
 export type KnowledgeRemoteProbe = RemoteDatabaseProbe<MemoryRemoteKind>;

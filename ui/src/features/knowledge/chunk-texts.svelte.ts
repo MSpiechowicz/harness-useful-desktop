@@ -1,5 +1,6 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
+import { idKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
 /** Where the text of one chunk stands. */
@@ -10,20 +11,22 @@ export type ChunkState = { status: 'loading' } | { status: 'ready'; text: string
  * and a search match that open the same chunk read it once.
  */
 export class ChunkTexts {
-  private states = $state.raw<Record<number, ChunkState>>({});
+  private states = $state.raw<Record<string, ChunkState>>({});
 
   constructor(
-    readonly docId: number,
+    readonly docId: KnowledgeId,
     private readonly transport: Transport = ipc,
   ) {}
 
-  stateOf(chunkId: number): ChunkState | undefined {
-    return this.states[chunkId];
+  stateOf(chunkId: KnowledgeId): ChunkState | undefined {
+    return this.states[idKey(chunkId)];
   }
 
   /** Reads the chunk unless it is read or being read. A failed one is read again. */
-  async load(chunkId: number): Promise<void> {
-    if (this.states[chunkId] !== undefined && this.states[chunkId].status !== 'error') {
+  async load(chunkId: KnowledgeId): Promise<void> {
+    const known = this.states[idKey(chunkId)];
+
+    if (known !== undefined && known.status !== 'error') {
       return;
     }
 
@@ -38,7 +41,7 @@ export class ChunkTexts {
     }
   }
 
-  private set(chunkId: number, state: ChunkState): void {
-    this.states = { ...this.states, [chunkId]: state };
+  private set(chunkId: KnowledgeId, state: ChunkState): void {
+    this.states = { ...this.states, [idKey(chunkId)]: state };
   }
 }

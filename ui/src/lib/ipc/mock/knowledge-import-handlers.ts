@@ -73,11 +73,13 @@ export function knowledgeImportHandlers(store: MockKnowledge): Pick<Handlers, Im
           }
 
           const { status, reason } = outcomeOf(name);
-          const docId = status === 'added' ? store.nextId() : null;
+          const docId = status === 'added' ? store.newId(options?.place) : null;
           counts[status] += 1;
 
           if (docId !== null) {
-            store.documents.push(documentOf({ id: docId, title: name.replace(/\.[^.]+$/, ''), name, format: formatOf(name), kb: 24, chunks: 6, age: 0, links: options?.links ?? [] }));
+            const doc = documentOf({ id: docId, title: name.replace(/\.[^.]+$/, ''), name, format: formatOf(name), kb: 24, chunks: 6, age: 0, links: options?.links ?? [] });
+
+            store.documents.push(store.split ? { ...doc, place: options?.place ?? 'remote' } : doc);
             store.changed();
           }
 

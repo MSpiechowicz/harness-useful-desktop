@@ -22,6 +22,8 @@ const EVERY_FEATURE: Features = Features {
     recall: true,
     held: true,
     mcp: true,
+    routing: true,
+    doc_matches: true,
 };
 
 #[test]

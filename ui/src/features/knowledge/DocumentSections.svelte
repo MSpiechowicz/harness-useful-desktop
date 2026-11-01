@@ -7,6 +7,7 @@
   import { scaled } from '$lib/design/motion';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeSection } from '$lib/ipc/bindings/KnowledgeSection';
+  import { idKey } from '$lib/ipc/knowledge-id';
   import { uid } from '$lib/utils/ids';
 
   import type { ChunkTexts } from './chunk-texts.svelte';
@@ -33,11 +34,11 @@
 
   let all = $state(false);
   /** The sections whose text is open, by the first chunk of each. */
-  let open = $state.raw<Record<number, boolean>>({});
+  let open = $state.raw<Record<string, boolean>>({});
 
   const shown = $derived(all ? sections : sections.slice(0, SHOWN));
 
-  function toggle(first: number): void {
+  function toggle(first: string): void {
     open = { ...open, [first]: !open[first] };
   }
 </script>
@@ -46,9 +47,9 @@
   <p class="text-sm text-fg-3">{t('knowledge.sections.none')}</p>
 {:else}
   <ul class="-mx-2 flex flex-col gap-0.5">
-    {#each shown as section (section.chunkIds[0])}
+    {#each shown as section (idKey(section.chunkIds[0]))}
       {@const level = headingLevel(section.headingPath)}
-      {@const first = section.chunkIds[0]}
+      {@const first = idKey(section.chunkIds[0])}
       <!-- An open section is one card: its row and its text share the box, so the hover and the text line up. -->
       <li transition:slide={{ duration: scaled(160) }} class="rounded-md transition-colors duration-[var(--dur-fast)] {open[first] ? 'bg-surface-2' : ''}" style:margin-left="{level.depth * INDENT_PX}px">
         <button

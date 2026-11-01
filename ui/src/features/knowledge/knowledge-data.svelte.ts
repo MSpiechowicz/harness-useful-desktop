@@ -1,5 +1,6 @@
 import { untrack } from 'svelte';
 
+import { idKey } from '$lib/ipc/knowledge-id';
 import { KNOWLEDGE_POLL_MS } from '$lib/stores/live';
 import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
 import { type DocsRequest, docsKey, knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
@@ -53,7 +54,7 @@ export function useKnowledgeData(): void {
   $effect(() => {
     const id = viewState.knowledgeDocId;
 
-    untrack(() => knowledgeDocs.detail.sync(id === null ? null : String(id), null));
+    untrack(() => knowledgeDocs.detail.sync(id === null ? null : idKey(id), null));
   });
 
   $effect(() => {

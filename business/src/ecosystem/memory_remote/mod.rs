@@ -15,7 +15,7 @@
 mod check;
 mod file;
 mod gates;
-mod routing;
+pub(crate) mod routing;
 mod url;
 
 pub use check::{CHECK_TIMEOUT, memory_remote_test};

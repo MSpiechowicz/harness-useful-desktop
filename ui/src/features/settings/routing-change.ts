@@ -27,11 +27,18 @@ export interface LocalHoldings {
  */
 export type RoutingEffectKind = 'hideTeam' | 'showTeam' | 'saveHere' | 'hideLocal';
 
-export interface RoutingEffect {
-  scope: RoutingScope;
+export interface RoutingEffect<S extends string = RoutingScope> {
+  scope: S;
   kind: RoutingEffectKind;
   /** Only for `hideLocal`. */
   count: number | null;
+}
+
+/** What a routing dialog says: its own title and description, and the title and sentence of each effect. */
+export interface RoutingConfirmCopy {
+  title: string;
+  description: string;
+  describe: (effect: RoutingEffect<string>) => { title: string; text: string };
 }
 
 const SCOPES: readonly RoutingScope[] = ['repository', 'global', 'scripts'];
@@ -62,7 +69,7 @@ export function readsRemote(routing: MemoryNotesRouting): boolean {
 }
 
 /** The one thing a move from `from` to `to` does to the scope, or null when it changes nothing the user sees. */
-function kindOf(from: MemoryNotesRouting, to: MemoryNotesRouting): RoutingEffectKind | null {
+export function kindOf(from: MemoryNotesRouting, to: MemoryNotesRouting): RoutingEffectKind | null {
   if (from === to) {
     return null;
   }

@@ -20,7 +20,10 @@ use crate::ecosystem::sidecar_remote_url::{
     check_secrets, reason, saved_url_problem, scheme_fits, scrub, validate_token, validate_url,
 };
 use crate::env::Env;
-use crate::model::{KnowledgeCapabilities, KnowledgeCheck, KnowledgeIndexState, MemoryRemoteKind};
+use crate::model::{
+    KnowledgeCapabilities, KnowledgeCheck, KnowledgeIndexState, KnowledgePlaceCheck, KnowledgePlaceChecks,
+    MemoryRemoteKind,
+};
 use crate::process::ProcessRunner;
 
 use serde_json::Value;
@@ -139,7 +142,29 @@ pub fn read_check(stdout: &str, stderr: &str, status: Option<i32>, secrets: &[St
         message: text("message"),
         capabilities: capabilities(data.get("capabilities")).filter(|_| !failed),
         model: data.pointer("/model/id").and_then(Value::as_str).map(clean),
+        places: places(data.get("places")),
     }
+}
+
+/// The check of each place in the answer's `places`, none when it has none.
+fn places(value: Option<&Value>) -> Option<KnowledgePlaceChecks> {
+    let value = value?.as_object()?;
+    let place = |name: &str| {
+        let data = value.get(name)?;
+
+        Some(KnowledgePlaceCheck {
+            ok: data.get("ok").and_then(Value::as_bool).unwrap_or(false),
+            problem: data.get("problem").and_then(Value::as_str).map(problem_of),
+            capabilities: capabilities(data.get("capabilities")),
+        })
+    };
+
+    let places = KnowledgePlaceChecks {
+        remote: place("remote"),
+        local: place("local"),
+    };
+
+    (places.remote.is_some() || places.local.is_some()).then_some(places)
 }
 
 fn capabilities(value: Option<&Value>) -> Option<KnowledgeCapabilities> {
@@ -170,5 +195,6 @@ fn refused(message: String) -> KnowledgeCheck {
         message: Some(message),
         capabilities: None,
         model: None,
+        places: None,
     }
 }

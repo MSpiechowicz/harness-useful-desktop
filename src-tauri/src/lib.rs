@@ -91,6 +91,7 @@ pub fn run() -> ExitCode {
             commands::knowledge::knowledge_set_enabled,
             commands::knowledge_docs::knowledge_docs_list,
             commands::knowledge_docs::knowledge_doc_get,
+            commands::knowledge_docs::knowledge_doc_matches,
             commands::knowledge_docs::knowledge_doc_rename,
             commands::knowledge_docs::knowledge_doc_links_set,
             commands::knowledge_docs::knowledge_docs_delete,

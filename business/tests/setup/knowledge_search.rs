@@ -47,8 +47,8 @@ fn a_search_asks_for_the_project_and_scope_and_reads_the_passages() {
     assert_eq!(
         hits[0],
         KnowledgeHit {
-            doc_id: 7,
-            chunk_id: 31,
+            doc_id: 7.into(),
+            chunk_id: 31.into(),
             title: "Gateway guide".to_owned(),
             section: "Guide > Routing".to_owned(),
             snippet: "How the gateway routes requests.".to_owned(),

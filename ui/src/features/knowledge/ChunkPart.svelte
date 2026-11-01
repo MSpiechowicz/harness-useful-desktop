@@ -4,13 +4,14 @@
   import Button from '$lib/components/Button.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { KnowledgeId } from '$lib/ipc/knowledge-id';
 
   import type { ChunkTexts } from './chunk-texts.svelte';
   import { blocksOf, highlightPieces } from './knowledge-text';
 
   interface Props {
     texts: ChunkTexts;
-    chunkId: number;
+    chunkId: KnowledgeId;
     /** The words of the search to mark in the text. */
     query?: string;
     /** Inside an open row card: the card is the box, so the text has none of its own. */

@@ -11,7 +11,7 @@ use harness_business::ecosystem::{
     ListWindow, decide_knowledge_held, get_knowledge_held, knowledge_held_server, list_knowledge_held,
 };
 use harness_business::model::{
-    KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgePulse,
+    KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgePlace, KnowledgePulse,
 };
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
@@ -43,7 +43,8 @@ pub async fn knowledge_held_get(state: State<'_, AppState>, id: String) -> Comma
 }
 
 /// Approves (imports) or rejects (throws away) a proposal, only the version whose `revision` is
-/// given (what the review showed). `invalidInput` for an id or revision that is not one. A
+/// given (what the review showed). With `place` an approval is kept there (when both places are in
+/// use, the routing's default otherwise); the server refuses a place the routing does not allow. `invalidInput` for an id or revision that is not one. A
 /// refusal is an answer (`notFound`, `changed`, `refused`), not an error.
 #[tauri::command]
 pub async fn knowledge_held_decide(
@@ -51,10 +52,20 @@ pub async fn knowledge_held_decide(
     id: String,
     decision: KnowledgeDecision,
     revision: Option<String>,
+    place: Option<KnowledgePlace>,
 ) -> CommandResult<KnowledgeDecided> {
     let server = knowledge_held_server(&state.env, &state.runner, &state.knowledge_features).await?;
 
-    Ok(decide_knowledge_held(&state.env, &state.runner, &server, &id, decision, revision.as_deref()).await?)
+    Ok(decide_knowledge_held(
+        &state.env,
+        &state.runner,
+        &server,
+        &id,
+        decision,
+        revision.as_deref(),
+        place,
+    )
+    .await?)
 }
 
 /// Sends the database's counts (`documents`, `generation`, `held`) to `on_event` now and whenever

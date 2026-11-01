@@ -18,6 +18,7 @@ const COMMANDS: &[&str] = &[
     "knowledge_set_enabled",
     "knowledge_docs_list",
     "knowledge_doc_get",
+    "knowledge_doc_matches",
     "knowledge_doc_rename",
     "knowledge_doc_links_set",
     "knowledge_docs_delete",

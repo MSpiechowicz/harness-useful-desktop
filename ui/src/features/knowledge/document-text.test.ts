@@ -6,6 +6,7 @@ import { knowledgeHandlers, MockKnowledge } from '$lib/ipc/mock/knowledge-handle
 import { IpcFailure } from '$lib/ipc/transport';
 import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
 import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
+import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
@@ -47,6 +48,7 @@ beforeEach(() => {
   knowledgeDocs.detail.sync(null, null);
   knowledgeDocs.repos.sync(null, null);
   knowledgeChanges.reset();
+  knowledgeStatus.value = null;
   projectScopes.sync(null, null);
 });
 
@@ -133,8 +135,10 @@ describe('the matches of a search in an open document', () => {
     const matches = heading.closest('section') as HTMLElement;
     const hit = await within(matches).findByRole('button', { name: /Overview/ });
 
-    expect(calls(invoke, 'knowledge_search')).toContainEqual({ query: 'billing', project: null, scope: 'all', limit: 20 });
-    expect(within(matches).getAllByRole('button')).toHaveLength(2);
+    expect(calls(invoke, 'knowledge_doc_matches')).toContainEqual({ id: 2, query: 'billing', limit: 20 });
+    expect(calls(invoke, 'knowledge_search')).toHaveLength(0);
+    expect(within(matches).getByText('6 matches')).toBeInTheDocument();
+    expect(within(matches).getAllByRole('button')).toHaveLength(6);
     expect(hit.querySelector('mark')?.textContent).toBe('Billing');
 
     await fireEvent.click(hit);
@@ -144,6 +148,30 @@ describe('the matches of a search in an open document', () => {
     viewState.knowledgeQuery = '';
 
     await waitFor(() => expect(within(panel).queryByRole('heading', { name: 'Matches' })).toBeNull());
+  });
+
+  it('fall back to the search of all documents for a server without doc-matches, and list the passages of the open document only', async () => {
+    const invoke = fakeKnowledge({
+      knowledge_status: (answer) => async (args) => {
+        const status = (await answer(args)) as { features: object };
+
+        return { ...status, features: { ...status.features, docMatches: false } };
+      },
+    });
+    const panel = await open('Billing API', 2);
+
+    await within(panel).findByRole('button', { name: 'Overview' });
+    viewState.knowledgeQuery = 'billing';
+
+    const heading = await within(panel).findByRole('heading', { name: 'Matches' });
+    const matches = heading.closest('section') as HTMLElement;
+
+    await within(matches).findByRole('button', { name: /Overview/ });
+
+    expect(calls(invoke, 'knowledge_search')).toContainEqual({ query: 'billing', project: null, scope: 'all', limit: 20 });
+    expect(calls(invoke, 'knowledge_doc_matches')).toHaveLength(0);
+    expect(within(matches).getAllByRole('button')).toHaveLength(2);
+    expect(within(matches).getByText('2 matches')).toBeInTheDocument();
   });
 
   it('say so when no passage of the open document matched closely', async () => {

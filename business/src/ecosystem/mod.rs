@@ -159,7 +159,8 @@ pub use knowledge_binary::{
     KNOWLEDGE_SESSION_VAR, installed_knowledge, knowledge_version, parse_knowledge_version, resolve_knowledge,
 };
 pub use knowledge_docs::{
-    delete_docs, docs_server, get_doc, list_docs, list_repos as list_knowledge_repos, read_stats, rename_doc, set_links,
+    delete_docs, doc_matches as knowledge_doc_matches, docs_server, get_doc, list_docs,
+    list_repos as list_knowledge_repos, read_stats, rename_doc, set_links,
 };
 pub use knowledge_embedder::{
     REINDEX_TIMEOUT, knowledge_embedder_status, reindex_knowledge, remove_knowledge_embedder_model,

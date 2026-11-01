@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{KnowledgeAvailability, KnowledgeEmbedding, KnowledgeLink};
+use super::{KnowledgeAvailability, KnowledgeEmbedding, KnowledgeId, KnowledgeLink};
 
 /// One proposed document of the review queue, as `held list` and `held get` print it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -39,8 +39,7 @@ pub struct KnowledgeHeldItem {
     /// The file the text was read from, relative to the project, when the agent named one.
     pub source_path: Option<String>,
     /// The document an approval replaces in place.
-    #[ts(type = "number | null")]
-    pub replaces: Option<i64>,
+    pub replaces: Option<KnowledgeId>,
     /// What identifies this version of the proposal: give it back to a decision to decide only the
     /// version that was shown.
     pub revision: String,
@@ -105,8 +104,7 @@ pub enum KnowledgeDecided {
     /// It was imported as a document.
     Approved {
         /// The document it became.
-        #[ts(type = "number")]
-        doc_id: i64,
+        doc_id: KnowledgeId,
         /// What the import did.
         status: KnowledgeApproval,
         /// The title it was imported under.
@@ -168,11 +166,9 @@ pub enum KnowledgeSearchScope {
 #[ts(export)]
 pub struct KnowledgeHit {
     /// The document it is in.
-    #[ts(type = "number")]
-    pub doc_id: i64,
+    pub doc_id: KnowledgeId,
     /// The passage's chunk, to open it with `knowledge_doc_get`.
-    #[ts(type = "number")]
-    pub chunk_id: i64,
+    pub chunk_id: KnowledgeId,
     /// The document's title.
     pub title: String,
     /// The headings above the passage (`Guide > Install`), empty at the top of a document.

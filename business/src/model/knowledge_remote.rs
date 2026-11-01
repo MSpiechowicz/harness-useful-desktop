@@ -8,7 +8,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::MemoryRemoteKind;
+use super::{MemoryNotesRouting, MemoryRemoteKind};
 
 /// The team database settings as saved in Harness Knowledge's `config.toml`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -26,6 +26,13 @@ pub struct KnowledgeRemote {
     pub has_token: bool,
     /// True when the installed Harness Knowledge lists `embedder` in `harness-knowledge features`.
     pub embedder_supported: bool,
+    /// Where project documents go (`[routing] repository_documents`, `remote` when unset).
+    pub repository_documents: MemoryNotesRouting,
+    /// Where global documents go (`[routing] global_documents`, `remote` when unset).
+    pub global_documents: MemoryNotesRouting,
+    /// True when the installed Harness Knowledge lists `routing` in `harness-knowledge features`,
+    /// so the `[routing]` table may be saved. Older servers refuse a file with it.
+    pub routing_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-knowledge/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does
@@ -104,4 +111,37 @@ pub struct KnowledgeCheck {
     pub capabilities: Option<KnowledgeCapabilities>,
     /// The model that embedded the chunks already stored, once any were.
     pub model: Option<String>,
+    /// What each place in use says, only when both are in use. The top level shows the failing
+    /// place.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub places: Option<KnowledgePlaceChecks>,
+}
+
+/// The check of each place in use.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KnowledgePlaceChecks {
+    /// The team database.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub remote: Option<KnowledgePlaceCheck>,
+    /// This computer's store.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub local: Option<KnowledgePlaceCheck>,
+}
+
+/// What one place can do.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KnowledgePlaceCheck {
+    /// True when the place has everything Harness Knowledge needs.
+    pub ok: bool,
+    /// What is missing, when something is.
+    pub problem: Option<KnowledgeProblem>,
+    /// What works, none when the server could not say.
+    pub capabilities: Option<KnowledgeCapabilities>,
 }

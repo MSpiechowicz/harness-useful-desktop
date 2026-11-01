@@ -30,7 +30,7 @@
   import MemoryTable from '../memory/MemoryTable.svelte';
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import DocumentPanel from './DocumentPanel.svelte';
-  import { docColumns, docSubtitle, formatKey, formatLabel, formatTone, KNOWLEDGE_FORMATS, linksText, pathCount, pathsText, repoLabel } from './knowledge-format';
+  import { docColumns, docSubtitle, formatKey, formatLabel, formatTone, KNOWLEDGE_FORMATS, linksText, pathCount, pathsText, placeLabel, repoLabel } from './knowledge-format';
   import { knowledgeScopeOptions } from './knowledge-repos';
   import KnowledgeEmpty from './KnowledgeEmpty.svelte';
   import KnowledgeTabs from './KnowledgeTabs.svelte';
@@ -222,6 +222,8 @@
   {#snippet cell(doc: KnowledgeDocument, column: Column)}
     {#if column.key === 'title'}
       <span class="text-fg">{doc.title}</span>
+      <!-- Only while both places are in use does a document say where it is kept. -->
+      {#if doc.place}<span class="ml-2 inline-block align-middle"><Badge>{placeLabel(doc.place)}</Badge></span>{/if}
     {:else if column.key === 'format'}
       {@const format = formatKey(doc)}
       <Badge tone={formatTone(format)} size="lg">{formatLabel(format)}</Badge>

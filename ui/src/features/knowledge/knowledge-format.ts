@@ -5,7 +5,9 @@ import { type MessageKey, t, tn } from '$lib/i18n/i18n.svelte';
 import type { KnowledgeDocument } from '$lib/ipc/bindings/KnowledgeDocument';
 import type { KnowledgeHeldItem } from '$lib/ipc/bindings/KnowledgeHeldItem';
 import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
+import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
 import type { KnowledgeSort } from '$lib/ipc/bindings/KnowledgeSort';
+import type { KnowledgeId } from '$lib/ipc/knowledge-id';
 import { formatBytes } from '$lib/utils/format';
 
 /** The formats the Format filter lists, in the order of the menu. */
@@ -40,6 +42,11 @@ export function formatLabel(format: string): string {
 
 export function formatTone(format: string): Tone {
   return FORMAT_TONES[format] ?? 'neutral';
+}
+
+/** Where a document is kept, for people. The words are the ones of the Kept in settings. */
+export function placeLabel(place: KnowledgePlace): string {
+  return t(place === 'local' ? 'settings.memoryRemote.target.local' : 'settings.memoryRemote.target.remote');
 }
 
 /** A repository key for people: `acme/widget` for `git:github.com/acme/widget`, the folder of a `path:` key. */
@@ -87,6 +94,7 @@ export function folderName(path: string | null): string {
 export function docFacts(doc: KnowledgeDocument, sections: number | null): FactRow[] {
   return [
     { label: t('knowledge.fact.format'), value: formatLabel(formatKey(doc)) },
+    ...(doc.place ? [{ label: t('settings.memoryRemote.section.keptIn'), value: placeLabel(doc.place) }] : []),
     { label: t('knowledge.fact.size'), value: formatBytes(doc.bytes) },
     { label: t('knowledge.fact.chunks'), value: String(doc.chunkCount) },
     ...(sections === null ? [] : [{ label: t('knowledge.fact.sections'), value: String(sections) }]),
@@ -110,8 +118,8 @@ export function heldFacts(item: KnowledgeHeldItem): FactRow[] {
 }
 
 /** The line under a title: the format, then the repositories (or Global). */
-export function docSubtitle(doc: Pick<KnowledgeDocument, 'format' | 'sourceName' | 'links'>): string {
-  return [formatLabel(formatKey(doc)), linksText(doc.links)].join(' · ');
+export function docSubtitle(doc: Pick<KnowledgeDocument, 'format' | 'sourceName' | 'links' | 'place'>): string {
+  return [formatLabel(formatKey(doc)), ...(doc.place ? [placeLabel(doc.place)] : []), linksText(doc.links)].join(' · ');
 }
 
 /** Where documents apply as one line: `acme/billing, acme/web`, or Global. */
@@ -132,11 +140,11 @@ export function outlineOf<Section extends { headingPath: string }>(sections: rea
 /** One heading of the outline with every chunk it is cut into, in document order. */
 export interface OutlineGroup {
   headingPath: string;
-  chunkIds: number[];
+  chunkIds: KnowledgeId[];
 }
 
 /** The outline with the chunk ids of each heading kept, so the text of a section is all its parts. */
-export function outlineGroups(sections: readonly { headingPath: string; chunkId: number }[]): OutlineGroup[] {
+export function outlineGroups(sections: readonly { headingPath: string; chunkId: KnowledgeId }[]): OutlineGroup[] {
   const groups: OutlineGroup[] = [];
 
   for (const section of sections) {

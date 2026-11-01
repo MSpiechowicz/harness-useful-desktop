@@ -14,6 +14,7 @@
     "allow-knowledge-set-enabled",
     "allow-knowledge-docs-list",
     "allow-knowledge-doc-get",
+    "allow-knowledge-doc-matches",
     "allow-knowledge-doc-rename",
     "allow-knowledge-doc-links-set",
     "allow-knowledge-docs-delete",

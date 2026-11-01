@@ -26,6 +26,8 @@ fn change(kind: MemoryRemoteKind, url: Option<&str>, token: Option<&str>) -> Kno
         kind: Some(kind),
         url: url.map(str::to_owned),
         token: token.map(str::to_owned),
+        repository_documents: None,
+        global_documents: None,
     }
 }
 
@@ -66,6 +68,8 @@ fn a_saved_database_is_a_table_with_the_url_and_reads_back_redacted() {
             kind: None,
             url: None,
             token: None,
+            repository_documents: None,
+            global_documents: None,
         },
         SUPPORT,
     )
@@ -329,4 +333,66 @@ fn a_test_that_cannot_run_says_why() {
         .as_deref(),
         Some("Harness Knowledge is not installed")
     );
+}
+
+#[test]
+fn routing_is_saved_in_its_own_table_and_only_when_a_place_is_not_the_default() {
+    use harness_business::model::MemoryNotesRouting;
+
+    let (_dir, env) = installed();
+    let routing = KnowledgeSupport::Listed(harness_business::model::KnowledgeFeatures {
+        routing: true,
+        ..Default::default()
+    });
+    let mut routed = change(MemoryRemoteKind::Postgres, Some(POSTGRES), None);
+    routed.repository_documents = Some(MemoryNotesRouting::RemoteLocal);
+    routed.global_documents = Some(MemoryNotesRouting::Local);
+
+    let saved = knowledge_remote_set(&env, routed, routing).unwrap();
+
+    assert_eq!(saved.repository_documents, MemoryNotesRouting::RemoteLocal);
+    assert_eq!(saved.global_documents, MemoryNotesRouting::Local);
+    assert!(saved.routing_supported);
+    let text = std::fs::read_to_string(knowledge_config_path(&env).unwrap()).unwrap();
+    assert!(
+        text.contains("[routing]\nrepository_documents = \"remote+local\"\nglobal_documents = \"local\"\n"),
+        "{text}"
+    );
+
+    // Saving the connection again keeps the routing, and back to remote leaves no table for an old server to refuse.
+    let kept = knowledge_remote_set(&env, change(MemoryRemoteKind::Postgres, None, None), routing).unwrap();
+    assert_eq!(kept.repository_documents, MemoryNotesRouting::RemoteLocal);
+
+    let mut back = change(MemoryRemoteKind::Postgres, None, None);
+    back.repository_documents = Some(MemoryNotesRouting::Remote);
+    back.global_documents = Some(MemoryNotesRouting::Remote);
+    let reset = knowledge_remote_set(&env, back, routing).unwrap();
+    assert_eq!(reset.global_documents, MemoryNotesRouting::Remote);
+    let text = std::fs::read_to_string(knowledge_config_path(&env).unwrap()).unwrap();
+    assert!(!text.contains("routing"), "{text}");
+}
+
+#[test]
+fn routing_is_refused_for_a_server_without_it_and_bad_tables_block_the_file() {
+    use harness_business::model::MemoryNotesRouting;
+
+    let (_dir, env) = installed();
+    let mut routed = change(MemoryRemoteKind::Postgres, Some(POSTGRES), None);
+    routed.global_documents = Some(MemoryNotesRouting::Local);
+
+    assert!(matches!(
+        knowledge_remote_set(&env, routed, SUPPORT),
+        Err(BusinessError::Unsupported(_))
+    ));
+    assert!(!knowledge_config_path(&env).unwrap().exists());
+
+    let path = knowledge_config_path(&env).unwrap();
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, "[routing]\nglobal_documents = \"remote+local\"\nextra = 1\n").unwrap();
+    let read = knowledge_remote_get(&env, SUPPORT);
+    assert_eq!(read.global_documents, MemoryNotesRouting::RemoteLocal);
+    assert!(read.problem.is_some(), "an unknown key blocks the file");
+
+    std::fs::write(&path, "[routing]\nglobal_documents = \"nowhere\"\n").unwrap();
+    assert!(knowledge_remote_get(&env, SUPPORT).problem.is_some());
 }

@@ -11,6 +11,62 @@ use ts_rs::TS;
 
 use super::{DashboardSetup, KnowledgeProblem, ManualRemoval, SortOrder};
 
+/// An id of a document or chunk as the server gave it: a plain number (the remote database, or the
+/// only place in use) or a string `local:N` (this computer's store when both places are in use).
+/// It round-trips exactly: give back what the server gave, never parse a local id into a number.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(untagged)]
+#[ts(export)]
+pub enum KnowledgeId {
+    /// A remote id.
+    Remote(#[ts(type = "number")] i64),
+    /// A local id (`local:12`, a chunk `local:340`, a composite `local:12:340`).
+    Local(String),
+}
+
+impl KnowledgeId {
+    /// True for a positive number or `local:N` / `local:N:M` with positive numbers.
+    pub fn is_valid(&self) -> bool {
+        match self {
+            Self::Remote(id) => *id >= 1,
+            Self::Local(text) => text.strip_prefix("local:").is_some_and(|rest| {
+                let parts: Vec<&str> = rest.split(':').collect();
+
+                (1..=2).contains(&parts.len())
+                    && parts.iter().all(|part| {
+                        (1..=18).contains(&part.len()) && part.bytes().all(|b| b.is_ascii_digit()) && *part != "0"
+                    })
+            }),
+        }
+    }
+}
+
+impl From<i64> for KnowledgeId {
+    fn from(id: i64) -> Self {
+        Self::Remote(id)
+    }
+}
+
+impl std::fmt::Display for KnowledgeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Remote(id) => write!(f, "{id}"),
+            Self::Local(text) => f.write_str(text),
+        }
+    }
+}
+
+/// Which place a document is kept in when both are in use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum KnowledgePlace {
+    /// The team database.
+    Remote,
+    /// This computer's store.
+    Local,
+}
+
 /// Whether Harness Knowledge could be read, for the page of a list.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -57,6 +113,10 @@ pub struct KnowledgeFeatures {
     pub held: bool,
     /// `mcp`: the MCP server the harnesses run.
     pub mcp: bool,
+    /// `routing`: `[routing]` in the config, ids `local:N` and `place` fields.
+    pub routing: bool,
+    /// `doc-matches`: `docs matches`.
+    pub doc_matches: bool,
 }
 
 /// What `knowledge_status` says: whether the server is there and what it can do.
@@ -99,8 +159,7 @@ pub struct KnowledgeLink {
 #[ts(export)]
 pub struct KnowledgeDocument {
     /// The document's id.
-    #[ts(type = "number")]
-    pub id: i64,
+    pub id: KnowledgeId,
     /// Its title.
     pub title: String,
     /// The name of the file it came from.
@@ -130,6 +189,10 @@ pub struct KnowledgeDocument {
     /// The repositories it links to, none for a global document.
     #[serde(default)]
     pub links: Vec<KnowledgeLink>,
+    /// Where it is kept, only when both places are in use.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub place: Option<KnowledgePlace>,
 }
 
 /// One entry of a document's outline.
@@ -138,8 +201,7 @@ pub struct KnowledgeDocument {
 #[ts(export)]
 pub struct KnowledgeSection {
     /// The chunk's id.
-    #[ts(type = "number")]
-    pub chunk_id: i64,
+    pub chunk_id: KnowledgeId,
     /// Its position in the document, from 0.
     pub ordinal: u32,
     /// The headings above it and its own on one line (`Guide > Install`), empty before the first
@@ -159,11 +221,9 @@ pub struct KnowledgeSection {
 #[ts(export)]
 pub struct KnowledgeChunk {
     /// The chunk's id.
-    #[ts(type = "number")]
-    pub id: i64,
+    pub id: KnowledgeId,
     /// The document it belongs to.
-    #[ts(type = "number")]
-    pub doc_id: i64,
+    pub doc_id: KnowledgeId,
     /// Its position in the document, from 0.
     pub ordinal: u32,
     /// The headings above it and its own on one line (`Guide > Install`), empty before the first
@@ -331,6 +391,44 @@ pub struct KnowledgeStats {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub held: Option<u32>,
+    /// The counts of each place in use, only when both are.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub places: Option<KnowledgeStatsPlaces>,
+}
+
+/// The counts of each place in use (`stats --json` `places`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KnowledgeStatsPlaces {
+    /// The team database.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub remote: Option<KnowledgePlaceStats>,
+    /// This computer's store.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub local: Option<KnowledgePlaceStats>,
+}
+
+/// What one place holds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KnowledgePlaceStats {
+    /// How many documents.
+    #[serde(default)]
+    pub documents: u32,
+    /// How many chunks.
+    #[serde(default)]
+    pub chunks: u32,
+    /// How many chunks have a vector.
+    #[serde(default)]
+    pub embedded_chunks: u32,
+    /// How many documents link to no repository.
+    #[serde(default)]
+    pub global_documents: u32,
 }
 
 /// The answer of `knowledge_docs_delete`.
@@ -355,4 +453,30 @@ pub struct KnowledgeSwitchResult {
     /// When switched off: the app's own entries left in files it cannot rewrite (they have
     /// comments), which the user removes by hand. Empty otherwise.
     pub manual_removals: Vec<ManualRemoval>,
+}
+
+/// The passages of one document that match a phrase (`knowledge_doc_matches`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KnowledgeDocMatches {
+    /// The matching chunks in document order, at most the limit asked.
+    pub matches: Vec<KnowledgeDocMatch>,
+    /// How many chunks match in all.
+    pub total: u32,
+}
+
+/// One chunk that matches.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KnowledgeDocMatch {
+    /// The chunk's id.
+    pub chunk_id: KnowledgeId,
+    /// Its position in the document.
+    pub ordinal: u32,
+    /// The heading path.
+    pub section: String,
+    /// Up to 240 characters around the first word, on one line (untrusted).
+    pub snippet: String,
 }

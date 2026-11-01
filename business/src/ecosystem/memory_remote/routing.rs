@@ -37,7 +37,7 @@ pub(super) fn notes_value(table: &Table, key: &str, status: &mut ConfigStatus) -
 
 /// The routing `key` of notes or scripts when it is set to `remote`, `local` or `remote+local`;
 /// another value is noted.
-pub(super) fn set_routing(table: &Table, key: &str, status: &mut ConfigStatus) -> Option<MemoryNotesRouting> {
+pub(crate) fn set_routing(table: &Table, key: &str, status: &mut ConfigStatus) -> Option<MemoryNotesRouting> {
     match table.get(key)?.as_str() {
         Some("remote") => Some(MemoryNotesRouting::Remote),
         Some("local") => Some(MemoryNotesRouting::Local),
@@ -63,7 +63,7 @@ pub(super) fn set_target(table: &Table, key: &str, status: &mut ConfigStatus) ->
 }
 
 /// The file's value of the routing of notes or scripts.
-pub(super) fn notes_name(routing: MemoryNotesRouting) -> &'static str {
+pub(crate) fn notes_name(routing: MemoryNotesRouting) -> &'static str {
     match routing {
         MemoryNotesRouting::Remote => "remote",
         MemoryNotesRouting::Local => "local",
