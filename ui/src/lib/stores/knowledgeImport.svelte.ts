@@ -7,7 +7,8 @@ import type { KnowledgeIntake } from '$lib/ipc/bindings/KnowledgeIntake';
 import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
 import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
 import { ipc } from '$lib/ipc/client';
-import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import type { Transport } from '$lib/ipc/transport';
+import { writeFailureText } from '$lib/utils/knowledge-failure';
 
 import { toasts } from './toasts.svelte';
 
@@ -141,7 +142,7 @@ export class KnowledgeImportStore {
     try {
       this.stage(await this.transport.invoke(what === 'files' ? 'knowledge_pick_files' : 'knowledge_pick_folder', undefined));
     } catch (error) {
-      toasts.push({ title: t('knowledge.import.toast.pickFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
+      toasts.push({ title: t('knowledge.import.toast.pickFailed'), description: writeFailureText(error), tone: 'danger' });
     } finally {
       this.picking = false;
     }
@@ -165,7 +166,7 @@ export class KnowledgeImportStore {
         this.open = true;
       }
     } catch (error) {
-      toasts.push({ title: t('knowledge.import.toast.pickFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
+      toasts.push({ title: t('knowledge.import.toast.pickFailed'), description: writeFailureText(error), tone: 'danger' });
     }
   }
 
@@ -204,7 +205,7 @@ export class KnowledgeImportStore {
         this.run = { ...this.run, counts: result.counts, cancelled: result.cancelled };
       }
     } catch (error) {
-      this.run = { ...this.run, failure: this.run.failure ?? IpcFailure.from(error).message };
+      this.run = { ...this.run, failure: this.run.failure ?? writeFailureText(error) };
     }
 
     this.phase = 'done';
@@ -250,7 +251,7 @@ export class KnowledgeImportStore {
       await this.transport.invoke('knowledge_reindex', { ids: null });
       this.embeddingPending = 0;
     } catch (error) {
-      toasts.push({ title: t('knowledge.import.toast.embedFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
+      toasts.push({ title: t('knowledge.import.toast.embedFailed'), description: writeFailureText(error), tone: 'danger' });
     }
   }
 

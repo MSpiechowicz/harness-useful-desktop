@@ -7,3 +7,10 @@ export function readFailureText(error: unknown): string {
 
   return failure.code === 'unreachable' ? t('knowledge.offline.document') : failure.message;
 }
+
+/** What a failed write (a decision, an import) says: the remote database being unreachable in the app's own words, anything else as the server said it. */
+export function writeFailureText(error: unknown): string {
+  const failure = IpcFailure.from(error);
+
+  return failure.code === 'unreachable' ? t('knowledge.offline.write') : failure.message;
+}

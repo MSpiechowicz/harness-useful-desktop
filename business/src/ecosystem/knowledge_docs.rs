@@ -17,6 +17,7 @@ use super::knowledge_cli::{
     CliFailure, availability_of, availability_of_failure, call, count_of, field, run_json, run_typed, words,
 };
 use super::knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
+use super::knowledge_remote::knowledge_remote_get;
 use super::sidecar_cli::{CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListWindow, is_repo_key};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
@@ -81,10 +82,17 @@ pub async fn list_docs(
     };
 
     Ok(page.unwrap_or_else(|failure| match failure {
-        // A list narrowed to the remote place, asked while it cannot be reached.
-        CliFailure::Error(BusinessError::Unreachable(_)) => KnowledgePage::offline(),
+        // Both places are in use, so this computer still answers: the remote place is an empty
+        // page with the banner. With the remote the only place there is nothing to show instead,
+        // and the page says it is unreachable.
+        CliFailure::Error(BusinessError::Unreachable(_)) if both_places(env) => KnowledgePage::offline(),
         other => KnowledgePage::unavailable(availability_of_failure(other)),
     }))
+}
+
+/// Whether documents are kept in both places (see `KnowledgeRemote::uses_both_places`).
+fn both_places(env: &Env) -> bool {
+    knowledge_remote_get(env, KnowledgeSupport::Unknown).uses_both_places()
 }
 
 /// The page in the answer of `docs list`.

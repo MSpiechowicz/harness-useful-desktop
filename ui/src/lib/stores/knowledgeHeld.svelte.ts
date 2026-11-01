@@ -4,7 +4,8 @@ import type { KnowledgeDecision } from '$lib/ipc/bindings/KnowledgeDecision';
 import type { KnowledgeHeldItem } from '$lib/ipc/bindings/KnowledgeHeldItem';
 import type { KnowledgeHeldPage } from '$lib/ipc/bindings/KnowledgeHeldPage';
 import { ipc } from '$lib/ipc/client';
-import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import type { Transport } from '$lib/ipc/transport';
+import { writeFailureText } from '$lib/utils/knowledge-failure';
 
 import { KNOWLEDGE_PAGE_SIZE } from './knowledgeDocs.svelte';
 import { toasts } from './toasts.svelte';
@@ -63,7 +64,7 @@ export class KnowledgeHeldStore {
 
       return answer.type === 'approved' || answer.type === 'rejected' || answer.type === 'notFound' ? 'left' : 'stay';
     } catch (error) {
-      toasts.push({ title: t(decision === 'approve' ? 'knowledge.held.toast.approveFailed' : 'knowledge.held.toast.rejectFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
+      toasts.push({ title: t(decision === 'approve' ? 'knowledge.held.toast.approveFailed' : 'knowledge.held.toast.rejectFailed'), description: writeFailureText(error), tone: 'danger' });
 
       return 'stay';
     } finally {

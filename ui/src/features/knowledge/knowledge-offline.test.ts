@@ -1,15 +1,20 @@
-import { screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { KnowledgeHeldItem } from '$lib/ipc/bindings/KnowledgeHeldItem';
+import { IpcFailure } from '$lib/ipc/transport';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
 import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
+import { knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
+import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
 import { calls, pick } from '../../../tests/doc-support';
 import { startMockApp } from '../../../tests/mock-app';
+import KnowledgeView from './KnowledgeView.svelte';
 import { fakeKnowledge, resetKnowledge, routedRemote, show } from './knowledge-view-support';
 
 const BANNER = 'Remote knowledge is unreachable. Showing documents on this computer.';
@@ -132,5 +137,59 @@ describe('a write to the remote database that cannot be reached', () => {
 
     expect(result).toBeNull();
     expect(toasts.items.at(-1)).toMatchObject({ title: 'Could not rename the document', description: 'This document is kept in the remote database, which is unreachable right now. Try again when it is back.', tone: 'danger' });
+  });
+});
+
+const REMOTE_WRITE = 'Remote knowledge is unreachable right now. Try again when it is back.';
+
+describe('the remote database as the only place, while it is unreachable', () => {
+  const list = (availability: unknown) => ({ knowledge_docs_list: () => ({ availability, items: [], total: 0, offline: false }) });
+
+  it('says it is unreachable with a Try again button instead of an empty library', async () => {
+    const { invoke } = fakeKnowledge('ok', false, { ...routedRemote('remote', 'remote'), ...list({ type: 'unreachable' }) });
+    render(KnowledgeView);
+
+    expect(await screen.findByText('Remote knowledge is unreachable')).toBeInTheDocument();
+    expect(screen.getByText('Your documents show again when it is back.')).toBeInTheDocument();
+    expect(screen.queryByText(BANNER)).toBeNull();
+    expect(screen.queryByRole('grid', { name: 'Documents' })).toBeNull();
+
+    const before = calls(invoke, 'knowledge_docs_list').length;
+    await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(calls(invoke, 'knowledge_docs_list').length).toBeGreaterThan(before));
+  });
+
+  it('says an upgrading database is in progress, with nothing to press', async () => {
+    fakeKnowledge('ok', false, list({ type: 'upgrading' }));
+    render(KnowledgeView);
+
+    expect(await screen.findByText('Upgrading the knowledge database')).toBeInTheDocument();
+    expect(screen.getByText('Your documents show again in a moment.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+});
+
+describe('a decision or an import while the remote database is unreachable', () => {
+  const refused = () => {
+    throw IpcFailure.from({ code: 'unreachable', message: 'harness-knowledge: remote knowledge is unreachable right now' });
+  };
+
+  it('says it is unreachable in the app words when a proposal cannot be approved or rejected', async () => {
+    fakeKnowledge('ok', false, { knowledge_held_decide: refused });
+    const item = { id: '0b6f2f0e-7f63-4c0e-9d1a-0d5a4a0a7e11', title: 'Retry policy', revision: 'a'.repeat(64) } as KnowledgeHeldItem;
+
+    for (const decision of ['approve', 'reject'] as const) {
+      await knowledgeHeld.decide(item, decision);
+
+      expect(toasts.items.at(-1)).toMatchObject({ description: REMOTE_WRITE, tone: 'danger' });
+    }
+  });
+
+  it('says it is unreachable in the app words when the choice of files fails', async () => {
+    fakeKnowledge('ok', false, { knowledge_pick_files: refused });
+
+    await knowledgeImport.pick('files');
+
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Could not read the chosen files', description: REMOTE_WRITE });
   });
 });

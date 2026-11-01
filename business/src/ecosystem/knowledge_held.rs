@@ -44,6 +44,9 @@ use crate::model::{
 };
 use crate::process::ProcessRunner;
 
+/// The bits of the combined generation that are kept: a JavaScript number holds 53 exactly.
+const GENERATION_MASK: u64 = (1 << 52) - 1;
+
 /// The exit code of a command that refused (see the module docs).
 const REFUSED_EXIT: i32 = 1;
 
@@ -220,7 +223,21 @@ pub async fn knowledge_pulse(
     features: &KnowledgeFeatures,
 ) -> Option<KnowledgePulse> {
     let server = docs_server(env, runner, features).await.ok()?;
-    let stats = read_stats(env, runner, &server).await.ok()?;
+    let stats = match read_stats(env, runner, &server).await {
+        Ok(stats) => stats,
+        // The remote is the only place in use and cannot be reached (with both, the server falls
+        // back to this computer and answers): nothing is known, and it is said so, so the last
+        // counts are not taken for current ones.
+        Err(BusinessError::Unreachable(_)) => {
+            return Some(KnowledgePulse {
+                documents: 0,
+                generation: 0,
+                held: None,
+                offline: true,
+            });
+        }
+        Err(_) => return None,
+    };
 
     let held = match stats.held {
         Some(held) => Some(held),
@@ -265,8 +282,8 @@ fn combined_counts(stats: &KnowledgeStats) -> (u32, i64) {
         (place.generation, place.documents, place.chunks, place.embedded_chunks).hash(&mut hasher);
     }
 
-    // The sign bit is dropped so the number stays a count-like positive value.
-    let generation = i64::try_from(hasher.finish() >> 1).unwrap_or_default();
+    // 52 bits, so the number stays exact as a JavaScript number and positive.
+    let generation = i64::try_from(hasher.finish() & GENERATION_MASK).unwrap_or_default();
 
     (documents, generation)
 }

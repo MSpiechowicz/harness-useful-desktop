@@ -64,14 +64,14 @@
     seen = next;
   });
 
-  /** What this computer keeps while no remote database is set: everything. Connecting one with `remote` hides it, so a first connection warns when there are documents. */
-  const localDocuments = $derived(knowledgeChanges.pulse?.documents ?? 0);
+  /** What this computer keeps while no remote database is set: everything. Connecting one with `remote` hides it, so a first connection warns when there are documents, or when how many there are is not known yet. */
+  const localDocuments = $derived(knowledgeChanges.pulse?.documents ?? null);
 
-  /** What a move would hide or show: said before saving. A first connection moves from everything on this computer, and only what it hides is said, and only when there is something. */
+  /** What a move would hide or show: said before saving. A first connection moves from everything on this computer, and only what it hides is said, and only when there is something or the count is unknown. */
   function save(): void {
     const effects = remote.enabled
       ? documentEffects(remote, { repositoryDocuments, globalDocuments })
-      : documentEffects({ repositoryDocuments: 'local', globalDocuments: 'local' }, { repositoryDocuments, globalDocuments }).filter((effect) => effect.kind === 'hideLocal' && localDocuments > 0);
+      : documentEffects({ repositoryDocuments: 'local', globalDocuments: 'local' }, { repositoryDocuments, globalDocuments }).filter((effect) => effect.kind === 'hideLocal' && (localDocuments === null || localDocuments > 0));
 
     if (effects.length === 0) {
       void commit();

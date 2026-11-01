@@ -45,6 +45,17 @@ pub struct KnowledgeRemote {
     pub problem: Option<String>,
 }
 
+impl KnowledgeRemote {
+    /// Whether documents live in both places: the remote and this computer, so one of them still
+    /// answers while the other cannot be reached.
+    pub fn uses_both_places(&self) -> bool {
+        self.enabled
+            && (self.repository_documents == MemoryNotesRouting::RemoteLocal
+                || self.global_documents == MemoryNotesRouting::RemoteLocal
+                || self.repository_documents != self.global_documents)
+    }
+}
+
 /// What the database lacks, as `check --json` names it (`problem`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]

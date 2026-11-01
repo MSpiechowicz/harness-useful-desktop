@@ -12,7 +12,7 @@ problem: KnowledgeProblem,
 /**
  * What the server said.
  */
-message: string, } | { "type": "failed", 
+message: string, } | { "type": "unreachable" } | { "type": "upgrading" } | { "type": "failed", 
 /**
  * What it said.
  */

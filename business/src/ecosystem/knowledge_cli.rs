@@ -126,7 +126,11 @@ pub(crate) fn unreachable_in(stdout: &str, message: &str) -> Option<String> {
         );
     }
 
-    message.contains(UNREACHABLE_LINE).then(|| message.to_owned())
+    // The line ends with the words, so a long line that merely mentions them is not one.
+    message
+        .trim_end_matches(|c: char| c == '.' || c.is_whitespace())
+        .ends_with(UNREACHABLE_LINE)
+        .then(|| message.to_owned())
 }
 
 /// The first JSON object line of `stdout`.
@@ -188,11 +192,21 @@ pub(crate) fn availability_of(error: BusinessError) -> KnowledgeAvailability {
     match error {
         BusinessError::Unsupported(_) => KnowledgeAvailability::Outdated,
         BusinessError::NotFound(_) => KnowledgeAvailability::NotInstalled,
+        BusinessError::Unreachable(_) => KnowledgeAvailability::Unreachable,
+        BusinessError::Process(message) | BusinessError::Protocol(message) if is_upgrading(&message) => {
+            KnowledgeAvailability::Upgrading
+        }
         BusinessError::Process(message) | BusinessError::Protocol(message) => KnowledgeAvailability::Failed { message },
         other => KnowledgeAvailability::Failed {
             message: other.to_string(),
         },
     }
+}
+
+/// Whether the server's line says it is upgrading its database (`upgrading the knowledge
+/// database`). The server has no code for it yet, so the words are matched.
+fn is_upgrading(message: &str) -> bool {
+    message.to_ascii_lowercase().contains("upgrading")
 }
 
 /// `value` as the `u32` of a DTO (a count above `u32::MAX` is `u32::MAX`), 0 when it is no count.

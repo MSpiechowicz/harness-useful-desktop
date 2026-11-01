@@ -5,6 +5,7 @@ import type { KnowledgeCheck } from '$lib/ipc/bindings/KnowledgeCheck';
 import type { KnowledgeProblem } from '$lib/ipc/bindings/KnowledgeProblem';
 import { ipc } from '$lib/ipc/client';
 import { harness } from '$lib/stores/harness.svelte';
+import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
 import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
 import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
@@ -106,6 +107,8 @@ describe('Knowledge section', () => {
 
   it('tests a remote knowledge database and explains what it lacks, then saves one that has everything', async () => {
     const invoke = vi.spyOn(ipc, 'invoke');
+    // This computer holds nothing, so connecting hides nothing and saves without a question.
+    knowledgeChanges.pulse = { documents: 0, generation: 1, held: 0, offline: false };
     render(SettingsView);
 
     const toggle = await within(section()).findByRole('switch', { name: 'Remote knowledge' });

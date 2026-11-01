@@ -7,14 +7,30 @@ use crate::team_support::{answers, exits, wait};
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
-    KnowledgeFeatures, ListWindow, get_doc, knowledge_doc_matches, knowledge_pulse, list_docs, list_knowledge_repos,
-    read_stats, rename_doc,
+    KnowledgeFeatures, KnowledgeSupport, ListWindow, get_doc, knowledge_config_path, knowledge_doc_matches,
+    knowledge_pulse, knowledge_remote_get, list_docs, list_knowledge_repos, read_stats, rename_doc,
 };
+use harness_business::env::Env;
 use harness_business::model::{KnowledgeAvailability, KnowledgeId, KnowledgeListFilter, KnowledgePlace};
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
 const UNREACHABLE: &str = "harness-knowledge: remote knowledge is unreachable right now\n";
+
+/// Saves a remote database and the routing of documents in the server's config file.
+fn route(env: &Env, repository: &str, global: &str) {
+    let path = knowledge_config_path(env).unwrap();
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &path,
+        format!(
+            "[database]\nurl = \"postgres://h/k\"\n[routing]\nrepository_documents = \"{repository}\"\nglobal_documents = \"{global}\"\n"
+        ),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(0o600)).unwrap();
+}
 
 fn window() -> ListWindow {
     ListWindow::new(Some(0), Some(50), None, None).unwrap()
@@ -97,8 +113,9 @@ fn the_place_filter_is_the_servers_place_argument() {
 }
 
 #[test]
-fn a_remote_list_asked_while_offline_is_an_empty_offline_page() {
+fn a_remote_list_asked_while_offline_is_an_empty_offline_page_when_both_places_are_in_use() {
     let (_dir, env) = installed();
+    route(&env, "remote+local", "remote");
     let probe = KnowledgeFeatures::new();
     let server_cli = cli(ALL_FEATURES).starting(&["docs", "list"], exits(1, "", UNREACHABLE));
 
@@ -260,4 +277,137 @@ fn the_place_filter_is_only_sent_to_a_server_that_falls_back() {
     };
     assert!(!asked(&old).contains(&"--place".to_owned()), "{:?}", asked(&old));
     assert!(asked(&current).contains(&"--place".to_owned()), "{:?}", asked(&current));
+}
+
+#[test]
+fn a_list_while_the_remote_is_the_only_place_and_unreachable_is_unreachable_not_an_empty_library() {
+    let (_dir, env) = installed();
+    route(&env, "remote", "remote");
+    let probe = KnowledgeFeatures::new();
+    let server_cli = cli(ALL_FEATURES).starting(&["docs", "list"], exits(1, "", UNREACHABLE));
+
+    for filter in [KnowledgeListFilter::default(), place_filter(KnowledgePlace::Remote)] {
+        let page = wait(list_docs(&env, &server_cli, &probe, &filter, &window())).unwrap();
+
+        assert_eq!(
+            (page.availability, page.items.len(), page.offline),
+            (KnowledgeAvailability::Unreachable, 0, false)
+        );
+    }
+}
+
+#[test]
+fn the_pulse_marks_offline_when_the_counts_fail_unreachable_and_stays_silent_for_other_failures() {
+    let (_dir, env) = installed();
+    let probe = KnowledgeFeatures::new();
+    let unreachable = cli(ALL_FEATURES).starting(&["stats"], exits(1, "", UNREACHABLE));
+    let broken = cli(ALL_FEATURES).starting(&["stats"], exits(1, "", "harness-knowledge: disk full\n"));
+
+    let pulse = wait(knowledge_pulse(&env, &unreachable, &probe)).expect("an offline pulse");
+    assert_eq!((pulse.documents, pulse.held, pulse.offline), (0, None, true));
+
+    assert_eq!(wait(knowledge_pulse(&env, &broken, &probe)), None);
+}
+
+#[test]
+fn the_combined_generation_is_exact_as_a_javascript_number() {
+    let (_dir, env) = installed();
+    let probe = KnowledgeFeatures::new();
+    let place = |generation: u64| json!({ "documents": 3, "chunks": 9, "embeddedChunks": 9, "bytes": 1, "globalDocuments": 1, "repositories": 1, "generation": generation });
+
+    for generation in [1_u64, 7, 1 << 40, 1 << 62] {
+        let server_cli = cli(ALL_FEATURES).starting(
+            &["stats"],
+            answers(json!({
+                "documents": 3, "chunks": 9, "embeddedChunks": 9, "bytes": 1, "globalDocuments": 1,
+                "repositories": 1, "generation": 1, "schema": 1, "model": null, "held": 0,
+                "places": { "remote": place(generation), "local": place(generation + 1) }
+            })),
+        );
+
+        let pulse = wait(knowledge_pulse(&env, &server_cli, &probe)).expect("the counts");
+        assert!((0..(1_i64 << 52)).contains(&pulse.generation), "{}", pulse.generation);
+    }
+}
+
+#[test]
+fn a_server_that_is_upgrading_its_database_is_a_passing_state_not_a_failure() {
+    let (_dir, env) = installed();
+    let probe = KnowledgeFeatures::new();
+    let server_cli = cli(ALL_FEATURES).starting(
+        &["docs", "list"],
+        exits(
+            1,
+            "",
+            "harness-knowledge: upgrading the knowledge database, try again in a moment\n",
+        ),
+    );
+
+    let page = wait(list_docs(
+        &env,
+        &server_cli,
+        &probe,
+        &KnowledgeListFilter::default(),
+        &window(),
+    ))
+    .unwrap();
+
+    assert_eq!(page.availability, KnowledgeAvailability::Upgrading);
+}
+
+#[test]
+fn a_line_that_only_mentions_the_unreachable_words_is_not_an_unreachable_remote() {
+    let (_dir, env) = installed();
+    let path = server(&env);
+    let remote = KnowledgeId::Remote(7);
+    let server_cli = cli(ALL_FEATURES)
+        .starting(
+            &["docs", "get"],
+            exits(
+                1,
+                "",
+                "harness-knowledge: remote knowledge is unreachable right now for 3 of 4 documents\n",
+            ),
+        )
+        .starting(
+            &["docs", "matches"],
+            exits(1, "", "harness-knowledge: remote knowledge is unreachable right now.\n"),
+        );
+
+    let error = wait(get_doc(&env, &server_cli, &path, &remote, None)).expect_err("failed");
+    assert!(matches!(error, BusinessError::Process(_)), "{error:?}");
+
+    let error = wait(knowledge_doc_matches(
+        &env,
+        &server_cli,
+        &path,
+        &remote,
+        "gateway",
+        None,
+    ))
+    .expect_err("offline");
+    assert!(
+        matches!(error, BusinessError::Unreachable(_)),
+        "a closing period still counts: {error:?}"
+    );
+}
+
+#[test]
+fn a_whitespace_only_routing_variable_is_a_bad_value_as_the_server_reads_it() {
+    let (_dir, env) = installed();
+    route(&env, "remote", "remote");
+    let blank = env.clone().with_var("HARNESS_KNOWLEDGE_REPOSITORY_DOCUMENTS", "  ");
+    let empty = env.with_var("HARNESS_KNOWLEDGE_REPOSITORY_DOCUMENTS", "");
+
+    let remote = knowledge_remote_get(&blank, KnowledgeSupport::Unknown);
+    assert!(
+        remote.repository_documents_env && remote.problem.is_some(),
+        "the server refuses to start"
+    );
+
+    let remote = knowledge_remote_get(&empty, KnowledgeSupport::Unknown);
+    assert!(
+        !remote.repository_documents_env && remote.problem.is_none(),
+        "empty is unset"
+    );
 }

@@ -177,6 +177,17 @@ describe('Kept in on a first connection', () => {
     await waitFor(() => expect(saves(invoke)).toHaveLength(1));
   });
 
+  it('warns too while how many documents this computer holds is not known yet', async () => {
+    const invoke = fakeBackend({ enabled: false, kind: null, urlRedacted: null });
+    knowledgeChanges.pulse = null;
+    render(SettingsView);
+
+    await connect();
+
+    expect(await screen.findByRole('dialog', { name: CHANGE })).toBeInTheDocument();
+    expect(saves(invoke)).toHaveLength(0);
+  });
+
   it('says nothing while this computer holds no documents', async () => {
     const invoke = fakeBackend({ enabled: false, kind: null, urlRedacted: null });
     knowledgeChanges.pulse = { documents: 0, generation: 1, held: 0, offline: false };

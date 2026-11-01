@@ -86,6 +86,11 @@ pub enum KnowledgeAvailability {
         /// What the server said.
         message: String,
     },
+    /// The remote database is the only place in use and cannot be reached: there is nothing to
+    /// show (the page says so, never an empty library).
+    Unreachable,
+    /// The server is upgrading its database: a neutral, passing state, not an error.
+    Upgrading,
     /// The server failed or could not be asked, with its line (redacted).
     Failed {
         /// What it said.
