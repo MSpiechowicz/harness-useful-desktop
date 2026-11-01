@@ -51,7 +51,7 @@
 </script>
 
 <!-- A filter picks from a few ready-made choices; typing is for search. -->
-<Popover {label} kind="menu" {align} {side} class={cx('min-w-0!', search ? 'w-72' : counted || wide ? 'w-60' : 'w-48')}>
+<Popover {label} kind="menu" {align} {side} matchTrigger={!action} class={cx('min-w-0!', search ? 'w-72' : counted || wide ? 'w-60' : 'w-48')}>
   {#snippet trigger({ props, open })}
     {#if action}
       <Button {...props}>

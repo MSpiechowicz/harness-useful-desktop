@@ -22,6 +22,8 @@
     align?: 'start' | 'end';
     /** Which side of the trigger the panel opens on; `top` for triggers near the bottom of the window, `auto` for the side with more room inside the scrolling area around the trigger (a form in a dialog). */
     side?: 'top' | 'bottom' | 'auto';
+    /** Whether an `auto` panel takes the trigger's width (a select). Off for a menu that keeps its own width under a short button. */
+    matchTrigger?: boolean;
     open?: boolean;
     /** Classes of the panel. */
     class?: string;
@@ -32,7 +34,7 @@
     children: Snippet<[{ close: () => void }]>;
   }
 
-  let { label, kind = 'menu', align = 'start', side = 'bottom', open = $bindable(false), class: className, rootClass, trigger, children }: Props = $props();
+  let { label, kind = 'menu', align = 'start', side = 'bottom', matchTrigger = true, open = $bindable(false), class: className, rootClass, trigger, children }: Props = $props();
 
   const panelId = uid('popover');
 
@@ -93,7 +95,7 @@
 
   // Runs before the panel is inserted, so an `auto` panel has the trigger's width before it is measured.
   $effect.pre(() => {
-    anchorWidth = open && side === 'auto' && root ? root.getBoundingClientRect().width : null;
+    anchorWidth = open && side === 'auto' && matchTrigger && root ? root.getBoundingClientRect().width : null;
   });
 
   /** The panel's height with nothing capping it: its content and padding plus its border, which `max-height` also counts. */
