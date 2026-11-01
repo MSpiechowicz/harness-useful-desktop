@@ -108,7 +108,7 @@ export class MockKnowledge {
     }
 
     if (this.offline && doc.place !== 'local') {
-      throw IpcFailure.from(write ? { code: 'process', message: `${UNREACHABLE_PREFIX} the remote database is unreachable, so nothing was changed` } : { code: 'unreachable', message: `${UNREACHABLE_PREFIX} remote knowledge is unreachable right now` });
+      throw IpcFailure.from({ code: 'unreachable', message: `${UNREACHABLE_PREFIX} ${write ? 'the remote database is unreachable, so nothing was changed' : 'remote knowledge is unreachable right now'}` });
     }
 
     return doc;
@@ -144,11 +144,11 @@ function snippetOf(text: string, phrase: string): string {
 }
 
 /** What one place holds, for the `places` of the counts. */
-function placeStats(documents: KnowledgeDocument[], place: 'remote' | 'local', offline: boolean): KnowledgePlaceStats {
+function placeStats(documents: KnowledgeDocument[], place: 'remote' | 'local', offline: boolean, generation: number): KnowledgePlaceStats {
   const kept = documents.filter((doc) => doc.place === place);
   const chunks = kept.reduce((sum, doc) => sum + doc.chunkCount, 0);
 
-  return offline && place === 'remote' ? { documents: 0, chunks: 0, embeddedChunks: 0, globalDocuments: 0, offline: true } : { documents: kept.length, chunks, embeddedChunks: chunks, globalDocuments: kept.filter((doc) => doc.links.length === 0).length, offline: false };
+  return offline && place === 'remote' ? { documents: 0, chunks: 0, embeddedChunks: 0, globalDocuments: 0, generation, offline: true } : { documents: kept.length, chunks, embeddedChunks: chunks, globalDocuments: kept.filter((doc) => doc.links.length === 0).length, generation, offline: false };
 }
 
 function heldNotFound(): KnowledgeDecided {
@@ -180,7 +180,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
     knowledge_status: () => {
       const on = available();
 
-      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on } };
+      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on, offlineFallback: on } };
     },
 
     knowledge_docs_list: ({ filter, offset, limit, query }) => {
@@ -255,7 +255,8 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
     }),
 
     knowledge_stats: () => {
-      const kept = store.reachable();
+      // With both places in use the top level is the remote database's alone (this computer's while it cannot be reached), `places` has each.
+      const kept = store.split && !store.offline ? store.documents.filter((doc) => doc.place === 'remote') : store.reachable();
       const chunks = kept.reduce((sum, doc) => sum + doc.chunkCount, 0);
 
       return {
@@ -269,7 +270,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
         schema: 1,
         model: chunks > 0 ? 'multilingual-e5-small' : null,
         offline: store.offline,
-        ...(store.split ? { places: { remote: placeStats(store.documents, 'remote', store.offline), local: placeStats(store.documents, 'local', false) } } : {}),
+        ...(store.split ? { places: { remote: placeStats(store.documents, 'remote', store.offline, store.generation), local: placeStats(store.documents, 'local', false, store.generation) } } : {}),
       };
     },
 

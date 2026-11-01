@@ -168,7 +168,8 @@ pub use knowledge_embedder::{
 };
 pub use knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
 pub use knowledge_held::{
-    decide_knowledge_held, get_knowledge_held, knowledge_held_server, knowledge_pulse, list_knowledge_held,
+    approval_place, decide_knowledge_held, get_knowledge_held, knowledge_held_server, knowledge_pulse,
+    list_knowledge_held,
 };
 pub use knowledge_import::{
     CANCEL_GRACE, ImportManifest, ImportRun, KnowledgeImporter, MANIFEST_MAX_BYTES, parse_import_event, run_import,

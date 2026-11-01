@@ -20,6 +20,7 @@
   /** An older Harness Knowledge keeps everything in the remote database: the other places stay listed, greyed out, and the note under the rows says what to do. */
   const options = $derived(keptInOptions(remote.routingSupported ? {} : { local: null, remoteLocal: null }));
   const hints = $derived(documentHints());
+  const lockedNote = $derived(t('knowledge.settings.keptIn.env'));
 </script>
 
 <KeptInRow
@@ -28,6 +29,7 @@
   {options}
   {hints}
   value={repositoryDocuments}
+  locked={remote.repositoryDocumentsEnv ? lockedNote : undefined}
   onchange={(next) => onchange('repositoryDocuments', next)}
 />
 
@@ -37,6 +39,7 @@
   {options}
   {hints}
   value={globalDocuments}
+  locked={remote.globalDocumentsEnv ? lockedNote : undefined}
   onchange={(next) => onchange('globalDocuments', next)}
 />
 

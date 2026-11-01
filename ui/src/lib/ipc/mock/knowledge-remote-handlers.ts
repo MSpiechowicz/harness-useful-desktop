@@ -91,6 +91,8 @@ export function knowledgeRemoteHandlers(scenario: () => KnowledgeRemoteScenario 
       embedderSupported: hasEmbedder(),
       repositoryDocuments: routes.repositoryDocuments,
       globalDocuments: routes.globalDocuments,
+      repositoryDocumentsEnv: false,
+      globalDocumentsEnv: false,
       routingSupported: hasEmbedder(),
       configPath: CONFIG_PATH,
       problem: file.blocked,

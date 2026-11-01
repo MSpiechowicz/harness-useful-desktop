@@ -301,6 +301,7 @@ export const knowledge: AreaMessages<typeof enKnowledge> = {
   'knowledge.settings.hint.local': 'Solo en este equipo. Los remotos no se muestran.',
   'knowledge.settings.hint.remoteLocal': 'Lee remoto y este equipo. Tú eliges dónde se guarda cada importación.',
   'knowledge.settings.routing.unsupported': 'Actualiza Harness Knowledge para elegir dónde se guardan los documentos.',
+  'knowledge.settings.keptIn.env': 'Definido por una variable de entorno',
   'knowledge.settings.change.title': '¿Cambiar dónde se guardan los documentos?',
   'knowledge.settings.change.description': 'Esto cambia lo que ves en este equipo. No se borra nada.',
   'knowledge.settings.change.hideTeam': 'Los documentos remotos se ocultan en este equipo. Siguen en la base de datos remota.',

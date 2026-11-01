@@ -13,10 +13,10 @@
   import { idKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
   import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
   import { uid } from '$lib/utils/ids';
+  import { readFailureText } from '$lib/utils/knowledge-failure';
 
   import type { ChunkTexts } from './chunk-texts.svelte';
   import ChunkPart from './ChunkPart.svelte';
-  import { readFailureText } from './knowledge-failure';
   import { headingLevel } from './knowledge-format';
   import { highlightPieces } from './knowledge-text';
 

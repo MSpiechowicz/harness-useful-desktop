@@ -325,6 +325,7 @@ export const knowledge: AreaMessages<typeof enKnowledge> = {
   'knowledge.settings.hint.local': 'Tylko na tym komputerze. Dokumenty zdalne nie są pokazywane.',
   'knowledge.settings.hint.remoteLocal': 'Czyta zdalnie i z tego komputera. Wybierasz, gdzie zapisać każdy import.',
   'knowledge.settings.routing.unsupported': 'Zaktualizuj Harness Knowledge, aby wybrać, gdzie przechowywać dokumenty.',
+  'knowledge.settings.keptIn.env': 'Ustawione przez zmienną środowiskową',
   'knowledge.settings.change.title': 'Zmienić, gdzie przechowywane są dokumenty?',
   'knowledge.settings.change.description': 'To zmienia to, co widzisz na tym komputerze. Nic nie jest usuwane.',
   'knowledge.settings.change.hideTeam': 'Dokumenty zdalne są ukryte na tym komputerze. Zostają w bazie zdalnej.',

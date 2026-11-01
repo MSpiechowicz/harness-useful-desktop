@@ -40,4 +40,9 @@ routing: boolean,
 /**
  * `doc-matches`: `docs matches`.
  */
-docMatches: boolean, };
+docMatches: boolean, 
+/**
+ * `offline-fallback`: a remote database that cannot be reached is answered from this computer
+ * (`offline` on lists and counts, `--place` on `docs list`).
+ */
+offlineFallback: boolean, };

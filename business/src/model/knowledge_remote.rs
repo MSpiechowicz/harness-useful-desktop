@@ -26,10 +26,15 @@ pub struct KnowledgeRemote {
     pub has_token: bool,
     /// True when the installed Harness Knowledge lists `embedder` in `harness-knowledge features`.
     pub embedder_supported: bool,
-    /// Where project documents go (`[routing] repository_documents`, `remote` when unset).
+    /// Where project documents go (`[routing] repository_documents`, `remote` when unset, the environment variable's value while it is set).
     pub repository_documents: MemoryNotesRouting,
-    /// Where global documents go (`[routing] global_documents`, `remote` when unset).
+    /// Where global documents go (`[routing] global_documents`, `remote` when unset, the environment variable's value while it is set).
     pub global_documents: MemoryNotesRouting,
+    /// True when `HARNESS_KNOWLEDGE_REPOSITORY_DOCUMENTS` is set: it wins over the file, so
+    /// `repository_documents` is its value and a change in the settings would not stick.
+    pub repository_documents_env: bool,
+    /// True when `HARNESS_KNOWLEDGE_GLOBAL_DOCUMENTS` is set (see `repository_documents_env`).
+    pub global_documents_env: bool,
     /// True when the installed Harness Knowledge lists `routing` in `harness-knowledge features`,
     /// so the `[routing]` table may be saved. Older servers refuse a file with it.
     pub routing_supported: bool,

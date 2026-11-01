@@ -6,11 +6,11 @@
   import MenuItem from '$lib/components/MenuItem.svelte';
   import MoreMenu from '$lib/components/MoreMenu.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
-  import { IpcFailure } from '$lib/ipc/transport';
   import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
+  import { readFailureText } from '$lib/utils/knowledge-failure';
 
   // How many documents the database says it holds, whatever the table is narrowed to; null while that is not known.
   const documents = $derived(knowledgeChanges.pulse?.documents ?? null);
@@ -32,7 +32,7 @@
     try {
       done = await knowledgeDocs.removeAll();
     } catch (error) {
-      throw new Error(`${t('knowledge.deleteAll.failed')}: ${IpcFailure.from(error).message}`);
+      throw new Error(`${t('knowledge.deleteAll.failed')}: ${readFailureText(error)}`);
     }
 
     viewState.knowledgeDocId = null;

@@ -159,7 +159,7 @@ describe('vector search of Harness Knowledge', () => {
     const prefs = new PrefsStore(fakeTransport({}), toasts);
     prefs.value = samplePrefs();
     const remote = new KnowledgeRemoteStore(fakeTransport({}));
-    remote.value = embedderSupported === null ? null : { enabled: false, kind: null, urlRedacted: null, hasToken: false, embedderSupported, repositoryDocuments: 'remote', globalDocuments: 'remote', routingSupported: true, configPath: '', problem: null };
+    remote.value = embedderSupported === null ? null : { enabled: false, kind: null, urlRedacted: null, hasToken: false, embedderSupported, repositoryDocuments: 'remote', globalDocuments: 'remote', repositoryDocumentsEnv: false, globalDocumentsEnv: false, routingSupported: true, configPath: '', problem: null };
     const calls: boolean[] = [];
     const transport = fakeTransport({
       knowledge_set_vector_search: ({ enabled }: { enabled: boolean }) => {

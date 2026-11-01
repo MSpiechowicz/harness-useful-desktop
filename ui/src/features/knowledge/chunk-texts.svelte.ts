@@ -2,8 +2,7 @@ import { t } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
 import { idKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
 import type { Transport } from '$lib/ipc/transport';
-
-import { readFailureText } from './knowledge-failure';
+import { readFailureText } from '$lib/utils/knowledge-failure';
 
 /** Where the text of one chunk stands. */
 export type ChunkState = { status: 'loading' } | { status: 'ready'; text: string } | { status: 'error'; message: string };

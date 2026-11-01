@@ -62,7 +62,7 @@ describe('the words of a database check', () => {
 
   it('offers PostgreSQL, MongoDB and libSQL, and never Amazon DocumentDB', () => {
     expect(KNOWLEDGE_REMOTE.kinds).toEqual(['postgres', 'mongodb', 'libsql']);
-    expect(savedConnection({ enabled: true, kind: 'documentdb', urlRedacted: 'mongodb://x@h/db', hasToken: false, embedderSupported: true, repositoryDocuments: 'remote', globalDocuments: 'remote', routingSupported: true, configPath: '', problem: null }).kind).toBeNull();
+    expect(savedConnection({ enabled: true, kind: 'documentdb', urlRedacted: 'mongodb://x@h/db', hasToken: false, embedderSupported: true, repositoryDocuments: 'remote', globalDocuments: 'remote', repositoryDocumentsEnv: false, globalDocumentsEnv: false, routingSupported: true, configPath: '', problem: null }).kind).toBeNull();
   });
 });
 

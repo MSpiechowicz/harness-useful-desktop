@@ -301,6 +301,7 @@ export const knowledge: AreaMessages<typeof enKnowledge> = {
   'knowledge.settings.hint.local': 'Nur auf diesem Computer. Remote-Dokumente werden nicht angezeigt.',
   'knowledge.settings.hint.remoteLocal': 'Liest Remote und diesen Computer. Du wählst, wo jeder Import gespeichert wird.',
   'knowledge.settings.routing.unsupported': 'Aktualisiere Harness Knowledge, um zu wählen, wo Dokumente gespeichert werden.',
+  'knowledge.settings.keptIn.env': 'Durch eine Umgebungsvariable festgelegt',
   'knowledge.settings.change.title': 'Ändern, wo Dokumente gespeichert werden?',
   'knowledge.settings.change.description': 'Das ändert, was du auf diesem Computer siehst. Es wird nichts gelöscht.',
   'knowledge.settings.change.hideTeam': 'Remote-Dokumente werden auf diesem Computer ausgeblendet. Sie bleiben in der Remote-Datenbank.',

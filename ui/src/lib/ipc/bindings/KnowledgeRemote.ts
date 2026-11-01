@@ -28,13 +28,22 @@ hasToken: boolean,
  */
 embedderSupported: boolean, 
 /**
- * Where project documents go (`[routing] repository_documents`, `remote` when unset).
+ * Where project documents go (`[routing] repository_documents`, `remote` when unset, the environment variable's value while it is set).
  */
 repositoryDocuments: MemoryNotesRouting, 
 /**
- * Where global documents go (`[routing] global_documents`, `remote` when unset).
+ * Where global documents go (`[routing] global_documents`, `remote` when unset, the environment variable's value while it is set).
  */
 globalDocuments: MemoryNotesRouting, 
+/**
+ * True when `HARNESS_KNOWLEDGE_REPOSITORY_DOCUMENTS` is set: it wins over the file, so
+ * `repository_documents` is its value and a change in the settings would not stick.
+ */
+repositoryDocumentsEnv: boolean, 
+/**
+ * True when `HARNESS_KNOWLEDGE_GLOBAL_DOCUMENTS` is set (see `repository_documents_env`).
+ */
+globalDocumentsEnv: boolean, 
 /**
  * True when the installed Harness Knowledge lists `routing` in `harness-knowledge features`,
  * so the `[routing]` table may be saved. Older servers refuse a file with it.

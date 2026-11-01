@@ -366,6 +366,72 @@ fn the_counts_follow_the_generation_and_the_queue_when_there_is_one() {
     assert!(wait(knowledge_pulse(&env, &broken, &KnowledgeFeatures::new())).is_none());
 }
 
+fn split_stats(local_generation: i64, local_documents: u32, remote_offline: bool) -> serde_json::Value {
+    json!({ "documents": 4, "generation": 9, "chunks": 1, "embeddedChunks": 1, "bytes": 1,
+            "globalDocuments": 0, "repositories": 0, "schema": 1, "model": null, "held": 0,
+            "offline": remote_offline,
+            "places": {
+                "remote": { "documents": if remote_offline { 0 } else { 4 }, "generation": 9, "offline": remote_offline },
+                "local": { "documents": local_documents, "generation": local_generation }
+            } })
+}
+
+#[test]
+fn with_both_places_the_pulse_sums_them_and_moves_when_only_the_local_one_changes() {
+    let (_dir, env) = installed();
+    let pulse_of = |stats| {
+        let server_cli = cli(ALL_FEATURES).starting(&["stats"], answers(stats));
+
+        wait(knowledge_pulse(&env, &server_cli, &KnowledgeFeatures::new())).expect("answers")
+    };
+
+    let before = pulse_of(split_stats(3, 2, false));
+    assert_eq!(before.documents, 6, "the remote documents and the local ones");
+
+    // Only this computer's store changed: the top-level numbers (the remote database's) did not.
+    let imported = pulse_of(split_stats(4, 3, false));
+    assert_eq!(imported.documents, 7);
+    assert_ne!(
+        imported.generation, before.generation,
+        "a local import must reach the view"
+    );
+    assert_eq!(
+        pulse_of(split_stats(3, 2, false)),
+        before,
+        "the same stores give the same pulse"
+    );
+
+    // A remote database that cannot be reached counts for nothing: the local documents alone.
+    let offline = pulse_of(split_stats(3, 2, true));
+    assert_eq!((offline.documents, offline.offline), (2, true));
+}
+
+#[test]
+fn an_approval_place_is_dropped_for_a_server_that_cannot_route() {
+    use harness_business::ecosystem::approval_place;
+    use harness_business::model::KnowledgePlace;
+
+    let (_dir, env) = installed();
+    let routing = cli(ALL_FEATURES);
+    let plain = cli("docs\nheld\n");
+
+    let kept = wait(approval_place(
+        &env,
+        &routing,
+        &KnowledgeFeatures::new(),
+        Some(KnowledgePlace::Local),
+    ));
+    assert_eq!(kept, Some(KnowledgePlace::Local));
+
+    let dropped = wait(approval_place(
+        &env,
+        &plain,
+        &KnowledgeFeatures::new(),
+        Some(KnowledgePlace::Local),
+    ));
+    assert_eq!(dropped, None);
+}
+
 #[test]
 fn an_approval_names_the_place_when_given_and_a_local_doc_id_stays_a_string() {
     use harness_business::model::{KnowledgeId, KnowledgePlace};

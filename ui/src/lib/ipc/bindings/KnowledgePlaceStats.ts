@@ -21,6 +21,10 @@ embeddedChunks: number,
  */
 globalDocuments: number, 
 /**
+ * Changes whenever this place changes (0 from a server that does not count it).
+ */
+generation: number, 
+/**
  * The place cannot be reached, so its counts are not known (`{"offline": true}`).
  */
 offline: boolean, };

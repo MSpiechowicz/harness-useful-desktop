@@ -170,3 +170,94 @@ fn a_remote_document_that_cannot_be_read_is_unreachable_and_a_refused_write_keep
         "a refused write is the server's sentence, not an unreachable read"
     );
 }
+
+#[test]
+fn the_servers_unreachable_code_counts_even_when_its_line_is_long_or_not_the_known_one() {
+    let (_dir, env) = installed();
+    let path = server(&env);
+    let remote = KnowledgeId::Remote(7);
+    let coded = json!({ "error": "unreachable", "message": "the remote database did not answer" }).to_string();
+    // A stderr line clipped before it says anything about being unreachable.
+    let clipped = format!(
+        "harness-knowledge: {} remote knowledge is unreachable right now\n",
+        "x".repeat(600)
+    );
+    let long = format!(
+        "harness-knowledge: {} remote knowledge is unreachable right now\n",
+        "x".repeat(300)
+    );
+    let server_cli = cli(ALL_FEATURES)
+        .starting(&["docs", "get"], exits(1, &format!("{coded}\n"), &clipped))
+        .starting(
+            &["docs", "rename"],
+            exits(1, &format!("{coded}\n"), "harness-knowledge: nothing was renamed\n"),
+        )
+        .starting(&["docs", "links"], exits(1, "", &long));
+
+    let error = wait(get_doc(&env, &server_cli, &path, &remote, None)).expect_err("offline");
+    assert!(matches!(error, BusinessError::Unreachable(_)), "{error:?}");
+
+    let error = wait(rename_doc(&env, &server_cli, &path, &remote, "New")).expect_err("offline");
+    assert!(matches!(error, BusinessError::Unreachable(_)), "{error:?}");
+
+    // Without the code the line is the fallback, whatever came before the words.
+    let error = wait(harness_business::ecosystem::set_links(
+        &env,
+        &server_cli,
+        &path,
+        &remote,
+        &[],
+    ))
+    .expect_err("offline");
+    assert!(matches!(error, BusinessError::Unreachable(_)), "{error:?}");
+}
+
+#[test]
+fn a_held_decision_while_offline_is_unreachable() {
+    use harness_business::model::KnowledgeDecision;
+
+    let (_dir, env) = installed();
+    let coded = json!({ "error": "unreachable", "message": "the remote database did not answer" }).to_string();
+    let server_cli = cli(ALL_FEATURES).starting(&["held", "approve"], exits(1, &format!("{coded}\n"), ""));
+
+    let error = wait(harness_business::ecosystem::decide_knowledge_held(
+        &env,
+        &server_cli,
+        &server(&env),
+        "3f1c2a9e-7b4d-4e0a-9c55-1d2e3f4a5b6c",
+        KnowledgeDecision::Approve,
+        None,
+        None,
+    ))
+    .expect_err("offline");
+
+    assert!(matches!(error, BusinessError::Unreachable(_)), "{error:?}");
+}
+
+#[test]
+fn the_place_filter_is_only_sent_to_a_server_that_falls_back() {
+    let (_dir, env) = installed();
+    let old = cli("docs\nrouting\n").starting(&["docs", "list"], answers(json!({ "items": [], "total": 0 })));
+    let current = cli(ALL_FEATURES).starting(&["docs", "list"], answers(json!({ "items": [], "total": 0 })));
+
+    for server_cli in [&old, &current] {
+        wait(list_docs(
+            &env,
+            server_cli,
+            &KnowledgeFeatures::new(),
+            &place_filter(KnowledgePlace::Local),
+            &window(),
+        ))
+        .unwrap();
+    }
+
+    let asked = |server_cli: &crate::team_support::Cli| {
+        server_cli
+            .commands()
+            .into_iter()
+            .find(|command| command[0] == "docs")
+            .expect("a list")
+    };
+    assert!(!asked(&old).contains(&"--place".to_owned()), "{:?}", asked(&old));
+    assert!(asked(&current).contains(&"--place".to_owned()), "{:?}", asked(&current));
+}

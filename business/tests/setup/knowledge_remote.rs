@@ -396,3 +396,58 @@ fn routing_is_refused_for_a_server_without_it_and_bad_tables_block_the_file() {
     std::fs::write(&path, "[routing]\nglobal_documents = \"nowhere\"\n").unwrap();
     assert!(knowledge_remote_get(&env, SUPPORT).problem.is_some());
 }
+
+#[test]
+fn routing_values_read_as_the_server_reads_them_and_an_unknown_one_blocks_saving() {
+    use harness_business::model::MemoryNotesRouting;
+
+    let (_dir, env) = installed();
+    knowledge_remote_set(&env, change(MemoryRemoteKind::Postgres, Some(POSTGRES), None), SUPPORT).unwrap();
+
+    // Rewritten in place, so the file keeps the permissions the app gave it.
+    let path = knowledge_config_path(&env).unwrap();
+
+    // The server trims and ignores case, so the app must not see `remote` there.
+    let text = "[database]\nurl = \"postgres://ana:pw@db.example.com/k\"\n[routing]\nrepository_documents = \" Remote+Local \"\nglobal_documents = \"LOCAL\"\n";
+    std::fs::write(&path, text).unwrap();
+    let read = knowledge_remote_get(&env, SUPPORT);
+    assert_eq!(read.repository_documents, MemoryNotesRouting::RemoteLocal);
+    assert_eq!(read.global_documents, MemoryNotesRouting::Local);
+    assert!(read.problem.is_none(), "{:?}", read.problem);
+
+    // A value the server refuses is not silently replaced with `remote` by a save.
+    std::fs::write(&path, text.replace("LOCAL", "somewhere")).unwrap();
+    let blocked = knowledge_remote_set(&env, change(MemoryRemoteKind::Postgres, None, None), SUPPORT);
+    assert!(matches!(blocked, Err(BusinessError::InvalidInput(_))), "{blocked:?}");
+    assert!(std::fs::read_to_string(&path).unwrap().contains("somewhere"));
+}
+
+#[test]
+fn a_routing_variable_wins_over_the_file_and_is_reported_as_set() {
+    use harness_business::model::MemoryNotesRouting;
+
+    let (_dir, env) = installed();
+    let routing = KnowledgeSupport::Listed(harness_business::model::KnowledgeFeatures {
+        routing: true,
+        ..Default::default()
+    });
+    let env = env.with_var("HARNESS_KNOWLEDGE_REPOSITORY_DOCUMENTS", " Local ");
+
+    let mut routed = change(MemoryRemoteKind::Postgres, Some(POSTGRES), None);
+    routed.repository_documents = Some(MemoryNotesRouting::RemoteLocal);
+    routed.global_documents = Some(MemoryNotesRouting::RemoteLocal);
+    let saved = knowledge_remote_set(&env, routed, routing).unwrap();
+
+    assert_eq!(
+        saved.repository_documents,
+        MemoryNotesRouting::Local,
+        "the variable's value"
+    );
+    assert!(saved.repository_documents_env && !saved.global_documents_env);
+    assert_eq!(saved.global_documents, MemoryNotesRouting::RemoteLocal);
+
+    // The chosen value for the variable's place never reached the file.
+    let text = std::fs::read_to_string(knowledge_config_path(&env).unwrap()).unwrap();
+    assert!(text.contains("repository_documents = \"remote\""), "{text}");
+    assert!(text.contains("global_documents = \"remote+local\""), "{text}");
+}

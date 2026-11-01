@@ -89,6 +89,23 @@ describe('the Kept in filter', () => {
   });
 });
 
+describe('the Kept in filter on a server that cannot fall back to this computer', () => {
+  it('is not offered, because the server would ignore the place', async () => {
+    const { invoke } = fakeKnowledge('ok', true, {
+      ...routedRemote('remoteLocal', 'remoteLocal'),
+      knowledge_status: () => ({
+        availability: { type: 'available' },
+        features: { docs: true, import: true, embedder: true, search: true, recall: true, held: true, mcp: true, routing: true, docMatches: true, offlineFallback: false },
+      }),
+    });
+    await show();
+
+    expect(await screen.findByText('Architecture overview')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Kept in/ })).toBeNull();
+    expect(calls(invoke, 'knowledge_docs_list').every((call) => (call as { filter: { place: unknown } }).filter.place === null)).toBe(true);
+  });
+});
+
 describe('a remote document while the remote database is unreachable', () => {
   it('says it is unreachable in the app words in the panel', async () => {
     fakeKnowledge('ok', true, routedRemote('remoteLocal', 'remoteLocal'), true);
@@ -102,8 +119,8 @@ describe('a remote document while the remote database is unreachable', () => {
   });
 });
 
-describe('a write to the remote database that the server refused', () => {
-  it('shows the server sentence in a toast', async () => {
+describe('a write to the remote database that cannot be reached', () => {
+  it('says it is unreachable in the app words in a toast', async () => {
     const { store } = fakeKnowledge('ok', true, routedRemote('remoteLocal', 'remoteLocal'));
     await show();
     await screen.findByText('Standup 28 October (transcript)');
@@ -114,6 +131,6 @@ describe('a write to the remote database that the server refused', () => {
     const result = await knowledgeDocs.rename(1, 'New name');
 
     expect(result).toBeNull();
-    expect(toasts.items.at(-1)).toMatchObject({ title: 'Could not rename the document', description: 'harness-knowledge: the remote database is unreachable, so nothing was changed', tone: 'danger' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Could not rename the document', description: 'This document is kept in the remote database, which is unreachable right now. Try again when it is back.', tone: 'danger' });
   });
 });

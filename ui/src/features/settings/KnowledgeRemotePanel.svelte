@@ -2,6 +2,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeRemote } from '$lib/ipc/bindings/KnowledgeRemote';
   import type { MemoryNotesRouting } from '$lib/ipc/bindings/MemoryNotesRouting';
+  import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
   import { uid } from '$lib/utils/ids';
 
@@ -44,9 +45,33 @@
     draft.edited();
   }
 
-  /** What a move would hide or show: said before saving. A first connection has nothing saved to change. */
+  // The saved routing changed under the form (it was saved, or read again from the file or the environment): the form shows it, but a
+  // read that gave the same answer keeps what the user is choosing.
+  // svelte-ignore state_referenced_locally
+  let seen = { repositoryDocuments: remote.repositoryDocuments, globalDocuments: remote.globalDocuments };
+
+  $effect(() => {
+    const next = { repositoryDocuments: remote.repositoryDocuments, globalDocuments: remote.globalDocuments };
+
+    if (next.repositoryDocuments !== seen.repositoryDocuments) {
+      repositoryDocuments = next.repositoryDocuments;
+    }
+
+    if (next.globalDocuments !== seen.globalDocuments) {
+      globalDocuments = next.globalDocuments;
+    }
+
+    seen = next;
+  });
+
+  /** What this computer keeps while no remote database is set: everything. Connecting one with `remote` hides it, so a first connection warns when there are documents. */
+  const localDocuments = $derived(knowledgeChanges.pulse?.documents ?? 0);
+
+  /** What a move would hide or show: said before saving. A first connection moves from everything on this computer, and only what it hides is said, and only when there is something. */
   function save(): void {
-    const effects = remote.enabled ? documentEffects(remote, { repositoryDocuments, globalDocuments }) : [];
+    const effects = remote.enabled
+      ? documentEffects(remote, { repositoryDocuments, globalDocuments })
+      : documentEffects({ repositoryDocuments: 'local', globalDocuments: 'local' }, { repositoryDocuments, globalDocuments }).filter((effect) => effect.kind === 'hideLocal' && localDocuments > 0);
 
     if (effects.length === 0) {
       void commit();

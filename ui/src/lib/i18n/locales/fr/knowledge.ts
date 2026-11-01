@@ -301,6 +301,7 @@ export const knowledge: AreaMessages<typeof enKnowledge> = {
   'knowledge.settings.hint.local': 'Uniquement sur cet ordinateur. Les documents distants ne sont pas affichés.',
   'knowledge.settings.hint.remoteLocal': 'Lit le distant et cet ordinateur. Vous choisissez où chaque import est enregistré.',
   'knowledge.settings.routing.unsupported': 'Mettez à jour Harness Knowledge pour choisir où les documents sont conservés.',
+  'knowledge.settings.keptIn.env': 'Défini par une variable d’environnement',
   'knowledge.settings.change.title': 'Changer l’emplacement des documents ?',
   'knowledge.settings.change.description': 'Cela change ce que vous voyez sur cet ordinateur. Rien n’est supprimé.',
   'knowledge.settings.change.hideTeam': 'Les documents distants sont masqués sur cet ordinateur. Ils restent dans la base de données distante.',

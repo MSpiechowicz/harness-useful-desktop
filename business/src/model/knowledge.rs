@@ -117,6 +117,9 @@ pub struct KnowledgeFeatures {
     pub routing: bool,
     /// `doc-matches`: `docs matches`.
     pub doc_matches: bool,
+    /// `offline-fallback`: a remote database that cannot be reached is answered from this computer
+    /// (`offline` on lists and counts, `--place` on `docs list`).
+    pub offline_fallback: bool,
 }
 
 /// What `knowledge_status` says: whether the server is there and what it can do.

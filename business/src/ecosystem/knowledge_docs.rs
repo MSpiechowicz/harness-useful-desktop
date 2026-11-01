@@ -64,12 +64,16 @@ pub async fn list_docs(
     filter: &KnowledgeListFilter,
     window: &ListWindow,
 ) -> Result<KnowledgePage> {
-    let args = list_args(filter, window)?;
+    // A filter the server would refuse is the caller's mistake, whatever the server is.
+    list_args(filter, window, true)?;
 
     let server = match docs_server(env, runner, features).await {
         Ok(server) => server,
         Err(error) => return Ok(KnowledgePage::unavailable(availability_of(error))),
     };
+
+    // A server that does not know `offline-fallback` has no `--place` on a list.
+    let args = list_args(filter, window, features.support(env, runner).await.offline_fallback())?;
 
     let page = match run_typed(env, runner, &server, call("docs list", args)).await {
         Ok(data) => read_page(&data).map_err(CliFailure::from),
@@ -101,7 +105,11 @@ fn is_offline(data: &Value) -> bool {
 
 /// `docs list --json [--repo KEY | --global] [--format F] [--place P] [--query Q] --sort S [--desc] --page N
 /// --per-page N`.
-pub fn list_args(filter: &KnowledgeListFilter, window: &ListWindow) -> Result<Vec<std::ffi::OsString>> {
+fn list_args(
+    filter: &KnowledgeListFilter,
+    window: &ListWindow,
+    offline_fallback: bool,
+) -> Result<Vec<std::ffi::OsString>> {
     let mut args = words(&["docs", "list", "--json"]);
 
     match &filter.scope {
@@ -118,7 +126,7 @@ pub fn list_args(filter: &KnowledgeListFilter, window: &ListWindow) -> Result<Ve
         args.extend(["--format".into(), format.into()]);
     }
 
-    match filter.place {
+    match filter.place.filter(|_| offline_fallback) {
         Some(KnowledgePlace::Remote) => args.extend(["--place".into(), "remote".into()]),
         Some(KnowledgePlace::Local) => args.extend(["--place".into(), "local".into()]),
         None => {}

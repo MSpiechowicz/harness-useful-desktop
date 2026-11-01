@@ -10,7 +10,8 @@ import type { KnowledgeSort } from '$lib/ipc/bindings/KnowledgeSort';
 import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
 import { idFromKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
-import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import type { Transport } from '$lib/ipc/transport';
+import { readFailureText } from '$lib/utils/knowledge-failure';
 
 import { reachKey } from './memory-reach';
 import { toasts } from './toasts.svelte';
@@ -87,7 +88,7 @@ export class KnowledgeDocsStore {
 
       return stored;
     } catch (error) {
-      toasts.push({ title: t('knowledge.toast.renameFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
+      toasts.push({ title: t('knowledge.toast.renameFailed'), description: readFailureText(error), tone: 'danger' });
 
       return null;
     }
@@ -102,7 +103,7 @@ export class KnowledgeDocsStore {
 
       return stored;
     } catch (error) {
-      toasts.push({ title: t('knowledge.toast.linksFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
+      toasts.push({ title: t('knowledge.toast.linksFailed'), description: readFailureText(error), tone: 'danger' });
 
       return null;
     }
@@ -117,7 +118,7 @@ export class KnowledgeDocsStore {
 
       return deleted;
     } catch (error) {
-      toasts.push({ title: t('knowledge.toast.deleteFailed'), description: IpcFailure.from(error).message, tone: 'danger' });
+      toasts.push({ title: t('knowledge.toast.deleteFailed'), description: readFailureText(error), tone: 'danger' });
       await this.refresh();
 
       return null;

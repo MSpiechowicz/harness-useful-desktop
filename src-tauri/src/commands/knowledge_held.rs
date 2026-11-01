@@ -8,7 +8,7 @@
 //! `availability`.
 
 use harness_business::ecosystem::{
-    ListWindow, decide_knowledge_held, get_knowledge_held, knowledge_held_server, list_knowledge_held,
+    ListWindow, approval_place, decide_knowledge_held, get_knowledge_held, knowledge_held_server, list_knowledge_held,
 };
 use harness_business::model::{
     KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgePlace, KnowledgePulse,
@@ -55,6 +55,7 @@ pub async fn knowledge_held_decide(
     place: Option<KnowledgePlace>,
 ) -> CommandResult<KnowledgeDecided> {
     let server = knowledge_held_server(&state.env, &state.runner, &state.knowledge_features).await?;
+    let place = approval_place(&state.env, &state.runner, &state.knowledge_features, place).await;
 
     Ok(decide_knowledge_held(
         &state.env,

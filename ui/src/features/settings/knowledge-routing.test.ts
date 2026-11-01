@@ -5,6 +5,7 @@ import type { KnowledgeRemote } from '$lib/ipc/bindings/KnowledgeRemote';
 import { ipc } from '$lib/ipc/client';
 import type { CommandArgs, CommandName, CommandResult } from '$lib/ipc/commands';
 import { harness } from '$lib/stores/harness.svelte';
+import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
 import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 
@@ -23,6 +24,8 @@ function fakeBackend(initial: Partial<KnowledgeRemote> = {}) {
     embedderSupported: true,
     repositoryDocuments: 'remote',
     globalDocuments: 'remote',
+    repositoryDocumentsEnv: false,
+    globalDocumentsEnv: false,
     routingSupported: true,
     configPath: '~/.config/harness-knowledge/config.toml',
     problem: null,
@@ -68,6 +71,7 @@ beforeAll(async () => {
 beforeEach(() => {
   prefs.value = samplePrefs({ motion: 'off' });
   knowledgeRemote.value = null;
+  knowledgeChanges.reset();
 });
 
 afterEach(() => {
@@ -145,5 +149,71 @@ describe('Kept in for documents', () => {
 
     await waitFor(() => expect(saves(invoke)).toHaveLength(1));
     expect(saves(invoke)[0]).not.toHaveProperty('repositoryDocuments');
+  });
+});
+
+describe('Kept in on a first connection', () => {
+  async function connect(): Promise<void> {
+    const toggle = await screen.findByRole('switch', { name: 'Remote knowledge' });
+    await waitFor(() => expect(toggle).toBeEnabled());
+    await fireEvent.click(toggle);
+    await fireEvent.input(await screen.findByLabelText('Connection URL'), { target: { value: 'postgres://me:pw@db.ok.example/knowledge' } });
+    await saveForm();
+  }
+
+  it('warns that the documents on this computer are hidden when the remote database will hold the documents instead', async () => {
+    const invoke = fakeBackend({ enabled: false, kind: null, urlRedacted: null });
+    knowledgeChanges.pulse = { documents: 3, generation: 1, held: 0, offline: false };
+    render(SettingsView);
+
+    await connect();
+
+    const dialog = await screen.findByRole('dialog', { name: CHANGE });
+    expect(within(dialog).getAllByText('Documents saved on this computer are hidden. They stay on this computer.')).toHaveLength(2);
+    expect(saves(invoke)).toHaveLength(0);
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(saves(invoke)).toHaveLength(1));
+  });
+
+  it('says nothing while this computer holds no documents', async () => {
+    const invoke = fakeBackend({ enabled: false, kind: null, urlRedacted: null });
+    knowledgeChanges.pulse = { documents: 0, generation: 1, held: 0, offline: false };
+    render(SettingsView);
+
+    await connect();
+
+    await waitFor(() => expect(saves(invoke)).toHaveLength(1));
+    expect(screen.queryByRole('dialog', { name: CHANGE })).toBeNull();
+  });
+});
+
+describe('Kept in when the saved routing changes', () => {
+  it('shows the routing the backend now reports instead of the one the form started with', async () => {
+    fakeBackend();
+    render(SettingsView);
+
+    const group = await screen.findByRole('radiogroup', { name: 'Project documents' });
+    expect(within(group).getByRole('radio', { name: 'Remote' })).toHaveAttribute('aria-checked', 'true');
+
+    knowledgeRemote.value = { ...(knowledgeRemote.value as KnowledgeRemote), repositoryDocuments: 'local' };
+
+    await waitFor(() => expect(within(group).getByRole('radio', { name: 'This computer' })).toHaveAttribute('aria-checked', 'true'));
+  });
+});
+
+describe('Kept in when an environment variable sets the routing', () => {
+  it('locks the row it sets, shows its value and says why, leaving the other row free', async () => {
+    fakeBackend({ repositoryDocuments: 'local', repositoryDocumentsEnv: true });
+    render(SettingsView);
+
+    const project = await screen.findByRole('radiogroup', { name: 'Project documents' });
+    const global = screen.getByRole('radiogroup', { name: 'Global documents' });
+
+    expect(within(project).getByRole('radio', { name: 'This computer' })).toHaveAttribute('aria-checked', 'true');
+    expect(within(project).getAllByRole('radio').every((radio) => (radio as HTMLButtonElement).disabled)).toBe(true);
+    expect(within(global).getAllByRole('radio').every((radio) => (radio as HTMLButtonElement).disabled === false)).toBe(true);
+    expect(screen.getAllByText('Set by an environment variable')).toHaveLength(1);
   });
 });

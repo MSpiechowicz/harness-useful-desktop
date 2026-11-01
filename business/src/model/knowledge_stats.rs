@@ -74,6 +74,10 @@ pub struct KnowledgePlaceStats {
     /// How many documents link to no repository.
     #[serde(default)]
     pub global_documents: u32,
+    /// Changes whenever this place changes (0 from a server that does not count it).
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub generation: i64,
     /// The place cannot be reached, so its counts are not known (`{"offline": true}`).
     #[serde(default)]
     pub offline: bool,

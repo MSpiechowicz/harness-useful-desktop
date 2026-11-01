@@ -21,7 +21,7 @@ use std::path::PathBuf;
 
 pub use check::{knowledge_remote_test, read_check};
 
-use self::file::{ConfigFile, Routes, read_config, remove_config, render, write_config};
+use self::file::{ConfigFile, Routes, parse_routing, read_config, remove_config, render, write_config};
 use super::catalog::KNOWLEDGE_SIDECAR;
 use super::knowledge_features::KnowledgeSupport;
 use super::memory_remote::is_documentdb_url;
@@ -50,6 +50,12 @@ pub struct KnowledgeRemoteChange {
     pub global_documents: Option<MemoryNotesRouting>,
 }
 
+/// The variable that sets where project documents go, over the config file.
+const REPOSITORY_VAR: &str = "HARNESS_KNOWLEDGE_REPOSITORY_DOCUMENTS";
+
+/// The variable that sets where global documents go, over the config file.
+const GLOBAL_VAR: &str = "HARNESS_KNOWLEDGE_GLOBAL_DOCUMENTS";
+
 /// Harness Knowledge's config file, found as the server finds it: `HARNESS_KNOWLEDGE_CONFIG` when
 /// set, else under `$XDG_CONFIG_HOME` (or `~/.config`) on Linux, `~/Library/Application Support` on
 /// macOS and `%APPDATA%` on Windows. A relative variable does not count, as for the server.
@@ -75,20 +81,42 @@ pub fn knowledge_remote_get(env: &Env, support: KnowledgeSupport) -> KnowledgeRe
     let Some(path) = knowledge_config_path(env) else {
         return KnowledgeRemote {
             problem: Some(unknown_path(&KNOWLEDGE_SIDECAR, env)),
-            ..remote_from(&ConfigFile::default(), path_hint(&KNOWLEDGE_SIDECAR, env), support)
+            ..remote_from(env, &ConfigFile::default(), path_hint(&KNOWLEDGE_SIDECAR, env), support)
         };
     };
 
-    remote_from(&read_config(&path), tilde(env, &path), support)
+    remote_from(env, &read_config(&path), tilde(env, &path), support)
 }
 
-fn remote_from(config: &ConfigFile, config_path: String, support: KnowledgeSupport) -> KnowledgeRemote {
+/// Where documents go for the variable `var` when it is set (its value as the server reads it, the
+/// file's `saved` when the value is not one), and whether it is set.
+fn routing_from_env(env: &Env, var: &str, saved: MemoryNotesRouting) -> (MemoryNotesRouting, bool) {
+    match env.var(var) {
+        Some(raw) => (parse_routing(raw).unwrap_or(saved), true),
+        None => (saved, false),
+    }
+}
+
+fn remote_from(env: &Env, config: &ConfigFile, config_path: String, support: KnowledgeSupport) -> KnowledgeRemote {
+    let (repository_documents, repository_documents_env) =
+        routing_from_env(env, REPOSITORY_VAR, config.repository_documents);
+    let (global_documents, global_documents_env) = routing_from_env(env, GLOBAL_VAR, config.global_documents);
+
     let url = config.url.as_deref().filter(|url| !url.trim().is_empty());
     let kind = url.and_then(kind_of);
     let documentdb = url.is_some_and(|url| kind == Some(MemoryRemoteKind::Mongodb) && is_documentdb_url(url));
 
+    let bad_variable = [REPOSITORY_VAR, GLOBAL_VAR]
+        .into_iter()
+        .find(|var| env.var(var).is_some_and(|raw| parse_routing(raw).is_none()));
+
     let problem = config.status.problem.clone().or_else(|| match url {
         _ if documentdb => unsupported_kind(MemoryRemoteKind::Documentdb),
+        _ if bad_variable.is_some() => Some(format!(
+            "{} is not \"remote\", \"local\" or \"remote+local\", so {} refuses to start",
+            bad_variable.unwrap_or_default(),
+            KNOWLEDGE_SIDECAR.product
+        )),
         Some(_) if kind.is_none() => Some(format!(
             "the saved URL does not start with a scheme {} supports",
             KNOWLEDGE_SIDECAR.product
@@ -102,8 +130,10 @@ fn remote_from(config: &ConfigFile, config_path: String, support: KnowledgeSuppo
         url_redacted: url.map(redact_url),
         has_token: config.token.is_some(),
         embedder_supported: support.embedder(),
-        repository_documents: config.repository_documents,
-        global_documents: config.global_documents,
+        repository_documents,
+        global_documents,
+        repository_documents_env,
+        global_documents_env,
         routing_supported: support.routing(),
         config_path,
         problem,
@@ -155,9 +185,18 @@ pub fn knowledge_remote_set(
         ));
     }
 
+    // A variable wins over the file, so a value chosen for its place is not written.
+    let kept = |var: &str, chosen: Option<MemoryNotesRouting>, saved: MemoryNotesRouting| {
+        if env.var(var).is_some() {
+            saved
+        } else {
+            chosen.unwrap_or(saved)
+        }
+    };
+
     let routes = Routes {
-        repository: change.repository_documents.unwrap_or(saved.repository_documents),
-        global: change.global_documents.unwrap_or(saved.global_documents),
+        repository: kept(REPOSITORY_VAR, change.repository_documents, saved.repository_documents),
+        global: kept(GLOBAL_VAR, change.global_documents, saved.global_documents),
     };
 
     // A server that predates routing refuses the table, so the app never writes one for it.

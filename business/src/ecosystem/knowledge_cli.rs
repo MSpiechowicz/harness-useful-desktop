@@ -101,10 +101,10 @@ pub(crate) async fn run_typed(
             "this {} predates `{name}`, so update {}",
             KNOWLEDGE_SIDECAR.binary, KNOWLEDGE_SIDECAR.product
         )))),
-        CliAnswer::Failed { message, .. } if is_unreachable(&message) => {
-            Err(CliFailure::Error(BusinessError::Unreachable(message)))
-        }
-        CliAnswer::Failed { message, .. } => Err(CliFailure::Error(BusinessError::Process(message))),
+        CliAnswer::Failed { message, stdout, .. } => match unreachable_in(&stdout, &message) {
+            Some(sentence) => Err(CliFailure::Error(BusinessError::Unreachable(sentence))),
+            None => Err(CliFailure::Error(BusinessError::Process(message))),
+        },
     }
 }
 
@@ -112,9 +112,30 @@ pub(crate) async fn run_typed(
 /// (`harness-knowledge: remote knowledge is unreachable right now`).
 const UNREACHABLE_LINE: &str = "remote knowledge is unreachable right now";
 
-/// Whether the server's line says the remote database cannot be reached right now.
-fn is_unreachable(message: &str) -> bool {
-    message.trim_end_matches('.').ends_with(UNREACHABLE_LINE)
+/// The sentence to show when a failed command could not reach the remote database: the server's
+/// `{"error": "unreachable", "message"}` on stdout first (it survives a clipped stderr line), else
+/// its stderr line (`message`) when that says so. `None` for any other failure.
+pub(crate) fn unreachable_in(stdout: &str, message: &str) -> Option<String> {
+    if let Some(data) = stdout_object(stdout)
+        && data.get("error").and_then(Value::as_str) == Some("unreachable")
+    {
+        return Some(
+            data.get("message")
+                .and_then(Value::as_str)
+                .map_or_else(|| message.to_owned(), clean),
+        );
+    }
+
+    message.contains(UNREACHABLE_LINE).then(|| message.to_owned())
+}
+
+/// The first JSON object line of `stdout`.
+pub(crate) fn stdout_object(stdout: &str) -> Option<Value> {
+    stdout
+        .lines()
+        .map(str::trim)
+        .find(|line| line.starts_with('{'))
+        .and_then(|line| serde_json::from_str(line).ok())
 }
 
 /// [`run_typed`] with a missing capability as a `process` error carrying the server's sentence.
@@ -125,11 +146,7 @@ pub(crate) async fn run_json(env: &Env, runner: &dyn ProcessRunner, server: &Pat
 /// The problem and sentence in `{"error": "missing", "code", "message"}`; `None` for any other
 /// output.
 fn missing(stdout: &str) -> Option<(KnowledgeProblem, Option<String>)> {
-    let data: Value = stdout
-        .lines()
-        .map(str::trim)
-        .find(|line| line.starts_with('{'))
-        .and_then(|line| serde_json::from_str(line).ok())?;
+    let data = stdout_object(stdout)?;
 
     if data.get("error")?.as_str()? != "missing" {
         return None;

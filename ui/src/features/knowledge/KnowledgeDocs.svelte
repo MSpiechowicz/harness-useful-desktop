@@ -21,10 +21,12 @@
   import { knowledgeDocs, KNOWLEDGE_PAGE_SIZE } from '$lib/stores/knowledgeDocs.svelte';
   import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
   import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
+  import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
+  import { readFailureText } from '$lib/utils/knowledge-failure';
   import { usesBothPlaces } from '$lib/utils/knowledge-routing';
   import { clampPage, pageCount } from '$lib/utils/pagination';
 
@@ -32,7 +34,6 @@
   import MemoryTable from '../memory/MemoryTable.svelte';
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import DocumentPanel from './DocumentPanel.svelte';
-  import { readFailureText } from './knowledge-failure';
   import { docColumns, docSubtitle, formatKey, formatLabel, formatTone, KNOWLEDGE_FORMATS, linksText, pathCount, pathsText, placeLabel, repoLabel } from './knowledge-format';
   import { knowledgeScopeOptions } from './knowledge-repos';
   import KnowledgeEmpty from './KnowledgeEmpty.svelte';
@@ -52,6 +53,8 @@
   // Both places are in use while the routing says so, or while a document says where it is kept. The routing is known once it was read.
   const routing = $derived(knowledgeRemote.value);
   const bothPlaces = $derived((routing !== null && usesBothPlaces(routing.enabled, routing)) || rows.some((row) => row.place !== undefined));
+  // The server narrows a list to one place only with `offline-fallback`: without it the filter would change nothing, so it is not offered.
+  const canNarrow = $derived(knowledgeStatus.value?.features.offlineFallback === true);
   const options = $derived(knowledgeScopeOptions(projectScopes.data ?? [], knowledgeDocs.repos.data, knowledgeChanges.pulse?.documents));
 
   const formatOptions = $derived([
@@ -107,9 +110,9 @@
     }
   });
 
-  // The routing went back to one place: there is nothing to narrow to any more.
+  // The routing went back to one place, or the server cannot narrow: there is nothing to narrow to any more.
   $effect(() => {
-    if (routing !== null && !bothPlaces && viewState.knowledgePlace !== null) {
+    if (viewState.knowledgePlace !== null && ((routing !== null && !bothPlaces) || (knowledgeStatus.value !== null && !canNarrow))) {
       viewState.knowledgePlace = null;
       viewState.knowledgePage = 0;
     }
@@ -172,7 +175,7 @@
         viewState.knowledgeScope = next;
       })} disableKeyless />
 
-  {#if bothPlaces || viewState.knowledgePlace !== null}
+  {#if canNarrow && (bothPlaces || viewState.knowledgePlace !== null)}
     <KnowledgePlaceFilter place={viewState.knowledgePlace} onchange={(next) => choose(() => {
           viewState.knowledgePlace = next;
         })} />

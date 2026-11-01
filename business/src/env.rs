@@ -50,6 +50,12 @@ pub const CAPTURED_VARS: &[&str] = &[
     "HARNESS_MEMORY_DIR",
     // Harness Memory's config file, when not the default one (the team database settings).
     "HARNESS_MEMORY_CONFIG",
+    // Harness Knowledge's data folder and config file, when not the default ones.
+    "HARNESS_KNOWLEDGE_DIR",
+    "HARNESS_KNOWLEDGE_CONFIG",
+    // Where Harness Knowledge keeps project and global documents, over its config file.
+    "HARNESS_KNOWLEDGE_REPOSITORY_DOCUMENTS",
+    "HARNESS_KNOWLEDGE_GLOBAL_DOCUMENTS",
     // The hooks folder, shared by the app window and its `harness-desktop mcp` mode.
     "HARNESS_HOOKS_DIR",
     // The routines folder, shared the same way.

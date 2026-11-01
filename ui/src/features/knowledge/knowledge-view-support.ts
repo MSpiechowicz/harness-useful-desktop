@@ -8,6 +8,7 @@ import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
 import { knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
 import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
 import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
+import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
 import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
@@ -41,13 +42,14 @@ export function resetKnowledge(): void {
   knowledgeHeld.detail.sync(null, null);
   knowledgeImport.reset();
   knowledgeRemote.value = null;
+  knowledgeStatus.value = null;
   knowledgeChanges.reset();
   projectScopes.sync(null, null);
 }
 
 /** The settings a server with a remote database reports, with the routing of documents given. */
 export function routedRemote(repositoryDocuments: KnowledgeRemote['repositoryDocuments'], globalDocuments: KnowledgeRemote['globalDocuments']): Record<string, (args: unknown) => unknown> {
-  const remote: KnowledgeRemote = { enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/knowledge', hasToken: false, embedderSupported: true, repositoryDocuments, globalDocuments, routingSupported: true, configPath: '', problem: null };
+  const remote: KnowledgeRemote = { enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/knowledge', hasToken: false, embedderSupported: true, repositoryDocuments, globalDocuments, repositoryDocumentsEnv: false, globalDocumentsEnv: false, routingSupported: true, configPath: '', problem: null };
 
   return { knowledge_remote_get: () => remote };
 }

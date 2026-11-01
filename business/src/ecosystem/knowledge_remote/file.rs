@@ -13,7 +13,7 @@ use std::path::Path;
 use toml::{Table, Value};
 
 use crate::ecosystem::catalog::KNOWLEDGE_SIDECAR;
-use crate::ecosystem::memory_remote::routing::{notes_name, set_routing};
+use crate::ecosystem::memory_remote::routing::notes_name;
 use crate::ecosystem::sidecar_config::{
     ConfigSpec, ConfigStatus, push_string, read_config_file, remove_config_file, string_value, write_config_file,
 };
@@ -58,8 +58,6 @@ pub(super) struct ConfigFile {
     pub repository_documents: MemoryNotesRouting,
     /// `[routing] global_documents` (`remote` when unset).
     pub global_documents: MemoryNotesRouting,
-    /// Whether the file has a `[routing]` table.
-    pub has_routing: bool,
     /// Whether the app may change the file, and the first thing wrong with it.
     pub status: ConfigStatus,
 }
@@ -89,14 +87,42 @@ fn parse_config(table: &Table, status: &mut ConfigStatus) -> ConfigFile {
                 );
             }
 
-            config.has_routing = true;
-            config.repository_documents = set_routing(routing, REPOSITORY_KEY, status).unwrap_or_default();
-            config.global_documents = set_routing(routing, GLOBAL_KEY, status).unwrap_or_default();
+            config.repository_documents = routing_value(routing, REPOSITORY_KEY, status);
+            config.global_documents = routing_value(routing, GLOBAL_KEY, status);
         }
         Some(_) => block(status, format!("{ROUTING_TABLE} must be a table")),
     }
 
     config
+}
+
+/// The routing `key` of `table` read as the server reads it (blanks and case ignored), `remote` when
+/// unset. A value the server would refuse blocks the file, so it is never overwritten with `remote`.
+fn routing_value(table: &Table, key: &str, status: &mut ConfigStatus) -> MemoryNotesRouting {
+    let Some(value) = table.get(key) else {
+        return MemoryNotesRouting::default();
+    };
+
+    let parsed = value.as_str().and_then(parse_routing);
+
+    if parsed.is_none() {
+        block(
+            status,
+            format!("{key} must be \"remote\", \"local\" or \"remote+local\"; fix it by hand first"),
+        );
+    }
+
+    parsed.unwrap_or_default()
+}
+
+/// `remote`, `local` or `remote+local` in any case with blanks around it, as the server parses it.
+pub(super) fn parse_routing(raw: &str) -> Option<MemoryNotesRouting> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "remote" => Some(MemoryNotesRouting::Remote),
+        "local" => Some(MemoryNotesRouting::Local),
+        "remote+local" => Some(MemoryNotesRouting::RemoteLocal),
+        _ => None,
+    }
 }
 
 /// The `[database]` table of `table`.

@@ -307,6 +307,7 @@ export const knowledge = {
   'knowledge.settings.hint.local': 'Only on this computer. Remote ones are not shown.',
   'knowledge.settings.hint.remoteLocal': 'Reads remote and this computer. You choose where each import is saved.',
   'knowledge.settings.routing.unsupported': 'Update Harness Knowledge to choose where documents are kept.',
+  'knowledge.settings.keptIn.env': 'Set by an environment variable',
   'knowledge.settings.change.title': 'Change where documents are kept?',
   'knowledge.settings.change.description': 'This changes what you see on this computer. Nothing is deleted.',
   'knowledge.settings.change.hideTeam': 'Remote documents are hidden on this computer. They stay in the remote database.',

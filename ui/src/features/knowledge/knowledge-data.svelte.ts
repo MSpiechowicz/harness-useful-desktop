@@ -4,6 +4,7 @@ import { idKey } from '$lib/ipc/knowledge-id';
 import { KNOWLEDGE_POLL_MS } from '$lib/stores/live';
 import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
 import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
+import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
 import { type DocsRequest, docsKey, knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
 import { heldKey, type HeldRequest, knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
 import { revalidateProjectScopes } from '$lib/stores/project-scopes.svelte';
@@ -69,9 +70,9 @@ export function useKnowledgeData(): void {
     untrack(() => knowledgeDocs.repos.revalidate('repos', null));
   });
 
-  // Where documents are kept decides whether the Kept in filter is offered.
+  // Where documents are kept, and whether the server can narrow a list to one place, decide whether the Kept in filter is offered.
   $effect(() => {
-    untrack(() => void knowledgeRemote.load());
+    untrack(() => void Promise.all([knowledgeRemote.load(), knowledgeStatus.load()]));
   });
 
   // The repositories of the Scope filter and the editors are those of the open project and the recent ones.

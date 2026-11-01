@@ -16,9 +16,13 @@
     /** The line under the control for each place. */
     hints: Record<MemoryNotesRouting, string>;
     onchange: (value: MemoryNotesRouting) => void;
+    /** Says why the place cannot be changed here (an environment variable sets it): every option is greyed out and the line sits under the hint. */
+    locked?: string;
   }
 
-  let { title, description, descriptions, options, value, hints, onchange }: Props = $props();
+  let { title, description, descriptions, options: offered, value, hints, onchange, locked }: Props = $props();
+
+  const options = $derived(locked === undefined ? offered : offered.map((option) => ({ ...option, disabled: true })));
 </script>
 
 <!-- One row of "Kept in": the same control, width and options in every row, and one line under it that says what the chosen place does. -->
@@ -35,5 +39,8 @@
       {/each}
       <span class="[grid-area:1/1]">{hints[value]}</span>
     </p>
+    {#if locked !== undefined}
+      <p class="mt-1 w-0 min-w-full text-xs text-fg-3">{locked}</p>
+    {/if}
   {/snippet}
 </SettingRow>

@@ -20,6 +20,8 @@
 //! What the server prints is read strictly: an item that does not have every field fails the read
 //! (`protocol`) instead of being skipped. Neither the proposals' text nor their titles are logged.
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -27,7 +29,8 @@ use serde_json::Value;
 
 use super::catalog::KNOWLEDGE_SIDECAR;
 use super::knowledge_cli::{
-    CliCall, CliFailure, availability_of, availability_of_failure, call, field, run_json, run_typed, words,
+    CliCall, CliFailure, availability_of, availability_of_failure, call, field, run_json, run_typed, unreachable_in,
+    words,
 };
 use super::knowledge_docs::{docs_server, read_stats};
 use super::knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
@@ -36,7 +39,8 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     KnowledgeApproval, KnowledgeAvailability, KnowledgeDecided, KnowledgeDecision, KnowledgeEmbedding,
-    KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeId, KnowledgeLink, KnowledgePlace, KnowledgePulse,
+    KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeId, KnowledgeLink, KnowledgePlace, KnowledgePlaceStats,
+    KnowledgePulse, KnowledgeStats,
 };
 use crate::process::ProcessRunner;
 
@@ -191,6 +195,21 @@ pub async fn decide_knowledge_held(
     }
 }
 
+/// `place` for `held approve --place`, or none when the server cannot route documents (it predates
+/// `routing`, so it knows no `--place` and keeps everything in one place).
+pub async fn approval_place(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    features: &KnowledgeFeatures,
+    place: Option<KnowledgePlace>,
+) -> Option<KnowledgePlace> {
+    if place.is_some() && features.support(env, runner).await.routing() {
+        place
+    } else {
+        None
+    }
+}
+
 /// The counts the live view follows, all from one `stats --json` call: the documents, the
 /// generation and how many proposals wait (`held`). A server that predates that field is asked for
 /// `held list --json` instead, while it has a review queue. `None` while the server cannot answer
@@ -211,12 +230,45 @@ pub async fn knowledge_pulse(
         },
     };
 
+    let (documents, generation) = combined_counts(&stats);
+
     Some(KnowledgePulse {
-        documents: stats.documents,
-        generation: stats.generation,
+        documents,
+        generation,
         held,
         offline: stats.offline,
     })
+}
+
+/// The documents and the generation the view follows. With both places in use the top-level
+/// numbers are the team database's alone, so they are the places' that can be reached: the sum of
+/// their documents, and one number that moves when any of them changes (a local import must
+/// reload the list too). Otherwise the top-level numbers.
+fn combined_counts(stats: &KnowledgeStats) -> (u32, i64) {
+    let Some(places) = &stats.places else {
+        return (stats.documents, stats.generation);
+    };
+
+    let reachable: Vec<&KnowledgePlaceStats> = [&places.remote, &places.local]
+        .into_iter()
+        .flatten()
+        .filter(|place| !place.offline)
+        .collect();
+
+    let documents = reachable
+        .iter()
+        .fold(0_u32, |sum, place| sum.saturating_add(place.documents));
+
+    let mut hasher = DefaultHasher::new();
+
+    for place in &reachable {
+        (place.generation, place.documents, place.chunks, place.embedded_chunks).hash(&mut hasher);
+    }
+
+    // The sign bit is dropped so the number stays a count-like positive value.
+    let generation = i64::try_from(hasher.finish() >> 1).unwrap_or_default();
+
+    (documents, generation)
 }
 
 /// How many proposals wait: the length of `held list`'s `held`.
@@ -329,7 +381,8 @@ async fn run_held(env: &Env, runner: &dyn ProcessRunner, server: &Path, call: Cl
             stdout,
         } => match refusal_of(&stdout) {
             Some((refusal, sentence)) => Ok(Answer::Refused(refusal, sentence.unwrap_or(message))),
-            None => Err(BusinessError::Process(message)),
+            None => Err(unreachable_in(&stdout, &message)
+                .map_or_else(|| BusinessError::Process(message), BusinessError::Unreachable)),
         },
         CliAnswer::Failed {
             status: Some(USAGE_EXIT),

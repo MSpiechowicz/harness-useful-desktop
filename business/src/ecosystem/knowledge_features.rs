@@ -10,7 +10,8 @@
 //! - `held`: the review queue of proposed documents (`held list|get|approve|reject`);
 //! - `mcp`: the MCP server the harnesses run;
 //! - `routing`: `[routing]` in the config, ids `local:N` and the `place` of documents;
-//! - `doc-matches`: `docs matches`.
+//! - `doc-matches`: `docs matches`;
+//! - `offline-fallback`: answers from this computer while the remote database cannot be reached.
 //!
 //! An older server does not know the command and exits 2. [`KnowledgeFeatures::support`] asks once
 //! per binary through a [`LineProbe`] (cached per binary, an older server cached as one without
@@ -52,6 +53,9 @@ const ROUTING: &str = "routing";
 
 /// The line for `docs matches`.
 const DOC_MATCHES: &str = "doc-matches";
+
+/// The line for answering from this computer while the remote database cannot be reached.
+const OFFLINE_FALLBACK: &str = "offline-fallback";
 
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,6 +135,12 @@ impl KnowledgeSupport {
     pub fn doc_matches(self) -> bool {
         self.features().doc_matches
     }
+
+    /// Whether the server answers from this computer while the remote database cannot be reached:
+    /// `offline-fallback` is listed.
+    pub fn offline_fallback(self) -> bool {
+        self.features().offline_fallback
+    }
 }
 
 /// The probe of the installed server's features. See the module docs.
@@ -166,6 +176,7 @@ impl KnowledgeFeatures {
                 mcp: answer.lists(MCP),
                 routing: answer.lists(ROUTING),
                 doc_matches: answer.lists(DOC_MATCHES),
+                offline_fallback: answer.lists(OFFLINE_FALLBACK),
             }),
             LineAnswer::Unsupported => KnowledgeSupport::Unsupported,
             LineAnswer::NotInstalled => KnowledgeSupport::NotInstalled,

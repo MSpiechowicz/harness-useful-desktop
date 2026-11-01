@@ -24,6 +24,7 @@ const EVERY_FEATURE: Features = Features {
     mcp: true,
     routing: true,
     doc_matches: true,
+    offline_fallback: true,
 };
 
 #[test]
