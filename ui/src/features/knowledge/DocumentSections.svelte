@@ -66,7 +66,7 @@
         <div id="{prefix}-{first}">
           {#if open[first]}
             <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
-              <div class="pr-3 pb-3 pl-7.5"><ChunkParts {texts} chunkIds={section.chunkIds} /></div>
+              <div class="pt-1.5 pr-3 pb-3 pl-7.5"><ChunkParts {texts} chunkIds={section.chunkIds} /></div>
             </div>
           {/if}
         </div>

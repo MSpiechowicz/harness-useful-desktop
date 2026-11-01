@@ -118,7 +118,7 @@
         <div id="{prefix}-{hit.chunkId}">
           {#if open[hit.chunkId]}
             <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
-              <div class="pr-3 pb-3 pl-7.5"><ChunkPart {texts} chunkId={hit.chunkId} {query} inset /></div>
+              <div class="pt-1.5 pr-3 pb-3 pl-7.5"><ChunkPart {texts} chunkId={hit.chunkId} {query} inset /></div>
             </div>
           {/if}
         </div>

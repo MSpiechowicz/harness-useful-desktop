@@ -26,7 +26,7 @@
 
 <!-- The text of a section: its one part, or the parts a long section is cut into, one at a time with a pager. -->
 {#if many}
-  <div class="flex flex-col gap-3 rounded-md border border-line p-4">
+  <div class="flex flex-col gap-3 rounded-md border border-line px-4 pt-2.5 pb-4">
     <div class="flex items-center justify-between gap-2">
       <Badge tone="accent" size="lg">{t('knowledge.chunk.partOf', { number: index + 1, total: chunkIds.length })}</Badge>
 
