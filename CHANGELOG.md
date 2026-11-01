@@ -1,3 +1,10 @@
+## [0.50.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.50.0...v0.50.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **updates:** every update setting turns automatic once, new installs start automatic ([53d20f2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/53d20f20e40ee27c4a815f8c3bf803bffa1f3db1))
+
 # [0.50.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.49.0...v0.50.0) (2026-11-01)
 
 
