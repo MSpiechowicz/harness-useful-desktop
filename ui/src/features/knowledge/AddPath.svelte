@@ -1,10 +1,11 @@
 <script lang="ts">
   import Plus from '@lucide/svelte/icons/plus';
   import { tick } from 'svelte';
+  import { fade } from 'svelte/transition';
 
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
-  import { rise } from '$lib/design/motion';
+  import { scaled } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
 
   interface Props {
@@ -59,7 +60,7 @@
   <input
     bind:this={field}
     bind:value
-    in:rise={{ y: 4, duration: 160 }}
+    in:fade={{ duration: scaled(120) }}
     type="text"
     aria-label={t('knowledge.links.pathLabel', { repo })}
     placeholder={t('knowledge.links.pathPlaceholder')}
