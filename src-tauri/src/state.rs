@@ -7,10 +7,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::app_dirs::{child_processes_dir, local_data_dir};
-use harness_business::ecosystem::catalog::MEMORY_SIDECAR;
+use harness_business::ecosystem::catalog::{KNOWLEDGE_SIDECAR, MEMORY_SIDECAR};
 use harness_business::ecosystem::{
-    ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor, MemoryFeatures, MemoryKinds,
-    MemoryScripts, NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport,
+    ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor, KnowledgeFeatures,
+    KnowledgeImporter, KnowledgeIntakes, MemoryFeatures, MemoryKinds, MemoryScripts, NotesCopyCache, PoolOptions,
+    SaveRoute, StoredNotesImport,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -28,6 +29,7 @@ use tauri::{AppHandle, Manager, Runtime};
 use crate::agents::Agents;
 use crate::drops::DropSink;
 use crate::hooks::HookRuntime;
+use crate::knowledge_pulse::PulseWatch;
 use crate::memory_code_builds::CodeBuilds;
 use crate::memory_code_prepares::CodePrepares;
 use crate::memory_embedder::EmbedderWatch;
@@ -71,6 +73,20 @@ pub struct AppState {
     pub memory_embedder: Arc<EmbedderSupervisor>,
     /// The page told when the embedder's state changes.
     pub embedder_watch: EmbedderWatch,
+    /// What the installed Harness Knowledge can do (`harness-knowledge features`, probed once per
+    /// binary).
+    pub knowledge_features: KnowledgeFeatures,
+    /// The embedder behind Harness Knowledge's vector search (`harness-knowledge embedder run`),
+    /// kept running while project knowledge and its vector search are on.
+    pub knowledge_embedder: Arc<EmbedderSupervisor>,
+    /// The page told when the knowledge embedder's state changes.
+    pub knowledge_embedder_watch: EmbedderWatch,
+    /// The one import of documents that may run, and the way to stop it.
+    pub knowledge_importer: KnowledgeImporter,
+    /// The files and folders picked or dropped, waiting for their import.
+    pub knowledge_intakes: Arc<KnowledgeIntakes>,
+    /// The page told when Harness Knowledge's documents or review queue change.
+    pub knowledge_pulse: PulseWatch,
     /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
     pub script_requests: Arc<ScriptRequests>,
     /// The page told when the saves Harness Memory holds for review change.
@@ -92,6 +108,8 @@ pub struct AppState {
     pub dashboard_install: async_runtime::Mutex<()>,
     /// Held while the memory server's installer runs, so only one runs at a time.
     pub memory_install: async_runtime::Mutex<()>,
+    /// Held while the knowledge server's installer runs, so only one runs at a time.
+    pub knowledge_install: async_runtime::Mutex<()>,
     /// Held while the Harness Skills' OpenCode installer runs, so only one runs at a time.
     pub opencode_skills_install: async_runtime::Mutex<()>,
     /// Held while the Harness Skills' Codex installer runs, so only one runs at a time.
@@ -112,6 +130,9 @@ pub struct AppState {
     pub config_dir: PathBuf,
     /// Held while the memory server is installed, registered or unregistered, so one runs at a time.
     pub memory_setup: async_runtime::Mutex<()>,
+    /// Held while the knowledge server is installed, registered or unregistered, so one runs at a
+    /// time.
+    pub knowledge_setup: async_runtime::Mutex<()>,
     /// Held while the app's own MCP server is registered, so one registration runs at a time.
     pub desktop_mcp_setup: async_runtime::Mutex<()>,
     /// The hooks folder, its approvals and the hooks of each chat.
@@ -138,6 +159,7 @@ impl AppState {
             updates: Updates::from_config(app.config()),
             attachments_dir,
             memory_embedder: Arc::new(EmbedderSupervisor::new(&MEMORY_SIDECAR, agents.spawner())),
+            knowledge_embedder: Arc::new(EmbedderSupervisor::new(&KNOWLEDGE_SIDECAR, agents.spawner())),
             agents: Arc::new(agents),
             ..Self::new(config_dir, env)
         })
@@ -172,6 +194,12 @@ impl AppState {
             memory_features: MemoryFeatures::new(),
             memory_embedder: Arc::new(EmbedderSupervisor::new(&MEMORY_SIDECAR, Arc::new(TokioSpawner))),
             embedder_watch: EmbedderWatch::default(),
+            knowledge_features: KnowledgeFeatures::new(),
+            knowledge_embedder: Arc::new(EmbedderSupervisor::new(&KNOWLEDGE_SIDECAR, Arc::new(TokioSpawner))),
+            knowledge_embedder_watch: EmbedderWatch::default(),
+            knowledge_importer: KnowledgeImporter::new(),
+            knowledge_intakes: Arc::new(KnowledgeIntakes::new()),
+            knowledge_pulse: PulseWatch::default(),
             script_requests: Arc::new(ScriptRequests::default()),
             memory_held: Arc::new(HeldWatcher::default()),
             code_builds: Arc::new(CodeBuilds::default()),
@@ -182,6 +210,7 @@ impl AppState {
             releases: CompanionReleases::default(),
             dashboard_install: async_runtime::Mutex::new(()),
             memory_install: async_runtime::Mutex::new(()),
+            knowledge_install: async_runtime::Mutex::new(()),
             opencode_skills_install: async_runtime::Mutex::new(()),
             codex_skills_install: async_runtime::Mutex::new(()),
             sync_plan: Mutex::new(None),
@@ -191,6 +220,7 @@ impl AppState {
             notes_copy: NotesCopyCache::new(),
             config_dir: prefs_dir,
             memory_setup: async_runtime::Mutex::new(()),
+            knowledge_setup: async_runtime::Mutex::new(()),
             desktop_mcp_setup: async_runtime::Mutex::new(()),
             hooks: Arc::new(hooks),
             routines: Arc::new(routines),

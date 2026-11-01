@@ -88,6 +88,7 @@ pub fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: RunEvent) {
             if let Some(state) = app.try_state::<AppState>() {
                 state.script_requests.stop();
                 crate::memory_embedder::stop_for_exit(&state);
+                crate::sidecar_embedder::stop_for_exit::<crate::product::Knowledge>(&state);
             }
         }
         _ => {}

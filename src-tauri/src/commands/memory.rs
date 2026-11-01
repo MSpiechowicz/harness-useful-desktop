@@ -10,7 +10,8 @@ use super::blocking;
 use crate::error::CommandResult;
 use crate::hooks::seed_available;
 use crate::memory_embedder::reconcile;
-use crate::memory_setup::{register, unregister_all};
+use crate::product::Memory;
+use crate::sidecar_setup;
 use crate::state::AppState;
 
 /// Turns project memory on (registers the installed server in every detected harness, also where
@@ -24,31 +25,11 @@ pub async fn memory_set_enabled(state: State<'_, AppState>, enabled: bool) -> Co
 }
 
 async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<MemorySwitchResult> {
-    // Held from storing the pref to applying it, so quick toggles and the launch run apply in order.
-    let running = state.memory_setup.lock().await;
-    let prefs = state.prefs.clone();
-
-    let (was_enabled, saved) = blocking(move || {
-        Ok(prefs.with(|store| {
-            let was_enabled = store.load().memory_enabled;
-
-            store
-                .update(|prefs| prefs.memory_enabled = enabled)
-                .map(|saved| (was_enabled, saved))
-        })?)
-    })
-    .await?;
-
-    let manual_removals = if enabled {
-        register(state, !was_enabled).await;
-        Vec::new()
-    } else {
-        unregister_all(state).await
-    };
+    // The setup lock is held from storing the pref to applying it, so quick toggles and the launch
+    // run apply in order.
+    let (saved, manual_removals) = sidecar_setup::set_enabled::<Memory>(state, enabled).await?;
 
     // The version probe only reads, so a slow `--version` does not hold up other memory setup.
-    drop(running);
-
     // Hooks that need Harness Memory run or pause from now on; switched on, its family hooks are
     // seeded when they never were.
     state.hooks.refresh_members();
@@ -80,7 +61,7 @@ mod tests {
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::memory_setup::{after_install, on_launch};
+    use crate::memory_setup::after_install;
     use crate::test_support::{
         TempDir, cache_detection, home_state, omp_mcp_file, place_companion, place_memory_server,
     };
@@ -124,7 +105,7 @@ mod tests {
             return;
         };
 
-        block_on(on_launch(&state));
+        block_on(sidecar_setup::on_launch::<Memory>(&state));
         assert_eq!(mcp_servers(&state), json!({ "harness-memory": entry }));
 
         let off = block_on(set_enabled(&state, false)).expect("switched off");
@@ -135,7 +116,7 @@ mod tests {
         assert!(state.config_dir.join(MEMORY_RECORD_FILE).exists(), "the record is kept");
 
         // Registering again while it is recorded does not add it back.
-        block_on(register(&state, false));
+        block_on(sidecar_setup::register::<Memory>(&state, false));
         assert_eq!(mcp_servers(&state), json!({}));
 
         let on = block_on(set_enabled(&state, true)).expect("switched on");
@@ -209,7 +190,7 @@ mod tests {
 
         // The launch run started while the pref was on; the switch went off before it got the lock.
         block_on(set_enabled(&state, false)).expect("switched off");
-        let outcomes = block_on(on_launch(&state));
+        let outcomes = block_on(sidecar_setup::on_launch::<Memory>(&state));
 
         assert_eq!(outcomes, Some(Vec::new()));
         assert!(!omp_mcp_file(&state).exists());
@@ -224,7 +205,7 @@ mod tests {
             return;
         };
 
-        block_on(on_launch(&state));
+        block_on(sidecar_setup::on_launch::<Memory>(&state));
         block_on(set_enabled(&state, false)).expect("switched off");
         assert!(state.config_dir.join(MEMORY_RECORD_FILE).exists());
         std::fs::remove_file(&server).expect("uninstall the server");
@@ -242,7 +223,7 @@ mod tests {
         );
         assert_eq!(mcp_servers(&state), json!({}));
         assert_eq!(
-            block_on(on_launch(&state)),
+            block_on(sidecar_setup::on_launch::<Memory>(&state)),
             None,
             "nothing is registered at launch either"
         );
@@ -253,7 +234,7 @@ mod tests {
         let dir = TempDir::new("memory-installed");
         let state = state(&dir);
 
-        assert_eq!(block_on(on_launch(&state)), None);
+        assert_eq!(block_on(sidecar_setup::on_launch::<Memory>(&state)), None);
         assert!(!omp_mcp_file(&state).exists());
 
         let Some((_, entry)) = install(&dir) else {
@@ -298,7 +279,8 @@ mod tests {
             return;
         };
 
-        let registered = block_on(on_launch(&state)).expect("the installed server reports its version");
+        let registered =
+            block_on(sidecar_setup::on_launch::<Memory>(&state)).expect("the installed server reports its version");
 
         assert_eq!(registered, [(HarnessId::Omp, MemoryRegistration::Added)]);
         assert_eq!(mcp_servers(&state), json!({ "harness-memory": entry }));
@@ -310,7 +292,11 @@ mod tests {
         let state = state(&dir);
         place_companion(&dir.path().join("home"), "harness-memory");
 
-        assert_eq!(block_on(on_launch(&state)), None, "nothing registered");
+        assert_eq!(
+            block_on(sidecar_setup::on_launch::<Memory>(&state)),
+            None,
+            "nothing registered"
+        );
         assert!(!omp_mcp_file(&state).exists());
 
         // An entry the app wrote before is not re-pointed at it either.
@@ -318,7 +304,7 @@ mod tests {
         let before =
             json!({ "mcpServers": { "harness-memory": { "command": "/old/harness-memory", "args": ["mcp"] } } });
         std::fs::write(omp_mcp_file(&state), before.to_string()).expect("write mcp.json");
-        assert_eq!(block_on(register(&state, false)), None);
+        assert_eq!(block_on(sidecar_setup::register::<Memory>(&state, false)), None);
         assert_eq!(mcp_servers(&state), before["mcpServers"]);
 
         let on = block_on(set_enabled(&state, true)).expect("switched on");

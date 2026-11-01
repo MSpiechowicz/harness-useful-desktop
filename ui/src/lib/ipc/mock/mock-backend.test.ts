@@ -9,6 +9,8 @@ import { samplePrefs } from '../../../../tests/helpers';
 import { fixtures } from './fixtures';
 import { sampleScripts } from './memory-scripts-fixtures';
 import type { ScriptLanguage } from '../bindings/ScriptLanguage';
+import { AUTOMATION_ARGS } from './mock-backend-automation-args';
+import { KNOWLEDGE_ARGS } from './mock-backend-knowledge-args';
 import { MEMORY_EMBEDDER_ARGS } from './mock-backend-embedder-args';
 import { BRANCH_SYNC_ARGS } from './mock-backend-branch-args';
 import { MEMORY_NOTE_ARGS } from './mock-backend-note-args';
@@ -21,6 +23,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   prefs_set: { prefs: samplePrefs() },
   memory_set_enabled: { enabled: false },
   ...MEMORY_EMBEDDER_ARGS,
+  ...KNOWLEDGE_ARGS,
   memory_remote_get: undefined,
   memory_remote_set: { enabled: true, kind: 'postgres', url: 'postgres://memory:pw@db.ok.example.com/harness_memory', token: null, repositoryNotes: 'remote', globalNotes: 'local', scripts: 'remote', trustTeamScripts: false },
   memory_remote_test: { kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok' },
@@ -87,51 +90,20 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   setup_status: undefined,
   setup_install_dashboard: { confirmed: true, onLog: () => {} },
   setup_install_memory: { confirmed: true, onLog: () => {} },
+  setup_install_knowledge: { confirmed: true, onLog: () => {} },
   setup_install_opencode_skills: { confirmed: true, onLog: () => {} },
   setup_install_codex_skills: { confirmed: true, onLog: () => {} },
   skills_migrate_names: undefined,
   setup_register_mcp: { harness: 'omp' },
   setup_register_memory: { harness: 'omp' },
+  setup_register_knowledge: { harness: 'omp' },
   setup_register_desktop_mcp: { harness: 'omp' },
   sync_export_preview: undefined,
   sync_export: { selected: ['omp:marketplace:acme-tools'] },
   sync_export_save: { selected: ['omp:marketplace:acme-tools'] },
   sync_import_preview: { input: { type: 'text', text: 'hud1:abc' } },
   sync_import_apply: { planId: 'plan-1', selected: ['omp:marketplace:harness-useful-skills'], confirmed: true, onProgress: () => {} },
-  hooks_list: { project: fixtures.recentProjects[0].path },
-  hook_save: { draft: { id: null, expectedSha256: null, name: 'Check types', description: null, scope: 'global', project: null, event: 'turnEnd', matcher: null, action: { type: 'followUp', text: 'Run the type checker.' }, enabled: true } },
-  hook_delete: { id: '0'.repeat(32), sha256: '' },
-  hook_approve: { id: '0'.repeat(32), sha256: '' },
-  hook_reject: { id: '0'.repeat(32), sha256: '' },
-  hooks_family: undefined,
-  hooks_family_apply: { seeds: ['dashboard-limits'] },
-  hooks_delete_all: {},
-  hooks_listen: { onEvent: () => {} },
-  hooks_share: { id: '0'.repeat(32), sha256: '' },
-  hooks_team_remove: { id: '0'.repeat(32), sha256: '' },
-  hooks_team_refresh: { project: fixtures.recentProjects[0].path },
-  hooks_team_copy: { id: '0'.repeat(32), sha256: '', project: fixtures.recentProjects[0].path },
-  hooks_team_enable: { id: '0'.repeat(32), enabled: false },
-  routines_list: { project: fixtures.recentProjects[0].path },
-  routine_get: { id: '0'.repeat(32) },
-  routine_save: { draft: { id: null, expectedSha256: null, name: 'Look at the queue', description: null, scope: 'global', project: null, when: { type: 'daily', at: '09:00' }, action: { type: 'command', command: 'git status', timeoutSecs: null }, enabled: true } },
-  routine_delete: { id: '0'.repeat(32), sha256: '' },
-  routines_delete_all: {},
-  routine_approve: { id: '0'.repeat(32), sha256: '' },
-  routine_reject: { id: '0'.repeat(32), sha256: '' },
-  routines_listen: { onEvent: () => {} },
-  routine_run_now: { id: '0'.repeat(32) },
-  routine_run_stop: { runId: '0'.repeat(32) },
-  routine_runs: { query: { routineId: null, status: null, offset: 0, limit: 50 } },
-  routine_schedule_preview: { when: { type: 'weekdays', at: '09:00' } },
-  routine_run_attach: { runId: '0'.repeat(32), onEvent: () => {} },
-  routines_workspace: undefined,
-  routines_share: { id: '0'.repeat(32), sha256: '' },
-  routines_team_remove: { id: '0'.repeat(32), sha256: '' },
-  routines_team_remove_mine: undefined,
-  routines_team_refresh: { project: fixtures.recentProjects[0].path },
-  routines_team_copy: { id: '0'.repeat(32), sha256: '', project: fixtures.recentProjects[0].path },
-  routines_team_enable: { id: '0'.repeat(32), enabled: false },
+  ...AUTOMATION_ARGS,
   update_check: undefined,
   update_install: { onProgress: () => {} },
   app_relaunch: undefined,
@@ -254,6 +226,11 @@ describe('mock transport', () => {
     // The memory server is registered only once it is installed.
     if (name === 'setup_register_memory') {
       await mock.invoke('setup_install_memory', { confirmed: true, onLog: () => {} });
+    }
+
+    // The knowledge server is registered only once it is installed.
+    if (name === 'setup_register_knowledge') {
+      await mock.invoke('setup_install_knowledge', { confirmed: true, onLog: () => {} });
     }
 
     // A change to a hook names the version it was read at: the pending sample hook is read first.

@@ -97,12 +97,7 @@ impl ListWindow {
     /// `list --json --offset N --limit N [--query Q] <filters> --sort S --order O
     /// [--project P]`: `filters` are the command's own options and values (`--kind fix`).
     pub(crate) fn list_args(&self, filters: &[(&str, &str)], sort: &str, repos: Repos<'_>) -> Vec<OsString> {
-        let order = match self.order {
-            Some(SortOrder::Asc) => "asc",
-            Some(SortOrder::Desc) => "desc",
-            None if DESCENDING_SORTS.contains(&sort) => "desc",
-            None => "asc",
-        };
+        let order = order_name(self.descending(DESCENDING_SORTS.contains(&sort)));
 
         let mut args: Vec<OsString> = ["list", "--json", "--offset"].map(OsString::from).into();
         args.push(self.offset.to_string().into());
@@ -124,6 +119,50 @@ impl ListWindow {
 
         args
     }
+}
+
+impl ListWindow {
+    /// True when the page is asked newest or most first: the order given, else `by_default` (what
+    /// the sort of the list does unless told otherwise).
+    pub(crate) fn descending(&self, by_default: bool) -> bool {
+        match self.order {
+            Some(SortOrder::Asc) => false,
+            Some(SortOrder::Desc) => true,
+            None => by_default,
+        }
+    }
+
+    /// The search that filters the page, when there is one.
+    pub(crate) fn query(&self) -> Option<&str> {
+        self.query.as_deref()
+    }
+
+    /// The page as a list that counts pages from 1 asks for it: `(page, per_page)`. `invalidInput`
+    /// when the page does not start at a multiple of its size.
+    pub(crate) fn numbered(&self) -> Result<(u32, u32)> {
+        if !self.offset.is_multiple_of(self.limit) {
+            return Err(BusinessError::InvalidInput(
+                "a page starts at a multiple of its size".to_owned(),
+            ));
+        }
+
+        Ok((self.offset / self.limit + 1, self.limit))
+    }
+
+    /// The entries of the page out of `items`, a list the server hands over whole (already
+    /// filtered and in the order asked): from the offset, at most the limit.
+    pub(crate) fn page_of<T>(&self, items: Vec<T>) -> Vec<T> {
+        items
+            .into_iter()
+            .skip(usize::try_from(self.offset).unwrap_or(usize::MAX))
+            .take(usize::try_from(self.limit).unwrap_or(usize::MAX))
+            .collect()
+    }
+}
+
+/// The server's name of a direction.
+fn order_name(descending: bool) -> &'static str {
+    if descending { "desc" } else { "asc" }
 }
 
 /// The longest repository key accepted (a path or a remote; far more than any real one).

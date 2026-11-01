@@ -218,7 +218,7 @@ export function memberOf(requirement: HookRequirement): Companion {
   return MEMBER_OF[requirement];
 }
 
-export const MEMBER_LABELS: Record<Companion, MessageKey> = { memory: 'hooks.member.memory', dashboard: 'hooks.member.dashboard' };
+export const MEMBER_LABELS: Record<Companion, MessageKey> = { memory: 'hooks.member.memory', dashboard: 'hooks.member.dashboard', knowledge: 'hooks.member.knowledge' };
 
 /** The Harness family member a paused hook waits for, and whether it is installed but switched off (only Harness Memory has such a switch). */
 export interface WaitingFor {

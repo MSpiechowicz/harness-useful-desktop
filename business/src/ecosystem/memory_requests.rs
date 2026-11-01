@@ -35,10 +35,6 @@ use crate::fs_atomic::{refuse_link, replace_atomically};
 use crate::model::{ScriptPreviousVersion, ScriptRequestEvent, ScriptRunRequest, ScriptStdin};
 use crate::security::SafeReader;
 
-/// The variable naming the server's data folder instead of the platform one (see
-/// [`memory_data_dir`]).
-pub const DIR_VAR: &str = "HARNESS_MEMORY_DIR";
-
 /// The heartbeat file in the data folder.
 pub const ALIVE_FILE: &str = "desktop.alive";
 
@@ -63,7 +59,7 @@ const MAX_PENDING: usize = 32;
 /// The request file format this app reads.
 const REQUEST_VERSION: u32 = 1;
 
-/// Harness Memory's data folder, as the server finds it: [`DIR_VAR`] when set to an absolute path
+/// Harness Memory's data folder, as the server finds it: `HARNESS_MEMORY_DIR` when set to an absolute path
 /// (a leading `~` expanded; a relative one is ignored), else `$XDG_DATA_HOME` (absolute only, or
 /// `~/.local/share`) on Linux, `~/Library/Application Support` on macOS and `%LOCALAPPDATA%`
 /// (absolute only) on Windows, followed by `harness-memory`. `None` on Windows while

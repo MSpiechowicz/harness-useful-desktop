@@ -8,7 +8,7 @@ import type { ToastInput } from '$lib/stores/toasts.svelte';
 import { fakeTransport } from '../../../tests/helpers';
 import { FamilyUpdater } from './family-updater';
 
-const NAMES: Record<EcosystemId, string> = { dashboard: 'Harness Dashboard', memory: 'Harness Memory', skills: 'Harness Skills', sidebar: 'Harness Sidebar' };
+const NAMES: Record<EcosystemId, string> = { dashboard: 'Harness Dashboard', memory: 'Harness Memory', knowledge: 'Harness Knowledge', skills: 'Harness Skills', sidebar: 'Harness Sidebar' };
 
 /** A family member as the ecosystem reading reports it. */
 function member(id: EcosystemId, fields: Partial<EcosystemItem> = {}): EcosystemItem {

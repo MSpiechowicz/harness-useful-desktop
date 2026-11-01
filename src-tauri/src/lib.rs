@@ -11,6 +11,8 @@ mod doc_watch;
 mod drops;
 mod error;
 mod hooks;
+mod knowledge_embedder;
+mod knowledge_pulse;
 mod lifecycle;
 mod logging;
 mod mcp_cli;
@@ -22,8 +24,11 @@ mod memory_requests;
 mod memory_setup;
 mod native_text;
 mod notifications;
+mod product;
 mod releases;
 mod routines;
+mod sidecar_embedder;
+mod sidecar_setup;
 pub mod state;
 mod team_sync;
 #[cfg(test)]
@@ -60,6 +65,8 @@ pub fn run() -> ExitCode {
             window::create_main_window(app)?;
             memory_setup::spawn_on_launch(app.handle());
             memory_embedder::spawn_on_launch(app.handle());
+            sidecar_setup::spawn_on_launch::<product::Knowledge>(app.handle());
+            sidecar_embedder::spawn_on_launch::<product::Knowledge>(app.handle());
             desktop_mcp::spawn_on_launch(app.handle());
             hooks::spawn_on_launch(app.handle());
             routines::agent_run::install(app.handle());
@@ -80,6 +87,32 @@ pub fn run() -> ExitCode {
             commands::app::prefs_get,
             commands::app::prefs_set,
             commands::memory::memory_set_enabled,
+            commands::knowledge::knowledge_status,
+            commands::knowledge::knowledge_set_enabled,
+            commands::knowledge_docs::knowledge_docs_list,
+            commands::knowledge_docs::knowledge_doc_get,
+            commands::knowledge_docs::knowledge_doc_rename,
+            commands::knowledge_docs::knowledge_doc_links_set,
+            commands::knowledge_docs::knowledge_docs_delete,
+            commands::knowledge_docs::knowledge_repos_list,
+            commands::knowledge_docs::knowledge_stats,
+            commands::knowledge_docs::knowledge_search,
+            commands::knowledge_import::knowledge_pick_files,
+            commands::knowledge_import::knowledge_pick_folder,
+            commands::knowledge_import::knowledge_drop_intake,
+            commands::knowledge_import::knowledge_import,
+            commands::knowledge_import::knowledge_import_cancel,
+            commands::knowledge_held::knowledge_held_list,
+            commands::knowledge_held::knowledge_held_get,
+            commands::knowledge_held::knowledge_held_decide,
+            commands::knowledge_held::knowledge_changes_listen,
+            commands::knowledge_embedder::knowledge_set_vector_search,
+            commands::knowledge_embedder::knowledge_embedder_watch,
+            commands::knowledge_embedder::knowledge_embedder_remove_model,
+            commands::knowledge_embedder::knowledge_reindex,
+            commands::knowledge_remote::knowledge_remote_get,
+            commands::knowledge_remote::knowledge_remote_set,
+            commands::knowledge_remote::knowledge_remote_test,
             commands::memory_code::memory_code_index_get,
             commands::memory_code::memory_code_index_set,
             commands::memory_code::memory_code_builds_listen,
@@ -175,11 +208,13 @@ pub fn run() -> ExitCode {
             commands::setup::setup_status,
             commands::setup::setup_install_dashboard,
             commands::setup::setup_install_memory,
+            commands::setup::setup_install_knowledge,
             commands::setup::setup_install_opencode_skills,
             commands::setup::setup_install_codex_skills,
             commands::skills_migration::skills_migrate_names,
             commands::setup::setup_register_mcp,
             commands::setup::setup_register_memory,
+            commands::setup::setup_register_knowledge,
             commands::desktop_mcp::setup_register_desktop_mcp,
             commands::hooks::hooks_list,
             commands::hooks::hook_save,

@@ -67,6 +67,41 @@ pub async fn pick_file<R: Runtime>(
     show(guard, |report| dialog.pick_file(report)).await
 }
 
+/// The callback the plugin calls with the chosen paths (`None` when cancelled).
+type ReportMany = Box<dyn FnOnce(Option<Vec<FilePath>>) + Send + 'static>;
+
+/// Shows a native file picker that takes several files, limited to `filter`, otherwise like
+/// [`pick`]; `None` when the user cancelled.
+pub async fn pick_files<R: Runtime>(
+    app: &AppHandle<R>,
+    guard: &DialogGuard,
+    title: &str,
+    start: Option<&Path>,
+    filter: FileFilter<'_>,
+) -> CommandResult<Option<Vec<PathBuf>>> {
+    let _open = open(guard)?;
+    let (sender, mut receiver) = channel(1);
+    let report: ReportMany = Box::new(move |picked| {
+        sender.try_send(picked).ok();
+    });
+
+    file_dialog(app, title, start)
+        .add_filter(filter.name, filter.extensions)
+        .pick_files(report);
+
+    picked_paths(receiver.recv().await)
+}
+
+/// Shows a native folder picker, otherwise like [`pick`]; `None` when the user cancelled.
+pub async fn pick_folder<R: Runtime>(
+    app: &AppHandle<R>,
+    guard: &DialogGuard,
+    title: &str,
+    start: Option<&Path>,
+) -> CommandResult<Option<PathBuf>> {
+    pick(app, guard, Pick::Folder, title, start).await
+}
+
 /// Shows a native save dialog over the main window, opened in `start` with `default_name` filled
 /// in; the path to write, or `None` when the user cancelled. The dialog itself asks before
 /// replacing an existing file.
@@ -133,4 +168,25 @@ fn picked_path(received: Option<Option<FilePath>>) -> CommandResult<Option<PathB
         .into_path()
         .map(Some)
         .map_err(|_| BusinessError::InvalidInput("the dialog returned an unsupported location".to_owned()).into())
+}
+
+/// `received` as [`picked_path`] reads one path: every chosen location must be a path.
+fn picked_paths(received: Option<Option<Vec<FilePath>>>) -> CommandResult<Option<Vec<PathBuf>>> {
+    let Some(picked) = received else {
+        return Err(CommandError::internal("the dialog could not be shown"));
+    };
+
+    let Some(picked) = picked else {
+        return Ok(None);
+    };
+
+    picked
+        .into_iter()
+        .map(|path| {
+            path.into_path().map_err(|_| -> CommandError {
+                BusinessError::InvalidInput("the dialog returned an unsupported location".to_owned()).into()
+            })
+        })
+        .collect::<CommandResult<Vec<PathBuf>>>()
+        .map(Some)
 }

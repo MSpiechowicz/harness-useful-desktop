@@ -20,18 +20,21 @@ pub struct RecommendedSetup {
     /// The Harness Memory binary (`harness-memory`), which project memory registers with the
     /// harnesses.
     pub memory: DashboardSetup,
+    /// The Harness Knowledge binary (`harness-knowledge`), which project knowledge registers with
+    /// the harnesses.
+    pub knowledge: DashboardSetup,
     /// One entry per registered harness, in registry order.
     pub harnesses: Vec<HarnessSetup>,
 }
 
-/// A companion binary the setup step installs (the dashboard's or the memory server's) and how it
-/// would be installed.
+/// A companion binary the setup step installs (the dashboard's, the memory server's or the knowledge
+/// server's) and how it would be installed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct DashboardSetup {
-    /// True when the binary (`harness-dashboard` or `harness-memory`) was found; `harness-memory`
-    /// also has to report its version.
+    /// True when the binary (`harness-dashboard`, `harness-memory` or `harness-knowledge`) was found;
+    /// the two servers also have to report their version.
     pub installed: bool,
     /// Its version (`harness-dashboard version`, `harness-memory --version`), when it reported one.
     pub version: Option<String>,
@@ -59,6 +62,8 @@ pub struct HarnessSetup {
     pub mcp: McpState,
     /// The `harness-memory` server in the harness's user MCP file (`setup_register_memory`).
     pub memory_mcp: McpState,
+    /// The `harness-knowledge` server in the harness's user MCP file (`setup_register_knowledge`).
+    pub knowledge_mcp: McpState,
     /// The app's own `harness-desktop mcp` server (hooks for agents) in the harness's user MCP file
     /// (`setup_register_desktop_mcp`).
     pub desktop_mcp: McpState,

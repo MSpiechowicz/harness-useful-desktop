@@ -54,6 +54,11 @@ function stopped(scenario: EmbedderScenario, removed: boolean): MemoryEmbedderSt
   return running('off', null, null, known === null ? null : known && !removed);
 }
 
+/** The embedder of the `?embedder=` scenario while vector search is on (`running`) or off, for the family members that share the previews. */
+export function embedderStateOf(scenario: EmbedderScenario, running: boolean, removed: boolean): MemoryEmbedderState {
+  return running ? RUNNING[scenario] : stopped(scenario, removed);
+}
+
 function unsupported(feature: string): IpcFailure {
   return IpcFailure.from({ code: 'unsupported', message: `The installed Harness Memory has no ${feature}` });
 }
@@ -68,7 +73,7 @@ export function memoryEmbedderHandlers(state: MockState, scenario: () => Embedde
   let removed = false;
 
   const on = (): boolean => state.vectorSearch && state.memoryEnabled;
-  const embedderState = (running: boolean): MemoryEmbedderState => (running ? RUNNING[scenario()] : stopped(scenario(), removed));
+  const embedderState = (running: boolean): MemoryEmbedderState => embedderStateOf(scenario(), running, removed);
 
   return {
     memory_set_vector_search: ({ enabled }) => {

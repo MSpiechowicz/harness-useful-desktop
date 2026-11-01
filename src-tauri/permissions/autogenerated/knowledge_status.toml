@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-status"
+description = "Enables the knowledge_status command without any pre-configured scope."
+commands.allow = ["knowledge_status"]
+
+[[permission]]
+identifier = "deny-knowledge-status"
+description = "Denies the knowledge_status command without any pre-configured scope."
+commands.deny = ["knowledge_status"]

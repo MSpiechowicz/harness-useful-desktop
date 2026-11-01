@@ -130,6 +130,31 @@ fn save_ui_cannot_switch_vector_search() {
 }
 
 #[test]
+fn save_ui_cannot_switch_project_knowledge_or_its_vector_search() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    let saved = store
+        .save_ui(&AppPrefs {
+            knowledge_enabled: false,
+            knowledge_vector_search: false,
+            ..AppPrefs::default()
+        })
+        .unwrap();
+    assert!(saved.knowledge_enabled && saved.knowledge_vector_search);
+
+    store
+        .update(|prefs| {
+            prefs.knowledge_enabled = false;
+            prefs.knowledge_vector_search = false;
+        })
+        .unwrap();
+
+    let kept = store.save_ui(&AppPrefs::default()).unwrap();
+    assert!(!kept.knowledge_enabled && !kept.knowledge_vector_search);
+}
+
+#[test]
 fn turning_off_recent_projects_through_the_ui_clears_them() {
     let dir = TempDir::new().unwrap();
     let (store, stored) = store_with_server_state(&dir);

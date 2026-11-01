@@ -32,7 +32,7 @@ async function show(switches: Parameters<typeof freshBackend>[0] = {}) {
 }
 
 describe('Ecosystem view', () => {
-  it('explains the ecosystem and lists the four companions with their state', async () => {
+  it('explains the ecosystem and lists the five companions with their state', async () => {
     await show();
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Tools that make agents measurable' })).toBeInTheDocument();
@@ -51,13 +51,18 @@ describe('Ecosystem view', () => {
     expect(within(memory).getByText('v1.0.0')).toBeInTheDocument();
     expect(within(memory).getByText('One project memory for every coding agent, kept on this machine.')).toBeInTheDocument();
 
+    // Harness Knowledge has its own card in the family, with the install steps of a member that is not installed yet.
+    const knowledge = screen.getByRole('article', { name: /Harness Knowledge/ });
+    expect(within(knowledge).getByText('Not installed')).toBeInTheDocument();
+    expect(within(knowledge).getByText('Project documentation that every coding agent can search.')).toBeInTheDocument();
+
     const sidebar = screen.getByRole('article', { name: /Harness Sidebar/ });
     expect(within(sidebar).getByText('Not installed')).toBeInTheDocument();
     // The GitHub release lookup lands just after the local reading.
-    expect(await screen.findByText('3 of 4 installed · 1 update available', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    expect(await screen.findByText('3 of 5 installed · 1 update available', { selector: 'p[role="status"]' })).toBeInTheDocument();
 
-    // All four wear their own mark in the family tree.
-    const tree = screen.getByRole('img', { name: /^3 of 4 installed/ });
+    // All five wear their own mark in the family tree.
+    const tree = screen.getByRole('img', { name: /^3 of 5 installed/ });
     expect(tree.getAttribute('aria-label')).toMatch(/Harness Memory/);
     expect(within(tree).getByText('Memory')).toBeInTheDocument();
   });
@@ -286,7 +291,7 @@ describe('Ecosystem view in Polish', () => {
     await show();
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Narzędzia, dzięki którym agentów da się zmierzyć' })).toBeInTheDocument();
-    expect(await screen.findByText('Zainstalowano 3 z 4 · 1 dostępna aktualizacja', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    expect(await screen.findByText('Zainstalowano 3 z 5 · 1 dostępna aktualizacja', { selector: 'p[role="status"]' })).toBeInTheDocument();
 
     const sessions = await screen.findByRole('article', { name: 'Sesje, ostatnie 7 dni' });
     expect(sessions).toHaveTextContent('318 promptów');

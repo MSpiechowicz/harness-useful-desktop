@@ -44,6 +44,8 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "binaryOverrides": [],
             "memoryEnabled": true,
             "vectorSearch": true,
+            "knowledgeEnabled": true,
+            "knowledgeVectorSearch": true,
             "keepRunningInTray": false,
             "memoryNotesAskDefault": false,
             "memoryScriptsAskDefault": false,
@@ -76,6 +78,8 @@ fn partial_prefs_fill_defaults_and_ignore_unknown_fields() {
     // Any web link stays closed until the user opts in.
     assert!(!prefs.open_any_link);
     assert!(!prefs.ai_chat_names);
+    // Files written before Harness Knowledge existed switch it and its vector search on.
+    assert!(prefs.knowledge_enabled && prefs.knowledge_vector_search);
     // Files written before the language choice existed show English.
     assert_eq!(prefs.language, "en");
     assert_eq!(prefs.version, 1);

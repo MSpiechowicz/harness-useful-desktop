@@ -1,6 +1,6 @@
 import type { MemoryRemoteKind } from '$lib/ipc/bindings/MemoryRemoteKind';
 
-import type { RemoteDatabaseConfig } from './remote-database';
+import type { RemoteDatabaseConfig, TeamDatabaseCopy } from './remote-database';
 
 /** The team databases Harness Memory can use. Only libSQL (Turso) takes a separate auth token. MongoDB and Amazon DocumentDB share the mongodb schemes. */
 export const MEMORY_REMOTE: RemoteDatabaseConfig<MemoryRemoteKind> = {
@@ -52,4 +52,15 @@ export const MEMORY_REMOTE: RemoteDatabaseConfig<MemoryRemoteKind> = {
     saved: 'settings.memoryRemote.saved',
     problem: 'settings.memoryRemote.problem',
   },
+};
+
+/** The rows that switch Remote memory on and off. */
+export const MEMORY_TEAM_DATABASE: TeamDatabaseCopy = {
+  title: 'settings.memoryRemote.title',
+  description: 'settings.memoryRemote.description',
+  loadFailed: 'settings.memoryRemote.loadFailed',
+  offTitle: 'settings.memoryRemote.off.title',
+  offBody: 'settings.memoryRemote.off.body',
+  offCancel: 'settings.memoryRemote.off.cancel',
+  offConfirm: 'settings.memoryRemote.off.confirm',
 };

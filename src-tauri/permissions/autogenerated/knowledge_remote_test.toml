@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-remote-test"
+description = "Enables the knowledge_remote_test command without any pre-configured scope."
+commands.allow = ["knowledge_remote_test"]
+
+[[permission]]
+identifier = "deny-knowledge-remote-test"
+description = "Denies the knowledge_remote_test command without any pre-configured scope."
+commands.deny = ["knowledge_remote_test"]

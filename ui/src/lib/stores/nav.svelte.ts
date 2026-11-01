@@ -1,4 +1,4 @@
-export const VIEW_IDS = ['chat', 'sessions', 'changes', 'config', 'extensions', 'ecosystem', 'notes', 'scripts', 'hooks', 'routines', 'settings'] as const;
+export const VIEW_IDS = ['chat', 'sessions', 'changes', 'config', 'extensions', 'ecosystem', 'notes', 'scripts', 'knowledge', 'hooks', 'routines', 'settings'] as const;
 
 export type ViewId = (typeof VIEW_IDS)[number];
 

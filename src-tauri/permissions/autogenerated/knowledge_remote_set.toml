@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-remote-set"
+description = "Enables the knowledge_remote_set command without any pre-configured scope."
+commands.allow = ["knowledge_remote_set"]
+
+[[permission]]
+identifier = "deny-knowledge-remote-set"
+description = "Denies the knowledge_remote_set command without any pre-configured scope."
+commands.deny = ["knowledge_remote_set"]

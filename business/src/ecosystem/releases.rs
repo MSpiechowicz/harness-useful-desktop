@@ -48,6 +48,7 @@ pub const fn release_endpoint(id: EcosystemId) -> &'static str {
     match id {
         EcosystemId::Dashboard => "https://api.github.com/repos/MSpiechowicz/harness-useful-dashboard/releases/latest",
         EcosystemId::Memory => "https://api.github.com/repos/MSpiechowicz/harness-useful-memory/releases/latest",
+        EcosystemId::Knowledge => "https://api.github.com/repos/MSpiechowicz/harness-useful-knowledge/releases/latest",
         EcosystemId::Skills => "https://api.github.com/repos/MSpiechowicz/harness-useful-skills/releases/latest",
         EcosystemId::Sidebar => "https://api.github.com/repos/MSpiechowicz/harness-useful-sidebar/releases/latest",
     }
@@ -151,11 +152,14 @@ impl CompanionReleases {
             .collect();
 
         // One future per companion; those with a fresh lookup finish at once without a request.
-        let [first, second, third, fourth] = ECOSYSTEM.map(|id| fetch_missing(id, &missing, &fetch));
-        let fetched = tokio::join!(first, second, third, fourth);
+        let [first, second, third, fourth, fifth] = ECOSYSTEM.map(|id| fetch_missing(id, &missing, &fetch));
+        let fetched = tokio::join!(first, second, third, fourth, fifth);
 
         let done = Instant::now();
-        for (id, lookup) in ECOSYSTEM.into_iter().zip([fetched.0, fetched.1, fetched.2, fetched.3]) {
+        for (id, lookup) in ECOSYSTEM
+            .into_iter()
+            .zip([fetched.0, fetched.1, fetched.2, fetched.3, fetched.4])
+        {
             if let Some(lookup) = lookup {
                 cache.put(id, lookup, done);
             }

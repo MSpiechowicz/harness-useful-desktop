@@ -123,6 +123,20 @@ memoryEnabled: boolean,
  */
 vectorSearch: boolean, 
 /**
+ * Whether the app registers the installed `harness-knowledge` MCP server (Harness Knowledge) in
+ * every detected harness's user MCP file at launch and after its install (default on).
+ * Server-managed: only `knowledge_set_enabled` changes it, since turning it off also removes
+ * the app's entries.
+ */
+knowledgeEnabled: boolean, 
+/**
+ * Whether Harness Knowledge searches by meaning as well as by keywords, through its own local
+ * embedder the app keeps running (default on, also for a file without this key).
+ * Server-managed: only `knowledge_set_vector_search` changes it, since it also starts or stops
+ * the embedder.
+ */
+knowledgeVectorSearch: boolean, 
+/**
  * Whether closing the main window hides it to the tray instead of quitting, so routines keep
  * running (default off). Without a tray icon closing always quits.
  */

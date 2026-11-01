@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-embedder-watch"
+description = "Enables the knowledge_embedder_watch command without any pre-configured scope."
+commands.allow = ["knowledge_embedder_watch"]
+
+[[permission]]
+identifier = "deny-knowledge-embedder-watch"
+description = "Denies the knowledge_embedder_watch command without any pre-configured scope."
+commands.deny = ["knowledge_embedder_watch"]

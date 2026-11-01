@@ -1,8 +1,8 @@
 //! The "Recommended setup" onboarding step: what is set up (`setup_status`), the official
 //! installers of the dashboard (`setup_install_dashboard`), of the memory server
-//! (`setup_install_memory`) and of the Harness Skills for OpenCode
-//! and Codex (`setup_install_opencode_skills`, `setup_install_codex_skills`), and the dashboard's and the memory server's MCP servers in a
-//! harness's user MCP file (`setup_register_mcp`, `setup_register_memory`).
+//! (`setup_install_memory`), of the knowledge server (`setup_install_knowledge`) and of the Harness
+//! Skills for OpenCode and Codex (`setup_install_opencode_skills`, `setup_install_codex_skills`), and the dashboard's and the memory server's MCP servers in a
+//! harness's user MCP file (`setup_register_mcp`, `setup_register_memory`, `setup_register_knowledge`).
 //!
 //! The webview sends no command line and no path: the installer is fixed per OS and the MCP file
 //! follows from the harness id (its user agent directory, the active OMP profile's when one is
@@ -27,7 +27,9 @@ use crate::hooks::after_member_install;
 use crate::mcp_cli::CliContext;
 use crate::memory_embedder::reconcile;
 use crate::memory_setup::{after_install, register_in};
+use crate::product::Knowledge;
 use crate::state::AppState;
+use crate::{sidecar_embedder, sidecar_setup};
 
 /// The dashboard and memory binaries, and per harness its skills and its MCP entries. Read-only;
 /// detects the harnesses first when they have not been yet.
@@ -68,6 +70,26 @@ pub async fn setup_install_memory(
     if result.ok {
         after_install(&state).await;
         reconcile(&state).await;
+    }
+
+    Ok(result)
+}
+
+/// Runs the knowledge server's installer like [`setup_install_dashboard`] (its own lock: one
+/// knowledge install at a time). Once `ok`, while project knowledge is on, the installed server is
+/// registered in every detected harness (as at launch) and its embedder starts when vector search
+/// is on.
+#[tauri::command]
+pub async fn setup_install_knowledge(
+    state: State<'_, AppState>,
+    confirmed: bool,
+    on_log: Channel<InstallLogLine>,
+) -> CommandResult<DashboardInstallResult> {
+    let result = install(&state, &TokioSpawner, Companion::Knowledge, confirmed, &on_log).await?;
+
+    if result.ok {
+        sidecar_setup::after_install::<Knowledge>(&state).await;
+        sidecar_embedder::reconcile::<Knowledge>(&state).await;
     }
 
     Ok(result)
@@ -131,6 +153,7 @@ pub(crate) async fn install_streaming(
     let lock = match companion {
         Companion::Dashboard => &state.dashboard_install,
         Companion::Memory => &state.memory_install,
+        Companion::Knowledge => &state.knowledge_install,
         Companion::OpenCodeSkills => &state.opencode_skills_install,
         Companion::CodexSkills => &state.codex_skills_install,
     };
@@ -228,6 +251,31 @@ async fn register_memory(state: &AppState, harness: HarnessId) -> CommandResult<
         ?harness,
         outcome = outcome(&registered),
         "memory MCP registration finished"
+    );
+
+    Ok(registered)
+}
+
+/// Adds the knowledge server's MCP entry to the user MCP file of `harness` (also where the user
+/// removed it before) and returns the file's state (`refused`, nothing written, when the file
+/// cannot be changed safely). Turns project knowledge on when it is off. `notFound` when the
+/// harness is not installed, `invalidInput` when Harness Knowledge is not installed, `unsupported`
+/// when the harness has no user MCP file.
+#[tauri::command]
+pub async fn setup_register_knowledge(state: State<'_, AppState>, harness: HarnessId) -> CommandResult<McpState> {
+    register_knowledge(&state, harness).await
+}
+
+async fn register_knowledge(state: &AppState, harness: HarnessId) -> CommandResult<McpState> {
+    find(state, harness)?;
+    installed_binary(state, harness).await?;
+
+    let registered = sidecar_setup::register_in::<Knowledge>(state, harness).await?;
+
+    tracing::info!(
+        ?harness,
+        outcome = outcome(&registered),
+        "knowledge MCP registration finished"
     );
 
     Ok(registered)

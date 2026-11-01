@@ -12,6 +12,10 @@ import { harnessHandlers } from './harness-handlers';
 import { hooksHandlers } from './hooks-handlers';
 import { hookScenarioFromLocation, MockHooks } from './hooks-state';
 import { hostHandlers } from './host-handlers';
+import { knowledgeEmbedderHandlers } from './knowledge-embedder-handlers';
+import { knowledgeHandlers, knowledgeScenarioFromLocation, MockKnowledge } from './knowledge-handlers';
+import { knowledgeImportHandlers } from './knowledge-import-handlers';
+import { knowledgeRemoteHandlers } from './knowledge-remote-handlers';
 import { MockMemoryGuards } from './memory-guards-handlers';
 import { memoryCodeHandlers } from './memory-code-handlers';
 import { memoryEmbedderHandlers } from './memory-embedder-handlers';
@@ -83,7 +87,8 @@ export function defaultScenario(): Scenario {
 
     return roster && list[0] ? rosterSummaries(roster, list) : list;
   };
-  const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true));
+  const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true), () => state.setKnowledgeEnabled(true));
+  const knowledge = new MockKnowledge(knowledgeScenarioFromLocation());
   const ecosystem = ecosystemHandlers();
   const copyStores: CopyStores = {};
 
@@ -99,6 +104,14 @@ export function defaultScenario(): Scenario {
 
       if (memory && !server.installed) {
         Object.assign(memory, { installed: false, version: null, via: [] });
+      }
+
+      // Likewise for the knowledge server: the fixture's fixed state gives way to what the setup step installed.
+      const knowledgeItem = status.items.find((item) => item.id === 'knowledge');
+      const knowledgeServer = setup.knowledgeServer();
+
+      if (knowledgeItem && knowledgeServer.installed) {
+        Object.assign(knowledgeItem, { installed: true, version: knowledgeServer.version, via: ['script'] });
       }
 
       // The outdated Memory previews have Harness Memory installed: an old release (updated to 1.1.0 from the Notes or Scripts view) or a source build, which reports a pre-release version no release is ever newer than.
@@ -126,6 +139,18 @@ export function defaultScenario(): Scenario {
       server: setup.memoryServer(),
       manualRemovals: enabled ? [] : manualRemovalsOf(setupScenarioFromLocation()),
     }),
+    // The switch reports the knowledge server the setup mock installs.
+    knowledge_set_enabled: ({ enabled }) => ({
+      knowledgeEnabled: state.setKnowledgeEnabled(enabled).knowledgeEnabled,
+      server: setup.knowledgeServer(),
+      manualRemovals: enabled ? [] : manualRemovalsOf(setupScenarioFromLocation(), 'harness-knowledge'),
+    }),
+    // `?knowledge=empty|outdated|bulk` changes what the Knowledge view finds, `?kremote=postgres|libsql|problem` starts with a saved team database.
+    // A test passes for URLs containing "ok", and a URL with `nopgvector`, `nomongot`, `pgvectorprivilege`, `pgvectorold`, `nolibsqlvector`, `nofts5`, `indexbuilding` or `badauth` in it fails with that problem.
+    ...knowledgeHandlers(knowledge, knowledgeScenarioFromLocation, () => setup.knowledgeServer().installed),
+    ...knowledgeImportHandlers(knowledge),
+    ...knowledgeRemoteHandlers(undefined, () => setup.knowledgeServer().installed && knowledgeScenarioFromLocation() !== 'outdated'),
+    ...knowledgeEmbedderHandlers(state),
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
     ...memoryRemoteHandlers(),
     ...memoryEmbedderHandlers(state),

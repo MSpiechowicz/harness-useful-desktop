@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-set-vector-search"
+description = "Enables the knowledge_set_vector_search command without any pre-configured scope."
+commands.allow = ["knowledge_set_vector_search"]
+
+[[permission]]
+identifier = "deny-knowledge-set-vector-search"
+description = "Denies the knowledge_set_vector_search command without any pre-configured scope."
+commands.deny = ["knowledge_set_vector_search"]

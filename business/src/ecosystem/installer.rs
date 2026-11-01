@@ -1,5 +1,5 @@
-//! Runs the official installer of a [`Companion`] (Harness Dashboard, Harness Memory, the Harness
-//! Skills for OpenCode or Codex) for the "Recommended setup" step and the "Project memory" install, the only
+//! Runs the official installer of a [`Companion`] (Harness Dashboard, Harness Memory, Harness
+//! Knowledge, the Harness Skills for OpenCode or Codex) for the "Recommended setup" step and the "Project memory" install, the only
 //! place the app runs an install command (and the only place allowed to name a shell, enforced by
 //! the `installer-shell` guard rule).
 //!
@@ -30,13 +30,14 @@ use tokio::time::{Instant, sleep_until, timeout};
 
 use super::catalog::{CODEX_SKILLS_INSTALL_PS1, CODEX_SKILLS_INSTALL_SH};
 use super::catalog::{
-    DASHBOARD_BINARY, DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_PS1_SCRIPT, DASHBOARD_INSTALL_SH, MEMORY_BINARY,
-    MEMORY_INSTALL_PS1, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_SH, SKILLS_INSTALL_PS1, SKILLS_INSTALL_PS1_SCRIPT,
-    SKILLS_INSTALL_SH,
+    DASHBOARD_BINARY, DASHBOARD_INSTALL_PS1, DASHBOARD_INSTALL_PS1_SCRIPT, DASHBOARD_INSTALL_SH, KNOWLEDGE_BINARY,
+    KNOWLEDGE_INSTALL_PS1, KNOWLEDGE_INSTALL_PS1_SCRIPT, KNOWLEDGE_INSTALL_SH, MEMORY_BINARY, MEMORY_INSTALL_PS1,
+    MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_SH, SKILLS_INSTALL_PS1, SKILLS_INSTALL_PS1_SCRIPT, SKILLS_INSTALL_SH,
 };
 use super::dashboard::resolve_dashboard;
 use super::detect::dashboard_version;
 use super::installer_log::{Log, Splitter};
+use super::knowledge_binary::{knowledge_version, resolve_knowledge};
 use super::memory_binary::{memory_version, resolve_memory};
 use super::skills_record::skills_installed;
 use crate::env::{Env, OsKind};
@@ -82,6 +83,8 @@ pub enum Companion {
     Dashboard,
     /// Harness Memory (`harness-memory`).
     Memory,
+    /// Harness Knowledge (`harness-knowledge`).
+    Knowledge,
     /// Harness Skills for OpenCode: files in OpenCode's config directory, no binary (see
     /// [`super::skills_record`]).
     OpenCodeSkills,
@@ -117,6 +120,7 @@ impl Companion {
         match self {
             Self::Dashboard => DASHBOARD_BINARY,
             Self::Memory => MEMORY_BINARY,
+            Self::Knowledge => KNOWLEDGE_BINARY,
             Self::OpenCodeSkills => "Harness Skills for OpenCode",
             Self::CodexSkills => "Harness Skills for Codex",
         }
@@ -135,6 +139,10 @@ impl Companion {
                 Some(binary) => probed(memory_version(env, runner, &binary).await),
                 None => Installed::Missing,
             },
+            Self::Knowledge => match resolve_knowledge(env) {
+                Some(binary) => probed(knowledge_version(env, runner, &binary).await),
+                None => Installed::Missing,
+            },
             Self::OpenCodeSkills => skills_installed(env, SkillsHost::OpenCode),
             Self::CodexSkills => skills_installed(env, SkillsHost::Codex),
         }
@@ -145,6 +153,7 @@ impl Companion {
         match self {
             Self::Dashboard => "`harness-dashboard version`",
             Self::Memory => "`harness-memory --version`",
+            Self::Knowledge => "`harness-knowledge --version`",
             Self::OpenCodeSkills | Self::CodexSkills => "the Harness Skills install record",
         }
     }
@@ -158,6 +167,11 @@ impl Companion {
                 DASHBOARD_INSTALL_PS1,
             ),
             Self::Memory => (MEMORY_INSTALL_SH, MEMORY_INSTALL_PS1_SCRIPT, MEMORY_INSTALL_PS1),
+            Self::Knowledge => (
+                KNOWLEDGE_INSTALL_SH,
+                KNOWLEDGE_INSTALL_PS1_SCRIPT,
+                KNOWLEDGE_INSTALL_PS1,
+            ),
             Self::OpenCodeSkills => (SKILLS_INSTALL_SH, SKILLS_INSTALL_PS1_SCRIPT, SKILLS_INSTALL_PS1),
             Self::CodexSkills => (
                 CODEX_SKILLS_INSTALL_SH,
@@ -171,7 +185,7 @@ impl Companion {
     /// Harness Skills, whose installer runs `node`.
     fn search_dirs(self, env: &Env) -> Vec<PathBuf> {
         match self {
-            Self::Dashboard | Self::Memory => Vec::new(),
+            Self::Dashboard | Self::Memory | Self::Knowledge => Vec::new(),
             Self::OpenCodeSkills | Self::CodexSkills => extra_search_dirs(env),
         }
     }
@@ -181,7 +195,7 @@ impl Companion {
     /// installer is the same script for another host.
     fn installer_env(self) -> &'static [(&'static str, &'static str)] {
         match self {
-            Self::Dashboard | Self::Memory => &[],
+            Self::Dashboard | Self::Memory | Self::Knowledge => &[],
             Self::OpenCodeSkills => SPAWN_ENV,
             Self::CodexSkills => CODEX_SKILLS_ENV,
         }
@@ -192,7 +206,7 @@ impl Companion {
     /// ignores but the installer would resolve against its working directory.
     fn removed_env(self, env: &Env) -> Vec<&'static str> {
         match self {
-            Self::Dashboard | Self::Memory => Vec::new(),
+            Self::Dashboard | Self::Memory | Self::Knowledge => Vec::new(),
             Self::OpenCodeSkills => vec![HOST_VAR],
             Self::CodexSkills => {
                 let relative = env
@@ -426,7 +440,7 @@ fn summary(
             "The installer finished, but {} did not report a version.",
             companion.version_source()
         ),
-        (Installed::Missing, Companion::Dashboard | Companion::Memory) => {
+        (Installed::Missing, Companion::Dashboard | Companion::Memory | Companion::Knowledge) => {
             format!("The installer finished, but {name} was not found afterwards; the download may have failed.")
         }
         (Installed::Missing, Companion::OpenCodeSkills | Companion::CodexSkills) => {

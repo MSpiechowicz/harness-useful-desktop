@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-doc-links-set"
+description = "Enables the knowledge_doc_links_set command without any pre-configured scope."
+commands.allow = ["knowledge_doc_links_set"]
+
+[[permission]]
+identifier = "deny-knowledge-doc-links-set"
+description = "Denies the knowledge_doc_links_set command without any pre-configured scope."
+commands.deny = ["knowledge_doc_links_set"]

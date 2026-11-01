@@ -471,13 +471,14 @@ pub async fn seed_available(runtime: &HookRuntime) {
 }
 
 /// After the app installed `companion`: its missing family hooks are added again (even ones the
-/// user deleted), never overwriting one that exists. The Harness Skills bring no family hooks, so
-/// nothing changes for them.
+/// user deleted), never overwriting one that exists. The Harness Skills (and, for now, Harness
+/// Knowledge) bring no family hooks, so nothing changes for them.
 pub async fn after_member_install(runtime: &HookRuntime, companion: Companion) {
     let member = match companion {
         Companion::Memory => HookRequirement::HarnessMemory,
         Companion::Dashboard => HookRequirement::HarnessDashboard,
-        Companion::OpenCodeSkills | Companion::CodexSkills => return,
+        // Harness Knowledge's family hooks come with the app-run recall.
+        Companion::Knowledge | Companion::OpenCodeSkills | Companion::CodexSkills => return,
     };
 
     runtime.refresh_members();

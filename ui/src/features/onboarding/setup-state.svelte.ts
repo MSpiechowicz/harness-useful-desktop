@@ -14,7 +14,7 @@ import { harness } from '$lib/stores/harness.svelte';
 import { CompanionInstaller } from './companion-installer.svelte';
 import { onboarding } from './onboarding-state.svelte';
 import { runSetup } from './setup-run';
-import { commandOf, companionEffects, MCP_COMPANION, refusalText, skillsInstallerOf, type Companion, type Installer, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
+import { commandOf, COMPANIONS, companionEffects, MCP_COMPANION, MCP_KINDS, refusalText, skillsInstallerOf, type Companion, type Installer, type ItemPhase, type McpKind, type Plan, type PlannedFile, type SetupKey } from './setup-model';
 
 export type SetupLoad = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -25,16 +25,16 @@ interface Hooks {
   chatsChanged: (harness: HarnessId) => Promise<number>;
   /** After a run, so the Ecosystem screen shows the new state. */
   companionsChanged: () => Promise<void>;
-  /** After the memory server was registered in a harness, which turns Project memory on, so Settings shows it. */
+  /** After the memory or knowledge server was registered in a harness, which turns Project memory or knowledge on, so Settings shows it. */
   memoryChanged: () => Promise<void>;
 }
 
 /**
  * The recommended setup, shown on two steps: "Meet the Harness family" reads the machine and describes what each member
  * would change, "Set up" runs it. Opening only reads; nothing runs until the user has seen the
- * list of commands and files and confirmed it. A run goes in a fixed order: the dashboard, then the memory server,
- * then the skills of each harness and, per harness, the dashboard's entry and then the memory server's entry in its
- * MCP file.
+ * list of commands and files and confirmed it. A run goes in a fixed order: the dashboard, then the memory server and
+ * the knowledge server, then the skills of each harness and, per harness, the dashboard's entry, the memory server's and
+ * the knowledge server's entry in its MCP file.
  */
 export class SetupController {
   data = $state.raw<RecommendedSetup | null>(null);
@@ -63,6 +63,7 @@ export class SetupController {
     this.installers = {
       dashboard: new CompanionInstaller('dashboard', transport),
       memory: new CompanionInstaller('memory', transport),
+      knowledge: new CompanionInstaller('knowledge', transport),
       opencodeSkills: new CompanionInstaller('opencodeSkills', transport),
       codexSkills: new CompanionInstaller('codexSkills', transport),
     };
@@ -176,7 +177,7 @@ export class SetupController {
       return false;
     }
 
-    if (key === 'dashboard' || key === 'memory') {
+    if (isCompanion(key)) {
       return this.companionSelectable(key);
     }
 
@@ -215,18 +216,14 @@ export class SetupController {
       return [];
     }
 
-    const keys: SetupKey[] = ['dashboard', 'memory'];
+    const keys: SetupKey[] = [...COMPANIONS];
     for (const entry of data.harnesses) {
       keys.push(`skills:${entry.harness}`);
     }
-    for (const entry of data.harnesses) {
-      keys.push(`mcp:${entry.harness}`);
-    }
-    for (const entry of data.harnesses) {
-      keys.push(`memoryMcp:${entry.harness}`);
-    }
-    for (const entry of data.harnesses) {
-      keys.push(`desktopMcp:${entry.harness}`);
+    for (const kind of MCP_KINDS) {
+      for (const entry of data.harnesses) {
+        keys.push(`${kind}:${entry.harness}`);
+      }
     }
 
     return keys.filter((key) => this.isSelected(key));
@@ -265,7 +262,7 @@ export class SetupController {
       return plan;
     }
 
-    for (const companion of ['dashboard', 'memory'] as const) {
+    for (const companion of COMPANIONS) {
       if (this.isSelected(companion)) {
         plan.commands.push({ owner: companion, command: data[companion].command });
         plan.effects.push({ owner: companion, effects: companionEffects(companion, data[companion]) });
@@ -289,9 +286,9 @@ export class SetupController {
       }
     }
 
-    // Both servers usually go into the same file, which is then listed once with both entries.
+    // The servers usually go into the same file, which is then listed once with all of their entries.
     const files = new Map<string, PlannedFile>();
-    for (const kind of ['mcp', 'memoryMcp', 'desktopMcp'] as const) {
+    for (const kind of MCP_KINDS) {
       for (const entry of data.harnesses) {
         const mcp = entry[kind];
         if (!this.isSelected(`${kind}:${entry.harness}`) || mcp.type !== 'missing') {
@@ -320,7 +317,7 @@ export class SetupController {
     }
   }
 
-  /** Runs the confirmed selection: the dashboard, then the memory server, then everything else together. A failure stops only what depends on it. */
+  /** Runs the confirmed selection: the dashboard, then the memory server and the knowledge server, then everything else together. A failure stops only what depends on it. */
   async run(): Promise<void> {
     const data = this.data;
     if (!data || this.running) {
@@ -347,7 +344,7 @@ export class SetupController {
         registerMcp: (kind, harness, companionOk) => this.registerMcp(kind, harness, companionOk),
       });
     } finally {
-      const memoryRegistered = [...this.picked].some((key) => key.startsWith('memoryMcp:') && this.phase(key) === 'done');
+      const memoryRegistered = [...this.picked].some((key) => (key.startsWith('memoryMcp:') || key.startsWith('knowledgeMcp:')) && this.phase(key) === 'done');
       this.picked = new Set();
       // The rows already show the outcome, so the flow is free at once. Re-reading the machine and letting Settings
       // and the Ecosystem screen catch up all happen together in the background.
@@ -443,6 +440,8 @@ export class SetupController {
         return this.transport.invoke('setup_register_mcp', { harness });
       case 'memoryMcp':
         return this.transport.invoke('setup_register_memory', { harness });
+      case 'knowledgeMcp':
+        return this.transport.invoke('setup_register_knowledge', { harness });
       case 'desktopMcp':
         return this.transport.invoke('setup_register_desktop_mcp', { harness });
     }
@@ -484,6 +483,10 @@ export const setup = new SetupController(ipc, {
   companionsChanged: () => ecosystem.load(true),
   memoryChanged: () => prefs.syncServerManaged(),
 });
+
+function isCompanion(key: SetupKey): key is Companion {
+  return (COMPANIONS as readonly string[]).includes(key);
+}
 
 /** The harness is listed but not offered yet: the app cannot chat with it. */
 export function comingSoon(id: HarnessId): boolean {

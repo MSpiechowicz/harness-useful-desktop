@@ -23,7 +23,10 @@ import { failWith, listFiles, readText, repoRoot } from './git-files';
 
 const COMMANDS_TS = 'ui/src/lib/ipc/commands.ts';
 // Object spread into the map (`...memoryCommands,`): its file holds more entries in the same format.
-const SPREAD_FILES: Record<string, string> = { memoryCommands: 'ui/src/lib/ipc/commands-memory.ts' };
+const SPREAD_FILES: Record<string, string> = {
+  memoryCommands: 'ui/src/lib/ipc/commands-memory.ts',
+  knowledgeCommands: 'ui/src/lib/ipc/commands-knowledge.ts',
+};
 const BUILD_RS = 'src-tauri/build.rs';
 const CAPABILITY = 'src-tauri/capabilities/main.json';
 

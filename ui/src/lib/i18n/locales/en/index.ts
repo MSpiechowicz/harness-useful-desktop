@@ -20,6 +20,7 @@ import { memoryImport } from './memory-import';
 import { memoryGuards } from './memory-guards';
 import { branch } from './branch';
 import { subagents } from './subagents';
+import { knowledge } from './knowledge';
 
 export const en = {
   ...common,
@@ -44,6 +45,7 @@ export const en = {
   ...memoryGuards,
   ...branch,
   ...subagents,
+  ...knowledge,
 } satisfies Record<string, string>;
 
 /** Every message key of the app; the other languages must have exactly these. */

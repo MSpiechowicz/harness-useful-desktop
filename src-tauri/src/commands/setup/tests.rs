@@ -45,6 +45,7 @@ fn an_unconfirmed_install_does_not_run_the_installer() {
     for companion in [
         Companion::Dashboard,
         Companion::Memory,
+        Companion::Knowledge,
         Companion::OpenCodeSkills,
         Companion::CodexSkills,
     ] {
@@ -66,6 +67,7 @@ fn a_second_install_is_refused_while_one_runs() {
     for (companion, lock) in [
         (Companion::Dashboard, &state.dashboard_install),
         (Companion::Memory, &state.memory_install),
+        (Companion::Knowledge, &state.knowledge_install),
         (Companion::OpenCodeSkills, &state.opencode_skills_install),
         (Companion::CodexSkills, &state.codex_skills_install),
     ] {

@@ -18,9 +18,8 @@ use crate::ecosystem::catalog::MEMORY_SIDECAR;
 use crate::ecosystem::memory_binary::installed_memory;
 use crate::ecosystem::memory_kinds::KindsSupport;
 use crate::ecosystem::sidecar_remote_check::{CheckRequest, failed, run_check};
-use crate::ecosystem::sidecar_remote_url::{a_kind, secrets_of, validate_token, validate_url};
+use crate::ecosystem::sidecar_remote_url::{check_secrets, reason, saved_url_problem, validate_token, validate_url};
 use crate::env::Env;
-use crate::error::BusinessError;
 use crate::model::{MemoryRemoteKind, MemoryRemoteTest};
 use crate::process::ProcessRunner;
 
@@ -60,7 +59,11 @@ pub async fn memory_remote_test(
     let url = url.or_else(|| switched_url(&saved, kind));
 
     if url.is_none()
-        && let Some(problem) = saved_url_problem(&saved, kind)
+        && let Some(problem) = saved_url_problem(
+            saved.url.as_deref(),
+            |url| saved_kind(url, saved.database_kind.as_deref()) == Some(kind),
+            kind,
+        )
     {
         return failed(problem);
     }
@@ -79,16 +82,19 @@ pub async fn memory_remote_test(
     };
 
     // The server may quote the saved values as well as the typed ones.
-    let typed_token = token.as_ref().and_then(|token| token.as_deref());
-    let mut secrets = secrets_of(url.as_deref(), typed_token);
-    secrets.extend(secrets_of(saved.url.as_deref(), saved.token.as_deref()));
-    secrets.sort_by_key(|secret| std::cmp::Reverse(secret.len()));
+    let secrets = check_secrets(
+        url.as_deref(),
+        token.as_ref(),
+        saved.url.as_deref(),
+        saved.token.as_deref(),
+    );
 
     let request = CheckRequest {
         url: url.as_deref(),
         database_kind: url.as_deref().and_then(|url| kind_key(kind, url)),
         token: token.as_ref().map(Option::as_deref),
         secrets: &secrets,
+        json: false,
     };
 
     run_check(&MEMORY_SIDECAR, env, runner, &server.path, request).await
@@ -108,23 +114,4 @@ fn switched_url(saved: &ConfigFile, kind: MemoryRemoteKind) -> Option<String> {
     }
 
     validate_url(url, kind).ok()
-}
-
-/// Why the saved URL cannot be tested as `kind`, if it cannot.
-fn saved_url_problem(saved: &ConfigFile, kind: MemoryRemoteKind) -> Option<String> {
-    match saved.url.as_deref().filter(|url| !url.trim().is_empty()) {
-        None => Some("no database URL is saved; enter one to test it".to_owned()),
-        Some(url) if saved_kind(url, saved.database_kind.as_deref()) != Some(kind) => Some(format!(
-            "the saved URL is not {} URL, so enter one to test it",
-            a_kind(kind)
-        )),
-        Some(_) => None,
-    }
-}
-
-fn reason(error: BusinessError) -> String {
-    match error {
-        BusinessError::InvalidInput(reason) => reason,
-        other => other.to_string(),
-    }
 }

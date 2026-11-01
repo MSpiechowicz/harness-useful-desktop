@@ -159,6 +159,16 @@ pub struct AppPrefs {
     /// the app keeps running (default on, also for a file without this key). Server-managed: only
     /// `memory_set_vector_search` changes it, since it also starts or stops the embedder.
     pub vector_search: bool,
+    /// Whether the app registers the installed `harness-knowledge` MCP server (Harness Knowledge) in
+    /// every detected harness's user MCP file at launch and after its install (default on).
+    /// Server-managed: only `knowledge_set_enabled` changes it, since turning it off also removes
+    /// the app's entries.
+    pub knowledge_enabled: bool,
+    /// Whether Harness Knowledge searches by meaning as well as by keywords, through its own local
+    /// embedder the app keeps running (default on, also for a file without this key).
+    /// Server-managed: only `knowledge_set_vector_search` changes it, since it also starts or stops
+    /// the embedder.
+    pub knowledge_vector_search: bool,
     /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
     /// running (default off). Without a tray icon closing always quits.
     pub keep_running_in_tray: bool,
@@ -214,6 +224,8 @@ impl Default for AppPrefs {
             chat_defaults: Vec::new(),
             memory_enabled: true,
             vector_search: true,
+            knowledge_enabled: true,
+            knowledge_vector_search: true,
             keep_running_in_tray: false,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,

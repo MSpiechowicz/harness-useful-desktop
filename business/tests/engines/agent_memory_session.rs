@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 
 use agent_support::{Run, options, start_in};
 use harness_business::BusinessError;
-use harness_business::ecosystem::{SESSION_VAR, memory_data_dir, read_chat, read_chat_repo, update_global};
+use harness_business::ecosystem::{
+    KNOWLEDGE_SESSION_VAR, SESSION_VAR, memory_data_dir, read_chat, read_chat_repo, update_global,
+};
 use harness_business::env::{Env, OsKind};
 use harness_business::model::{
     AgentStartRequest, HarnessId, KindGuard, MemoryChatGuards, MemoryChatStart, MemoryGuardKind, MemoryGuardsPatch,
@@ -74,6 +76,11 @@ fn assert_no_session_variable(run: &Run) {
 
     assert_eq!(env_value(&spec, SESSION_VAR), None);
     assert!(spec.env_remove_prefixes.contains(&OsString::from(SESSION_VAR)));
+    assert_eq!(env_value(&spec, KNOWLEDGE_SESSION_VAR), None);
+    assert!(
+        spec.env_remove_prefixes
+            .contains(&OsString::from(KNOWLEDGE_SESSION_VAR))
+    );
 }
 
 /// Starts `scenario` with Harness Memory's data folder known ([`with_data_folder`]).
@@ -106,6 +113,11 @@ async fn every_chat_harness_gets_the_chat_key_and_its_guards_first() {
         let spec = spawned(&run);
 
         assert_eq!(env_value(&spec, SESSION_VAR).as_deref(), Some(KEY), "{harness:?}");
+        assert_eq!(
+            env_value(&spec, KNOWLEDGE_SESSION_VAR).as_deref(),
+            Some(KEY),
+            "Harness Knowledge learns the chat too ({harness:?})"
+        );
         assert!(
             spec.env_remove_prefixes.contains(&OsString::from(SESSION_VAR)),
             "an inherited value is replaced ({harness:?})"

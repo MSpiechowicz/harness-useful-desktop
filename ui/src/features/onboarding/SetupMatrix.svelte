@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { t } from '$lib/i18n/i18n.svelte';
+  import type { FamilyProduct } from '$lib/brand/family';
+  import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { HarnessSetup } from '$lib/ipc/bindings/HarnessSetup';
   import Logo from '$lib/components/Logo.svelte';
   import { uid } from '$lib/utils/ids';
@@ -17,6 +18,14 @@
   let { harnesses }: Props = $props();
 
   const titleId = uid('setup-matrix');
+
+  /** The MCP servers a harness can have, in the order of the columns. */
+  const SERVERS: { product: FamilyProduct; title: MessageKey; body: MessageKey; note: MessageKey }[] = [
+    { product: 'dashboard', title: 'onboarding.setup.mcp.title', body: 'onboarding.setup.mcp.body', note: 'onboarding.setup.mcp.note' },
+    { product: 'memory', title: 'onboarding.setup.memoryMcp.title', body: 'onboarding.setup.memoryMcp.body', note: 'onboarding.setup.memoryMcp.note' },
+    { product: 'knowledge', title: 'knowledge.onboarding.mcp.title', body: 'knowledge.onboarding.mcp.body', note: 'knowledge.onboarding.mcp.note' },
+    { product: 'desktop', title: 'onboarding.setup.desktopMcp.title', body: 'onboarding.setup.desktopMcp.body', note: 'onboarding.setup.desktopMcp.note' },
+  ];
 </script>
 
 <!-- Rows are harnesses, columns are the MCP servers that can be added to each. Whatever a cell cannot say goes in its row's disclosure, so every row is as tall as any other. -->
@@ -24,9 +33,9 @@
   <div class={SETUP_MATRIX}>
     <h3 id={titleId} class="truncate text-xs font-medium tracking-wider text-fg-3 uppercase">{t('onboarding.setup.matrix.title')}</h3>
 
-    <SetupColumnHead product="dashboard" title={t('onboarding.setup.mcp.title')} />
-    <SetupColumnHead product="memory" title={t('onboarding.setup.memoryMcp.title')} />
-    <SetupColumnHead product="desktop" title={t('onboarding.setup.desktopMcp.title')} />
+    {#each SERVERS as server (server.product)}
+      <SetupColumnHead product={server.product} title={t(server.title)} />
+    {/each}
     <span></span>
   </div>
 
@@ -37,24 +46,14 @@
   </ul>
 
   <SetupDetails>
-    <div class="grid grid-cols-3 gap-6">
-      <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.mcp.title')}>
-        <h4 class="flex items-center gap-2 text-sm font-medium text-fg"><Logo variant="mark" product="dashboard" size={13} />{t('onboarding.setup.mcp.title')}</h4>
-        <p>{t('onboarding.setup.mcp.body')}</p>
-        <p class="text-fg-3">{t('onboarding.setup.mcp.note')}</p>
-      </section>
-
-      <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.memoryMcp.title')}>
-        <h4 class="flex items-center gap-2 text-sm font-medium text-fg"><Logo variant="mark" product="memory" size={13} />{t('onboarding.setup.memoryMcp.title')}</h4>
-        <p>{t('onboarding.setup.memoryMcp.body')}</p>
-        <p class="text-fg-3">{t('onboarding.setup.memoryMcp.note')}</p>
-      </section>
-
-      <section class="flex flex-col gap-2" aria-label={t('onboarding.setup.desktopMcp.title')}>
-        <h4 class="flex items-center gap-2 text-sm font-medium text-fg"><Logo variant="mark" product="desktop" size={13} />{t('onboarding.setup.desktopMcp.title')}</h4>
-        <p>{t('onboarding.setup.desktopMcp.body')}</p>
-        <p class="text-fg-3">{t('onboarding.setup.desktopMcp.note')}</p>
-      </section>
+    <div class="grid grid-cols-4 gap-6">
+      {#each SERVERS as server (server.product)}
+        <section class="flex flex-col gap-2" aria-label={t(server.title)}>
+          <h4 class="flex items-center gap-2 text-sm font-medium text-fg"><Logo variant="mark" product={server.product} size={13} />{t(server.title)}</h4>
+          <p>{t(server.body)}</p>
+          <p class="text-fg-3">{t(server.note)}</p>
+        </section>
+      {/each}
     </div>
   </SetupDetails>
 </section>

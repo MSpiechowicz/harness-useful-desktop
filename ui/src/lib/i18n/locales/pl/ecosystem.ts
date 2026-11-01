@@ -19,7 +19,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.hero.title': 'Narzędzia, dzięki którym agentów da się zmierzyć',
   'ecosystem.hero.body':
-    'Harness Useful to niewielka rodzina otwartych narzędzi do twoich agentów programistycznych. **Dashboard** mierzy, ile kosztują, **skille** czynią ich pracę powtarzalną, **pamięć** daje im wspólną pamięć projektu, a **pasek boczny** trzyma ich sesje w zasięgu wzroku. Harness Desktop działa samodzielnie i pokazuje więcej z każdym dodanym narzędziem.',
+    'Harness Useful to niewielka rodzina otwartych narzędzi do twoich agentów programistycznych. **Dashboard** mierzy, ile kosztują, **skille** czynią ich pracę powtarzalną, **pamięć** daje im wspólną pamięć projektu, **wiedza** pozwala im przeszukiwać dokumenty projektu, a **pasek boczny** trzyma ich sesje w zasięgu wzroku. Harness Desktop działa samodzielnie i pokazuje więcej z każdym dodanym narzędziem.',
   'ecosystem.hero.failed': 'Nie udało się odczytać zainstalowanych członków rodziny Harness.',
   'ecosystem.hero.looking': 'Szukanie rodziny Harness…',
   'ecosystem.setup.run': 'Uruchom polecaną konfigurację',
@@ -270,4 +270,9 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.sidebar.step.0.title': 'Dodaj marketplace',
   'ecosystem.product.sidebar.step.1.title': 'Zainstaluj wtyczkę',
   'ecosystem.product.sidebar.step.2.title': 'Skonfiguruj pasek boczny',
+  'ecosystem.product.knowledge.tagline': 'Dokumentacja projektu, którą może przeszukiwać każdy agent programistyczny.',
+  'ecosystem.product.knowledge.description': 'Lokalny serwer MCP, który przechowuje dokumenty (Markdown, tekst, HTML, OpenAPI, AsciiDoc, reStructuredText i PDF) osobno dla każdego projektu i znajduje fragmenty potrzebne agentowi dzięki rankingowi po słowach kluczowych i wektorowemu. Aplikacja importuje pliki i foldery, rejestruje serwer w każdym wykrytym harnessie, gdy Wiedza projektu jest włączona, i dodaje do pierwszej wiadomości nowego czatu odnośniki do pasujących fragmentów.',
+  'ecosystem.product.knowledge.note.0': 'Działa lokalnie jako `harness-knowledge mcp` i nic nie jest wysyłane przez sieć.',
+  'ecosystem.product.knowledge.note.1': 'Włącz lub wyłącz go dla wszystkich harnessów w Ustawieniach, w sekcji Wiedza projektu.',
+  'ecosystem.product.knowledge.step.0.title': 'Zainstaluj plik wykonywalny',
 };

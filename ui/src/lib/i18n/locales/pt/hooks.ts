@@ -268,4 +268,5 @@ export const hooks: AreaMessages<typeof enHooks> = {
   'hooks.field.yourHook': 'Seu hook',
   'hooks.value.changedSinceShared': 'Alterado desde que você o compartilhou',
   'hooks.list.teamTrusted': 'Confiável: roda sem perguntar',
+  'hooks.member.knowledge': 'Harness Knowledge',
 };

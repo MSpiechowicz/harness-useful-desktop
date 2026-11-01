@@ -7,7 +7,7 @@ import { fixtures } from '$lib/ipc/mock/fixtures';
 import { harness } from '$lib/stores/harness.svelte';
 
 import SetupMcpNote from './SetupMcpNote.svelte';
-import { commandOf, mcpSnippet, refusalText } from './setup-model';
+import { COMPANIONS, commandOf, companionPlan, MCP_COMPANION, MCP_KINDS, mcpSnippet, mcpTitle, refusalText } from './setup-model';
 
 describe('mcpSnippet', () => {
   it('shows OpenCode 1 the entry under "mcp" with enabled', () => {
@@ -153,5 +153,27 @@ describe('a failed claude mcp run', () => {
     expect(refusalText('cliBatchShim', 'claude')).toBe('Claude Code installed through npm cannot take this command on Windows. Install it again without npm.');
     expect(refusalText('cliBatchShim', 'codex')).toBe('Codex installed through npm cannot take this command on Windows. Install it again without npm.');
     expect(refusalText('cliBatchShim', 'codex')).not.toMatch(/Claude/);
+  });
+});
+
+describe('Harness Knowledge in the recommended setup', () => {
+  it('writes its MCP entry like the other servers', () => {
+    expect(JSON.parse(mcpSnippet('knowledgeMcp', 'claude'))).toEqual({ mcpServers: { 'harness-knowledge': { command: 'harness-knowledge', args: ['mcp'] } } });
+    expect(mcpSnippet('knowledgeMcp', 'codex')).toBe('[mcp_servers.harness-knowledge]\ncommand = "harness-knowledge"\nargs = ["mcp"]');
+    expect(mcpTitle('knowledgeMcp')).toBe('Harness Knowledge MCP');
+  });
+
+  it('runs its entry only with its own server, and installs it after the other two', () => {
+    expect(MCP_COMPANION.knowledgeMcp).toBe('knowledge');
+    expect(COMPANIONS).toEqual(['dashboard', 'memory', 'knowledge']);
+    expect(MCP_KINDS).toEqual(['mcp', 'memoryMcp', 'knowledgeMcp', 'desktopMcp']);
+  });
+
+  it('says that its install adds it to the harnesses', () => {
+    const server = { installed: false, version: null, supportedOnThisOs: true, command: 'install', sideEffects: ['Installs the command.'] };
+    const plan = companionPlan('knowledge', server);
+
+    expect(plan.commands).toEqual([{ owner: 'knowledge', command: 'install' }]);
+    expect(plan.effects[0].effects).toEqual(['Installs the command.', expect.stringContaining('harness-knowledge mcp')]);
   });
 });

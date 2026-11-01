@@ -15,10 +15,19 @@
 //! - [`sidecar`]: the names of a Harness family server. The `sidecar_*` modules do what the app
 //!   does for every such server and take them: [`sidecar_binary`] (its binary and version),
 //!   [`sidecar_cli`] (one run of its commands), `sidecar_line_probe` (the lines a command lists),
-//!   [`sidecar_embedder`] and [`sidecar_embedder_supervisor`] (its embedder), `sidecar_config` and
+//!   [`sidecar_embedder`] and [`sidecar_embedder_supervisor`] (its embedder), [`sidecar_record`]
+//!   (the files it was registered in), `sidecar_config` and
 //!   [`sidecar_remote_url`] (its config file and team database URL), [`sidecar_remote_check`]
 //!   (`check`), and [`sidecar_register`] (its MCP entry). The `memory_*` modules below are the
 //!   memory server's own, on top of them.
+//! - [`knowledge_binary`]: the installed `harness-knowledge` server and its version, with
+//!   [`knowledge_register`] (that server in a harness's user MCP file), [`knowledge_record`] (the
+//!   files the app registered it in), [`knowledge_features`] (`harness-knowledge features`),
+//!   [`knowledge_docs`] (the documents, repositories and counts), [`knowledge_import`] (the streamed
+//!   import and its cancel), [`knowledge_intake`] (the files and folders picked or dropped),
+//!   [`knowledge_held`] (the review queue of proposed documents), [`knowledge_search`],
+//!   [`knowledge_embedder`] (its own embedder and reindex), [`knowledge_remote`] (its team
+//!   database and `check --json`), all on top of the `sidecar_*` modules and [`knowledge_cli`].
 //! - [`memory_binary`]: the installed `harness-memory` server and its version.
 //! - [`memory_register`]: that server in a harness's user MCP file, [`memory_record`]: the files
 //!   the app registered it in, and [`memory_migrate`]: the old copy of the bundled server retired.
@@ -68,6 +77,18 @@ pub mod desktop_register;
 pub mod detect;
 pub mod installer;
 mod installer_log;
+pub mod knowledge_binary;
+pub(crate) mod knowledge_cli;
+pub mod knowledge_docs;
+pub mod knowledge_embedder;
+pub mod knowledge_features;
+pub mod knowledge_held;
+pub mod knowledge_import;
+pub mod knowledge_intake;
+pub mod knowledge_record;
+pub mod knowledge_register;
+pub mod knowledge_remote;
+pub mod knowledge_search;
 pub mod mcp_cli;
 pub mod mcp_client;
 pub mod mcp_merge;
@@ -116,6 +137,7 @@ pub mod sidecar_embedder;
 mod sidecar_embedder_lines;
 pub mod sidecar_embedder_supervisor;
 mod sidecar_line_probe;
+pub mod sidecar_record;
 pub mod sidecar_register;
 pub mod sidecar_remote_check;
 pub mod sidecar_remote_url;
@@ -131,6 +153,36 @@ pub use desktop_register::{
 };
 pub use detect::ecosystem_status;
 pub use installer::{Companion, Installed, InstallerSpec, installer, run_installer, run_installer_with};
+pub use knowledge_binary::{
+    KNOWLEDGE_SESSION_VAR, installed_knowledge, knowledge_version, parse_knowledge_version, resolve_knowledge,
+};
+pub use knowledge_docs::{
+    delete_docs, docs_server, get_doc, list_docs, list_repos as list_knowledge_repos, read_stats, rename_doc, set_links,
+};
+pub use knowledge_embedder::{
+    REINDEX_TIMEOUT, knowledge_embedder_status, reindex_knowledge, remove_knowledge_embedder_model,
+    set_knowledge_embedder_enabled,
+};
+pub use knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
+pub use knowledge_held::{
+    decide_knowledge_held, get_knowledge_held, knowledge_held_server, knowledge_pulse, list_knowledge_held,
+};
+pub use knowledge_import::{
+    CANCEL_GRACE, ImportManifest, ImportRun, KnowledgeImporter, MANIFEST_MAX_BYTES, parse_import_event, run_import,
+};
+pub use knowledge_intake::{
+    Checked, IMPORT_EXTENSIONS, IntakePaths, KnowledgeIntakes, MAX_DROPPED_PATHS, MAX_INTAKE_FILES, check_paths,
+};
+pub use knowledge_record::{KNOWLEDGE_RECORD_FILE, KnowledgeRecord};
+pub use knowledge_register::{
+    KnowledgeRegistration, register_knowledge_mcp, register_knowledge_mcp_cli, unregister_knowledge_mcp,
+    unregister_knowledge_mcp_cli,
+};
+pub use knowledge_remote::{
+    KnowledgeRemoteChange, knowledge_config_path, knowledge_remote_get, knowledge_remote_set, knowledge_remote_test,
+    read_check,
+};
+pub use knowledge_search::{MAX_HITS, search_knowledge, search_server};
 pub use mcp_cli::{
     MCP_CLI_TIMEOUT, register_dashboard_mcp_cli, register_desktop_mcp_cli, register_sidecar_mcp_cli,
     unregister_sidecar_mcp_cli,
@@ -138,7 +190,7 @@ pub use mcp_cli::{
 pub use mcp_client::{McpClient, McpOptions, McpTool, ToolOutput};
 pub use mcp_merge::{Blocked, MergeOutcome, MergeResult, MergedServer, Shape, existing_server, merge_servers};
 pub use mcp_pool::{McpPool, PoolOptions};
-pub use mcp_register::{mcp_state, memory_mcp_state, register_dashboard_mcp};
+pub use mcp_register::{knowledge_mcp_state, mcp_state, memory_mcp_state, register_dashboard_mcp};
 pub use mcp_rename::rename_dashboard_mcp_file;
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
@@ -187,12 +239,13 @@ pub use memory_trust::{script_sha256, trust_scripts};
 pub use memory_user_save::SaveRoute;
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{
-    LegacySkillsStep, McpFile, legacy_skills_step, mcp_target, mcp_target_paths, memory_server_setup, setup_status,
-    share_mcp_target,
+    LegacySkillsStep, McpFile, knowledge_server_setup, legacy_skills_step, mcp_target, mcp_target_paths,
+    memory_server_setup, setup_status, share_mcp_target,
 };
 pub use sidecar_embedder_supervisor::{
     EmbedderFeatures, EmbedderSupervisor, Reconciled, SupervisorOptions, embedder_spec,
 };
+pub use sidecar_record::{RecordFile, SidecarRecord};
 pub use skills_migration::{MIGRATION_RECORD_FILE, MigrationExecutor, MigrationRecord, migrate_skills_names};
 pub use skills_paths::skills_data_path;
 pub use skills_record::{

@@ -32,8 +32,8 @@ use super::memory_features::FeaturesSupport;
 use super::memory_hooks::HooksSupport;
 use super::memory_kinds::KindsSupport;
 use super::memory_team_docs::TeamDocsSupport;
-use super::sidecar_config::{config_path, path_hint, unknown_path};
-use super::sidecar_remote_url::{a_kind, kind_name, scheme_fits};
+use super::sidecar_config::{config_path, path_hint, refuse_blocked, unknown_path};
+use super::sidecar_remote_url::{kind_name, url_and_token};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{MemoryNotesRouting, MemoryNotesTarget, MemoryRemote, MemoryRemoteKind};
@@ -147,14 +147,11 @@ impl ScriptsSupport {
     }
 }
 
-/// `HARNESS_MEMORY_CONFIG`: the server's config file instead of the default one (absolute, a
-/// leading `~` expanded; the server refuses a relative value).
-pub const CONFIG_VAR: &str = "HARNESS_MEMORY_CONFIG";
-
-/// Harness Memory's config file, found as the server finds it: [`CONFIG_VAR`] when set, else under
+/// Harness Memory's config file, found as the server finds it: `HARNESS_MEMORY_CONFIG` when set
+/// (absolute, a leading `~` expanded), else under
 /// `$XDG_CONFIG_HOME` (or `~/.config`) on Linux, `~/Library/Application Support` on macOS and
 /// `%APPDATA%` on Windows. A relative variable does not count, as for the server. `None` while
-/// [`CONFIG_VAR`] is relative (the server then refuses to start), and on Windows while `APPDATA` is
+/// the variable is relative (the server then refuses to start), and on Windows while `APPDATA` is
 /// unset.
 pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
     config_path(&MEMORY_SIDECAR, env)
@@ -246,12 +243,7 @@ pub fn memory_remote_set(
     let path = memory_config_path(env).ok_or_else(|| BusinessError::Unsupported(unknown_path(&MEMORY_SIDECAR, env)))?;
     let saved = read_config(&path);
 
-    if let Some(reason) = &saved.status.blocked {
-        return Err(BusinessError::InvalidInput(format!(
-            "{} is not changed: {reason}",
-            tilde(env, &path)
-        )));
-    }
+    refuse_blocked(env, &path, &saved.status)?;
 
     if !change.enabled {
         remove_config(&path)?;
@@ -282,16 +274,13 @@ pub fn memory_remote_set(
         return Err(BusinessError::Unsupported(reason));
     }
 
-    let url = match change.url.as_deref() {
-        Some(raw) => validate_url(raw, kind)?,
-        None => kept_url(saved.url.as_deref(), kind)?,
-    };
-
-    let token = match (kind, change.token.as_deref()) {
-        (MemoryRemoteKind::Libsql, Some(raw)) => validate_token(raw)?,
-        (MemoryRemoteKind::Libsql, None) => saved.token,
-        _ => None,
-    };
+    let (url, token) = url_and_token(
+        kind,
+        change.url.as_deref(),
+        saved.url.as_deref(),
+        change.token.as_deref(),
+        saved.token,
+    )?;
 
     let hooks = share_key(change.share_hooks, saved.hooks, support.hooks);
     let routines = share_key(change.share_routines, saved.routines, support.routines);
@@ -407,25 +396,4 @@ fn trust_share_key(
         TeamDocsSupport::Unsupported => None,
         TeamDocsSupport::NotInstalled | TeamDocsSupport::Unknown => saved,
     }
-}
-
-/// The saved URL, re-validated, when it is one of `kind`.
-fn kept_url(saved: Option<&str>, kind: MemoryRemoteKind) -> Result<String> {
-    let Some(saved) = saved.filter(|url| !url.trim().is_empty()) else {
-        return Err(BusinessError::InvalidInput("enter the database URL".to_owned()));
-    };
-
-    if !scheme_fits(saved, kind) {
-        return Err(BusinessError::InvalidInput(format!(
-            "the saved URL is not {} URL, so enter the new one",
-            a_kind(kind)
-        )));
-    }
-
-    validate_url(saved, kind).map_err(|error| match error {
-        BusinessError::InvalidInput(reason) => {
-            BusinessError::InvalidInput(format!("the saved URL cannot be kept ({reason}); enter it again"))
-        }
-        other => other,
-    })
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-held-list"
+description = "Enables the knowledge_held_list command without any pre-configured scope."
+commands.allow = ["knowledge_held_list"]
+
+[[permission]]
+identifier = "deny-knowledge-held-list"
+description = "Denies the knowledge_held_list command without any pre-configured scope."
+commands.deny = ["knowledge_held_list"]

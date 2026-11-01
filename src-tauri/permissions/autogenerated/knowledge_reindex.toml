@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-reindex"
+description = "Enables the knowledge_reindex command without any pre-configured scope."
+commands.allow = ["knowledge_reindex"]
+
+[[permission]]
+identifier = "deny-knowledge-reindex"
+description = "Denies the knowledge_reindex command without any pre-configured scope."
+commands.deny = ["knowledge_reindex"]

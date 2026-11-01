@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-drop-intake"
+description = "Enables the knowledge_drop_intake command without any pre-configured scope."
+commands.allow = ["knowledge_drop_intake"]
+
+[[permission]]
+identifier = "deny-knowledge-drop-intake"
+description = "Denies the knowledge_drop_intake command without any pre-configured scope."
+commands.deny = ["knowledge_drop_intake"]

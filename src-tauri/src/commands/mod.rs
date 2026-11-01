@@ -10,6 +10,12 @@ pub mod git;
 pub mod git_sync;
 pub mod harness;
 pub mod hooks;
+pub mod knowledge;
+pub mod knowledge_docs;
+pub mod knowledge_embedder;
+pub mod knowledge_held;
+pub mod knowledge_import;
+pub mod knowledge_remote;
 pub mod memory;
 pub mod memory_code;
 pub mod memory_embedder;
@@ -41,7 +47,7 @@ use crate::error::{CommandError, CommandResult};
 use crate::state::AppState;
 
 /// Runs blocking work (file IO, process spawns) off the async runtime's worker threads.
-async fn blocking<T, F>(task: F) -> CommandResult<T>
+pub(crate) async fn blocking<T, F>(task: F) -> CommandResult<T>
 where
     T: Send + 'static,
     F: FnOnce() -> CommandResult<T> + Send + 'static,

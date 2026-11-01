@@ -3,7 +3,8 @@
 //!
 //! Codex starts its MCP servers with a cleared environment, so the `HARNESS_MEMORY_SESSION` of a
 //! chat with a memory identity reaches a harness-memory server only when the server's `env_vars`
-//! names it. So the chat reads the project's effective settings from Codex itself (`config/read`
+//! names it. The same goes for `HARNESS_KNOWLEDGE_SESSION` and a harness-knowledge server, which is
+//! told the same way but never counts for the chat's own memory settings (no notice, no state). So the chat reads the project's effective settings from Codex itself (`config/read`
 //! with the project as `cwd`: every layer Codex loads there, with its trust, profiles and managed
 //! settings) after the handshake and before every later new, resumed or forked thread, and sends
 //! `"mcp_servers.<name>.env_vars": [<its own…>, "HARNESS_MEMORY_SESSION"]` in the `config` of each
@@ -30,7 +31,8 @@ use serde_json::{Map, Value};
 
 use super::{Chat, CodexSession, Live};
 use crate::codex_rpc::wire::outbound::Request;
-use crate::ecosystem::catalog::{MEMORY_BINARY, MEMORY_MCP_SERVER};
+use crate::ecosystem::catalog::{KNOWLEDGE_BINARY, KNOWLEDGE_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER};
+use crate::ecosystem::knowledge_binary::KNOWLEDGE_SESSION_VAR;
 use crate::ecosystem::memory_guards::SESSION_VAR;
 use crate::error::{BusinessError, Result};
 use crate::harnesses::codex::is_plain_name;
@@ -56,39 +58,72 @@ pub(super) fn memory_config(servers: &McpServers) -> MemoryConfig {
     let mut memory = MemoryConfig::default();
 
     for (name, server) in servers {
-        if !is_memory_server(name, server) || server.get("enabled") == Some(&Value::Bool(false)) {
+        if server.get("enabled") == Some(&Value::Bool(false)) {
             continue;
         }
 
-        let own = match server.get("env_vars") {
-            None | Some(Value::Null) => Vec::new(),
-            Some(Value::Array(entries)) => entries.clone(),
-            Some(_) => {
-                memory.missed.push(name.clone());
-                continue;
+        if runs(name, server, KNOWLEDGE_MCP_SERVER, KNOWLEDGE_BINARY) {
+            // Harness Knowledge learns the chat the same way, but its guards are not the chat's own
+            // memory settings, so it never changes what the chat offers or says.
+            if let EnvVars::Add(entries) = env_vars_with(name, server, KNOWLEDGE_SESSION_VAR) {
+                memory.config.insert(env_vars_key(name), Value::Array(entries));
             }
-        };
 
-        if own.iter().any(names_session_var) {
-            memory.passed_on = true;
             continue;
         }
 
-        if !is_plain_name(name) {
-            memory.missed.push(name.clone());
+        if !runs(name, server, MEMORY_MCP_SERVER, MEMORY_BINARY) {
             continue;
         }
 
-        let mut entries = own;
-        entries.push(Value::String(SESSION_VAR.to_owned()));
-
-        memory
-            .config
-            .insert(format!("mcp_servers.{name}.env_vars"), Value::Array(entries));
-        memory.passed_on = true;
+        match env_vars_with(name, server, SESSION_VAR) {
+            EnvVars::Add(entries) => {
+                memory.config.insert(env_vars_key(name), Value::Array(entries));
+                memory.passed_on = true;
+            }
+            EnvVars::Present => memory.passed_on = true,
+            EnvVars::Cannot => memory.missed.push(name.clone()),
+        }
     }
 
     memory
+}
+
+/// What it takes for a server's `env_vars` to name a session variable.
+enum EnvVars {
+    /// The entries to send: its own and the variable.
+    Add(Vec<Value>),
+    /// It names the variable already.
+    Present,
+    /// Codex cannot be told: its `env_vars` is no list, or its name cannot be a key path.
+    Cannot,
+}
+
+/// The `env_vars` of `server` with `variable` added (see [`EnvVars`]).
+fn env_vars_with(name: &str, server: &Value, variable: &str) -> EnvVars {
+    let own = match server.get("env_vars") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(Value::Array(entries)) => entries.clone(),
+        Some(_) => return EnvVars::Cannot,
+    };
+
+    if own.iter().any(|entry| names_session_var(entry, variable)) {
+        return EnvVars::Present;
+    }
+
+    if !is_plain_name(name) {
+        return EnvVars::Cannot;
+    }
+
+    let mut entries = own;
+    entries.push(Value::String(variable.to_owned()));
+
+    EnvVars::Add(entries)
+}
+
+/// The `config` key of the `env_vars` of server `name`.
+fn env_vars_key(name: &str) -> String {
+    format!("mcp_servers.{name}.env_vars")
 }
 
 /// The notice of a chat whose harness-memory servers `missed` cannot be told to pass its
@@ -114,8 +149,8 @@ pub(super) fn memory_notice(memory: &MemoryConfig) -> Option<AgentEvent> {
     })
 }
 
-/// A stdio server named `harness-memory` or running the `harness-memory` program.
-fn is_memory_server(name: &str, server: &Value) -> bool {
+/// A stdio server named `mcp_name` or running the `binary` program.
+fn runs(name: &str, server: &Value, mcp_name: &str, binary: &str) -> bool {
     let Some(program) = server.get("command").and_then(Value::as_str) else {
         return false;
     };
@@ -127,14 +162,14 @@ fn is_memory_server(name: &str, server: &Value) -> bool {
         .to_ascii_lowercase();
     let stem = file_name.strip_suffix(".exe").unwrap_or(&file_name);
 
-    name == MEMORY_MCP_SERVER || stem == MEMORY_BINARY
+    name == mcp_name || stem == binary
 }
 
-/// An `env_vars` entry naming the session variable: the name, or a table with it as `name`.
-fn names_session_var(entry: &Value) -> bool {
+/// An `env_vars` entry naming `variable`: the name, or a table with it as `name`.
+fn names_session_var(entry: &Value, variable: &str) -> bool {
     match entry {
-        Value::String(name) => name == SESSION_VAR,
-        Value::Object(fields) => fields.get("name").and_then(Value::as_str) == Some(SESSION_VAR),
+        Value::String(name) => name == variable,
+        Value::Object(fields) => fields.get("name").and_then(Value::as_str) == Some(variable),
         _ => false,
     }
 }
@@ -200,5 +235,61 @@ impl CodexSession {
     /// Whether the chat's memory identity reaches a harness-memory server (see the module docs).
     pub fn memory_passed_on(&self) -> bool {
         self.chat.lock().memory_passed_on
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn servers(value: Value) -> McpServers {
+        value.as_object().cloned().expect("an object")
+    }
+
+    #[test]
+    fn a_knowledge_server_is_told_the_chat_without_counting_for_the_memory_guards() {
+        let listed = servers(json!({
+            "harness-knowledge": { "command": "/home/u/.local/bin/harness-knowledge", "args": ["mcp"] },
+            "docs": { "command": "C:\\tools\\Harness-Knowledge.exe", "env_vars": ["TOKEN"] },
+            "off": { "command": "harness-knowledge", "enabled": false },
+            "told": { "command": "harness-knowledge", "env_vars": [{ "name": "HARNESS_KNOWLEDGE_SESSION" }] },
+            "odd.name": { "command": "harness-knowledge" },
+        }));
+
+        let config = memory_config(&listed);
+
+        assert_eq!(
+            config.config.get("mcp_servers.harness-knowledge.env_vars"),
+            Some(&json!(["HARNESS_KNOWLEDGE_SESSION"]))
+        );
+        assert_eq!(
+            config.config.get("mcp_servers.docs.env_vars"),
+            Some(&json!(["TOKEN", "HARNESS_KNOWLEDGE_SESSION"]))
+        );
+        assert_eq!(config.config.len(), 2, "off, told and unnameable servers get nothing");
+        assert!(!config.passed_on, "the chat's own memory guards need a memory server");
+        assert!(config.missed.is_empty(), "no notice about a knowledge server");
+    }
+
+    #[test]
+    fn each_server_gets_its_own_variable() {
+        let listed = servers(json!({
+            "harness-memory": { "command": "harness-memory" },
+            "harness-knowledge": { "command": "harness-knowledge" },
+        }));
+
+        let config = memory_config(&listed);
+
+        assert_eq!(
+            config.config.get("mcp_servers.harness-memory.env_vars"),
+            Some(&json!(["HARNESS_MEMORY_SESSION"]))
+        );
+        assert_eq!(
+            config.config.get("mcp_servers.harness-knowledge.env_vars"),
+            Some(&json!(["HARNESS_KNOWLEDGE_SESSION"]))
+        );
+        assert!(config.passed_on);
     }
 }

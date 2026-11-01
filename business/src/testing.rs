@@ -33,6 +33,7 @@ pub struct FakePeer {
     pub stderr: DuplexStream,
     exit: oneshot::Sender<ExitInfo>,
     killed: watch::Receiver<bool>,
+    terminated: watch::Receiver<bool>,
 }
 
 impl FakePeer {
@@ -52,6 +53,16 @@ impl FakePeer {
     /// True once the app called `start_kill` or `kill_process_group`.
     pub fn is_killed(&self) -> bool {
         *self.killed.borrow()
+    }
+
+    /// True once the app asked the process to shut down (`terminate`, SIGTERM on Unix).
+    pub fn is_terminated(&self) -> bool {
+        *self.terminated.borrow()
+    }
+
+    /// Waits until the app asks the process to shut down.
+    pub async fn terminated(&mut self) {
+        self.terminated.wait_for(|terminated| *terminated).await.ok();
     }
 }
 
@@ -106,6 +117,7 @@ impl ProcessSpawner for DuplexSpawner {
         let (app_stderr, peer_stderr) = duplex(PIPE_BYTES);
         let (exit_tx, exit_rx) = oneshot::channel();
         let (kill_tx, kill_rx) = watch::channel(false);
+        let (terminate_tx, terminate_rx) = watch::channel(false);
 
         let peer = FakePeer {
             spec: spec.clone(),
@@ -114,6 +126,7 @@ impl ProcessSpawner for DuplexSpawner {
             stderr: peer_stderr,
             exit: exit_tx,
             killed: kill_rx,
+            terminated: terminate_rx,
         };
 
         self.peers
@@ -127,6 +140,7 @@ impl ProcessSpawner for DuplexSpawner {
             child: Box::new(FakeChild {
                 exit: Some(exit_rx),
                 kill: kill_tx,
+                terminate: terminate_tx,
                 done: None,
             }),
         })
@@ -137,6 +151,7 @@ impl ProcessSpawner for DuplexSpawner {
 struct FakeChild {
     exit: Option<oneshot::Receiver<ExitInfo>>,
     kill: watch::Sender<bool>,
+    terminate: watch::Sender<bool>,
     done: Option<ExitInfo>,
 }
 
@@ -174,5 +189,9 @@ impl ChildHandle for FakeChild {
 
     fn kill_process_group(&mut self) {
         self.kill.send_replace(true);
+    }
+
+    fn terminate(&mut self) {
+        self.terminate.send_replace(true);
     }
 }

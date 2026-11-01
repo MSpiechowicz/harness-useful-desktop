@@ -24,6 +24,10 @@ mod git_sync;
 mod harness;
 mod hook;
 mod ipc_error;
+mod knowledge;
+mod knowledge_held;
+mod knowledge_import;
+mod knowledge_remote;
 mod memory_code;
 mod memory_embedder;
 mod memory_guards;
@@ -94,6 +98,23 @@ pub use hook::{
     TeamHooks,
 };
 pub use ipc_error::{IpcError, IpcErrorCode};
+pub use knowledge::{
+    KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocument, KnowledgeFeatures,
+    KnowledgeLink, KnowledgeListFilter, KnowledgeOrigin, KnowledgePage, KnowledgeRepoCount, KnowledgeReposPage,
+    KnowledgeScope, KnowledgeSection, KnowledgeSort, KnowledgeStats, KnowledgeStatus, KnowledgeSwitchResult,
+};
+pub use knowledge_held::{
+    KnowledgeApproval, KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeHit,
+    KnowledgePulse, KnowledgeSearchScope,
+};
+pub use knowledge_import::{
+    KnowledgeEmbedding, KnowledgeFileStatus, KnowledgeImportCounts, KnowledgeImportEvent, KnowledgeImportOptions,
+    KnowledgeImportResult, KnowledgeIntake, KnowledgeIntakeEntry, KnowledgeReindexed, KnowledgeSkipReason,
+    KnowledgeSkipped,
+};
+pub use knowledge_remote::{
+    KnowledgeCapabilities, KnowledgeCheck, KnowledgeIndexState, KnowledgeProblem, KnowledgeRemote,
+};
 pub use memory_code::{CodeBuildEvent, CodeIndexState};
 pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 pub use memory_guards::{

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, tn } from '$lib/i18n/i18n.svelte';
+  import { t, tn, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { DashboardSetup } from '$lib/ipc/bindings/DashboardSetup';
 
   import SetupCard from './SetupCard.svelte';
@@ -9,12 +9,19 @@
   import { setup } from './setup-state.svelte';
 
   interface Props {
-    /** Which family member the card is for; both cards are built the same way, in every state. */
+    /** Which family member the card is for; every card is built the same way, in every state. */
     companion: Companion;
     server: DashboardSetup;
   }
 
   let { companion, server }: Props = $props();
+
+  /** What each card says about its member. */
+  const COPY: Record<Companion, { title: MessageKey; body: MessageKey }> = {
+    dashboard: { title: 'onboarding.setup.dashboard.title', body: 'onboarding.setup.dashboard.body' },
+    memory: { title: 'onboarding.setup.memory.title', body: 'onboarding.setup.memory.body' },
+    knowledge: { title: 'knowledge.onboarding.title', body: 'knowledge.onboarding.body' },
+  };
 
   const effects = $derived(companionEffects(companion, server));
 </script>
@@ -22,9 +29,9 @@
 <!-- The run itself, with its output, is shown on the next step, beside the rest of what gets installed. -->
 <SetupCard
   product={companion}
-  title={companion === 'memory' ? t('onboarding.setup.memory.title') : t('onboarding.setup.dashboard.title')}
+  title={t(COPY[companion].title)}
   chip={companionChip(server, setup.shown(companion), setup.waiting(companion))}
-  description={companion === 'memory' ? t('onboarding.setup.memory.body') : t('onboarding.setup.dashboard.body')}
+  description={t(COPY[companion].body)}
   detailsMeta={server.supportedOnThisOs ? tn('onboarding.setup.companion.changes', effects.length) : undefined}
 >
   {#snippet details()}

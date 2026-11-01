@@ -1,6 +1,6 @@
 //! The companion tools of the ecosystem: names, descriptions, links and copyable install steps.
 //!
-//! Install steps follow each tool's README (the dashboard's and the memory server's `install.sh` /
+//! Install steps follow each tool's README (the dashboard's, the memory server's and the knowledge server's `install.sh` /
 //! `install.ps1`, the OMP marketplace installs of the skills and the sidebar). They are shown for
 //! copying; the exception is the "Recommended setup" step, which runs the dashboard's, the memory
 //! server's or the Harness Skills' OpenCode installer (see [`super::installer`]) after the user
@@ -11,9 +11,10 @@ use crate::env::OsKind;
 use crate::model::{EcosystemId, EcosystemItem, InstallStep};
 
 /// Every tool, in display order.
-pub const ECOSYSTEM: [EcosystemId; 4] = [
+pub const ECOSYSTEM: [EcosystemId; 5] = [
     EcosystemId::Dashboard,
     EcosystemId::Memory,
+    EcosystemId::Knowledge,
     EcosystemId::Skills,
     EcosystemId::Sidebar,
 ];
@@ -44,6 +45,23 @@ pub const MEMORY_SIDECAR: Sidecar = Sidecar {
     mcp_server: MEMORY_MCP_SERVER,
     env_prefix: "HARNESS_MEMORY",
     feature: "project memory",
+};
+
+/// The project knowledge server's executable name (Harness Knowledge, installed like the memory
+/// server).
+pub const KNOWLEDGE_BINARY: &str = "harness-knowledge";
+
+/// The name the app gives the knowledge server in a harness's `mcpServers`.
+pub const KNOWLEDGE_MCP_SERVER: &str = "harness-knowledge";
+
+/// The names of the knowledge server, for the modules that serve every Harness family server (see
+/// [`super::sidecar`]).
+pub const KNOWLEDGE_SIDECAR: Sidecar = Sidecar {
+    binary: KNOWLEDGE_BINARY,
+    product: "Harness Knowledge",
+    mcp_server: KNOWLEDGE_MCP_SERVER,
+    env_prefix: "HARNESS_KNOWLEDGE",
+    feature: "project knowledge",
 };
 
 /// The name the skills' installers give their MCP server (Harness Skills 0.4.0 and newer): in
@@ -119,6 +137,18 @@ pub const MEMORY_INSTALL_PS1_SCRIPT: &str =
 /// The memory server's Windows installer, as a copyable command.
 pub const MEMORY_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.ps1 | iex\"";
 
+/// The knowledge server's Unix installer, as a copyable shell command (also the script the setup
+/// step runs on Linux and macOS). `curl` is held to HTTPS and TLS 1.2 or newer, redirects included.
+pub const KNOWLEDGE_INSTALL_SH: &str = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-knowledge/main/install.sh | sh";
+
+/// The PowerShell script of the knowledge server's Windows installer (what the setup step runs
+/// there).
+pub const KNOWLEDGE_INSTALL_PS1_SCRIPT: &str =
+    "irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-knowledge/main/install.ps1 | iex";
+
+/// The knowledge server's Windows installer, as a copyable command.
+pub const KNOWLEDGE_INSTALL_PS1: &str = "powershell -ExecutionPolicy Bypass -c \"irm https://raw.githubusercontent.com/MSpiechowicz/harness-useful-knowledge/main/install.ps1 | iex\"";
+
 /// The Harness Skills' Unix installer for OpenCode (the script's default host), as a copyable shell command (also the script
 /// the setup step runs on Linux and macOS). `curl` is held to HTTPS and TLS 1.2 or newer, redirects
 /// included.
@@ -157,6 +187,7 @@ pub fn catalog_item(id: EcosystemId, os: OsKind) -> EcosystemItem {
     let mut item = match id {
         EcosystemId::Dashboard => dashboard(os),
         EcosystemId::Memory => memory(os),
+        EcosystemId::Knowledge => knowledge(os),
         EcosystemId::Skills => skills(),
         EcosystemId::Sidebar => sidebar(),
     };
@@ -206,6 +237,28 @@ fn memory(os: OsKind) -> EcosystemItem {
         &[
             "Runs locally as `harness-memory mcp`; nothing is sent over the network.",
             "Turn it on or off for every harness in Settings, under Project memory.",
+        ],
+    )
+}
+
+fn knowledge(os: OsKind) -> EcosystemItem {
+    let install = match os {
+        OsKind::Windows => KNOWLEDGE_INSTALL_PS1,
+        OsKind::Linux | OsKind::MacOs => KNOWLEDGE_INSTALL_SH,
+    };
+
+    item(
+        EcosystemId::Knowledge,
+        "Harness Knowledge",
+        "Project documentation that every coding agent can search.",
+        "A local MCP server that keeps documents (Markdown, text, HTML, OpenAPI, AsciiDoc, reStructuredText and \
+         PDF) per project and finds the passages an agent needs with keyword and vector ranking. The app imports \
+         files and folders, registers the server with each detected harness while Project knowledge is on, and \
+         adds pointers to matching passages to the first message of a new chat.",
+        vec![step("Install the binary", install)],
+        &[
+            "Runs locally as `harness-knowledge mcp` and nothing is sent over the network.",
+            "Turn it on or off for every harness in Settings, under Project knowledge.",
         ],
     )
 }
@@ -289,6 +342,7 @@ fn repo_url(id: EcosystemId) -> String {
     let name = match id {
         EcosystemId::Dashboard => "harness-useful-dashboard",
         EcosystemId::Memory => "harness-useful-memory",
+        EcosystemId::Knowledge => "harness-useful-knowledge",
         EcosystemId::Skills => SKILLS_PLUGIN,
         EcosystemId::Sidebar => SIDEBAR_PLUGIN,
     };

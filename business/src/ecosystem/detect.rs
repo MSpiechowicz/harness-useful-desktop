@@ -3,17 +3,21 @@
 //! - Dashboard: the `harness-dashboard` binary ([`resolve_dashboard`]) and its bare version from
 //!   `harness-dashboard version` (5 s limit). Its data directory, `usage.db` and `auth-token` are
 //!   never read.
-//! - Memory: the `harness-memory` binary ([`resolve_memory`]) and its version from
-//!   `harness-memory --version` (5 s limit). Its database is never read.
+//! - Memory and knowledge: the `harness-memory` and `harness-knowledge` binaries
+//!   ([`resolve_sidecar`]) and their version from `<binary> --version` (5 s limit). Their
+//!   databases are never read.
 //! - Skills and sidebar: the user's OMP plugins ([`installed_plugins`]: marketplace installs such
 //!   as `harness-useful-skills@harness-useful-skills`, and npm installs), with their versions and,
 //!   from the cached marketplace catalogs ([`mark_updates`]), whether a newer one is offered.
 
 use std::path::PathBuf;
 
-use super::catalog::{DASHBOARD_BINARY, ECOSYSTEM, MEMORY_BINARY, SIDEBAR_PLUGIN, SKILLS_PLUGIN, catalog_item};
+use super::catalog::{
+    DASHBOARD_BINARY, ECOSYSTEM, KNOWLEDGE_SIDECAR, MEMORY_SIDECAR, SIDEBAR_PLUGIN, SKILLS_PLUGIN, catalog_item,
+};
 use super::dashboard::resolve_dashboard;
-use super::memory_binary::{memory_version, resolve_memory};
+use super::sidecar::Sidecar;
+use super::sidecar_binary::{resolve_sidecar, sidecar_version};
 use crate::env::{Env, OsKind};
 use crate::harness::{VERSION_TIMEOUT, first_semver};
 use crate::harnesses::omp::{installed_plugins, marketplaces, omp_paths};
@@ -40,7 +44,8 @@ pub async fn ecosystem_status(env: &Env, runner: &dyn ProcessRunner) -> Ecosyste
 
         match id {
             EcosystemId::Dashboard => detect_dashboard(env, runner, &mut item).await,
-            EcosystemId::Memory => detect_memory(env, runner, &mut item).await,
+            EcosystemId::Memory => detect_sidecar(&MEMORY_SIDECAR, env, runner, &mut item).await,
+            EcosystemId::Knowledge => detect_sidecar(&KNOWLEDGE_SIDECAR, env, runner, &mut item).await,
             EcosystemId::Skills => detect_plugin(&plugins, SKILLS_PLUGIN, &mut item),
             EcosystemId::Sidebar => detect_plugin(&plugins, SIDEBAR_PLUGIN, &mut item),
         }
@@ -67,19 +72,20 @@ async fn detect_dashboard(env: &Env, runner: &dyn ProcessRunner, item: &mut Ecos
     }
 }
 
-async fn detect_memory(env: &Env, runner: &dyn ProcessRunner, item: &mut EcosystemItem) {
-    let Some(binary) = resolve_memory(env) else {
+/// A Harness family server: its binary and the version `<binary> --version` reports.
+async fn detect_sidecar(sidecar: &Sidecar, env: &Env, runner: &dyn ProcessRunner, item: &mut EcosystemItem) {
+    let Some(binary) = resolve_sidecar(sidecar, env) else {
         return;
     };
 
     item.installed = true;
     item.via.push(format!("binary {}", tilde(env, &binary.path)));
 
-    match memory_version(env, runner, &binary).await {
+    match sidecar_version(sidecar, env, runner, &binary).await {
         Some(version) => item.version = Some(version),
         None => item
             .notes
-            .push(format!("`{MEMORY_BINARY} --version` did not report a version.")),
+            .push(format!("`{} --version` did not report a version.", sidecar.binary)),
     }
 }
 

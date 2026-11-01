@@ -17,7 +17,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.hero.title': 'Tools, die Agenten messbar machen',
   'ecosystem.hero.body':
-    'Harness Useful ist eine kleine Familie quelloffener Tools für deine Coding-Agenten. Das **Dashboard** misst, was sie kosten, die **Skills** machen ihre Arbeit wiederholbar, das **Memory** gibt allen Agenten dasselbe Projektgedächtnis und die **Seitenleiste** hält ihre Sitzungen im Blick. Harness Desktop funktioniert allein und zeigt mit jedem weiteren Familienmitglied mehr.',
+    'Harness Useful ist eine kleine Familie quelloffener Tools für deine Coding-Agenten. Das **Dashboard** misst, was sie kosten, die **Skills** machen ihre Arbeit wiederholbar, das **Memory** gibt allen Agenten dasselbe Projektgedächtnis, das **Wissen** lässt sie deine Projektdokumente durchsuchen und die **Seitenleiste** hält ihre Sitzungen im Blick. Harness Desktop funktioniert allein und zeigt mit jedem weiteren Familienmitglied mehr.',
   'ecosystem.hero.failed': 'Die installierten Mitglieder der Harness-Familie konnten nicht gelesen werden.',
   'ecosystem.hero.looking': 'Suche nach der Harness-Familie…',
   'ecosystem.setup.run': 'Empfohlene Einrichtung ausführen',
@@ -249,4 +249,9 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.sidebar.step.0.title': 'Den Marketplace hinzufügen',
   'ecosystem.product.sidebar.step.1.title': 'Das Plugin installieren',
   'ecosystem.product.sidebar.step.2.title': 'Die Seitenleiste einrichten',
+  'ecosystem.product.knowledge.tagline': 'Projektdokumentation, die jeder Coding-Agent durchsuchen kann.',
+  'ecosystem.product.knowledge.description': 'Ein lokaler MCP-Server, der Dokumente (Markdown, Text, HTML, OpenAPI, AsciiDoc, reStructuredText und PDF) pro Projekt verwaltet und die Passagen, die ein Agent braucht, mit Stichwort- und Vektor-Ranking findet. Die App importiert Dateien und Ordner, registriert den Server in jedem erkannten Harness, solange Projektwissen aktiv ist, und fügt der ersten Nachricht eines neuen Chats Hinweise auf passende Passagen hinzu.',
+  'ecosystem.product.knowledge.note.0': 'Läuft lokal als `harness-knowledge mcp` und es wird nichts über das Netzwerk gesendet.',
+  'ecosystem.product.knowledge.note.1': 'Schalte es für alle Harnesses in den Einstellungen unter Projektwissen ein oder aus.',
+  'ecosystem.product.knowledge.step.0.title': 'Das Programm installieren',
 };

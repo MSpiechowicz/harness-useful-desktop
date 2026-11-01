@@ -12,7 +12,7 @@ import { onboarding } from '../onboarding/onboarding-state.svelte';
 import { setup } from '../onboarding/setup-state.svelte';
 
 /** The Harness family members that have an official installer the app can run, in the order they are updated. */
-const UPDATABLE: readonly EcosystemId[] = ['dashboard', 'memory'];
+const UPDATABLE: readonly EcosystemId[] = ['dashboard', 'memory', 'knowledge'];
 
 interface Dependencies {
   transport: Transport;
@@ -28,7 +28,7 @@ interface Dependencies {
 }
 
 /**
- * Keeps the installed Harness family members (Harness Dashboard and Harness Memory) current without the user clicking.
+ * Keeps the installed Harness family members (Harness Dashboard, Harness Memory and Harness Knowledge) current without the user clicking.
  * When the latest reading says an installed member has a newer release, the official installer runs, one member at a
  * time, through the same commands as the first-run setup. Never installs a member that is not installed.
  *
@@ -124,7 +124,14 @@ export class FamilyUpdater {
   private install(id: EcosystemId) {
     const args = { confirmed: true, onLog: () => {} };
 
-    return id === 'dashboard' ? this.deps.transport.invoke('setup_install_dashboard', args) : this.deps.transport.invoke('setup_install_memory', args);
+    switch (id) {
+      case 'dashboard':
+        return this.deps.transport.invoke('setup_install_dashboard', args);
+      case 'knowledge':
+        return this.deps.transport.invoke('setup_install_knowledge', args);
+      default:
+        return this.deps.transport.invoke('setup_install_memory', args);
+    }
   }
 }
 
@@ -145,8 +152,8 @@ export const familyUpdater = new FamilyUpdater({
   updated: async (id) => {
     await ecosystem.load(true);
 
-    // The installer re-registers the memory server (the backend owns that part of the preferences).
-    if (id === 'memory') {
+    // The installer re-registers the memory or knowledge server (the backend owns that part of the preferences).
+    if (id === 'memory' || id === 'knowledge') {
       await prefs.syncServerManaged();
     }
   },

@@ -10,7 +10,7 @@
   import SetupDetails from './SetupDetails.svelte';
   import SetupLog from './SetupLog.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
-  import { companionChip, SKILLS_INSTALLER_HARNESSES, skillsInstallerOf, skillsRowChip, skillsTargets, skillsUnavailable, type Companion } from './setup-model';
+  import { companionChip, COMPANIONS, SKILLS_INSTALLER_HARNESSES, skillsInstallerOf, skillsRowChip, skillsTargets, skillsUnavailable, type Companion } from './setup-model';
   import { setup } from './setup-state.svelte';
   import { nameOf } from './setup-view';
 
@@ -22,12 +22,10 @@
 
   const titleId = uid('setup-family');
 
-  /** The two installers, in the order they run; the skills follow them. */
-  const COMPANIONS: Companion[] = ['dashboard', 'memory'];
-
   const NAMES: Record<Companion, () => string> = {
     dashboard: () => t('onboarding.setup.dashboard.title'),
     memory: () => t('onboarding.setup.memory.title'),
+    knowledge: () => t('knowledge.onboarding.title'),
   };
 
   const targets = $derived(skillsTargets(data.harnesses));

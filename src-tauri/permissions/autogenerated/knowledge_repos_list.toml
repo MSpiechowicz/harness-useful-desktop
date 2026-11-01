@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-repos-list"
+description = "Enables the knowledge_repos_list command without any pre-configured scope."
+commands.allow = ["knowledge_repos_list"]
+
+[[permission]]
+identifier = "deny-knowledge-repos-list"
+description = "Denies the knowledge_repos_list command without any pre-configured scope."
+commands.deny = ["knowledge_repos_list"]

@@ -10,6 +10,7 @@ import type { Handlers } from './types';
 export const MOCK_LATEST_RELEASES: Record<EcosystemId, string> = {
   dashboard: '1.22.1',
   memory: '1.0.0',
+  knowledge: '1.0.0',
   skills: '0.2.40',
   sidebar: '1.0.74',
 };

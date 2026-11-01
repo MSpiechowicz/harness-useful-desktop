@@ -1,6 +1,7 @@
 //! The `harness-dashboard` MCP server in a harness's MCP file (`mcp_state`,
-//! `register_dashboard_mcp`), and the state of the `harness-memory` one (`memory_mcp_state`; it is
-//! registered by [`super::memory_register`]).
+//! `register_dashboard_mcp`), and the state of the `harness-memory` and `harness-knowledge` ones
+//! (`memory_mcp_state`, `knowledge_mcp_state`; they are registered by [`super::memory_register`] and
+//! [`super::knowledge_register`]).
 //!
 //! - Found: a server named [`DASHBOARD_MCP_SERVER`], or any server that runs `harness-dashboard`
 //!   (any directory, `.exe` or not) with the single argument `mcp`, as `"command"` and `"args"`
@@ -24,7 +25,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, MEMORY_SIDECAR};
+use super::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, KNOWLEDGE_SIDECAR, MEMORY_SIDECAR};
 use super::mcp_merge::{Blocked, Change, Shape, Target, change_file, load, servers, servers_mut};
 use super::setup::McpFile;
 use super::sidecar::Sidecar;
@@ -42,6 +43,12 @@ pub fn mcp_state(env: &Env, file: &McpFile) -> McpState {
 /// `harness-memory` the app would register.
 pub fn memory_mcp_state(env: &Env, file: &McpFile) -> McpState {
     server_state(env, file, MEMORY)
+}
+
+/// The knowledge server in `file`, read-only (see the module docs). A manual edit names the
+/// `harness-knowledge` the app would register.
+pub fn knowledge_mcp_state(env: &Env, file: &McpFile) -> McpState {
+    server_state(env, file, KNOWLEDGE)
 }
 
 /// A companion's MCP server: the entry name the app writes, and the binary it runs.
@@ -75,6 +82,12 @@ const MEMORY: Server = Server {
     name: MEMORY_SIDECAR.mcp_server,
     binary: MEMORY_SIDECAR.binary,
     by_path: Some(&MEMORY_SIDECAR),
+};
+
+const KNOWLEDGE: Server = Server {
+    name: KNOWLEDGE_SIDECAR.mcp_server,
+    binary: KNOWLEDGE_SIDECAR.binary,
+    by_path: Some(&KNOWLEDGE_SIDECAR),
 };
 
 fn server_state(env: &Env, file: &McpFile, server: Server) -> McpState {

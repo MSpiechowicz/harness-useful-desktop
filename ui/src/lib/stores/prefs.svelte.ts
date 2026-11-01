@@ -15,8 +15,14 @@ export class PrefsStore {
   memoryPending = $state(false);
   /** True while `memory_set_vector_search` is in flight (set by the memory search store). */
   vectorSearchPending = $state(false);
+  /** True while `knowledge_set_enabled` is in flight. */
+  knowledgePending = $state(false);
+  /** True while `knowledge_set_vector_search` is in flight (set by the knowledge search store). */
+  knowledgeVectorSearchPending = $state(false);
   /** Entries the last "off" switch left in files with comments: the user removes them by hand, so they stay listed until dismissed. */
   memoryManualRemovals = $state<ManualRemoval[]>([]);
+  /** The same for Project knowledge. */
+  knowledgeManualRemovals = $state<ManualRemoval[]>([]);
   error = $state<IpcFailure | null>(null);
 
   /** Incremented per update so only the newest request may overwrite or roll back state. */
@@ -53,7 +59,7 @@ export class PrefsStore {
   }
 
   /**
-   * Re-reads the fields the backend owns (active project, recent projects, binary overrides, project memory, vector search)
+   * Re-reads the fields the backend owns (active project, recent projects, binary overrides, project memory and knowledge, vector search)
    * without disturbing the UI-managed ones or an in-flight update.
    */
   async syncServerManaged(): Promise<void> {
@@ -70,6 +76,8 @@ export class PrefsStore {
           memoryEnabled: this.memoryPending ? this.value.memoryEnabled : fresh.memoryEnabled,
           // The backend turns it off by itself when the embedder is opted out at launch.
           vectorSearch: this.vectorSearchPending ? this.value.vectorSearch : fresh.vectorSearch,
+          knowledgeEnabled: this.knowledgePending ? this.value.knowledgeEnabled : fresh.knowledgeEnabled,
+          knowledgeVectorSearch: this.knowledgeVectorSearchPending ? this.value.knowledgeVectorSearch : fresh.knowledgeVectorSearch,
         };
       }
     } catch {
@@ -93,24 +101,56 @@ export class PrefsStore {
       const saved = await this.transport.invoke('memory_set_enabled', { enabled });
 
       this.memoryManualRemovals = saved.manualRemovals;
-
-      if (this.value) {
-        this.value = { ...this.value, memoryEnabled: saved.memoryEnabled };
-      }
+      this.keepServerSwitch({ memoryEnabled: saved.memoryEnabled });
     } catch (error) {
-      this.notifications.push({
-        title: t('shell.toast.saveFailed'),
-        description: IpcFailure.from(error).message,
-        tone: 'danger',
-      });
+      this.switchFailed(error);
     } finally {
       this.memoryPending = false;
     }
   }
 
+  /** The "Project knowledge" switch, which works like the memory one through `knowledge_set_enabled`. */
+  async setKnowledgeEnabled(enabled: boolean): Promise<void> {
+    if (this.knowledgePending || !this.value) {
+      return;
+    }
+
+    this.knowledgePending = true;
+
+    try {
+      const saved = await this.transport.invoke('knowledge_set_enabled', { enabled });
+
+      this.knowledgeManualRemovals = saved.manualRemovals;
+      this.keepServerSwitch({ knowledgeEnabled: saved.knowledgeEnabled });
+    } catch (error) {
+      this.switchFailed(error);
+    } finally {
+      this.knowledgePending = false;
+    }
+  }
+
+  /** Takes only the switch's own field from its answer. */
+  private keepServerSwitch(fields: Partial<AppPrefs>): void {
+    if (this.value) {
+      this.value = { ...this.value, ...fields };
+    }
+  }
+
+  private switchFailed(error: unknown): void {
+    this.notifications.push({
+      title: t('shell.toast.saveFailed'),
+      description: IpcFailure.from(error).message,
+      tone: 'danger',
+    });
+  }
+
   /** The user dealt with the entries listed by the last switch (or does not want the note any more). */
   dismissMemoryManualRemovals(): void {
     this.memoryManualRemovals = [];
+  }
+
+  dismissKnowledgeManualRemovals(): void {
+    this.knowledgeManualRemovals = [];
   }
 
   /** Applies the patch immediately, persists it, and rolls back with a toast if the backend rejects it. */

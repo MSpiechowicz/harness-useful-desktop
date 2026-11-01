@@ -12,6 +12,7 @@
   import PaletteButton from '$lib/components/PaletteButton.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { git } from '$lib/stores/git.svelte';
+  import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { nav } from '$lib/stores/nav.svelte';
   import { RAIL_EXPAND_MIN_WIDTH, ui } from '$lib/stores/ui-state.svelte';
   import { cx } from '$lib/utils/cx';
@@ -164,7 +165,7 @@
           shortcut={viewHint(view.id)}
           active={view.id === nav.current}
           {expanded}
-          badge={railBadge(view.id, chat, git.status, hooks.pending, { pending: routines.pending, needsYou: routines.waiting.size }, hooks.updates)}
+          badge={railBadge(view.id, chat, git.status, hooks.pending, { pending: routines.pending, needsYou: routines.waiting.size }, hooks.updates, knowledgeChanges.held)}
           bind:button={buttons[index]}
           onselect={() => nav.go(view.id)}
         />

@@ -14,7 +14,7 @@ export const ecosystem = {
 
   'ecosystem.hero.title': 'Tools that make agents measurable',
   'ecosystem.hero.body':
-    'Harness Useful is a small family of open-source tools for your coding agents. The **dashboard** measures what they cost, the **skills** make their work repeatable, the **memory** gives every agent one shared project memory, and the **sidebar** keeps their sessions in view. Harness Desktop works on its own and shows more with each one you add.',
+    'Harness Useful is a small family of open-source tools for your coding agents. The **dashboard** measures what they cost, the **skills** make their work repeatable, the **memory** gives every agent one shared project memory, the **knowledge** lets them search your project documents, and the **sidebar** keeps their sessions in view. Harness Desktop works on its own and shows more with each one you add.',
   'ecosystem.hero.failed': 'The installed Harness family members could not be read.',
   'ecosystem.hero.looking': 'Looking for the Harness family…',
   'ecosystem.setup.run': 'Run recommended setup',
@@ -246,4 +246,10 @@ export const ecosystem = {
   'ecosystem.product.sidebar.step.0.title': 'Add the marketplace',
   'ecosystem.product.sidebar.step.1.title': 'Install the plugin',
   'ecosystem.product.sidebar.step.2.title': 'Set up the sidebar',
+  'ecosystem.product.knowledge.tagline': 'Project documentation that every coding agent can search.',
+  'ecosystem.product.knowledge.description':
+    'A local MCP server that keeps documents (Markdown, text, HTML, OpenAPI, AsciiDoc, reStructuredText and PDF) per project and finds the passages an agent needs with keyword and vector ranking. The app imports files and folders, registers the server with each detected harness while Project knowledge is on, and adds pointers to matching passages to the first message of a new chat.',
+  'ecosystem.product.knowledge.note.0': 'Runs locally as `harness-knowledge mcp` and nothing is sent over the network.',
+  'ecosystem.product.knowledge.note.1': 'Turn it on or off for every harness in Settings, under Project knowledge.',
+  'ecosystem.product.knowledge.step.0.title': 'Install the binary',
 } satisfies Record<string, string>;

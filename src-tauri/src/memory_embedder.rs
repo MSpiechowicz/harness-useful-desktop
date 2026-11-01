@@ -1,24 +1,20 @@
-//! The embedder behind vector search (see `harness_business::ecosystem::sidecar_embedder_supervisor`):
-//! it runs while project memory and the `vectorSearch` pref are on and the installed Harness Memory
-//! lists `embedder`, from launch (also after an update that finds the pref on and the embedder's own
-//! switch off), after the server's install, and after each switch of either pref. It stops when
-//! either is turned off and at app exit; hiding the window to the tray leaves it running. The page
-//! that called `memory_embedder_watch` gets the state on every change.
+//! The embedder behind vector search of Harness Memory: it runs while project memory and the
+//! `vectorSearch` pref are on and the installed Harness Memory lists `embedder` (see
+//! [`crate::sidecar_embedder`], run for [`Memory`]), from launch, after the server's install, and
+//! after each switch of either pref. The page that called `memory_embedder_watch` gets the state
+//! on every change.
 
 use std::sync::{Mutex, PoisonError};
-use std::time::Duration;
 
-use harness_business::ecosystem::Reconciled;
 use harness_business::model::MemoryEmbedderState;
+use tauri::AppHandle;
 use tauri::async_runtime::{self, JoinHandle};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
 use tokio::sync::watch;
 
+use crate::product::Memory;
+use crate::sidecar_embedder;
 use crate::state::AppState;
-
-/// The longest the embedder gets to stop when the app exits, after its stdin closed and the kill.
-pub const EXIT_STOP_LIMIT: Duration = Duration::from_secs(5);
 
 /// The task that forwards the embedder's state to the page that listens.
 #[derive(Default)]
@@ -51,73 +47,16 @@ impl EmbedderWatch {
 
 /// Starts the embedder in the background when it is wanted; the window does not wait for it.
 pub fn spawn_on_launch(app: &AppHandle) {
-    let app = app.clone();
-
-    drop(async_runtime::spawn(async move {
-        let state = app.state::<AppState>();
-        reconcile(&state).await;
-    }));
+    sidecar_embedder::spawn_on_launch::<Memory>(app);
 }
 
-/// Makes the embedder run or stop as the prefs and the installed server say (see the module docs).
-/// Does nothing once shutdown began, also when it began while the server was being asked. An
-/// embedder switched off on the command line stays off and turns the `vectorSearch` pref off, so
-/// the switch in the settings shows what runs.
+/// Makes the embedder run or stop as the prefs and the installed server say (see
+/// [`sidecar_embedder::reconcile`]).
 pub(crate) async fn reconcile(state: &AppState) {
-    let closing = || state.agents.is_shutting_down();
-
-    if closing() {
-        return;
-    }
-
-    let wanted = wanted(state).await;
-
-    let settled = state
-        .memory_embedder
-        .reconcile(&state.env, &state.runner, &state.memory_features, wanted, &closing)
-        .await;
-
-    if settled == Reconciled::OptedOut {
-        turn_vector_search_off(state).await;
-    }
+    sidecar_embedder::reconcile::<Memory>(state).await;
 }
 
-async fn turn_vector_search_off(state: &AppState) {
-    let prefs = state.prefs.clone();
-
-    let saved =
-        async_runtime::spawn_blocking(move || prefs.with(|store| store.update(|prefs| prefs.vector_search = false)))
-            .await;
-
-    match saved {
-        Ok(Ok(_)) => tracing::info!("vector search is off: the embedder was switched off outside the app"),
-        Ok(Err(error)) => tracing::warn!(%error, "the vector search pref could not be saved"),
-        Err(error) => tracing::warn!(%error, "the vector search pref could not be saved"),
-    }
-}
-
-/// True while project memory and vector search are both on.
-async fn wanted(state: &AppState) -> bool {
-    let prefs = state.prefs.clone();
-
-    async_runtime::spawn_blocking(move || {
-        prefs.with(|store| {
-            let prefs = store.load();
-
-            prefs.memory_enabled && prefs.vector_search
-        })
-    })
-    .await
-    .unwrap_or(false)
-}
-
-/// Stops the embedder for good (app exit), within [`EXIT_STOP_LIMIT`].
+/// Stops the embedder for good (app exit), within [`sidecar_embedder::EXIT_STOP_LIMIT`].
 pub fn stop_for_exit(state: &AppState) {
-    // `timeout` registers its timer when created, so it must be built inside the runtime
-    // (on the exit event's thread there is none and creating it there panics).
-    let stopping = async { tokio::time::timeout(EXIT_STOP_LIMIT, state.memory_embedder.stop()).await };
-
-    if async_runtime::block_on(stopping).is_err() {
-        tracing::warn!("the embedder did not stop in time");
-    }
+    sidecar_embedder::stop_for_exit::<Memory>(state);
 }

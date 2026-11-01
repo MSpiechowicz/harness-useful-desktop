@@ -78,3 +78,6 @@ export const FLIGHT_STALE_MS = 60_000;
 
 /** The waits between automatic retries of a view that failed to load. The last one repeats. */
 export const RETRY_BACKOFF_MS: readonly number[] = [2_000, 5_000, 15_000, 30_000];
+
+/** The settings that say Harness Knowledge is missing or too old: the user may be installing it in the Ecosystem view, and the row gives way by itself. */
+export const KNOWLEDGE_STATUS_POLL_MS = 10_000;

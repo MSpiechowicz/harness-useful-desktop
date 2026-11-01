@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-held-get"
+description = "Enables the knowledge_held_get command without any pre-configured scope."
+commands.allow = ["knowledge_held_get"]
+
+[[permission]]
+identifier = "deny-knowledge-held-get"
+description = "Denies the knowledge_held_get command without any pre-configured scope."
+commands.deny = ["knowledge_held_get"]

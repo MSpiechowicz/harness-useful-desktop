@@ -1,0 +1,31 @@
+import type { CommandArgs, CommandName } from '../commands';
+
+/** One valid call to each `knowledge_*` command, for the mock backend test. Typed so adding a command forces an entry here. */
+export const KNOWLEDGE_ARGS: { [K in Extract<CommandName, `knowledge_${string}`>]: CommandArgs<K> } = {
+  knowledge_status: undefined,
+  knowledge_set_enabled: { enabled: false },
+  knowledge_remote_get: undefined,
+  knowledge_remote_set: { enabled: true, kind: 'postgres', url: 'postgres://knowledge:pw@db.ok.example.com/harness_knowledge', token: null },
+  knowledge_remote_test: { kind: 'libsql', url: 'libsql://team-ok.turso.io', token: 'tok' },
+  knowledge_set_vector_search: { enabled: false },
+  knowledge_embedder_watch: { onEvent: () => {} },
+  knowledge_embedder_remove_model: undefined,
+  knowledge_reindex: { ids: null },
+  knowledge_docs_list: { filter: null, offset: 0, limit: 50, query: null },
+  knowledge_doc_get: { id: 1, chunkId: 100 },
+  knowledge_doc_rename: { id: 1, title: 'Architecture' },
+  knowledge_doc_links_set: { id: 1, links: [{ repo: 'git:github.com/useful/harness-desktop', globs: ['src/**'] }] },
+  knowledge_docs_delete: { ids: [10] },
+  knowledge_repos_list: undefined,
+  knowledge_stats: undefined,
+  knowledge_search: { query: 'billing', project: null, scope: null, limit: 5 },
+  knowledge_held_list: { offset: 0, limit: 50, query: null },
+  knowledge_held_get: { id: '0b6f2f0e-7f63-4c0e-9d1a-0d5a4a0a7e11' },
+  knowledge_held_decide: { id: '0b6f2f0e-7f63-4c0e-9d1a-0d5a4a0a7e11', decision: 'reject', revision: null },
+  knowledge_changes_listen: { onEvent: () => {} },
+  knowledge_pick_files: undefined,
+  knowledge_pick_folder: undefined,
+  knowledge_drop_intake: undefined,
+  knowledge_import: { token: 'intake-5-0', options: null, onEvent: () => {} },
+  knowledge_import_cancel: undefined,
+};

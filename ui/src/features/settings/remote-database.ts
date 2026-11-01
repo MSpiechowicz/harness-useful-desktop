@@ -32,6 +32,18 @@ export interface RemoteDatabaseCopy {
   problem: MessageKey;
 }
 
+/** The words of the rows that switch a team database on or off, in the keys of the Harness family member that owns it. */
+export interface TeamDatabaseCopy {
+  title: MessageKey;
+  description: MessageKey;
+  loadFailed: MessageKey;
+  /** The question that comes before the saved database is removed. */
+  offTitle: MessageKey;
+  offBody: MessageKey;
+  offCancel: MessageKey;
+  offConfirm: MessageKey;
+}
+
 /** What one Harness family member offers as its team database. */
 export interface RemoteDatabaseConfig<Kind extends string> {
   /** The databases to choose from, in the order of the menu. */

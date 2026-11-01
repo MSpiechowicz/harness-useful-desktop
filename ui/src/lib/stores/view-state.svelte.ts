@@ -41,7 +41,7 @@ export type RunStatusFilter = 'all' | RunStatus;
 export type RoutinesSection = 'routines' | 'runs';
 
 /** The settings sections the palette and the section nav can jump to. */
-export type SettingsSectionId = 'appearance' | 'startup' | 'harnesses' | 'memory' | 'projects' | 'updates' | 'privacy' | 'sync' | 'about';
+export type SettingsSectionId = 'appearance' | 'startup' | 'harnesses' | 'memory' | 'knowledge' | 'projects' | 'updates' | 'privacy' | 'sync' | 'about';
 
 /**
  * What each view had selected when the user left it, so coming back (or jumping in from the

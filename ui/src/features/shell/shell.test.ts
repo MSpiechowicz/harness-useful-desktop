@@ -69,7 +69,7 @@ describe('keyboard shortcuts overlay', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull());
   });
 
-  it('goes to Notes, Scripts and Hooks with Ctrl+7, 8 and 9, and Settings keeps only Ctrl+comma', async () => {
+  it('goes to Notes, Scripts and Knowledge with Ctrl+7, 8 and 9, and Settings keeps only Ctrl+comma', async () => {
     render(Shell);
 
     await fireEvent.keyDown(document.body, { key: '7', ctrlKey: true });
@@ -79,12 +79,14 @@ describe('keyboard shortcuts overlay', () => {
     expect(nav.current).toBe('scripts');
 
     await fireEvent.keyDown(document.body, { key: '9', ctrlKey: true });
-    expect(nav.current).toBe('hooks');
+    expect(nav.current).toBe('knowledge');
 
     await fireEvent.keyDown(document.body, { key: ',', ctrlKey: true });
     expect(nav.current).toBe('settings');
 
-    expect(viewShortcut('hooks')).toBe('mod+9');
+    expect(viewShortcut('knowledge')).toBe('mod+9');
+    // Knowledge took the ninth place, so Hooks has no digit any more.
+    expect(viewShortcut('hooks')).toBeNull();
     expect(viewShortcut('settings')).toBe('mod+,');
     expect(viewHint('settings')).toBe('mod+,');
   });
@@ -123,10 +125,11 @@ describe('keyboard shortcuts overlay', () => {
     const groups = shortcutGroups(globalShortcuts({ togglePalette() {}, openShortcuts() {}, goBack() {}, goForward() {}, newChat() {}, jumpToChat() {}, cycleChat() {}, toggleRail() {}, toggleList() {}, toggleDetails() {}, goTo() {} }));
     const goTo = groups.find((group) => group.area === 'Go to');
 
-    // Every view with a combo is listed, and Routines, which has none, is not.
-    expect(goTo?.rows.map((row) => row.label)).toEqual(expect.arrayContaining(VIEWS.filter((view) => view.id !== 'routines').map((view) => view.label)));
+    // Every view with a combo is listed, and Hooks and Routines, which have none, are not.
+    expect(goTo?.rows.map((row) => row.label)).toEqual(expect.arrayContaining(VIEWS.filter((view) => view.id !== 'routines' && view.id !== 'hooks').map((view) => view.label)));
     expect(goTo?.rows.map((row) => row.label)).not.toContain('Routines');
-    expect(goTo?.rows.find((row) => row.label === 'Hooks')?.combos).toEqual(['mod+9']);
+    expect(goTo?.rows.map((row) => row.label)).not.toContain('Hooks');
+    expect(goTo?.rows.find((row) => row.label === 'Knowledge')?.combos).toEqual(['mod+9']);
     // Past the ninth view there is no digit left: Settings keeps only the comma.
     expect(goTo?.rows.find((row) => row.label === 'Settings')?.combos).toEqual(['mod+,']);
   });

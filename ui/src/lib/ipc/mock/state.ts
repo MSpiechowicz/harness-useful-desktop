@@ -44,6 +44,8 @@ export function defaultPrefs(): AppPrefs {
     chatDefaults: [],
     memoryEnabled: true,
     vectorSearch: true,
+    knowledgeEnabled: true,
+    knowledgeVectorSearch: true,
     keepRunningInTray: false,
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
@@ -63,6 +65,8 @@ export class MockState {
   overrides: BinaryOverride[] = [];
   memoryEnabled = true;
   vectorSearch = true;
+  knowledgeEnabled = true;
+  knowledgeVectorSearch = true;
   /** The main branch picked per project: only `git_set_main_branch` changes it. */
   mainBranches: MainBranchChoice[] = [];
   recents: ProjectInfo[] = structuredClone(fixtures.recentProjects);
@@ -99,6 +103,8 @@ export class MockState {
       binaryOverrides: structuredClone(this.overrides),
       memoryEnabled: this.memoryEnabled,
       vectorSearch: this.vectorSearch,
+      knowledgeEnabled: this.knowledgeEnabled,
+      knowledgeVectorSearch: this.knowledgeVectorSearch,
       mainBranches: structuredClone(this.mainBranches),
     };
   }
@@ -113,6 +119,20 @@ export class MockState {
   /** The "Vector search" switch: the only way to change `vectorSearch`. */
   setVectorSearch(enabled: boolean): AppPrefs {
     this.vectorSearch = enabled;
+
+    return this.snapshot();
+  }
+
+  /** The "Project knowledge" switch: the only way to change `knowledgeEnabled`. */
+  setKnowledgeEnabled(enabled: boolean): AppPrefs {
+    this.knowledgeEnabled = enabled;
+
+    return this.snapshot();
+  }
+
+  /** The knowledge "Vector search" switch: the only way to change `knowledgeVectorSearch`. */
+  setKnowledgeVectorSearch(enabled: boolean): AppPrefs {
+    this.knowledgeVectorSearch = enabled;
 
     return this.snapshot();
   }

@@ -11,6 +11,7 @@
   import EcosystemView from '../ecosystem/EcosystemView.svelte';
   import ExtensionsViewer from '../extensions/ExtensionsViewer.svelte';
   import HooksView from '../hooks/HooksView.svelte';
+  import KnowledgeView from '../knowledge/KnowledgeView.svelte';
   import NotesView from '../memory/NotesView.svelte';
   import ScriptsView from '../memory/ScriptsView.svelte';
   import RoutinesView from '../routines/RoutinesView.svelte';
@@ -68,6 +69,8 @@
           <NotesView />
         {:else if nav.current === 'scripts'}
           <ScriptsView />
+        {:else if nav.current === 'knowledge'}
+          <KnowledgeView />
         {:else if nav.current === 'hooks'}
           <HooksView />
         {:else if nav.current === 'routines'}

@@ -75,6 +75,7 @@ import type { UpdateInfo } from './bindings/UpdateInfo';
 import type { UpdateProgress } from './bindings/UpdateProgress';
 import type { EventSink } from './transport';
 import { cmd } from './command-spec';
+import { knowledgeCommands } from './commands-knowledge';
 import { memoryCommands } from './commands-memory';
 
 export type { CommandSpec } from './command-spec';
@@ -88,6 +89,7 @@ export const commands = {
   prefs_get: cmd<undefined, AppPrefs>(),
   prefs_set: cmd<{ prefs: AppPrefs }, AppPrefs>(),
   ...memoryCommands,
+  ...knowledgeCommands,
   open_external: cmd<{ url: string }, null>(),
   reveal_path: cmd<{ path: string }, null>(),
   harness_list: cmd<undefined, HarnessSummary[]>(),
@@ -152,9 +154,13 @@ export const commands = {
   setup_install_codex_skills: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   /** Moves Harness Skills installed under their names before 0.4.0 to the new names (the install path of Recommended setup), once per launch and only while automatic updates are on. */
   skills_migrate_names: cmd<undefined, SkillsMigrationReport>(),
+  /** Runs the Harness Knowledge installer; once `ok`, registers the server while project knowledge is on. */
+  setup_install_knowledge: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the installed Harness Memory server in one harness (turning Project memory on); `invalidInput` while it is not installed. */
   setup_register_memory: cmd<{ harness: HarnessId }, McpState>(),
+  /** Registers the installed Harness Knowledge server in one harness (turning Project knowledge on); `invalidInput` while it is not installed. */
+  setup_register_knowledge: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the app's own `harness-desktop mcp` server (hooks for agents) in one harness's user MCP file. Needs no installer: the app is the server. */
   setup_register_desktop_mcp: cmd<{ harness: HarnessId }, McpState>(),
   sync_export_preview: cmd<undefined, SyncExportPreview>(),

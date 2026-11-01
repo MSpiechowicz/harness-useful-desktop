@@ -16,6 +16,11 @@ dashboard: DashboardSetup,
  */
 memory: DashboardSetup, 
 /**
+ * The Harness Knowledge binary (`harness-knowledge`), which project knowledge registers with
+ * the harnesses.
+ */
+knowledge: DashboardSetup, 
+/**
  * One entry per registered harness, in registry order.
  */
 harnesses: Array<HarnessSetup>, };

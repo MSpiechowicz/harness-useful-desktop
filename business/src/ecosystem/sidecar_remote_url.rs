@@ -255,6 +255,91 @@ pub(crate) fn scrub(text: &str, secrets: &[String]) -> String {
         .fold(text.to_owned(), |out, secret| out.replace(secret.as_str(), MASK))
 }
 
+/// The URL and the token a save writes. `wanted_url` is validated for `kind`, else `saved_url` is
+/// kept ([`kept_url`]). A libSQL token is the `wanted_token` validated (empty removes it), else the
+/// `saved_token`; PostgreSQL and MongoDB take their credentials in the URL, so they save none.
+pub(crate) fn url_and_token(
+    kind: MemoryRemoteKind,
+    wanted_url: Option<&str>,
+    saved_url: Option<&str>,
+    wanted_token: Option<&str>,
+    saved_token: Option<String>,
+) -> Result<(String, Option<String>)> {
+    let url = match wanted_url {
+        Some(raw) => validate_url(raw, kind)?,
+        None => kept_url(saved_url, kind)?,
+    };
+
+    let token = match (kind, wanted_token) {
+        (MemoryRemoteKind::Libsql, Some(raw)) => validate_token(raw)?,
+        (MemoryRemoteKind::Libsql, None) => saved_token,
+        _ => None,
+    };
+
+    Ok((url, token))
+}
+
+/// The saved URL, re-validated, when it is one of `kind`.
+fn kept_url(saved: Option<&str>, kind: MemoryRemoteKind) -> Result<String> {
+    let Some(saved) = saved.filter(|url| !url.trim().is_empty()) else {
+        return Err(invalid("enter the database URL"));
+    };
+
+    if !scheme_fits(saved, kind) {
+        return Err(BusinessError::InvalidInput(format!(
+            "the saved URL is not {} URL, so enter the new one",
+            a_kind(kind)
+        )));
+    }
+
+    validate_url(saved, kind).map_err(|error| match error {
+        BusinessError::InvalidInput(reason) => {
+            BusinessError::InvalidInput(format!("the saved URL cannot be kept ({reason}), so enter it again"))
+        }
+        other => other,
+    })
+}
+
+/// Every secret a check may quote, longest first: those of the typed URL and token and of the saved
+/// ones (see [`secrets_of`]).
+pub(crate) fn check_secrets(
+    typed_url: Option<&str>,
+    typed_token: Option<&Option<String>>,
+    saved_url: Option<&str>,
+    saved_token: Option<&str>,
+) -> Vec<String> {
+    let mut secrets = secrets_of(typed_url, typed_token.and_then(|token| token.as_deref()));
+    secrets.extend(secrets_of(saved_url, saved_token));
+    secrets.sort_by_key(|secret| std::cmp::Reverse(secret.len()));
+
+    secrets
+}
+
+/// Why the saved URL cannot be tested as `kind`, if it cannot: none is saved, or `fits` says it is
+/// not one of `kind`.
+pub(crate) fn saved_url_problem(
+    saved: Option<&str>,
+    fits: impl FnOnce(&str) -> bool,
+    kind: MemoryRemoteKind,
+) -> Option<String> {
+    match saved.filter(|url| !url.trim().is_empty()) {
+        None => Some("no database URL is saved, so enter one to test it".to_owned()),
+        Some(url) if !fits(url) => Some(format!(
+            "the saved URL is not {} URL, so enter one to test it",
+            a_kind(kind)
+        )),
+        Some(_) => None,
+    }
+}
+
+/// The sentence of a validation error.
+pub(crate) fn reason(error: BusinessError) -> String {
+    match error {
+        BusinessError::InvalidInput(reason) => reason,
+        other => other.to_string(),
+    }
+}
+
 fn invalid(message: &str) -> BusinessError {
     BusinessError::InvalidInput(message.to_owned())
 }

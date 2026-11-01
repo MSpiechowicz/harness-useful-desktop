@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-import-cancel"
+description = "Enables the knowledge_import_cancel command without any pre-configured scope."
+commands.allow = ["knowledge_import_cancel"]
+
+[[permission]]
+identifier = "deny-knowledge-import-cancel"
+description = "Denies the knowledge_import_cancel command without any pre-configured scope."
+commands.deny = ["knowledge_import_cancel"]

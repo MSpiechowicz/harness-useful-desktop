@@ -11,10 +11,32 @@ import type { RecommendedSetup } from '../bindings/RecommendedSetup';
 import type { SkillsSetup } from '../bindings/SkillsSetup';
 import { HARNESS_IDS } from '../harness-ids';
 import { IpcFailure } from '../transport';
-import { CODEX_SKILLS, CODEX_SKILLS_COMMAND, OPENCODE_SKILLS, OPENCODE_SKILLS_COMMAND, opencodeSnippet, rosterFor, SKILLS_NO_NODE, type RosterEntry } from './setup-roster';
+import {
+  CODEX_SKILLS_INSTALLER,
+  CODEX_SKILLS_VERSION,
+  COMMAND,
+  DASHBOARD_INSTALLER,
+  delay,
+  KNOWLEDGE_COMMAND,
+  KNOWLEDGE_INSTALLER,
+  KNOWLEDGE_SIDE_EFFECTS,
+  KNOWLEDGE_VERSION,
+  LINE_MS,
+  MEMORY_COMMAND,
+  MEMORY_INSTALLER,
+  MEMORY_SIDE_EFFECTS,
+  MEMORY_VERSION,
+  OPENCODE_SKILLS_INSTALLER,
+  OPENCODE_SKILLS_VERSION,
+  runInstaller,
+  SIDE_EFFECTS,
+  VERSION,
+  type MockInstaller,
+} from './setup-installers';
+import { CODEX_SKILLS, knowledgeMcpOf, OPENCODE_SKILLS, opencodeSnippet, rosterFor, SKILLS_NO_NODE, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
-type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_opencode_skills' | 'setup_install_codex_skills' | 'skills_migrate_names' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_desktop_mcp';
+type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_knowledge' | 'setup_install_opencode_skills' | 'setup_install_codex_skills' | 'skills_migrate_names' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_knowledge' | 'setup_register_desktop_mcp';
 
 /**
  * What the mock recommended setup starts from. The browser preview picks one with `?setup=<name>`:
@@ -31,66 +53,6 @@ type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install
 export const SETUP_SCENARIOS = ['none', 'configured', 'fail', 'refused', 'both', 'bothRefused', 'memory', 'many', 'manyLong', 'opencodeOnly', 'manualEdit', 'noNode'] as const;
 export type SetupScenario = (typeof SETUP_SCENARIOS)[number];
 
-/** Pause between two installer log lines; tests do not wait. */
-const LINE_MS = import.meta.env.MODE === 'test' ? 0 : 160;
-
-const VERSION = '0.9.4';
-const COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-dashboard/main/install.sh | sh";
-const SIDE_EFFECTS = [
-  'Installs the Harness Dashboard app to ~/.local/lib/harness-dashboard and the harness-dashboard command to ~/.local/bin.',
-  'Adds Harness Dashboard to your applications menu.',
-  'Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.',
-  'Stops a running dashboard server or app so the new version can start; `harness-dashboard mcp` keeps running.',
-];
-
-const MEMORY_VERSION = '1.0.0';
-const MEMORY_COMMAND = "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-memory/main/install.sh | sh";
-const MEMORY_SIDE_EFFECTS = [
-  'Installs the harness-memory command to ~/.local/bin, replacing an older one there.',
-  'Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.',
-  'Running memory servers keep working; each harness starts the new version next time.',
-];
-
-const MEMORY_OUTPUT_OK: InstallLogLine[] = [
-  { stream: 'stdout', line: '==> Downloading harness-memory-x86_64-unknown-linux-gnu (latest)' },
-  { stream: 'stdout', line: '==> Checksum verified' },
-  { stream: 'stdout', line: '==> Installed harness-memory to ~/.local/bin/harness-memory' },
-  { stream: 'stdout', line: `==> harness-memory ${MEMORY_VERSION}` },
-];
-
-const MEMORY_OUTPUT_FAILED: InstallLogLine[] = [
-  { stream: 'stdout', line: '==> Downloading harness-memory-x86_64-unknown-linux-gnu (latest)' },
-  { stream: 'stderr', line: 'error: download failed' },
-];
-
-const OPENCODE_SKILLS_VERSION = '0.2.40';
-
-const OPENCODE_SKILLS_OUTPUT_OK: InstallLogLine[] = [
-  { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
-  { stream: 'stdout', line: '==> Installing the Harness Skills into ~/.config/opencode' },
-  { stream: 'stdout', line: '==> Adding the harness-useful-skills MCP server to opencode.json' },
-  { stream: 'stdout', line: `==> Harness Skills ${OPENCODE_SKILLS_VERSION} installed. Restart OpenCode to load them.` },
-];
-
-const CODEX_SKILLS_VERSION = '0.3.13';
-
-const CODEX_SKILLS_OUTPUT_OK: InstallLogLine[] = [
-  { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
-  { stream: 'stdout', line: '==> Adding the Harness Skills marketplace and plugin to Codex' },
-  { stream: 'stdout', line: '==> Registering the harness-useful-skills MCP server' },
-  { stream: 'stdout', line: `==> Harness Skills ${CODEX_SKILLS_VERSION} installed. Restart Codex to load them.` },
-];
-
-const CODEX_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
-  { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
-  { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
-];
-
-const OPENCODE_SKILLS_OUTPUT_FAILED: InstallLogLine[] = [
-  { stream: 'stdout', line: '==> Checking Node.js (22 or newer)' },
-  { stream: 'stderr', line: 'error: could not download the Harness Skills package' },
-];
-
 /** Each harness's user MCP file. Claude Code's and Codex's are only read, their CLIs write them. */
 const MCP_FILE: Record<HarnessId, string> = {
   omp: '~/.omp/agent/mcp.json',
@@ -105,20 +67,6 @@ const SKILLS_TARGET = 'harness-useful-skills@harness-useful-skills';
 /** The Harness Skills plugin of Claude Code: since Harness Skills 0.4.0 its marketplace and plugin carry the OMP names. */
 const CLAUDE_SKILLS_TARGET = SKILLS_TARGET;
 
-const OUTPUT_OK: InstallLogLine[] = [
-  { stream: 'stdout', line: 'Downloading harness-dashboard 0.9.4 for linux-x86_64' },
-  { stream: 'stdout', line: 'Verifying checksum… ok' },
-  { stream: 'stdout', line: 'Installing to ~/.local/lib/harness-dashboard' },
-  { stream: 'stdout', line: 'Linking ~/.local/bin/harness-dashboard' },
-  { stream: 'stdout', line: 'Done. Run `harness-dashboard` to start.' },
-];
-
-const OUTPUT_FAILED: InstallLogLine[] = [
-  { stream: 'stdout', line: 'Downloading harness-dashboard 0.9.4 for linux-x86_64' },
-  { stream: 'stderr', line: 'curl: (22) The requested URL returned error: 404' },
-  { stream: 'stderr', line: 'Could not download the release archive.' },
-];
-
 /** Reads the scenario from the page URL (browser preview only); unknown names fall back to the default. */
 export function setupScenarioFromLocation(search: string = globalThis.location?.search ?? ''): SetupScenario {
   const name = new URLSearchParams(search).get('setup');
@@ -130,16 +78,12 @@ export function setupScenarioFromLocation(search: string = globalThis.location?.
  * What turning project memory off leaves for the user to remove: only a commented OpenCode config (the `manualEdit` and
  * `opencodeOnly` scenarios) holds an entry the app will not rewrite.
  */
-export function manualRemovalsOf(scenario: SetupScenario): ManualRemoval[] {
+export function manualRemovalsOf(scenario: SetupScenario, name: string = 'harness-memory'): ManualRemoval[] {
   if (scenario !== 'manualEdit' && scenario !== 'opencodeOnly') {
     return [];
   }
 
-  return [{ harness: 'opencode', file: OPENCODE_COMMENTED_FILE, name: 'harness-memory' }];
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return [{ harness: 'opencode', file: OPENCODE_COMMENTED_FILE, name }];
 }
 
 /** The marketplace and plugin of the Harness Skills in a harness that installs them from a marketplace. */
@@ -169,74 +113,12 @@ function skillsOffer(harness: HarnessId, nodeFound: boolean): SkillsSetup {
   }
 }
 
-/** One companion installer of the mock: what it prints and reports. */
-interface MockInstaller {
-  binary: string;
-  version: string;
-  command: string;
-  output: InstallLogLine[];
-  failedOutput: InstallLogLine[];
-  failedSummary: string;
-}
-
-const DASHBOARD_INSTALLER: MockInstaller = {
-  binary: 'harness-dashboard',
-  version: VERSION,
-  command: COMMAND,
-  output: OUTPUT_OK,
-  failedOutput: OUTPUT_FAILED,
-  failedSummary: 'The installer exited with code 22.',
-};
-
-const MEMORY_INSTALLER: MockInstaller = {
-  binary: 'harness-memory',
-  version: MEMORY_VERSION,
-  command: MEMORY_COMMAND,
-  output: MEMORY_OUTPUT_OK,
-  failedOutput: MEMORY_OUTPUT_FAILED,
-  failedSummary: 'error: download failed',
-};
-
-const OPENCODE_SKILLS_INSTALLER: MockInstaller = {
-  binary: 'Harness Skills for OpenCode',
-  version: OPENCODE_SKILLS_VERSION,
-  command: OPENCODE_SKILLS_COMMAND,
-  output: OPENCODE_SKILLS_OUTPUT_OK,
-  failedOutput: OPENCODE_SKILLS_OUTPUT_FAILED,
-  failedSummary: 'error: could not download the Harness Skills package',
-};
-
-const CODEX_SKILLS_INSTALLER: MockInstaller = {
-  binary: 'Harness Skills for Codex',
-  version: CODEX_SKILLS_VERSION,
-  command: CODEX_SKILLS_COMMAND,
-  output: CODEX_SKILLS_OUTPUT_OK,
-  failedOutput: CODEX_SKILLS_OUTPUT_FAILED,
-  failedSummary: 'error: could not download the Harness Skills package',
-};
-
-/** Plays `installer` line by line; it fails when `fails`. */
-async function runInstaller(installer: MockInstaller, fails: boolean, onLog: (line: InstallLogLine) => void): Promise<DashboardInstallResult> {
-  for (const line of fails ? installer.failedOutput : installer.output) {
-    await delay(LINE_MS);
-    onLog(line);
-  }
-
-  return {
-    ok: !fails,
-    summary: fails ? installer.failedSummary : `Installed ${installer.binary} ${installer.version}.`,
-    exitCode: fails ? 22 : 0,
-    timedOut: false,
-    truncated: false,
-    version: fails ? null : installer.version,
-    command: installer.command,
-  };
-}
-
 export interface SetupMock {
   handlers: Pick<Handlers, SetupCommands>;
   /** The memory server as `setup_status` reports it (also the answer of `memory_set_enabled`). */
   memoryServer: () => DashboardSetup;
+  /** The knowledge server as `setup_status` reports it (also the answer of `knowledge_set_enabled`). */
+  knowledgeServer: () => DashboardSetup;
   /** Tells the mock that an extension action went through, so the skills it installs show as installed. */
   actionApplied: (harness: HarnessId, action: ExtensionAction) => void;
 }
@@ -250,12 +132,15 @@ export function setupHandlers(
   harnesses: () => Promise<HarnessSummary[]> | HarnessSummary[],
   scenario: () => SetupScenario = setupScenarioFromLocation,
   memoryOn: () => void = () => {},
+  knowledgeOn: () => void = () => {},
 ): SetupMock {
   let dashboardInstalled = false;
   let memoryInstalled = false;
+  let knowledgeInstalled = false;
   const skills = new Set<HarnessId>();
   const mcp = new Set<HarnessId>();
   const memoryMcp = new Set<HarnessId>();
+  const knowledgeMcp = new Set<HarnessId>();
   const desktopMcp = new Set<HarnessId>();
 
   /** The `configured` scenario starts with everything in place; read on first use so a page URL set before it counts. */
@@ -270,11 +155,13 @@ export function setupHandlers(
     if (scenario() === 'configured') {
       dashboardInstalled = true;
       memoryInstalled = true;
+      knowledgeInstalled = true;
 
       HARNESS_IDS.forEach((id) => {
         skills.add(id);
         mcp.add(id);
         memoryMcp.add(id);
+        knowledgeMcp.add(id);
         desktopMcp.add(id);
       });
     }
@@ -289,7 +176,7 @@ export function setupHandlers(
   const commentedOpencode = () => scenario() === 'manualEdit';
 
   /** The name an MCP entry has in the file, by the set that holds the harnesses it is registered in. */
-  const entryName = (registered: Set<HarnessId>) => (registered === mcp ? 'harness-dashboard' : registered === memoryMcp ? 'harness-memory' : 'harness-desktop');
+  const entryName = (registered: Set<HarnessId>) => (registered === mcp ? 'harness-dashboard' : registered === memoryMcp ? 'harness-memory' : registered === knowledgeMcp ? 'harness-knowledge' : 'harness-desktop');
 
   /** The dashboard's entry (`registered` holds `mcp`), the memory server's (`memoryMcp`) or the app's own (`desktopMcp`) in a harness's MCP file. */
   function mcpState(harness: HarnessId, registered: Set<HarnessId> = mcp): McpState {
@@ -321,6 +208,8 @@ export function setupHandlers(
     const id = entry.id;
     const registered = mcp.has(id) && entry.mcp.type === 'missing';
     const memoryRegistered = memoryMcp.has(id) && entry.memoryMcp.type === 'missing';
+    const knowledgeState = knowledgeMcpOf(entry);
+    const knowledgeRegistered = knowledgeMcp.has(id) && knowledgeState.type === 'missing';
     const desktopRegistered = desktopMcp.has(id) && entry.desktopMcp.type === 'missing';
 
     return {
@@ -329,6 +218,7 @@ export function setupHandlers(
       skills: skills.has(id) ? installedSkills(id) : entry.skills,
       mcp: registered ? { type: 'configured', file: entry.mcp.file, name: 'harness-dashboard' } : entry.mcp,
       memoryMcp: memoryRegistered ? { type: 'configured', file: entry.memoryMcp.file, name: 'harness-memory' } : entry.memoryMcp,
+      knowledgeMcp: knowledgeRegistered ? { type: 'configured', file: knowledgeState.file, name: 'harness-knowledge' } : knowledgeState,
       desktopMcp: desktopRegistered ? { type: 'configured', file: entry.desktopMcp.file, name: 'harness-desktop' } : entry.desktopMcp,
     };
   }
@@ -347,14 +237,41 @@ export function setupHandlers(
       skills: skills.has(id) ? installedSkills(id) : skillsOffer(id, scenario() !== 'noNode'),
       mcp: mcpState(id),
       memoryMcp: mcpState(id, memoryMcp),
+      knowledgeMcp: mcpState(id, knowledgeMcp),
       desktopMcp: mcpState(id, desktopMcp),
     };
+  }
+
+  /** Registers one server in a harness's MCP file and answers the entry's state after it, as the harness's file allows. */
+  async function register(harness: HarnessId, registered: Set<HarnessId>, pick: (setup: HarnessSetup) => McpState): Promise<McpState> {
+    start();
+    await delay(LINE_MS);
+
+    const entry = rosterFor(scenario())?.find((candidate) => candidate.id === harness);
+
+    if (entry) {
+      registered.add(harness);
+
+      return pick(rosterSetup(entry));
+    }
+
+    if ((!refusesOmp() || harness !== 'omp') && !(commentedOpencode() && harness === 'opencode')) {
+      registered.add(harness);
+    }
+
+    return mcpState(harness, registered);
   }
 
   function memoryServer(): DashboardSetup {
     start();
 
     return { installed: memoryInstalled, version: memoryInstalled ? MEMORY_VERSION : null, supportedOnThisOs: true, command: MEMORY_COMMAND, sideEffects: MEMORY_SIDE_EFFECTS };
+  }
+
+  function knowledgeServer(): DashboardSetup {
+    start();
+
+    return { installed: knowledgeInstalled, version: knowledgeInstalled ? KNOWLEDGE_VERSION : null, supportedOnThisOs: true, command: KNOWLEDGE_COMMAND, sideEffects: KNOWLEDGE_SIDE_EFFECTS };
   }
 
   /** Runs `installer` once the user confirmed it; `ok` in the result when it installed. */
@@ -376,6 +293,7 @@ export function setupHandlers(
         return {
           dashboard: { installed: dashboardInstalled, version: dashboardInstalled ? VERSION : null, supportedOnThisOs: true, command: COMMAND, sideEffects: SIDE_EFFECTS },
           memory: memoryServer(),
+          knowledge: knowledgeServer(),
           harnesses: (await harnesses()).map(harnessSetup),
         };
       },
@@ -390,6 +308,13 @@ export function setupHandlers(
       setup_install_memory: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
         const result = await install(MEMORY_INSTALLER, confirmed, onLog);
         memoryInstalled ||= result.ok;
+
+        return result;
+      },
+
+      setup_install_knowledge: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
+        const result = await install(KNOWLEDGE_INSTALLER, confirmed, onLog);
+        knowledgeInstalled ||= result.ok;
 
         return result;
       },
@@ -417,71 +342,36 @@ export function setupHandlers(
       // The browser preview has no install under the old names.
       skills_migrate_names: async () => ({ migrated: [], failed: [] }),
 
-      setup_register_mcp: async ({ harness }): Promise<McpState> => {
-        start();
-        await delay(LINE_MS);
-
-        const entry = rosterFor(scenario())?.find((candidate) => candidate.id === harness);
-
-        if (entry) {
-          mcp.add(harness);
-
-          return rosterSetup(entry).mcp;
-        }
-
-        if ((!refusesOmp() || harness !== 'omp') && !(commentedOpencode() && harness === 'opencode')) {
-          mcp.add(harness);
-        }
-
-        return mcpState(harness);
-      },
+      setup_register_mcp: ({ harness }) => register(harness, mcp, (setup) => setup.mcp),
 
       setup_register_memory: async ({ harness }): Promise<McpState> => {
-        start();
-        await delay(LINE_MS);
-
         if (!memoryInstalled) {
+          start();
           throw IpcFailure.from({ code: 'invalidInput', message: 'Harness Memory is not installed' });
         }
 
         memoryOn();
-        const entry = rosterFor(scenario())?.find((candidate) => candidate.id === harness);
 
-        if (entry) {
-          memoryMcp.add(harness);
+        return register(harness, memoryMcp, (setup) => setup.memoryMcp);
+      },
 
-          return rosterSetup(entry).memoryMcp;
+      setup_register_knowledge: async ({ harness }): Promise<McpState> => {
+        if (!knowledgeInstalled) {
+          start();
+          throw IpcFailure.from({ code: 'invalidInput', message: 'Harness Knowledge is not installed' });
         }
 
-        if ((!refusesOmp() || harness !== 'omp') && !(commentedOpencode() && harness === 'opencode')) {
-          memoryMcp.add(harness);
-        }
+        knowledgeOn();
 
-        return mcpState(harness, memoryMcp);
+        return register(harness, knowledgeMcp, (setup) => setup.knowledgeMcp);
       },
 
       // The app is the server, so nothing has to be installed first.
-      setup_register_desktop_mcp: async ({ harness }): Promise<McpState> => {
-        start();
-        await delay(LINE_MS);
-
-        const entry = rosterFor(scenario())?.find((candidate) => candidate.id === harness);
-
-        if (entry) {
-          desktopMcp.add(harness);
-
-          return rosterSetup(entry).desktopMcp;
-        }
-
-        if ((!refusesOmp() || harness !== 'omp') && !(commentedOpencode() && harness === 'opencode')) {
-          desktopMcp.add(harness);
-        }
-
-        return mcpState(harness, desktopMcp);
-      },
+      setup_register_desktop_mcp: ({ harness }) => register(harness, desktopMcp, (setup) => setup.desktopMcp),
     },
 
     memoryServer,
+    knowledgeServer,
 
     actionApplied: (harness, action) => {
       if (action.type === 'pluginInstall' && (action.target === SKILLS_TARGET || action.target === CLAUDE_SKILLS_TARGET)) {

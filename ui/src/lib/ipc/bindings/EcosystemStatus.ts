@@ -6,6 +6,6 @@ import type { EcosystemItem } from "./EcosystemItem";
  */
 export type EcosystemStatus = { 
 /**
- * One item per [`EcosystemId`], in display order (dashboard, memory, skills, sidebar).
+ * One item per [`EcosystemId`], in display order (dashboard, memory, knowledge, skills, sidebar).
  */
 items: Array<EcosystemItem>, };

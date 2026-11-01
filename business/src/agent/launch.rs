@@ -9,6 +9,7 @@
 use std::path::Path;
 
 use super::manager::AgentDeps;
+use crate::ecosystem::knowledge_binary::KNOWLEDGE_SESSION_VAR;
 use crate::ecosystem::memory_data_dir;
 use crate::ecosystem::memory_guards::{SESSION_VAR, chat_repo_root, check_chat_key, write_chat};
 use crate::env::Env;
@@ -119,7 +120,7 @@ pub(super) fn trust_once(harness: &dyn Harness, env: &Env, project: &Path, reque
 }
 
 /// The command line of `request` for the harness of `deps`, naming chat `memory_session` to
-/// Harness Memory when there is one.
+/// Harness Memory and Harness Knowledge when there is one.
 pub(super) fn exec_spec(
     deps: &AgentDeps<'_>,
     request: &LaunchRequest<'_>,
@@ -129,10 +130,11 @@ pub(super) fn exec_spec(
         .harness
         .spawn_spec(deps.env, deps.harness.launch_spec(request)?)
         .search_dirs(launcher_search_dirs(deps.env, &deps.binary.path))
-        .env_remove_prefix(SESSION_VAR);
+        .env_remove_prefix(SESSION_VAR)
+        .env_remove_prefix(KNOWLEDGE_SESSION_VAR);
 
     if let Some(key) = memory_session {
-        spec = spec.env(SESSION_VAR, key);
+        spec = spec.env(SESSION_VAR, key).env(KNOWLEDGE_SESSION_VAR, key);
     }
 
     Ok(spec)

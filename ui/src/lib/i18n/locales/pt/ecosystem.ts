@@ -17,7 +17,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.hero.title': 'Ferramentas que tornam os agentes mensuráveis',
   'ecosystem.hero.body':
-    'O Harness Useful é uma pequena família de ferramentas de código aberto para os seus agentes de programação. O **dashboard** mede quanto eles custam, as **skills** tornam o trabalho deles repetível, a **memory** dá a cada agente uma memória de projeto compartilhada e a **sidebar** mantém as sessões deles à vista. O Harness Desktop funciona sozinho e mostra mais a cada ferramenta que você adiciona.',
+    'O Harness Useful é uma pequena família de ferramentas de código aberto para os seus agentes de programação. O **dashboard** mede quanto eles custam, as **skills** tornam o trabalho deles repetível, a **memory** dá a cada agente uma memória de projeto compartilhada, o **knowledge** deixa que eles pesquisem os documentos do projeto e a **sidebar** mantém as sessões deles à vista. O Harness Desktop funciona sozinho e mostra mais a cada ferramenta que você adiciona.',
   'ecosystem.hero.failed': 'Não foi possível ler os membros instalados da família Harness.',
   'ecosystem.hero.looking': 'Procurando a família Harness…',
   'ecosystem.setup.run': 'Executar a configuração recomendada',
@@ -248,4 +248,9 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.sidebar.step.0.title': 'Adicione o marketplace',
   'ecosystem.product.sidebar.step.1.title': 'Instale o plugin',
   'ecosystem.product.sidebar.step.2.title': 'Configure a barra lateral',
+  'ecosystem.product.knowledge.tagline': 'Documentação de projeto que todo agente de programação pode pesquisar.',
+  'ecosystem.product.knowledge.description': 'Um servidor MCP local que guarda documentos (Markdown, texto, HTML, OpenAPI, AsciiDoc, reStructuredText e PDF) por projeto e encontra os trechos de que um agente precisa com ranking por palavras-chave e vetorial. O app importa arquivos e pastas, registra o servidor em cada harness detectado enquanto Conhecimento do projeto está ativado, e adiciona referências aos trechos correspondentes à primeira mensagem de um novo chat.',
+  'ecosystem.product.knowledge.note.0': 'Roda localmente como `harness-knowledge mcp` e nada é enviado pela rede.',
+  'ecosystem.product.knowledge.note.1': 'Ative ou desative para todos os harnesses em Configurações, em Conhecimento do projeto.',
+  'ecosystem.product.knowledge.step.0.title': 'Instale o binário',
 };

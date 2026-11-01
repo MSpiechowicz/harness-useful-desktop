@@ -53,6 +53,30 @@
       ]
     },
     {
+      "id": "knowledge",
+      "name": "Harness Knowledge",
+      "tagline": "Project documentation that every coding agent can search.",
+      "description": "A local MCP server that keeps documents (Markdown, text, HTML, OpenAPI, AsciiDoc, reStructuredText and PDF) per project and finds the passages an agent needs with keyword and vector ranking. The app imports files and folders, registers the server with each detected harness while Project knowledge is on, and adds pointers to matching passages to the first message of a new chat.",
+      "repoUrl": "https://github.com/MSpiechowicz/harness-useful-knowledge",
+      "docsUrl": "https://github.com/MSpiechowicz/harness-useful-knowledge#readme",
+      "installed": false,
+      "version": null,
+      "latestVersion": null,
+      "updateAvailable": false,
+      "via": [],
+      "supportedOnThisOs": true,
+      "installSteps": [
+        {
+          "label": "Install the binary",
+          "command": "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-knowledge/main/install.sh | sh"
+        }
+      ],
+      "notes": [
+        "Runs locally as `harness-knowledge mcp` and nothing is sent over the network.",
+        "Turn it on or off for every harness in Settings, under Project knowledge."
+      ]
+    },
+    {
       "id": "skills",
       "name": "Harness Skills",
       "tagline": "From a natural-language request to reviewed, verified work.",

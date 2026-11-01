@@ -26,4 +26,4 @@ export function updatesSummary(items: EcosystemItem[]): string | null {
   return count === 0 ? null : tn('ecosystem.count.update', count);
 }
 
-export const SHORT_NAMES: Record<EcosystemId, string> = { dashboard: 'Dashboard', memory: 'Memory', skills: 'Skills', sidebar: 'Sidebar' };
+export const SHORT_NAMES: Record<EcosystemId, string> = { dashboard: 'Dashboard', memory: 'Memory', knowledge: 'Knowledge', skills: 'Skills', sidebar: 'Sidebar' };

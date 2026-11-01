@@ -27,6 +27,7 @@
       <!-- Every member in the same card, in the order the next step installs them. -->
       <CompanionCard companion="dashboard" server={data.dashboard} />
       <CompanionCard companion="memory" server={data.memory} />
+      <CompanionCard companion="knowledge" server={data.knowledge} />
       <SkillsCard harnesses={data.harnesses} />
     {/snippet}
   </SetupStatus>

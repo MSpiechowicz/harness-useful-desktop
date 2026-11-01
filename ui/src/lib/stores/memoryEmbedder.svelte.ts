@@ -5,29 +5,11 @@ import type { MemoryEmbedderState } from '$lib/ipc/bindings/MemoryEmbedderState'
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
-import { EmbedderStore, isMissing, type VectorSearchSwitch } from './embedder.svelte';
+import { EmbedderStore, isMissing } from './embedder.svelte';
 import { memoryRemote, type MemoryRemoteStore } from './memoryRemote.svelte';
 import { prefs, type PrefsStore } from './prefs.svelte';
 import { toasts, type ToastsStore } from './toasts.svelte';
-
-/** The stored `vectorSearch` pref of the app is the switch of Harness Memory's vector search. */
-function vectorSearchPref(appPrefs: PrefsStore): VectorSearchSwitch {
-  return {
-    get on() {
-      return appPrefs.value?.vectorSearch ?? true;
-    },
-    stored: () => untrack(() => appPrefs.value?.vectorSearch),
-    hold: (pending) => {
-      appPrefs.vectorSearchPending = pending;
-    },
-    store: (on) => {
-      if (appPrefs.value) {
-        appPrefs.value = { ...appPrefs.value, vectorSearch: on };
-      }
-    },
-    resync: () => appPrefs.syncServerManaged(),
-  };
-}
+import { vectorSearchPref } from './vector-search-pref';
 
 /**
  * Vector search and the English notes setting of Harness Memory, as the Memory section of the settings shows them.
@@ -59,7 +41,7 @@ export class MemorySearchStore extends EmbedderStore<MemoryEmbedderState> {
         setVectorSearch: (enabled) => transport.invoke('memory_set_vector_search', { enabled }),
         removeModel: () => transport.invoke('memory_embedder_remove_model', undefined),
       },
-      vectorSearchPref(appPrefs),
+      vectorSearchPref(appPrefs, 'vectorSearch'),
       notifications,
     );
   }

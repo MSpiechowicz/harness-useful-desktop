@@ -16,7 +16,7 @@ use super::sidecar_cli::clean;
 use super::sidecar_remote_url::scrub;
 use crate::env::Env;
 use crate::model::MemoryRemoteTest;
-use crate::process::{ExecSpec, ProcessRunner, launcher_search_dirs};
+use crate::process::{ExecOutput, ExecSpec, ProcessRunner, launcher_search_dirs};
 
 /// How long `<binary> check` may take (20 s).
 pub const CHECK_TIMEOUT: Duration = Duration::from_secs(20);
@@ -36,6 +36,8 @@ pub(crate) struct CheckRequest<'a> {
     /// Every secret the server may quote (the typed and the saved ones), masked out of its
     /// answer, longest first.
     pub secrets: &'a [String],
+    /// Run `check --json` (the server answers one JSON object) instead of `check`.
+    pub json: bool,
 }
 
 /// Runs `<binary> check` of `sidecar` at `server`. `ok` is the server's exit status; `message` its
@@ -48,12 +50,46 @@ pub(crate) async fn run_check(
     server: &Path,
     request: CheckRequest<'_>,
 ) -> MemoryRemoteTest {
+    let secrets = request.secrets;
+    let output = match run_check_raw(sidecar, env, runner, server, request).await {
+        Ok(output) => output,
+        Err(message) => return failed(message),
+    };
+
+    let ok = output.success();
+    let (first, second) = if ok {
+        (&output.stdout, &output.stderr)
+    } else {
+        (&output.stderr, &output.stdout)
+    };
+
+    let message = match first_line(first).or_else(|| first_line(second)) {
+        Some(line) => clean(&scrub(line, secrets)),
+        None => silent_answer(sidecar, ok, output.status),
+    };
+
+    MemoryRemoteTest { ok, message }
+}
+
+/// Runs `<binary> check` of `sidecar` at `server` and returns what it printed, or why it could not
+/// run (it did not start, or did not answer within [`CHECK_TIMEOUT`]).
+pub(crate) async fn run_check_raw(
+    sidecar: &Sidecar,
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    server: &Path,
+    request: CheckRequest<'_>,
+) -> std::result::Result<ExecOutput, String> {
     let url_var = sidecar.var("DATABASE_URL");
     let token_var = sidecar.var("DATABASE_TOKEN");
     let kind_var = sidecar.var("DATABASE_KIND");
 
     let mut spec = ExecSpec::new(server)
-        .args(["check"])
+        .args(if request.json {
+            vec!["check", "--json"]
+        } else {
+            vec!["check"]
+        })
         .env_remove_prefix(&url_var)
         .env_remove_prefix(&token_var)
         .env_remove_prefix(&kind_var)
@@ -76,35 +112,20 @@ pub(crate) async fn run_check(
         spec = spec.env(&token_var, token.unwrap_or(" "));
     }
 
-    let output = match runner.run(&spec).await {
-        Ok(output) => output,
-        Err(error) => {
-            tracing::warn!(%error, "{} check could not be started", sidecar.binary);
-            return failed(format!("{} could not be started", sidecar.product));
-        }
-    };
+    let output = runner.run(&spec).await.map_err(|error| {
+        tracing::warn!(%error, "{} check could not be started", sidecar.binary);
+        format!("{} could not be started", sidecar.product)
+    })?;
 
     if output.timed_out {
-        return failed(format!(
+        return Err(format!(
             "{} did not answer within {} seconds",
             sidecar.product,
             CHECK_TIMEOUT.as_secs()
         ));
     }
 
-    let ok = output.success();
-    let (first, second) = if ok {
-        (&output.stdout, &output.stderr)
-    } else {
-        (&output.stderr, &output.stdout)
-    };
-
-    let message = match first_line(first).or_else(|| first_line(second)) {
-        Some(line) => clean(&scrub(line, request.secrets)),
-        None => silent_answer(sidecar, ok, output.status),
-    };
-
-    MemoryRemoteTest { ok, message }
+    Ok(output)
 }
 
 /// A test that did not run, with `message` why.

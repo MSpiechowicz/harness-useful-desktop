@@ -265,4 +265,5 @@ export const hooks = {
   'hooks.field.yourHook': 'Your hook',
   'hooks.value.changedSinceShared': 'Changed since you shared it',
   'hooks.list.teamTrusted': 'Trusted: run without asking',
+  'hooks.member.knowledge': 'Harness Knowledge',
 } satisfies Record<string, string>;

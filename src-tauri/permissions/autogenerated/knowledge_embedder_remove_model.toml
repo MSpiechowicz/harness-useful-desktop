@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-embedder-remove-model"
+description = "Enables the knowledge_embedder_remove_model command without any pre-configured scope."
+commands.allow = ["knowledge_embedder_remove_model"]
+
+[[permission]]
+identifier = "deny-knowledge-embedder-remove-model"
+description = "Denies the knowledge_embedder_remove_model command without any pre-configured scope."
+commands.deny = ["knowledge_embedder_remove_model"]

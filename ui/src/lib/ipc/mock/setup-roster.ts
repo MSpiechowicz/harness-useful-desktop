@@ -23,6 +23,26 @@ export interface RosterEntry {
   desktopMcp: McpState;
 }
 
+/** The knowledge server's MCP state before anything is set up: the memory server's, for the knowledge server's entry. */
+export function knowledgeMcpOf(entry: RosterEntry): McpState {
+  const memory = entry.memoryMcp;
+
+  if (memory.type === 'configured') {
+    return { ...memory, name: 'harness-knowledge' };
+  }
+
+  // Switched off in the file for Harness Memory only: the knowledge server was never added there.
+  if (memory.type === 'disabled') {
+    return { type: 'missing', file: memory.file, exists: true };
+  }
+
+  if (memory.type === 'manualEdit') {
+    return { ...memory, snippet: opencodeSnippet('harness-knowledge') };
+  }
+
+  return memory;
+}
+
 const asId = (id: string): HarnessId => id as HarnessId;
 
 const SKILLS_ACTIONS: SkillsSetup = {

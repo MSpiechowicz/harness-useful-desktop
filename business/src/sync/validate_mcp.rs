@@ -23,8 +23,8 @@ use super::secrets::{args_exportable, exportable};
 use super::validate::{Check, compile, has_credentials, is_local_path, name, text};
 use crate::ecosystem::DESKTOP_MCP_SERVER;
 use crate::ecosystem::catalog::{
-    DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, LEGACY_DASHBOARD_MCP_SERVER, LEGACY_SKILLS_MCP_SERVER, MEMORY_BINARY,
-    MEMORY_MCP_SERVER, SKILLS_MCP_SERVER,
+    DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, KNOWLEDGE_BINARY, KNOWLEDGE_MCP_SERVER, LEGACY_DASHBOARD_MCP_SERVER,
+    LEGACY_SKILLS_MCP_SERVER, MEMORY_BINARY, MEMORY_MCP_SERVER, SKILLS_MCP_SERVER,
 };
 use crate::model::SyncInvalidReason;
 
@@ -55,8 +55,8 @@ pub fn mcp_name(value: &str) -> Check {
 }
 
 /// True for the names of the servers Recommended setup and the app write themselves, in any case:
-/// the dashboard's own entry ([`DASHBOARD_MCP_SERVER`]), the app's memory server
-/// ([`MEMORY_MCP_SERVER`]), the desktop app's hooks server ([`DESKTOP_MCP_SERVER`]), the
+/// the dashboard's own entry ([`DASHBOARD_MCP_SERVER`]), the app's memory and knowledge
+/// servers ([`MEMORY_MCP_SERVER`], [`KNOWLEDGE_MCP_SERVER`]), the desktop app's hooks server ([`DESKTOP_MCP_SERVER`]), the
 /// dashboard's name before it was registered as [`DASHBOARD_MCP_SERVER`]
 /// ([`LEGACY_DASHBOARD_MCP_SERVER`]) and the Harness Skills server, under its name since 0.4.0
 /// ([`SKILLS_MCP_SERVER`]) and the one before ([`LEGACY_SKILLS_MCP_SERVER`]). Export skips them
@@ -65,6 +65,7 @@ pub(super) fn is_reserved_server(name: &str) -> bool {
     [
         DASHBOARD_MCP_SERVER,
         MEMORY_MCP_SERVER,
+        KNOWLEDGE_MCP_SERVER,
         DESKTOP_MCP_SERVER,
         LEGACY_DASHBOARD_MCP_SERVER,
         SKILLS_MCP_SERVER,
@@ -80,12 +81,13 @@ pub fn is_shell(command: &str) -> bool {
     SHELLS.contains(&program(command).as_str())
 }
 
-/// True when `command` runs one of the app's own servers ([`DASHBOARD_BINARY`], [`MEMORY_BINARY`]),
+/// True when `command` runs one of the app's own servers ([`DASHBOARD_BINARY`], [`MEMORY_BINARY`],
+/// [`KNOWLEDGE_BINARY`]),
 /// with or without a directory, `.exe` or upper case: an entry under another name would shadow the
 /// app's entry in the harness.
 fn is_app_server(command: &str) -> bool {
     let program = program(command);
-    program == DASHBOARD_BINARY || program == MEMORY_BINARY
+    [DASHBOARD_BINARY, MEMORY_BINARY, KNOWLEDGE_BINARY].contains(&program.as_str())
 }
 
 /// The lowercase program name of `command`, without directory and `.exe`.
@@ -101,7 +103,7 @@ fn program(command: &str) -> String {
 
 /// A stdio MCP command: 1–256 characters, a bare program name looked up on `PATH`
 /// (`^[A-Za-z0-9][A-Za-z0-9._+-]*$`: no directory, no flag, no scheme, no env reference), never a
-/// shell interpreter, never one of the app's own servers (`harness-dashboard`, `harness-memory`:
+/// shell interpreter, never one of the app's own servers (`harness-dashboard`, `harness-memory`, `harness-knowledge`:
 /// `unsafeValue`), nothing secret.
 pub fn mcp_command(command: &str) -> Check {
     if command.is_empty() {

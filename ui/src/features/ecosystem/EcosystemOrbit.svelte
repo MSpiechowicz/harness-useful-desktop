@@ -19,16 +19,16 @@
 
   let { items }: Props = $props();
 
-  // A family tree in a fixed 264 x 178 px box that the SVG maps 1:1: the app on top, the companions in a row below,
-  // joined by one trunk and a bus that meet in a T (four companions sit in pairs either side of the trunk). The box is trimmed to the drawing (the outer circles touch its
+  // A family tree in a fixed 312 x 178 px box that the SVG maps 1:1: the app on top, the companions in a row below,
+  // joined by one trunk and a bus that meet in a T (the middle one of five sits right under the trunk). The box is trimmed to the drawing (the outer circles touch its
   // sides; the wider "Dashboard" label may hang into the gutter), so the card's padding frames it evenly. Every line
   // is horizontal or vertical, 2 px wide on whole pixels, so it renders crisp in WebKitGTK; only the elbows are rounded.
-  const WIDTH = 264;
+  const WIDTH = 312;
   const HEIGHT = 178;
-  const HUB = { x: 132, y: 28, size: 56 } as const;
+  const HUB = { x: 156, y: 28, size: 56 } as const;
   const NODE = 44;
   const ROW_Y = 132;
-  const COLUMNS = [24, 96, 168, 240] as const;
+  const COLUMNS = [24, 90, 156, 222, 288] as const;
   const BUS_Y = 84;
   const HALF_STROKE = 1;
   const ELBOW = 10;

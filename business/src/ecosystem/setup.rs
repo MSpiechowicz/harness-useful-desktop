@@ -1,5 +1,6 @@
-//! What the "Recommended setup" step offers (`setup_status`): the dashboard and memory binaries,
-//! and per harness the Harness Skills and the dashboard's, the memory server's and the app's own
+//! What the "Recommended setup" step offers (`setup_status`): the dashboard, memory and knowledge
+//! binaries, and per harness the Harness Skills and the dashboard's, the memory server's, the
+//! knowledge server's and the app's own
 //! (`harness-desktop mcp`) MCP servers.
 //!
 //! Everything here only reads: the dashboard's and the memory server's version probes, the OMP,
@@ -12,20 +13,25 @@
 mod github;
 mod legacy;
 mod registries;
+mod side_effects;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub use self::legacy::{LegacySkillsStep, legacy_skills_step};
 use self::legacy::{SourceRegistration, install_actions, is_plugin_named, source_registration};
 use self::registries::marketplace_registries;
+use self::side_effects::{
+    MIGRATION_SIDE_EFFECT, codex_skills_side_effects, dashboard_side_effects, knowledge_side_effects, lines,
+    memory_side_effects, skills_side_effects,
+};
 use super::catalog::{CODEX_SKILLS_MIN_VERSION, SKILLS_PLUGIN, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
 use super::installer::{Companion, Installed, installer};
 use super::mcp_merge::Shape;
-use super::mcp_register::{mcp_state, memory_mcp_state};
+use super::mcp_register::{knowledge_mcp_state, mcp_state, memory_mcp_state};
 use super::releases::is_newer_release;
 use super::skills_record::skills_install;
-use crate::env::{Env, OsKind};
+use crate::env::Env;
 use crate::harness::{Harness, HarnessRegistry, McpTarget, OpenCodeGeneration, SkillsHost, SkillsStrategy};
 use crate::harnesses::pi::user_has_package;
 use crate::harnesses::{claude, codex, opencode};
@@ -46,6 +52,7 @@ pub async fn setup_status(
 ) -> RecommendedSetup {
     let dashboard = binary_setup(env, runner, Companion::Dashboard).await;
     let memory = memory_server_setup(env, runner).await;
+    let knowledge = knowledge_server_setup(env, runner).await;
 
     let harnesses = registry
         .all()
@@ -61,6 +68,7 @@ pub async fn setup_status(
                 skills: skills_setup(env, harness),
                 mcp: harness_mcp_state(env, harness, mcp_state),
                 memory_mcp: harness_mcp_state(env, harness, memory_mcp_state),
+                knowledge_mcp: harness_mcp_state(env, harness, knowledge_mcp_state),
                 desktop_mcp: harness_mcp_state(env, harness, app_mcp_state),
             }
         })
@@ -69,6 +77,7 @@ pub async fn setup_status(
     RecommendedSetup {
         dashboard,
         memory,
+        knowledge,
         harnesses,
     }
 }
@@ -221,12 +230,18 @@ pub async fn memory_server_setup(env: &Env, runner: &dyn ProcessRunner) -> Dashb
     binary_setup(env, runner, Companion::Memory).await
 }
 
+/// The `harness-knowledge` binary: whether and which version is installed, and its installer.
+pub async fn knowledge_server_setup(env: &Env, runner: &dyn ProcessRunner) -> DashboardSetup {
+    binary_setup(env, runner, Companion::Knowledge).await
+}
+
 async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companion) -> DashboardSetup {
     let found = companion.installed(env, runner).await;
 
     let (id, side_effects) = match companion {
         Companion::Dashboard => (EcosystemId::Dashboard, lines(dashboard_side_effects(env.os))),
         Companion::Memory => (EcosystemId::Memory, lines(memory_side_effects(env.os))),
+        Companion::Knowledge => (EcosystemId::Knowledge, lines(knowledge_side_effects(env.os))),
         Companion::OpenCodeSkills => (EcosystemId::Skills, lines(skills_side_effects(env.os))),
         Companion::CodexSkills => (EcosystemId::Skills, codex_skills_side_effects(env)),
     };
@@ -234,7 +249,9 @@ async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companio
     // A memory server without a version is never registered or run, so the installer is offered.
     let installed = match companion {
         Companion::Dashboard => found != Installed::Missing,
-        Companion::Memory | Companion::OpenCodeSkills | Companion::CodexSkills => found.version().is_some(),
+        Companion::Memory | Companion::Knowledge | Companion::OpenCodeSkills | Companion::CodexSkills => {
+            found.version().is_some()
+        }
     };
 
     DashboardSetup {
@@ -243,92 +260,6 @@ async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companio
         supported_on_this_os: supported_on(id, env.os),
         command: installer(env, companion).command.to_owned(),
         side_effects,
-    }
-}
-
-/// `lines` as owned strings.
-fn lines(lines: &[&str]) -> Vec<String> {
-    lines.iter().map(|line| (*line).to_owned()).collect()
-}
-
-/// What the memory server's installer of `os` changes, per its script (`install.sh`,
-/// `install.ps1`).
-fn memory_side_effects(os: OsKind) -> &'static [&'static str] {
-    match os {
-        OsKind::Linux | OsKind::MacOs => &[
-            "Installs the harness-memory command to ~/.local/bin, replacing an older one there.",
-            "Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.",
-            "Running memory servers keep working; each harness starts the new version next time.",
-        ],
-        OsKind::Windows => &[
-            r"Puts the harness-memory command in %LOCALAPPDATA%\Programs\harness-memory and adds that folder to your user PATH.",
-            "Running memory servers keep working; each harness starts the new version next time.",
-        ],
-    }
-}
-
-/// What the installer does on top when it finds an install from before Harness Skills 0.4.0.
-const MIGRATION_SIDE_EFFECT: &str = "Renames the existing useful-skills install to harness-useful-skills and moves your model roles and settings along.";
-
-/// What the Harness Skills' OpenCode installer of `os` changes, per its script (`install.sh`,
-/// `install.ps1`). OpenCode keeps its config folder below the home folder on Windows too.
-fn skills_side_effects(os: OsKind) -> &'static [&'static str] {
-    match os {
-        OsKind::Linux | OsKind::MacOs => &[
-            "Installs the Harness Skills plugin, skills, agents and commands into the OpenCode config folder (~/.config/opencode).",
-            "Adds the harness-useful-skills MCP server to opencode.json in that folder.",
-            "Needs Node.js 22 or newer.",
-            "Restart OpenCode and running OpenCode chats to load the skills.",
-            "Updates come from /useful-skills update in OpenCode.",
-        ],
-        OsKind::Windows => &[
-            r"Installs the Harness Skills plugin, skills, agents and commands into the OpenCode config folder (%USERPROFILE%\.config\opencode).",
-            "Adds the harness-useful-skills MCP server to opencode.json in that folder.",
-            "Needs Node.js 22 or newer.",
-            "Restart OpenCode and running OpenCode chats to load the skills.",
-            "Updates come from /useful-skills update in OpenCode.",
-        ],
-    }
-}
-
-/// What the Harness Skills' Codex installer changes, per its script (`install.sh`, `install.ps1`).
-/// The Codex folder is the absolute `CODEX_HOME`, else the default one below the home folder.
-fn codex_skills_side_effects(env: &Env) -> Vec<String> {
-    let folder = match env.var("CODEX_HOME").filter(|home| Path::new(home).is_absolute()) {
-        Some(home) => home.to_owned(),
-        None if env.os == OsKind::Windows => r"%USERPROFILE%\.codex".to_owned(),
-        None => "~/.codex".to_owned(),
-    };
-
-    vec![
-        "Adds the Harness Skills marketplace and plugin to Codex.".to_owned(),
-        format!("Writes the us-* agents and the memory runtime into the Codex folder ({folder})."),
-        "Registers the harness-useful-skills MCP server with codex mcp add.".to_owned(),
-        "Needs Node.js 22 or newer and the codex command.".to_owned(),
-        "Restart Codex and running Codex chats to load the skills.".to_owned(),
-        "Updates come from running this installer again.".to_owned(),
-    ]
-}
-
-/// What the dashboard's installer of `os` changes, per its script (`install.sh`, `install.ps1`).
-fn dashboard_side_effects(os: OsKind) -> &'static [&'static str] {
-    match os {
-        OsKind::Linux => &[
-            "Installs the Harness Dashboard app to ~/.local/lib/harness-dashboard and the harness-dashboard command to ~/.local/bin.",
-            "Adds Harness Dashboard to your applications menu.",
-            "Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.",
-            "Stops a running dashboard server or app so the new version can start; `harness-dashboard mcp` keeps running.",
-        ],
-        OsKind::MacOs => &[
-            "Installs Harness Dashboard.app to ~/Applications and the harness-dashboard command to ~/.local/bin.",
-            "Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.",
-            "Stops a running dashboard server or app so the new version can start; `harness-dashboard mcp` keeps running.",
-        ],
-        OsKind::Windows => &[
-            "Installs the Harness Dashboard app for your user, with a Start menu shortcut and an entry under Settings > Apps.",
-            r"Puts the harness-dashboard command in %LOCALAPPDATA%\Programs\harness-dashboard and adds that folder to your user PATH.",
-            "Stops a running dashboard server or app in this session; `harness-dashboard mcp` keeps running.",
-        ],
     }
 }
 

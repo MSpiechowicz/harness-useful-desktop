@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-pick-folder"
+description = "Enables the knowledge_pick_folder command without any pre-configured scope."
+commands.allow = ["knowledge_pick_folder"]
+
+[[permission]]
+identifier = "deny-knowledge-pick-folder"
+description = "Denies the knowledge_pick_folder command without any pre-configured scope."
+commands.deny = ["knowledge_pick_folder"]

@@ -17,6 +17,9 @@ pub enum EcosystemId {
     Dashboard,
     /// Harness Memory: the project memory MCP server every harness shares (`harness-memory`).
     Memory,
+    /// Harness Knowledge: the project documentation MCP server every harness shares
+    /// (`harness-knowledge`).
+    Knowledge,
     /// Harness Skills: the `us-*` skills plugin for OMP.
     Skills,
     /// Harness Sidebar: live token charts and session history for OMP in a tmux sidebar.
@@ -78,7 +81,7 @@ pub struct EcosystemItem {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct EcosystemStatus {
-    /// One item per [`EcosystemId`], in display order (dashboard, memory, skills, sidebar).
+    /// One item per [`EcosystemId`], in display order (dashboard, memory, knowledge, skills, sidebar).
     pub items: Vec<EcosystemItem>,
 }
 

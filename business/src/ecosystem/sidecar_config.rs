@@ -17,6 +17,7 @@ use super::sidecar::Sidecar;
 use crate::env::{Env, OsKind};
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{create_private_dir, refuse_link, replace_atomically};
+use crate::pi_family::tilde;
 use crate::security::SafeReader;
 
 /// The largest config file read (64 KiB; the file holds a handful of short keys).
@@ -357,6 +358,17 @@ fn ensure_replaceable(sidecar: &Sidecar, path: &Path) -> Result<()> {
             sidecar.product
         ))),
         _ => Ok(()),
+    }
+}
+
+/// Refuses (`invalidInput`) to change the file at `path` while `status` says the app must not.
+pub(crate) fn refuse_blocked(env: &Env, path: &Path, status: &ConfigStatus) -> Result<()> {
+    match &status.blocked {
+        Some(reason) => Err(BusinessError::InvalidInput(format!(
+            "{} is not changed: {reason}",
+            tilde(env, path)
+        ))),
+        None => Ok(()),
     }
 }
 

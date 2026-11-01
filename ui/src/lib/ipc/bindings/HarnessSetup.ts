@@ -29,6 +29,10 @@ mcp: McpState,
  */
 memoryMcp: McpState, 
 /**
+ * The `harness-knowledge` server in the harness's user MCP file (`setup_register_knowledge`).
+ */
+knowledgeMcp: McpState, 
+/**
  * The app's own `harness-desktop mcp` server (hooks for agents) in the harness's user MCP file
  * (`setup_register_desktop_mcp`).
  */

@@ -15,10 +15,10 @@ export interface RunSteps {
 }
 
 /**
- * Runs the confirmed items. Everything that does not depend on something else runs at once. The two installers stay one
- * after the other: on Windows both edit the user's PATH, and two writers at a time could lose one of the entries. The
- * skills need neither installer, so they start right away. A harness's MCP entry waits only for its own server's
- * installer, and its entries go into the same file, so the memory server's waits for the dashboard's.
+ * Runs the confirmed items. Everything that does not depend on something else runs at once. The three installers stay one
+ * after the other: on Windows they all edit the user's PATH, and two writers at a time could lose one of the entries. The
+ * skills need no installer, so they start right away. A harness's MCP entry waits only for its own server's
+ * installer, and its entries go into the same file, so the memory server's waits for the dashboard's and the knowledge server's for the memory server's.
  *
  * A harness whose skills come from an installer script (OpenCode, Codex) is the exception to "the skills do not matter to the
  * MCP entries": the script rewrites the very file the entries are written to, so its entries wait until the script has
@@ -29,12 +29,14 @@ export async function runSetup(steps: RunSteps): Promise<void> {
 
   const dashboard = picked.has('dashboard') ? steps.installCompanion('dashboard') : Promise.resolve(true);
   const memory = dashboard.then(() => (picked.has('memory') ? steps.installCompanion('memory') : true));
+  const knowledge = memory.then(() => (picked.has('knowledge') ? steps.installCompanion('knowledge') : true));
 
   const skills = harnesses.map((entry) => ({ entry, run: picked.has(`skills:${entry.harness}`) ? steps.installSkills(entry) : null }));
 
   await Promise.all([
     dashboard,
     memory,
+    knowledge,
     ...skills.flatMap(({ run }) => (run ? [run] : [])),
     ...skills.map(async ({ entry, run }) => {
       if (run && entry.skills.type === 'script') {
@@ -46,6 +48,9 @@ export async function runSetup(steps: RunSteps): Promise<void> {
       }
       if (picked.has(`memoryMcp:${entry.harness}`)) {
         await steps.registerMcp('memoryMcp', entry.harness, await memory);
+      }
+      if (picked.has(`knowledgeMcp:${entry.harness}`)) {
+        await steps.registerMcp('knowledgeMcp', entry.harness, await knowledge);
       }
       // The entries go into the same file one after the other. The app's own needs no installer.
       if (picked.has(`desktopMcp:${entry.harness}`)) {

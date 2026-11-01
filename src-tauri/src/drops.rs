@@ -3,7 +3,8 @@
 //! The webview's own drag and drop cannot read a file the file manager drags in (it only sees a
 //! `file://` text), so the window's native drag and drop is on (`dragDropEnabled`) and its paths
 //! stay in Rust: the images among them are read here and sent to the webview over the channel
-//! `drop_listen` registered. The webview never names a path.
+//! `drop_listen` registered. The webview never names a path. The paths of the last drop also wait
+//! for the Knowledge view to take them as documents (`knowledge_drop_intake`).
 
 use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
@@ -62,6 +63,8 @@ pub fn forward<R: Runtime>(window: &WebviewWindow<R>) {
             DragDropEvent::Drop { paths, .. } => {
                 tracing::info!(files = paths.len(), "files dropped on the window");
                 state.drops.send(DropEvent::Hover { active: false });
+                // The Knowledge view takes the same drop as documents (`knowledge_drop_intake`).
+                state.knowledge_intakes.stash_drop(paths);
                 read_in_background(&handle, paths.clone());
             }
             _ => {}

@@ -9,6 +9,7 @@
   import { harness } from '$lib/stores/harness.svelte';
   import { branchSync } from '$lib/stores/branch-sync.svelte';
   import { git } from '$lib/stores/git.svelte';
+  import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { nav } from '$lib/stores/nav.svelte';
   import { BRANCH_FETCH_MS, GIT_POLL_MS, HARNESS_FOCUS_GAP_MS } from '$lib/stores/live';
   import { project } from '$lib/stores/project.svelte';
@@ -285,6 +286,9 @@
 
     untrack(() => hooks.follow(where));
   });
+
+  // Documents an agent proposed wait for review, and the rail counts them wherever the user is, so the shell listens to the knowledge database from the start.
+  $effect(() => knowledgeChanges.start());
 
   // Routines an agent wrote wait for the user's approval, and a run can wait for an answer. The rail counts both wherever the user is, so the shell listens from the start.
   $effect(() => routines.start());

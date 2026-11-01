@@ -46,3 +46,16 @@ describe('the rail badge of the Routines view', () => {
     expect(railBadge('hooks', null, null, 0, { pending: 2, needsYou: 2 })).toBeNull();
   });
 });
+
+describe('the rail badge of the Knowledge view', () => {
+  it('counts the documents waiting for review, and is quiet without any', () => {
+    expect(railBadge('knowledge', null, null, 0, undefined, 0, 2)).toEqual({ text: '2', label: '2 documents to review', tone: 'warning', busy: false });
+    expect(railBadge('knowledge', null, null, 0, undefined, 0, 1)?.label).toBe('1 document to review');
+    expect(railBadge('knowledge', null, null)).toBeNull();
+  });
+
+  it('caps the count and does not mark another view', () => {
+    expect(railBadge('knowledge', null, null, 0, undefined, 0, 150)?.text).toBe('99+');
+    expect(railBadge('hooks', null, null, 0, undefined, 0, 4)).toBeNull();
+  });
+});

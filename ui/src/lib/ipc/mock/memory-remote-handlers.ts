@@ -21,11 +21,11 @@ export function remoteScenarioFromLocation(search: string = globalThis.location?
 const CONFIG_PATH = '~/.config/harness-memory/config.toml';
 
 /** How long a mock `harness-memory check` takes; tests do not wait. */
-const CHECK_MS = import.meta.env.MODE === 'test' ? 0 : 900;
+export const CHECK_MS = import.meta.env.MODE === 'test' ? 0 : 900;
 
-const KIND_NAMES: Record<MemoryRemoteKind, string> = { postgres: 'PostgreSQL', libsql: 'libSQL', mongodb: 'MongoDB', documentdb: 'Amazon DocumentDB' };
+export const KIND_NAMES: Record<MemoryRemoteKind, string> = { postgres: 'PostgreSQL', libsql: 'libSQL', mongodb: 'MongoDB', documentdb: 'Amazon DocumentDB' };
 
-const SCHEMES: Record<MemoryRemoteKind, string[]> = {
+export const SCHEMES: Record<MemoryRemoteKind, string[]> = {
   postgres: ['postgres', 'postgresql'],
   libsql: ['libsql', 'https', 'http'],
   mongodb: ['mongodb', 'mongodb+srv'],
@@ -64,14 +64,14 @@ function initial(scenario: RemoteScenario): Saved {
 }
 
 /** Whether the URL's scheme is one the database accepts. MongoDB and DocumentDB share theirs. */
-function schemeFits(url: string, kind: MemoryRemoteKind): boolean {
+export function schemeFits(url: string, kind: MemoryRemoteKind): boolean {
   const scheme = url.split('://')[0]?.toLowerCase() ?? '';
 
   return url.includes('://') && SCHEMES[kind].includes(scheme);
 }
 
 /** The kind a saved URL stands for: a mongodb URL on an AWS DocumentDB host is DocumentDB. */
-function kindOf(url: string): MemoryRemoteKind | null {
+export function kindOf(url: string): MemoryRemoteKind | null {
   if (schemeFits(url, 'documentdb') && url.toLowerCase().includes('.docdb.amazonaws.com')) {
     return 'documentdb';
   }
@@ -80,7 +80,7 @@ function kindOf(url: string): MemoryRemoteKind | null {
 }
 
 /** `scheme://user@host:port/path`: no password, query or fragment. */
-function redact(url: string): string {
+export function redact(url: string): string {
   const [scheme, rest = ''] = url.split('://');
   const at = rest.lastIndexOf('@');
   const user = at >= 0 ? rest.slice(0, at).split(':')[0] : '';
@@ -89,12 +89,12 @@ function redact(url: string): string {
   return user ? `${scheme}://${user}@${location}` : `${scheme}://${location}`;
 }
 
-function invalid(message: string): IpcFailure {
+export function invalid(message: string): IpcFailure {
   return IpcFailure.from({ code: 'invalidInput', message });
 }
 
 /** The URL as the real backend validates it (the error never quotes it). */
-function validUrl(raw: string, kind: MemoryRemoteKind): string {
+export function validUrl(raw: string, kind: MemoryRemoteKind): string {
   const url = raw.trim();
 
   if (!url) {
@@ -115,6 +115,45 @@ function validUrl(raw: string, kind: MemoryRemoteKind): string {
   }
 
   return url;
+}
+
+/** The URL a save keeps: the typed one when it is valid, otherwise the saved one while it fits the database. */
+export function urlToSave(saved: string | null, typed: string | null, kind: MemoryRemoteKind): string {
+  if (typed !== null) {
+    return validUrl(typed, kind);
+  }
+
+  if (!saved || !schemeFits(saved, kind)) {
+    throw invalid(saved ? `the saved URL is not a ${KIND_NAMES[kind]} URL; enter the new one` : 'enter the database URL');
+  }
+
+  return saved;
+}
+
+/** The token a save keeps: only libSQL has one, and a null keeps the saved token. */
+export function tokenToSave(saved: string | null, typed: string | null, kind: MemoryRemoteKind): string | null {
+  if (kind !== 'libsql') {
+    return null;
+  }
+
+  return typed === null ? saved : typed || null;
+}
+
+/** The URL a test tries (the typed one, or the saved one), or why there is none to try. */
+export function urlToTest(saved: string | null, typed: string | null, kind: MemoryRemoteKind): { url: string } | { problem: string } {
+  let url: string;
+
+  try {
+    url = typed === null ? (saved ?? '') : validUrl(typed, kind);
+  } catch (error) {
+    return { problem: error instanceof IpcFailure ? error.message : String(error) };
+  }
+
+  if (!url) {
+    return { problem: 'no database URL is saved; enter one to test it' };
+  }
+
+  return schemeFits(url, kind) ? { url } : { problem: `the saved URL is not a ${KIND_NAMES[kind]} URL; enter one to test it` };
 }
 
 /** Team database settings kept in memory: `memory_remote_get/set/test` like the real backend, without a real server. */
@@ -178,14 +217,9 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       throw invalid('pick the kind of remote database');
     }
 
-    let url = file.url;
-    if (args.url !== null) {
-      url = validUrl(args.url, args.kind);
-    } else if (!url || !schemeFits(url, args.kind)) {
-      throw invalid(url ? `the saved URL is not a ${KIND_NAMES[args.kind]} URL; enter the new one` : 'enter the database URL');
-    }
+    const url = urlToSave(file.url, args.url, args.kind);
 
-    const token = args.kind !== 'libsql' ? null : args.token === null ? file.token : args.token.trim() || null;
+    const token = tokenToSave(file.token, args.token, args.kind);
     // Team hooks are written only while the server keeps them, and the trust only while they are shared. A null keeps the saved choice.
     const shareHooks = scriptsSupported() ? (args.shareHooks ?? file.shareHooks) : file.shareHooks;
     const trustTeamHooks = shareHooks && (scriptsSupported() ? (args.trustTeamHooks ?? file.trustTeamHooks) : file.trustTeamHooks);
@@ -199,20 +233,13 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
   async function test(args: CommandArgs<'memory_remote_test'>) {
     await new Promise((resolve) => setTimeout(resolve, CHECK_MS));
 
-    let url: string;
-    try {
-      url = args.url === null ? (current().url ?? '') : validUrl(args.url, args.kind);
-    } catch (error) {
-      return { ok: false, message: error instanceof IpcFailure ? error.message : String(error) };
+    const found = urlToTest(current().url, args.url, args.kind);
+
+    if ('problem' in found) {
+      return { ok: false, message: found.problem };
     }
 
-    if (!url) {
-      return { ok: false, message: 'no database URL is saved; enter one to test it' };
-    }
-
-    if (!schemeFits(url, args.kind)) {
-      return { ok: false, message: `the saved URL is not a ${KIND_NAMES[args.kind]} URL; enter one to test it` };
-    }
+    const { url } = found;
 
     if (url.includes('ok')) {
       return { ok: true, message: `ok: ${KIND_NAMES[args.kind]} at ${redact(url)} (schema 3)` };

@@ -4,15 +4,15 @@
 //! Each needs the feature of the installed server: `notFound` when Harness Memory is not
 //! installed, `unsupported` when it predates it. See `harness_business::ecosystem::memory_embedder`.
 
-use harness_business::ecosystem::{FeaturesSupport, feature_server, get_settings, set_embedder_enabled, set_settings};
-use harness_business::model::{AppPrefs, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
-use harness_business::{BusinessError, Result};
+use harness_business::Result;
+use harness_business::ecosystem::{FeaturesSupport, feature_server, get_settings, set_settings};
+use harness_business::model::{MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 use tauri::State;
 use tauri::ipc::Channel;
 
-use super::blocking;
 use crate::error::CommandResult;
-use crate::memory_embedder::reconcile;
+use crate::product::Memory;
+use crate::sidecar_embedder;
 use crate::state::AppState;
 
 /// Turns vector search on or off: runs `embedder enable|disable`, stores the `vectorSearch` pref,
@@ -34,51 +34,7 @@ pub async fn memory_set_vector_search(
 }
 
 async fn set_vector_search(state: &AppState, enabled: bool) -> CommandResult<MemoryVectorSwitchResult> {
-    let was = stored_vector_search(state).await;
-
-    let switched = match embedder_server(state).await {
-        Ok(server) => {
-            set_embedder_enabled(&state.env, &state.runner, &server, enabled).await?;
-            Some(server)
-        }
-        // Opting out needs no server: there is nothing to switch off.
-        Err(BusinessError::Unsupported(_)) if !enabled => None,
-        Err(error) => return Err(error.into()),
-    };
-
-    let saved = match store_vector_search(state, enabled).await {
-        Ok(saved) => saved,
-        Err(error) => {
-            if let Some(server) = switched
-                && let Err(undo) = set_embedder_enabled(&state.env, &state.runner, &server, was).await
-            {
-                tracing::warn!(%undo, "the embedder's switch could not be put back");
-            }
-
-            return Err(error);
-        }
-    };
-
-    reconcile(state).await;
-
-    Ok(MemoryVectorSwitchResult {
-        vector_search: saved.vector_search,
-        state: state.memory_embedder.state(),
-    })
-}
-
-async fn stored_vector_search(state: &AppState) -> bool {
-    let prefs = state.prefs.clone();
-
-    blocking(move || Ok(prefs.with(|store| store.load().vector_search)))
-        .await
-        .unwrap_or(true)
-}
-
-async fn store_vector_search(state: &AppState, enabled: bool) -> CommandResult<AppPrefs> {
-    let prefs = state.prefs.clone();
-
-    blocking(move || Ok(prefs.with(|store| store.update(|prefs| prefs.vector_search = enabled))?)).await
+    sidecar_embedder::set_vector_search::<Memory>(state, enabled).await
 }
 
 /// Sends the embedder's state (`phase`, `progress`, `model`, `error`) to `on_event` now and on
@@ -88,7 +44,7 @@ pub async fn memory_embedder_watch(
     state: State<'_, AppState>,
     on_event: Channel<MemoryEmbedderState>,
 ) -> CommandResult<()> {
-    state.embedder_watch.listen(state.memory_embedder.subscribe(), on_event);
+    sidecar_embedder::watch::<Memory>(&state, on_event);
 
     Ok(())
 }
@@ -99,14 +55,7 @@ pub async fn memory_embedder_watch(
 /// the next launch. `unsupported`, `notFound` and `process` as `memory_set_vector_search`.
 #[tauri::command]
 pub async fn memory_embedder_remove_model(state: State<'_, AppState>) -> CommandResult<MemoryEmbedderState> {
-    let server = embedder_server(&state).await?;
-
-    state
-        .memory_embedder
-        .remove_model(&state.env, &state.runner, &server)
-        .await?;
-
-    Ok(state.memory_embedder.state())
+    sidecar_embedder::remove_model::<Memory>(&state).await
 }
 
 /// The settings Harness Memory keeps in its store: whether agents must write notes in English (on
@@ -129,17 +78,6 @@ pub async fn memory_settings_set(state: State<'_, AppState>, english_notes: bool
     Ok(set_settings(&state.env, &state.runner, &server, english_notes).await?)
 }
 
-async fn embedder_server(state: &AppState) -> Result<std::path::PathBuf> {
-    feature_server(
-        &state.env,
-        &state.runner,
-        &state.memory_features,
-        FeaturesSupport::embedder,
-        "vector search",
-    )
-    .await
-}
-
 async fn settings_server(state: &AppState) -> Result<std::path::PathBuf> {
     feature_server(
         &state.env,
@@ -153,10 +91,12 @@ async fn settings_server(state: &AppState) -> Result<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
+    use harness_business::BusinessError;
     use harness_business::model::{EmbedderPhase, IpcErrorCode};
     use tauri::async_runtime::block_on;
 
     use super::*;
+    use crate::memory_embedder::reconcile;
     use crate::test_support::{TempDir, home_state, place_memory_server};
 
     #[test]

@@ -114,13 +114,13 @@ describe('Set up step', () => {
     expect(within(confirmation).getByText(MEMORY_COMMAND)).toBeInTheDocument();
     expect(within(confirmation).getByText('omp plugin marketplace add MSpiechowicz/harness-useful-skills')).toBeInTheDocument();
     expect(within(confirmation).getByText('omp plugin install harness-useful-skills@harness-useful-skills --scope user')).toBeInTheDocument();
-    // Each installed harness's MCP file gets the dashboard's, the memory server's and the app's own entries: listed once, with all three.
+    // Each installed harness's MCP file gets the dashboard's, the memory server's, the knowledge server's and the app's own entries: listed once, with all four.
     // OpenCode is coming soon, so its file is not touched.
     const files = within(confirmation).getByRole('region', { name: 'Files' });
     const listed = within(files).getAllByRole('listitem');
     expect(listed).toHaveLength(1);
     expect(within(listed[0]).getByText('~/.omp/agent/mcp.json')).toBeInTheDocument();
-    expect(within(listed[0]).getByText('adds 3 entries')).toBeInTheDocument();
+    expect(within(listed[0]).getByText('adds 4 entries')).toBeInTheDocument();
     // Each installer's own changes, under its own heading; the memory server also says it adds itself to the harnesses.
     const dashboardEffects = within(confirmation).getByRole('region', { name: 'The dashboard installer also' });
     expect(within(dashboardEffects).getByText(/Appends a line that puts ~\/\.local\/bin on your PATH/)).toBeInTheDocument();
@@ -131,6 +131,9 @@ describe('Set up step', () => {
     const memoryEffects = within(confirmation).getByRole('region', { name: 'The memory installer also' });
     expect(within(memoryEffects).getByText(/Installs the harness-memory command to/)).toBeInTheDocument();
     expect(within(memoryEffects).getByText(/as an MCP server in each detected harness/)).toBeInTheDocument();
+    const knowledgeEffects = within(confirmation).getByRole('region', { name: 'The knowledge installer also' });
+    expect(within(knowledgeEffects).getByText(/Installs the harness-knowledge command to/)).toBeInTheDocument();
+    expect(within(knowledgeEffects).getByText(/as an MCP server in each detected harness/)).toBeInTheDocument();
 
     await fireEvent.keyDown(confirmation, { key: 'Escape' });
 
@@ -139,11 +142,11 @@ describe('Set up step', () => {
     expect(sent()).not.toContain('setup_install_dashboard');
   });
 
-  it('runs the skills alongside the two installers, each MCP entry after its own server, and locks the flow meanwhile', async () => {
+  it('runs the skills alongside the three installers, each MCP entry after its own server, and locks the flow meanwhile', async () => {
     await prefs.setMemoryEnabled(false);
     await openSetup();
 
-    expect(screen.getByText('7 items to install')).toBeInTheDocument();
+    expect(screen.getByText('9 items to install')).toBeInTheDocument();
 
     await fireEvent.click(await primary('Install and continue'));
     await screen.findByRole('dialog', { name: 'Run the recommended setup?' });
@@ -155,41 +158,48 @@ describe('Set up step', () => {
     // Once the run is over the step goes on by itself.
     await screen.findByRole('heading', { name: 'You’re ready to go' });
 
-    const ran = sent().filter((name) => ['setup_install_dashboard', 'setup_install_memory', 'setup_install_opencode_skills', 'extension_action', 'setup_register_mcp', 'setup_register_memory', 'setup_register_desktop_mcp'].includes(name));
-    // The two installers one after the other while the skills already run; each MCP entry after its own server's
-    // installer, and the memory server's entry after the dashboard's (they go into the same file).
+    const ran = sent().filter((name) => ['setup_install_dashboard', 'setup_install_memory', 'setup_install_knowledge', 'setup_install_opencode_skills', 'extension_action', 'setup_register_mcp', 'setup_register_memory', 'setup_register_knowledge', 'setup_register_desktop_mcp'].includes(name));
+    // The three installers one after the other while the skills already run; each MCP entry after its own server's
+    // installer, and the memory server's entry after the dashboard's and the knowledge server's after the memory server's (they go into the same file).
     const at = (name: (typeof ran)[number]) => ran.indexOf(name);
     expect(at('setup_install_dashboard')).toBeLessThan(at('setup_install_memory'));
     expect(at('extension_action')).toBeLessThan(at('setup_install_memory'));
     expect(at('setup_install_dashboard')).toBeLessThan(at('setup_register_mcp'));
     expect(at('setup_install_memory')).toBeLessThan(at('setup_register_memory'));
+    expect(at('setup_install_memory')).toBeLessThan(at('setup_install_knowledge'));
+    expect(at('setup_install_knowledge')).toBeLessThan(at('setup_register_knowledge'));
     expect([...ran].sort()).toEqual([
       'extension_action',
       'extension_action',
       'setup_install_dashboard',
+      'setup_install_knowledge',
       'setup_install_memory',
       'setup_install_opencode_skills',
       'setup_register_desktop_mcp',
+      'setup_register_knowledge',
       'setup_register_mcp',
       'setup_register_memory',
     ]);
-    // The three entries go into the same file one after the other, and the app's own needs no installer.
+    // The four entries go into the same file one after the other, and the app's own needs no installer.
     expect(ran.indexOf('setup_register_mcp')).toBeLessThan(ran.indexOf('setup_register_memory'));
-    expect(ran.indexOf('setup_register_memory')).toBeLessThan(ran.indexOf('setup_register_desktop_mcp'));
+    expect(ran.indexOf('setup_register_memory')).toBeLessThan(ran.indexOf('setup_register_knowledge'));
+    expect(ran.indexOf('setup_register_knowledge')).toBeLessThan(ran.indexOf('setup_register_desktop_mcp'));
     expect(backend.calls('setup_install_dashboard')).toMatchObject([{ confirmed: true }]);
     expect(backend.calls('setup_install_memory')).toMatchObject([{ confirmed: true }]);
+    expect(backend.calls('setup_install_knowledge')).toMatchObject([{ confirmed: true }]);
     // The skills' installer for OpenCode runs on the same confirmation, and does not wait for the other two.
     expect(backend.calls('setup_install_opencode_skills')).toMatchObject([{ confirmed: true }]);
     expect(backend.calls('extension_action').map((call) => call.dryRun)).toEqual([false, false]);
     // OpenCode is coming soon, so only OMP gets the entries.
     expect(backend.calls('setup_register_mcp')).toEqual([{ harness: 'omp' }]);
     expect(backend.calls('setup_register_memory')).toEqual([{ harness: 'omp' }]);
+    expect(backend.calls('setup_register_knowledge')).toEqual([{ harness: 'omp' }]);
     expect(backend.calls('setup_register_desktop_mcp')).toEqual([{ harness: 'omp' }]);
     // Registering the memory server turned Project memory on, and Settings knows.
     expect(prefs.value?.memoryEnabled).toBe(true);
 
     expect(screen.getByRole('button', { name: 'Back' })).toBeEnabled();
-    expect(await screen.findByText('Dashboard, Memory, Skills, Dashboard MCP, Memory MCP, Desktop MCP')).toBeInTheDocument();
+    expect(await screen.findByText('Dashboard, Memory, Knowledge, Skills, Dashboard MCP, Memory MCP, Knowledge MCP, Desktop MCP')).toBeInTheDocument();
 
     // Back on the step, each installer kept its own output and state.
     await click('Back');
@@ -308,7 +318,7 @@ describe('Set up step', () => {
     const skills = installer('Harness Skills');
     expect(await within(skills).findByText('OpenCode: could not install: error: could not download the Harness Skills package')).toBeInTheDocument();
     expect(within(output('OpenCode')).getByText('error: could not download the Harness Skills package')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(4);
     expect(sent()).not.toContain('setup_register_mcp');
     expect(sent()).not.toContain('setup_register_memory');
     const omp = within(screen.getByRole('region', { name: 'MCP servers' })).getAllByRole('listitem')[0];
@@ -334,11 +344,11 @@ describe('Set up step', () => {
 
     // Nothing to tick: every missing piece is part of the one action.
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
-    expect(screen.getByText('11 items to install')).toBeInTheDocument();
+    expect(screen.getByText('15 items to install')).toBeInTheDocument();
 
     // The table is MCP servers only: skills are one row of the family card, summed across the harnesses found.
     expect(within(rows[0]).queryByRole('group', { name: 'Harness Skills' })).toBeNull();
-    expect(within(rows[0]).getAllByRole('group')).toHaveLength(3);
+    expect(within(rows[0]).getAllByRole('group')).toHaveLength(4);
     expect(within(installer('Harness Skills')).getByText('Partly installed')).toBeInTheDocument();
     expect(screen.getByText('Installs the skills in Oh My Pi, Pi, Claude Code, and Codex')).toBeInTheDocument();
 
@@ -391,7 +401,7 @@ describe('Set up step', () => {
     await within(await screen.findByRole('region', { name: 'MCP servers' })).findByText('Codex');
 
     // Pi's agent file is refused, so each column's snippet is in view without asking.
-    expect(await screen.findAllByText(/The file is not valid JSON\./)).toHaveLength(3);
+    expect(await screen.findAllByText(/The file is not valid JSON\./)).toHaveLength(4);
     expect(screen.getByText('"harness-memory":')).toBeInTheDocument();
     expect(screen.getByText('"harness-desktop":')).toBeInTheDocument();
 

@@ -142,6 +142,17 @@ fn the_memory_entry_name_is_reserved() {
 }
 
 #[test]
+fn the_knowledge_entry_name_is_reserved() {
+    assert_eq!(validate::mcp_name("harness-knowledge"), Err(SyncInvalidReason::BadName));
+    assert_eq!(validate::mcp_name("Harness-Knowledge"), Err(SyncInvalidReason::BadName));
+    assert_eq!(
+        validate::mcp_server(&stdio("harness-knowledge", "harness-knowledge", &["mcp"])),
+        Err(SyncInvalidReason::BadName)
+    );
+    assert_eq!(validate::mcp_name("harness-knowledge-notes"), Ok(()));
+}
+
+#[test]
 fn the_desktop_and_the_legacy_dashboard_entry_names_are_reserved() {
     for reserved in ["harness-desktop", "Harness-Desktop", "harness", "HARNESS"] {
         assert_eq!(
@@ -191,6 +202,8 @@ fn a_server_running_an_app_server_under_another_name_is_refused() {
         "HARNESS-DASHBOARD.exe",
         "Harness-Memory.EXE",
         "harness-dashboard",
+        "harness-knowledge",
+        "Harness-Knowledge.EXE",
     ] {
         assert_eq!(
             validate::mcp_server(&stdio("notes", command, &["mcp"])),
@@ -205,5 +218,6 @@ fn a_server_running_an_app_server_under_another_name_is_refused() {
         Err(SyncInvalidReason::LocalPath)
     );
     assert_eq!(validate::mcp_command("harness-memory-tools"), Ok(()));
+    assert_eq!(validate::mcp_command("harness-knowledge-tools"), Ok(()));
     assert_eq!(validate::mcp_command("harness-dashboard2"), Ok(()));
 }

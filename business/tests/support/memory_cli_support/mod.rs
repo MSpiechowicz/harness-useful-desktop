@@ -15,8 +15,13 @@ use crate::common::set_mode;
 
 /// A home with an installed `harness-memory` (never run: the stand-in answers).
 pub fn installed() -> (tempfile::TempDir, Env) {
+    installed_binary("harness-memory")
+}
+
+/// A home with an installed Harness family server `binary` (never run).
+pub fn installed_binary(binary: &str) -> (tempfile::TempDir, Env) {
     let dir = tempfile::tempdir().unwrap();
-    let (env, path) = installed_at(dir.path());
+    let (env, path) = installed_binary_at(dir.path(), binary);
     install(&path, None);
 
     (dir, env)
@@ -25,12 +30,17 @@ pub fn installed() -> (tempfile::TempDir, Env) {
 /// Where the installer puts `harness-memory` under `home`, and the env that finds it and its
 /// config file there (Windows keeps the config under `APPDATA`).
 pub fn installed_at(home: &Path) -> (Env, PathBuf) {
+    installed_binary_at(home, "harness-memory")
+}
+
+/// [`installed_at`] for the Harness family server `binary`.
+pub fn installed_binary_at(home: &Path, binary: &str) -> (Env, PathBuf) {
     let env = Env::for_tests(home);
 
     if cfg!(windows) {
         let local = home.join("AppData").join("Local");
         let roaming = home.join("AppData").join("Roaming");
-        let path = local.join("Programs").join("harness-memory").join("harness-memory.exe");
+        let path = local.join("Programs").join(binary).join(format!("{binary}.exe"));
         let env = env
             .with_var("LOCALAPPDATA", local.to_string_lossy())
             .with_var("APPDATA", roaming.to_string_lossy());
@@ -38,7 +48,7 @@ pub fn installed_at(home: &Path) -> (Env, PathBuf) {
         return (env, path);
     }
 
-    (env, home.join(".local").join("bin").join("harness-memory"))
+    (env, home.join(".local").join("bin").join(binary))
 }
 
 /// Places `source` as the installed server (an empty executable without one).

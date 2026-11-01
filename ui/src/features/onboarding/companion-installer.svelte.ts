@@ -20,12 +20,13 @@ export interface InstallOutcome {
 const COMMANDS = {
   dashboard: 'setup_install_dashboard',
   memory: 'setup_install_memory',
+  knowledge: 'setup_install_knowledge',
   opencodeSkills: 'setup_install_opencode_skills',
   codexSkills: 'setup_install_codex_skills',
 } as const satisfies Record<Installer, CommandName>;
 
 /**
- * One installer run (the dashboard's, the memory server's or the Harness Skills' for OpenCode or Codex): the output it streams, and how it ended.
+ * One installer run (the dashboard's, the memory server's, the knowledge server's or the Harness Skills' for OpenCode or Codex): the output it streams, and how it ended.
  * The backend only runs it once told the user confirmed, which is the caller's business.
  */
 export class CompanionInstaller {

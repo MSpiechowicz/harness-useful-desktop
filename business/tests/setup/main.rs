@@ -10,6 +10,8 @@ mod codex_support;
 mod common;
 #[path = "../support/sync_support/import.rs"]
 mod import_support;
+#[path = "../support/knowledge_stand_in/mod.rs"]
+mod knowledge_stand_in;
 #[path = "../support/mcp_support/mod.rs"]
 mod mcp_support;
 #[path = "../support/memory_cli_support/mod.rs"]
@@ -33,6 +35,17 @@ mod desktop_register;
 mod ecosystem_detect;
 mod ecosystem_model;
 mod ecosystem_releases;
+mod knowledge_docs;
+mod knowledge_features;
+mod knowledge_held;
+mod knowledge_import;
+mod knowledge_intake;
+mod knowledge_names;
+mod knowledge_real_binary;
+mod knowledge_register;
+mod knowledge_remote;
+mod knowledge_search;
+mod knowledge_setup_status;
 mod live_ecosystem;
 mod mcp_merge;
 mod memory_code;

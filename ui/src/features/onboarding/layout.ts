@@ -23,9 +23,9 @@ export const SETUP_COLUMNS = 'grid grid-cols-[var(--control-h)_minmax(0,1fr)_aut
 /**
  * The columns of the harness matrix, one grid for its header and every row: the harness (whatever room is left), one
  * column of equal width per MCP server (a state chip), and the column of the row's own disclosure. Rows of any number
- * of harnesses line up because they all use this. Each server's column is wide enough for its title on one line.
+ * of harnesses line up because they all use this. A server's title wraps onto more lines in its column.
  */
-export const SETUP_MATRIX = 'grid grid-cols-[minmax(0,1fr)_repeat(3,190px)_var(--control-h)] items-center gap-x-2.5';
+export const SETUP_MATRIX = 'grid grid-cols-[minmax(0,1fr)_repeat(4,132px)_var(--control-h)] items-center gap-x-2.5';
 
 /** The cards of the harness steps: as many across as fit at a readable width, folding away empty columns. */
 export const HARNESS_GRID = 'grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-x-4 gap-y-4';
