@@ -163,6 +163,19 @@ describe('an open document', () => {
 });
 
 describe('the review queue', () => {
+  it('keeps its filters when a scope leaves no proposal, so the scope can be undone', async () => {
+    fakeKnowledge();
+    await show();
+
+    await fireEvent.click(screen.getByRole('radio', { name: /Review/ }));
+    await screen.findByRole('grid', { name: 'Proposals waiting for review' });
+    viewState.heldScope = 'repo:git:github.com/nobody/nothing';
+
+    expect(await screen.findByText('No proposal matches your search.')).toBeInTheDocument();
+    expect(screen.queryByText('Nothing to review')).toBeNull();
+    expect(screen.getByRole('radio', { name: /Documents/ })).toBeInTheDocument();
+  });
+
   it('reads a proposal before it is decided, approves it into the documents and drops its row', async () => {
     const { store, invoke } = fakeKnowledge();
     await show();

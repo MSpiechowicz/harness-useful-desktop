@@ -33,8 +33,10 @@
   const queue = $derived(page?.total ?? 0);
   /** The projects on this computer, all and global: the queue is small, so no counts per repository. */
   const scopeOptions = $derived(knowledgeScopeOptions(projectScopes.data ?? [], null, queue));
-  const none = $derived(page !== null && queue === 0);
-  const noMatch = $derived(page !== null && rows.length === 0 && queue > 0 ? t('knowledge.review.noMatch') : null);
+  /** A scope or a search narrows the queue: an empty answer then is "no match", with the filters still there to undo it. */
+  const filtered = $derived(viewState.heldScope !== 'all' || viewState.heldQuery.trim() !== '');
+  const none = $derived(page !== null && queue === 0 && !filtered);
+  const noMatch = $derived(page !== null && rows.length === 0 && (queue > 0 || filtered) ? t('knowledge.review.noMatch') : null);
 
   const openId = $derived(viewState.heldId);
   const detail = $derived(knowledgeHeld.detail.data && knowledgeHeld.detail.data.id === openId ? knowledgeHeld.detail.data : null);
