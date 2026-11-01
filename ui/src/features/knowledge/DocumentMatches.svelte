@@ -1,5 +1,6 @@
 <script lang="ts">
   import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import SearchX from '@lucide/svelte/icons/search-x';
   import { slide } from 'svelte/transition';
 
   import Button from '$lib/components/Button.svelte';
@@ -88,7 +89,11 @@
     <Skeleton height="1.25rem" />
   </div>
 {:else if hits.length === 0}
-  <p class="text-sm text-fg-3">{t('knowledge.matches.none')}</p>
+  <!-- A result, not a hint: it reads as a state under the section's description. -->
+  <p class="flex items-start gap-2 rounded-md bg-surface-2 px-3 py-2 text-sm text-fg-2" role="status">
+    <SearchX size={ICON.sm} class="mt-0.5 shrink-0 text-fg-3" aria-hidden="true" />
+    {t('knowledge.matches.none')}
+  </p>
 {:else}
   <ul class="-mx-2 flex flex-col gap-0.5">
     {#each hits as hit (hit.chunkId)}
