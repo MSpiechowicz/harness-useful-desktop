@@ -85,10 +85,10 @@
       {/each}
     </div>
 
-    <ul bind:this={list} class="max-h-72 divide-y divide-line overflow-y-auto rounded-lg border border-line" aria-label={t('knowledge.import.rows.label')}>
+    <ul bind:this={list} class="flex max-h-72 flex-col gap-0.5 overflow-y-auto rounded-lg border border-line p-1" aria-label={t('knowledge.import.rows.label')}>
       {#each shown as row, index (`${index}:${row.path}`)}
         {@const Icon = STATUS_ICONS[row.status]}
-        <li in:rise={{ y: 6, duration: 220 }} class="flex min-h-12 items-center gap-3 px-3 py-2">
+        <li in:rise={{ y: 6, duration: 220 }} class="flex min-h-12 shrink-0 items-center gap-3 rounded-md px-3 py-2">
           <Icon size={ICON.sm} class={cx('shrink-0', row.status === 'failed' ? 'text-danger' : row.status === 'added' ? 'text-success' : 'text-fg-3')} aria-hidden="true" />
 
           <div class="flex min-w-0 flex-1 flex-col">

@@ -23,9 +23,9 @@
 <div class="flex flex-col gap-3">
   <p class="text-sm font-medium text-fg-2">{[intake.files.length > 0 ? tn('knowledge.import.staged.files', intake.files.length) : '', intake.folders.length > 0 ? tn('knowledge.import.staged.folders', intake.folders.length) : ''].filter(Boolean).join(', ')}</p>
 
-  <ul class="max-h-48 divide-y divide-line overflow-y-auto rounded-lg border border-line" aria-label={t('knowledge.import.staged.label')}>
+  <ul class="flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-lg border border-line p-1" aria-label={t('knowledge.import.staged.label')}>
     {#each entries as entry, index (entry.path)}
-      <li in:rise={{ y: 4, delay: Math.min(index, 8) * 30, duration: 200 }} class="flex h-11 items-center gap-3 px-3">
+      <li in:rise={{ y: 4, delay: Math.min(index, 8) * 30, duration: 200 }} class="flex h-11 shrink-0 items-center gap-3 rounded-md px-3">
         {#if entry.folder}
           <Folder size={ICON.sm} class="shrink-0 text-accent-text" aria-hidden="true" />
         {:else}
