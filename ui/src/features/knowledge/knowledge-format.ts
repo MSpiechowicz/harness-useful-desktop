@@ -69,10 +69,10 @@ export function sortOf(key: string): KnowledgeSort {
 export function docColumns(): Column[] {
   return [
     { key: 'title', label: t('knowledge.column.title'), sortable: true },
-    { key: 'format', label: t('knowledge.column.format'), width: '9.5rem', sortable: true, from: 'sm' },
+    { key: 'format', label: t('knowledge.column.format'), width: '10.5rem', sortable: true, from: 'sm' },
     { key: 'repos', label: t('knowledge.column.repos'), width: '16rem', sortable: true, from: 'md' },
-    { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', sortable: true, descFirst: true, from: 'lg' },
-    { key: 'updated', label: t('knowledge.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },
+    { key: 'chunks', label: t('knowledge.column.chunks'), width: '8rem', align: 'end', sortable: true, descFirst: true, from: 'lg' },
+    { key: 'updated', label: t('knowledge.column.updated'), width: '10rem', sortable: true, descFirst: true, from: 'sm' },
   ];
 }
 
@@ -81,7 +81,7 @@ export function heldColumns(): Column[] {
     { key: 'title', label: t('knowledge.column.proposal') },
     { key: 'client', label: t('knowledge.column.client'), width: '10rem', from: 'sm' },
     { key: 'project', label: t('knowledge.column.project'), width: '12rem', from: 'md' },
-    { key: 'proposed', label: t('knowledge.column.proposed'), width: '8rem', from: 'sm' },
+    { key: 'proposed', label: t('knowledge.column.proposed'), width: '10rem', from: 'sm' },
   ];
 }
 
