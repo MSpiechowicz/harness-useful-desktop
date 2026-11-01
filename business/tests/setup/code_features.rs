@@ -7,7 +7,7 @@ use crate::team_support;
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{CodeFeatures, CodeSupport};
-use memory_cli_support::installed_binary;
+use memory_cli_support::{install, installed_binary, installed_binary_at};
 use pretty_assertions::assert_eq;
 use team_support::{Cli, exits, wait};
 
@@ -61,12 +61,14 @@ fn a_server_that_cannot_say_has_no_features() {
 
 #[test]
 fn a_command_waits_for_its_feature() {
-    let (_dir, env) = installed_binary("harness-code");
+    let dir = tempfile::tempdir().unwrap();
+    let (env, path) = installed_binary_at(dir.path(), "harness-code");
+    install(&path, None);
     let probe = CodeFeatures::new();
     let cli = listing("code-index\n");
 
     let index = wait(probe.feature_server(&env, &cli, CodeSupport::index, "the code index"));
-    assert_eq!(index.unwrap(), env.home.join(".local/bin/harness-code"));
+    assert_eq!(index.unwrap(), path);
 
     let prepare = wait(probe.feature_server(&env, &cli, CodeSupport::prepare, "preparing the code index"));
     assert!(

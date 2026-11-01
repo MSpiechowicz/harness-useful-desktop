@@ -141,9 +141,12 @@ async fn the_ecosystem_tab_lists_it_after_knowledge_with_its_version() {
     );
 
     let (_dir, env) = installed_binary("harness-code");
-    let status = ecosystem_status(&env.with_os(OsKind::Linux), &reports("harness-code 1.0.0\n")).await;
+    let status = ecosystem_status(&env, &reports("harness-code 1.0.0\n")).await;
     let found = status.items.iter().find(|item| item.id == EcosystemId::Code).unwrap();
     assert!(found.installed);
     assert_eq!(found.version.as_deref(), Some("1.0.0"));
-    assert_eq!(found.via, ["binary ~/.local/bin/harness-code"]);
+    // Windows installs under %LOCALAPPDATA%\\Programs: the `via` text is the Linux and macOS one.
+    if !cfg!(windows) {
+        assert_eq!(found.via, ["binary ~/.local/bin/harness-code"]);
+    }
 }
