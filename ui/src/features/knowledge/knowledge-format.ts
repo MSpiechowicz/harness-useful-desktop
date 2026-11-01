@@ -52,8 +52,8 @@ export function pathCount(links: readonly KnowledgeLink[]): number {
   return links.reduce((sum, link) => sum + link.globs.length, 0);
 }
 
-/** The columns the server sorts the documents by: the title and the time. A key that is not one (a state left by an older version) sorts by time. */
-const SORTS: Record<string, KnowledgeSort> = { title: 'title', updated: 'updated' };
+/** The columns the server sorts the documents by. A key that is not one (a state left by an older version) sorts by time. */
+const SORTS: Record<string, KnowledgeSort> = { title: 'title', format: 'format', repos: 'repos', chunks: 'chunks', updated: 'updated' };
 
 export function sortOf(key: string): KnowledgeSort {
   return SORTS[key] ?? 'updated';
@@ -62,9 +62,9 @@ export function sortOf(key: string): KnowledgeSort {
 export function docColumns(): Column[] {
   return [
     { key: 'title', label: t('knowledge.column.title'), sortable: true },
-    { key: 'format', label: t('knowledge.column.format'), width: '9.5rem', from: 'sm' },
-    { key: 'repos', label: t('knowledge.column.repos'), width: '16rem', from: 'md' },
-    { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', from: 'lg' },
+    { key: 'format', label: t('knowledge.column.format'), width: '9.5rem', sortable: true, from: 'sm' },
+    { key: 'repos', label: t('knowledge.column.repos'), width: '16rem', sortable: true, from: 'md' },
+    { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', sortable: true, descFirst: true, from: 'lg' },
     { key: 'updated', label: t('knowledge.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },
   ];
 }
@@ -83,7 +83,7 @@ export function folderName(path: string | null): string {
   return path?.split(/[\\/]/).filter(Boolean).at(-1) ?? '';
 }
 
-/** The Details card of a document. `sections` is how many chunks the outline lists, which the document alone does not say. */
+/** The Details card of a document. `sections` is how many headings the outline lists, which the document alone does not say. */
 export function docFacts(doc: KnowledgeDocument, sections: number | null): FactRow[] {
   return [
     { label: t('knowledge.fact.format'), value: formatLabel(formatKey(doc)) },
@@ -122,4 +122,9 @@ export function linksText(links: readonly KnowledgeLink[]): string {
 /** "3 paths", or nothing for a whole repository. */
 export function pathsText(count: number): string | null {
   return count === 0 ? null : tn('knowledge.repos.paths', count);
+}
+
+/** The outline of a document: the server lists one entry per chunk, so the chunks a long section is cut into are one heading here. */
+export function outlineOf<Section extends { headingPath: string }>(sections: readonly Section[]): Section[] {
+  return sections.filter((section, index) => index === 0 || sections[index - 1]?.headingPath !== section.headingPath);
 }

@@ -219,6 +219,12 @@ pub enum KnowledgeSort {
     Updated,
     /// By size, largest first unless reversed.
     Size,
+    /// By format name, A to Z unless reversed.
+    Format,
+    /// By chunk count, most first unless reversed.
+    Chunks,
+    /// By the first linked repository, global documents first unless reversed.
+    Repos,
 }
 
 /// What a list of documents is asked with: the filters and the page (see

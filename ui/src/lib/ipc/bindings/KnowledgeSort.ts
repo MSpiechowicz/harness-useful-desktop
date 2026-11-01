@@ -3,4 +3,4 @@
 /**
  * How a list is sorted.
  */
-export type KnowledgeSort = "title" | "updated" | "size";
+export type KnowledgeSort = "title" | "updated" | "size" | "format" | "chunks" | "repos";

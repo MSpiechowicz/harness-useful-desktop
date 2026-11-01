@@ -6,11 +6,15 @@
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeSection } from '$lib/ipc/bindings/KnowledgeSection';
 
+  import { outlineOf } from './knowledge-format';
+
   interface Props {
     sections: KnowledgeSection[];
   }
 
-  let { sections }: Props = $props();
+  let { sections: chunks }: Props = $props();
+
+  const sections = $derived(outlineOf(chunks));
 
   /** How many sections show before the rest is asked for. */
   const SHOWN = 8;

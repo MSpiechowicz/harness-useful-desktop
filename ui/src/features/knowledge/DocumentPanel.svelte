@@ -18,7 +18,7 @@
   import BodyState from '../memory/BodyState.svelte';
   import DocumentSections from './DocumentSections.svelte';
   import DocumentTitle from './DocumentTitle.svelte';
-  import { docFacts, docSubtitle } from './knowledge-format';
+  import { docFacts, docSubtitle, outlineOf } from './knowledge-format';
   import LinksEditor from './LinksEditor.svelte';
 
   interface Props {
@@ -110,7 +110,7 @@
       </BodyState>
     </SectionCard>
 
-    <FactsCard flat heading={t('knowledge.panel.details')} rows={docFacts(doc, detail?.sections.length ?? null)} />
+    <FactsCard flat heading={t('knowledge.panel.details')} rows={docFacts(doc, detail ? outlineOf(detail.sections).length : null)} />
 
     <SectionCard flat heading={t('knowledge.panel.actions')}>
       <Button variant="dangerQuiet" onclick={ondelete}>

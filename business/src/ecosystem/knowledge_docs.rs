@@ -43,7 +43,7 @@ const MAX_GLOB_CHARS: usize = 256;
 const MAX_DELETE_IDS: usize = 1000;
 
 /// The sorts that go largest or newest first unless asked otherwise.
-const DESCENDING_SORTS: [KnowledgeSort; 2] = [KnowledgeSort::Updated, KnowledgeSort::Size];
+const DESCENDING_SORTS: [KnowledgeSort; 3] = [KnowledgeSort::Updated, KnowledgeSort::Size, KnowledgeSort::Chunks];
 
 /// The installed server when it lists `docs`.
 pub async fn docs_server(env: &Env, runner: &dyn ProcessRunner, features: &KnowledgeFeatures) -> Result<PathBuf> {
@@ -132,6 +132,9 @@ fn sort_name(sort: KnowledgeSort) -> &'static str {
         KnowledgeSort::Title => "title",
         KnowledgeSort::Updated => "updated",
         KnowledgeSort::Size => "size",
+        KnowledgeSort::Format => "format",
+        KnowledgeSort::Chunks => "chunks",
+        KnowledgeSort::Repos => "repos",
     }
 }
 
