@@ -12,6 +12,7 @@
   import Pagination from '$lib/components/Pagination.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import type { Column, Sort } from '$lib/components/table';
+  import { SKELETON_DELAY_MS } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MemoryScriptsAvailability } from '$lib/ipc/bindings/MemoryScriptsAvailability';
   import type { IpcFailure } from '$lib/ipc/transport';
@@ -101,8 +102,25 @@
 
   let grid: { focusRow: (key: string | number) => void } | undefined = $state();
 
-  /** A read for a changed search or filter is under way. The page still on screen answers the old one, so when it is empty, "nothing found" would be a stale claim. */
-  const stale = $derived(loader.status === 'loading' && rows.length === 0);
+  /**
+   * A read for a changed search or filter is under way. The page still on screen answers the old one, so when it is empty, "nothing found"
+   * would be a stale claim. The skeleton waits SKELETON_DELAY_MS first: a quick answer swaps in without the table blinking.
+   */
+  const reading = $derived(loader.status === 'loading' && rows.length === 0);
+  let slow = $state(false);
+  const stale = $derived(reading && slow);
+
+  $effect(() => {
+    if (!reading) {
+      slow = false;
+
+      return;
+    }
+
+    const timer = setTimeout(() => (slow = true), SKELETON_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  });
 
   /** Closes the panel and hands the focus back to the row it was opened from. */
   function close(): Promise<void> {
