@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Library from '@lucide/svelte/icons/library';
+  import BookOpenText from '@lucide/svelte/icons/book-open-text';
   import Trash2 from '@lucide/svelte/icons/trash-2';
 
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -58,7 +58,7 @@
   bind:open
   title={tn('knowledge.deleteAll.title', asked)}
   description={t('knowledge.deleteAll.body')}
-  subject={{ icon: Library, name: tn('knowledge.count.documents', asked) }}
+  subject={{ icon: BookOpenText, name: tn('knowledge.count.documents', asked) }}
   confirmLabel={t('knowledge.deleteAll.confirm')}
   cancelLabel={t('knowledge.deleteAll.cancel')}
   onconfirm={remove}

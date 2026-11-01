@@ -3,7 +3,7 @@ import CalendarClock from '@lucide/svelte/icons/calendar-clock';
 import FileCode from '@lucide/svelte/icons/file-code';
 import GitBranch from '@lucide/svelte/icons/git-branch';
 import GitCompare from '@lucide/svelte/icons/git-compare';
-import Library from '@lucide/svelte/icons/library';
+import BookOpenText from '@lucide/svelte/icons/book-open-text';
 import MessageSquare from '@lucide/svelte/icons/message-square';
 import NotebookText from '@lucide/svelte/icons/notebook-text';
 import Orbit from '@lucide/svelte/icons/orbit';
@@ -140,7 +140,7 @@ export const VIEWS: readonly ViewMeta[] = [
     get label() {
       return t('knowledge.nav.label');
     },
-    icon: Library,
+    icon: BookOpenText,
     get heading() {
       return t('knowledge.nav.heading');
     },

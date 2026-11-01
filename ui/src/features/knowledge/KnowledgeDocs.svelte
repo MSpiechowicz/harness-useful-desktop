@@ -3,7 +3,7 @@
   import FolderUp from '@lucide/svelte/icons/folder-up';
   import Globe from '@lucide/svelte/icons/globe';
   import GitBranch from '@lucide/svelte/icons/git-branch';
-  import Library from '@lucide/svelte/icons/library';
+  import BookOpenText from '@lucide/svelte/icons/book-open-text';
   import { untrack } from 'svelte';
 
   import Badge from '$lib/components/Badge.svelte';
@@ -185,7 +185,7 @@
 {/snippet}
 
 {#if none}
-  <KnowledgeEmpty icon={Library} title={t('knowledge.docs.empty.title')} body={t('knowledge.docs.empty.body')} action={emptyAction} />
+  <KnowledgeEmpty icon={BookOpenText} title={t('knowledge.docs.empty.title')} body={t('knowledge.docs.empty.body')} action={emptyAction} />
 {:else}
   {#if page}
     <MemorySearch bind:value={viewState.knowledgeQuery} label={t('knowledge.search.label')} placeholder={t('knowledge.search.placeholder')} />
@@ -196,7 +196,7 @@
   loaded={page !== null}
   availability={null}
   none={false}
-  emptyIcon={Library}
+  emptyIcon={BookOpenText}
   emptyTitle={t('knowledge.docs.empty.title')}
   emptyBody={t('knowledge.docs.empty.body')}
   failedTitle={t('knowledge.docs.failed')}
@@ -243,6 +243,7 @@
       status={knowledgeDocs.detail.status}
       error={knowledgeDocs.detail.error?.message ?? null}
       {options}
+      query={viewState.knowledgeQuery}
       onretry={() => void knowledgeDocs.detail.refresh()}
       onrename={rename}
       onlinks={relink}
