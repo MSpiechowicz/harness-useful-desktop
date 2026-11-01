@@ -1,3 +1,10 @@
+# [0.51.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.50.1...v0.51.0) (2026-11-01)
+
+
+### Features
+
+* **config:** map new Harness Skills roles in OMP and change role models from the app ([c970030](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c970030b524cbc76aea5edf9e716ca98597595a0))
+
 ## [0.50.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.50.0...v0.50.1) (2026-11-01)
 
 
