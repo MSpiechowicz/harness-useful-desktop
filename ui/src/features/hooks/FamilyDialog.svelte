@@ -107,6 +107,11 @@
     </div>
   {/if}
 
+  <!-- Recall is the one hook that sends the user's message to a tool, so it says so where it is installed. -->
+  {#if rows?.some((row) => row.seed === 'knowledge-recall' && row.status !== 'needsMember')}
+    <p class="mt-4 text-sm text-fg-2">{t('hooks.family.recallNote')}</p>
+  {/if}
+
   <div class="mt-4"><DesktopMcpHint onleave={() => (open = false)} /></div>
 
   {#snippet footer()}

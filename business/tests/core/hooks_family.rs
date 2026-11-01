@@ -19,16 +19,19 @@ mod hooks_family {
         memory_available: false,
         dashboard_available: false,
         code_graph_available: false,
+        knowledge_available: false,
     };
     const MEMORY: HookCapabilities = HookCapabilities {
         memory_available: true,
         dashboard_available: false,
         code_graph_available: false,
+        knowledge_available: false,
     };
     const BOTH: HookCapabilities = HookCapabilities {
         memory_available: true,
         dashboard_available: true,
         code_graph_available: false,
+        knowledge_available: false,
     };
 
     fn store() -> (TempDir, HookStore) {
@@ -161,6 +164,8 @@ mod hooks_family {
                 (HookSeed::BranchSync, HookFamilyStatus::Missing),
                 (HookSeed::MemoryFirst, HookFamilyStatus::Missing),
                 (HookSeed::CodeGraphFirst, HookFamilyStatus::NeedsMember),
+                (HookSeed::KnowledgeFirst, HookFamilyStatus::NeedsMember),
+                (HookSeed::KnowledgeRecall, HookFamilyStatus::NeedsMember),
             ]
         );
 
@@ -177,6 +182,8 @@ mod hooks_family {
                 (HookSeed::BranchSync, HookFamilyStatus::Installed),
                 (HookSeed::MemoryFirst, HookFamilyStatus::Installed),
                 (HookSeed::CodeGraphFirst, HookFamilyStatus::NeedsMember),
+                (HookSeed::KnowledgeFirst, HookFamilyStatus::NeedsMember),
+                (HookSeed::KnowledgeRecall, HookFamilyStatus::NeedsMember),
             ]
         );
 
@@ -331,11 +338,15 @@ mod hooks_family {
             seeded(&store, HookSeed::DashboardLimits).unwrap().status,
             HookStatus::Active
         );
-        // Everything but the code graph hook, which needs the code graph of Harness Memory.
+        // Everything but the code graph hook, which needs the code graph of Harness Memory, and the
+        // Harness Knowledge hooks.
         assert!(
             statuses(&store, BOTH)
                 .iter()
-                .filter(|(seed, _)| *seed != HookSeed::CodeGraphFirst)
+                .filter(|(seed, _)| !matches!(
+                    seed,
+                    HookSeed::CodeGraphFirst | HookSeed::KnowledgeFirst | HookSeed::KnowledgeRecall
+                ))
                 .all(|(_, status)| *status == HookFamilyStatus::Installed)
         );
 

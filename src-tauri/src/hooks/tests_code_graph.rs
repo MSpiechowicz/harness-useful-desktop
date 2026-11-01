@@ -1,7 +1,7 @@
 //! The "Use the code graph first" hook follows the Code index switch file on every prompt, even
 //! while the cached members still say the switch is on (it was turned off outside the app).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime};
 
 use harness_business::ecosystem::{CodeGraphSupport, memory_data_dir};
@@ -32,6 +32,7 @@ fn seeded() -> Seeded {
         memory_available: true,
         dashboard_available: true,
         code_graph_available: true,
+        knowledge_available: false,
     };
     let store = state.hooks.store().expect("a hooks folder");
     seed_defaults(&store, available, SystemTime::now()).expect("the family hooks are seeded");
@@ -46,6 +47,7 @@ fn seeded() -> Seeded {
             memory_enabled: true,
             dashboard_installed: true,
             code_graph: CodeGraphSupport { listed: true, on: true },
+            ..Members::default()
         },
     ));
 
@@ -58,10 +60,16 @@ fn seeded() -> Seeded {
 
 /// The names of the hooks whose context the next prompt carries.
 fn injected(setup: &Seeded) -> Vec<String> {
-    let hooks = block_on(setup.state.hooks.hook_set(None));
+    planned_names(setup._dir.path(), &setup.state)
+}
+
+/// The names of the hooks whose part a prompt in `folder` carries now, sorted: hooks written in the
+/// same second run in the order of their ids.
+pub(super) fn planned_names(folder: &Path, state: &AppState) -> Vec<String> {
+    let hooks = block_on(state.hooks.hook_set(None));
     let chat = ChatContext {
         session_id: "chat".to_owned(),
-        folder: setup._dir.path().to_path_buf(),
+        folder: folder.to_path_buf(),
         project: None,
         fresh: false,
         utility: false,

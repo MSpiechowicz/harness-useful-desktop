@@ -49,6 +49,7 @@ mod hooks_compose;
 mod hooks_engine;
 mod hooks_family;
 mod hooks_family_code_graph;
+mod hooks_family_knowledge;
 mod hooks_follow_up;
 mod hooks_format;
 mod hooks_mcp;

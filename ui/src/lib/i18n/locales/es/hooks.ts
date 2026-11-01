@@ -269,4 +269,5 @@ export const hooks: AreaMessages<typeof enHooks> = {
   'hooks.value.changedSinceShared': 'Cambiado desde que lo compartiste',
   'hooks.list.teamTrusted': 'De confianza: se ejecuta sin preguntar',
   'hooks.member.knowledge': 'Harness Knowledge',
+  'hooks.family.recallNote': 'La recuperación envía cada mensaje que escribes a Harness Knowledge en este equipo, que puede buscar sus palabras en la base de datos de tu equipo. Si ningún documento coincide, no se añade nada.',
 };

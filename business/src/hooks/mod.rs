@@ -12,11 +12,13 @@
 //! - [`approvals`]: `hook-approvals.json` and the approved copies in the app's config folder. A
 //!   hook runs only while the SHA-256 of its exact file bytes is approved, so a file an agent
 //!   wrote never runs unreviewed.
-//! - [`family`]: the Harness family hooks (Harness Memory, Harness Dashboard): seeded once at
+//! - [`family`]: the Harness family hooks (Harness Memory, Harness Dashboard, Harness Knowledge): seeded once at
 //!   launch, added or updated on request, restored after a member is installed.
 //! - [`engine`]: a pure state machine per chat that decides which hooks fire for each action and
 //!   event, including the follow-up loop rule. It never runs anything itself.
 //! - [`command`]: runs the command hooks of one firing (sequential, a shared 30 s budget).
+//! - [`recall`]: the Harness Knowledge recall the app runs itself for the `knowledge-recall` family
+//!   hook (the prompt on stdin, no shell, 3 s).
 //! - [`compose`]: the `<harness-hook-context>` block and the follow-up prompt, and
 //!   [`strip_hook_context`] for titles and previews.
 //! - [`team`]: the team hooks shared through Harness Memory, kept as copies in `<root>/team` that
@@ -38,6 +40,7 @@ mod folder;
 pub mod format;
 mod memory_guards;
 mod plan;
+pub mod recall;
 mod run;
 mod state;
 pub mod store;
@@ -61,12 +64,14 @@ pub use engine::{
 };
 pub use family::{
     FAMILY, FamilyHook, SEED_BRANCH_SYNC_TEXT, SEED_CODE_GRAPH_FIRST_TEXT, SEED_DASHBOARD_LIMITS_TEXT,
-    SEED_MEMORY_FIRST_TEXT, SEED_MEMORY_SAVE_TEXT, SEED_MEMORY_SEARCH_TEXT, SEED_USEFUL_SKILLS_TEXT, apply_family,
-    family_hook, family_status, restore_member, seed_defaults,
+    SEED_KNOWLEDGE_FIRST_TEXT, SEED_KNOWLEDGE_RECALL_TEXT, SEED_MEMORY_FIRST_TEXT, SEED_MEMORY_SAVE_TEXT,
+    SEED_MEMORY_SEARCH_TEXT, SEED_USEFUL_SKILLS_TEXT, apply_family, family_hook, family_status, restore_member,
+    seed_defaults,
 };
 pub use format::{MAX_HOOK_FILE_BYTES, is_hook_id, parse_hook_file};
 pub use memory_guards::read_memory_guards;
 pub use plan::MAX_TOUCHED_BYTES;
+pub use recall::{KNOWLEDGE_ELEMENT_NAME, recall_hook_ids, run_with_recall};
 pub use run::handled_without_run;
 pub use store::{HookCapabilities, HookStore, MAX_HOOKS_PER_SCOPE};
 

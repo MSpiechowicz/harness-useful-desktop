@@ -9,6 +9,7 @@ use tauri::async_runtime::block_on;
 
 use super::blocking;
 use crate::error::CommandResult;
+use crate::hooks::seed_available;
 use crate::product::Knowledge;
 use crate::state::AppState;
 use crate::{sidecar_embedder, sidecar_setup};
@@ -38,6 +39,13 @@ pub async fn knowledge_set_enabled(state: State<'_, AppState>, enabled: bool) ->
 
 pub(crate) async fn set_enabled(state: &AppState, enabled: bool) -> CommandResult<KnowledgeSwitchResult> {
     let (saved, manual_removals) = sidecar_setup::set_enabled::<Knowledge>(state, enabled).await?;
+
+    // The hooks that need Harness Knowledge run or pause from now on. Switched on, its family
+    // hooks are seeded when they never were.
+    state.hooks.refresh_members();
+    if enabled {
+        seed_available(&state.hooks).await;
+    }
 
     sidecar_embedder::reconcile::<Knowledge>(state).await;
 

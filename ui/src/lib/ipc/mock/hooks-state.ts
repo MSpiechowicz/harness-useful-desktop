@@ -43,13 +43,15 @@ export class MockHooks {
   private files = new Map<string, Stored>();
   private invalid = new Map<string, string>();
   private listener: (() => void) | null = null;
-  private installed: Record<HookRequirement, boolean> = { 'harness-memory': true, 'harness-dashboard': true };
+  private installed: Record<HookRequirement, boolean> = { 'harness-memory': true, 'harness-dashboard': true, 'harness-knowledge': true };
   private readonly team: MockTeam;
 
   constructor(
     private readonly scenario: () => HookScenario,
     /** Whether the memory setting is on, which the memory family hooks wait for. */
     private readonly memoryOn: () => boolean,
+    /** Whether the project knowledge setting is on, which the Harness Knowledge family hooks wait for. */
+    private readonly knowledgeOn: () => boolean = () => true,
   ) {
     this.team = new MockTeam(teamModeOf(scenario()));
     this.seed(scenario());
@@ -127,7 +129,14 @@ export class MockHooks {
   }
 
   private met(requirement: HookRequirement): boolean {
-    return requirement === 'harness-memory' ? this.installed[requirement] && this.memoryOn() : this.installed[requirement];
+    switch (requirement) {
+      case 'harness-memory':
+        return this.installed[requirement] && this.memoryOn();
+      case 'harness-knowledge':
+        return this.installed[requirement] && this.knowledgeOn();
+      case 'harness-dashboard':
+        return this.installed[requirement];
+    }
   }
 
   /** Why a hook cannot be shared with the team, in the order the backend checks. Nothing while hooks are not shared. */

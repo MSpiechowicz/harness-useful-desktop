@@ -24,8 +24,8 @@ export const OTHER_PROJECT = fixtures.recentProjects[1].path;
  * A hooks folder kept in memory that answers the hook commands like the real one (the mock backend's own), with the rest of
  * the app talking to the mock transport as usual. `memoryOn` is read at every list, so a test can switch it.
  */
-export function fakeHooks(scenario: HookScenario = 'ok', memory = { on: true }, desktopMcpRegistered = false) {
-  const state = new MockHooks(() => scenario, () => memory.on);
+export function fakeHooks(scenario: HookScenario = 'ok', memory = { on: true }, desktopMcpRegistered = false, knowledge = { on: true }) {
+  const state = new MockHooks(() => scenario, () => memory.on, () => knowledge.on);
 
   const invoke = spyOnInvoke(hooksHandlers(state), (name, result) => {
     // Every harness found has the app's own entry in its MCP file.
@@ -37,14 +37,16 @@ export function fakeHooks(scenario: HookScenario = 'ok', memory = { on: true }, 
     }
 
     // Installing a member brings back its missing family hooks, as the backend does after the installer.
-    if ((name === 'setup_install_dashboard' || name === 'setup_install_memory') && (result as { ok: boolean }).ok) {
-      state.memberInstalled(name === 'setup_install_dashboard' ? 'harness-dashboard' : 'harness-memory');
+    const installed = { setup_install_dashboard: 'harness-dashboard', setup_install_memory: 'harness-memory', setup_install_knowledge: 'harness-knowledge' } as const;
+
+    if (name in installed && (result as { ok: boolean }).ok) {
+      state.memberInstalled(installed[name as keyof typeof installed]);
     }
 
     return result;
   });
 
-  return { state, invoke, memory };
+  return { state, invoke, memory, knowledge };
 }
 
 export { appliesTo, pickTarget } from '../memory/memory-test-support';

@@ -32,11 +32,10 @@ use std::sync::{Arc, Mutex, PoisonError};
 use harness_business::agent::EventSink;
 use harness_business::env::Env;
 use harness_business::hooks::{
-    ChatContext, CommandFailure, CommandFailureKind, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet,
-    ResolvedPart, SendOrigin, SendPlan, compose_follow_up, compose_prompt, handled_without_run, project_identity,
-    run_firing, run_firings,
+    ChatContext, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet, ResolvedPart, SendOrigin, SendPlan,
+    compose_follow_up, compose_prompt, handled_without_run, project_identity, run_firing, run_with_recall,
 };
-use harness_business::model::{AgentAction, AgentEnvelope, AgentEvent, AgentReply, AgentSessionInfo, NoticeLevel};
+use harness_business::model::{AgentAction, AgentEnvelope, AgentEvent, AgentReply, AgentSessionInfo};
 use harness_business::process::TokioRunner;
 use harness_business::{BusinessError, Result};
 use serde_json::Value;
@@ -49,8 +48,11 @@ use crate::state::AppState;
 
 mod counts;
 mod memory;
+mod report;
 
 pub use memory::check_again;
+
+use report::report;
 
 /// Forwards a chat's events to its sink (the webview, or a routine run's relay) first, then hands
 /// the ones the hooks react to (tool ends, prompt results, settles, the exit) to the chat's hook
@@ -290,7 +292,16 @@ pub async fn send(state: &AppState, key: &str, action: AgentAction) -> Result<Ag
     let action = if plan.is_empty() {
         action
     } else {
-        with_context(state, key, action, &plan, &mut session).await
+        with_context(
+            state,
+            key,
+            action,
+            &plan,
+            &hooks,
+            chat.project().as_deref(),
+            &mut session,
+        )
+        .await
     };
 
     // Read after the context commands ran: a settle that arrived meanwhile ends the run before
@@ -319,12 +330,16 @@ fn changes_session(action: &AgentAction) -> bool {
 
 /// `action` (an eligible prompt) with the memory settings notice and the context of `plan` in
 /// front of its text. A `sessionStart` context or a notice that did not fit comes again on the
-/// next prompt.
+/// next prompt. The message goes to the Harness Knowledge recall of the chat's `project` while a
+/// recall hook of `hooks` is in the plan (see `harness_business::hooks::recall`), and to no other
+/// hook.
 async fn with_context(
     state: &AppState,
     key: &str,
     action: AgentAction,
     plan: &SendPlan,
+    hooks: &HookSet,
+    project: Option<&str>,
     session: &mut HookSession,
 ) -> AgentAction {
     let AgentAction::Prompt {
@@ -336,7 +351,8 @@ async fn with_context(
         return action;
     };
 
-    let result = run_firings(&TokioRunner, &state.env, &plan.firings).await;
+    let features = state.hooks.knowledge_features();
+    let result = run_with_recall(&TokioRunner, &state.env, features, hooks, plan, &message, project).await;
     report(&state.agents, key, &result.failures);
 
     let parts = plan.context_parts(result.parts);
@@ -362,32 +378,6 @@ fn never_delivered(error: &BusinessError) -> bool {
             | BusinessError::Forbidden(_)
             | BusinessError::Unsupported(_)
     )
-}
-
-/// Puts a notice in chat `key` for each command hook that gave no output.
-fn report(agents: &Agents, key: &str, failures: &[CommandFailure]) {
-    for failure in failures {
-        tracing::info!(session = %key, hook = failure.hook_id, kind = failure.kind.as_str(), "hook command gave no output");
-
-        // A chat that is gone has nobody to tell.
-        agents
-            .manager()
-            .notice(key, NoticeLevel::Warning, failure_notice(failure))
-            .ok();
-    }
-}
-
-/// The notice for `failure`: the hook's name and what went wrong, never its command or output.
-fn failure_notice(failure: &CommandFailure) -> String {
-    let name = &failure.hook_name;
-
-    match failure.kind {
-        CommandFailureKind::Spawn => format!("The hook \"{name}\" could not start its command."),
-        CommandFailureKind::Exit(Some(code)) => format!("The hook \"{name}\" failed with exit code {code}."),
-        CommandFailureKind::Exit(None) => format!("The hook \"{name}\" was stopped before it finished."),
-        CommandFailureKind::Timeout => format!("The hook \"{name}\" timed out."),
-        CommandFailureKind::Skipped => format!("The hook \"{name}\" was skipped, its event ran out of time."),
-    }
 }
 
 /// Carries out what a chat's events ask for.

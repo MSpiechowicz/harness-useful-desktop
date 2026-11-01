@@ -21,8 +21,8 @@ use std::path::{Path, PathBuf};
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
     ImportManifest, KnowledgeFeatures, KnowledgeImporter, ListWindow, decide_knowledge_held, docs_server, get_doc,
-    get_knowledge_held, knowledge_held_server, knowledge_pulse, list_docs, list_knowledge_held, read_check, read_stats,
-    run_import, search_knowledge,
+    get_knowledge_held, knowledge_held_server, knowledge_pulse, knowledge_recall, list_docs, list_knowledge_held,
+    read_check, read_stats, run_import, search_knowledge,
 };
 use harness_business::env::Env;
 use harness_business::model::{
@@ -350,4 +350,43 @@ fn a_real_server_holds_a_proposal_and_approves_only_the_version_shown() {
         (docs.total, docs.items[0].id, docs.items[0].origin),
         (1, doc_id, KnowledgeOrigin::AgentApproved)
     );
+}
+
+#[test]
+fn a_real_server_recalls_pointers_for_a_prompt_and_nothing_for_an_unrelated_one() {
+    let Some(real) = real_binary() else { return };
+    let (home, env) = scene(&real);
+    let runner = TokioRunner;
+    let probe = KnowledgeFeatures::new();
+    let path = server(&env);
+
+    // An empty database recalls nothing, and the read does not create it.
+    let prompt = "How does the gateway route every request to the service that owns the path?";
+    assert_eq!(wait(knowledge_recall(&env, &runner, &probe, prompt, None)), None);
+
+    // Without an embedder the recall reads the keyword list above a floor that a tiny corpus never
+    // reaches, so the handbook sits among 60 documents about other things.
+    let folder = handbook(home.path());
+    for number in 0..60 {
+        let text = format!("# Topic {number}\n\nNotes about subject{number} and matter{number} for the team.\n");
+        std::fs::write(folder.join(format!("topic-{number}.md")), text).unwrap();
+    }
+
+    let manifest = ImportManifest::new(
+        Vec::new(),
+        vec![folder.to_string_lossy().into_owned()],
+        KnowledgeImportOptions::default(),
+    );
+    let importer = KnowledgeImporter::new();
+    let run = importer.begin().unwrap();
+    let imported = wait(run_import(&env, &TokioSpawner, &path, &manifest, &run, |_| {})).unwrap();
+    drop(run);
+    assert_eq!(imported.counts.expect("the import ended").added, 62);
+
+    let block = wait(knowledge_recall(&env, &runner, &probe, prompt, None)).expect("pointers for the gateway");
+    assert!(block.starts_with("<harness-knowledge-recall>") && block.ends_with("</harness-knowledge-recall>"));
+    assert!(block.contains("Gateway") && block.len() <= 1024, "{block}");
+
+    let unrelated = "What should we order for the team lunch on Friday afternoon?";
+    assert_eq!(wait(knowledge_recall(&env, &runner, &probe, unrelated, None)), None);
 }

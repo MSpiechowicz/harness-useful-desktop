@@ -109,6 +109,10 @@ pub enum HookRequirement {
     /// Harness Dashboard is installed.
     #[serde(rename = "harness-dashboard")]
     HarnessDashboard,
+    /// Harness Knowledge is installed, its project knowledge setting is on and its MCP server is
+    /// listed.
+    #[serde(rename = "harness-knowledge")]
+    HarnessKnowledge,
 }
 
 impl HookRequirement {
@@ -117,12 +121,13 @@ impl HookRequirement {
         match self {
             Self::HarnessMemory => "harness-memory",
             Self::HarnessDashboard => "harness-dashboard",
+            Self::HarnessKnowledge => "harness-knowledge",
         }
     }
 
     /// The requirement named `name`.
     pub fn parse(name: &str) -> Option<Self> {
-        [Self::HarnessMemory, Self::HarnessDashboard]
+        [Self::HarnessMemory, Self::HarnessDashboard, Self::HarnessKnowledge]
             .into_iter()
             .find(|requirement| requirement.as_str() == name)
     }
@@ -148,11 +153,16 @@ pub enum HookSeed {
     /// Harness Memory: "Use the code graph first" (`promptSubmit`). Offered only while the installed
     /// Harness Memory lists `code-index` (and runs only while the Code index switch is on).
     CodeGraphFirst,
+    /// Harness Knowledge: "Check Knowledge first" (`promptSubmit`).
+    KnowledgeFirst,
+    /// Harness Knowledge: "Recall from Harness Knowledge" (`promptSubmit`). The app itself runs
+    /// `harness-knowledge recall --hook` for it at compose time, see `hooks::recall`.
+    KnowledgeRecall,
 }
 
 impl HookSeed {
     /// Every family hook, in catalog order.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 9] = [
         Self::MemorySearch,
         Self::MemorySave,
         Self::DashboardLimits,
@@ -160,6 +170,8 @@ impl HookSeed {
         Self::BranchSync,
         Self::MemoryFirst,
         Self::CodeGraphFirst,
+        Self::KnowledgeFirst,
+        Self::KnowledgeRecall,
     ];
 
     /// The name in the file and in `hooks-state.json`.
@@ -172,6 +184,8 @@ impl HookSeed {
             Self::BranchSync => "branch-sync",
             Self::MemoryFirst => "memory-first",
             Self::CodeGraphFirst => "code-graph-first",
+            Self::KnowledgeFirst => "knowledge-first",
+            Self::KnowledgeRecall => "knowledge-recall",
         }
     }
 
@@ -179,6 +193,12 @@ impl HookSeed {
     /// `HookCapabilities::code_graph_available`), beyond its `requires`.
     pub fn needs_code_graph(self) -> bool {
         self == Self::CodeGraphFirst
+    }
+
+    /// True for the hook whose context the app produces itself at compose time (the Harness
+    /// Knowledge recall), so the text in its file is never what the agent reads.
+    pub fn is_app_run_recall(self) -> bool {
+        self == Self::KnowledgeRecall
     }
 
     /// The seed named `name`.

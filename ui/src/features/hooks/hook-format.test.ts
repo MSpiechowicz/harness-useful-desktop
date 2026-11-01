@@ -139,10 +139,12 @@ describe('the team hooks', () => {
 });
 
 describe('what a paused hook waits for', () => {
-  it('is Harness Memory, off or not installed, and Harness Dashboard', () => {
-    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-memory'] }), false)).toEqual({ member: 'memory', off: true });
-    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-memory'] }), true)).toEqual({ member: 'memory', off: false });
-    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-dashboard'] }), false)).toEqual({ member: 'dashboard', off: false });
-    expect(waitingFor(hook({ id: '1', name: 'A' }), false)).toBeNull();
+  it('is a Harness family member, off or not installed', () => {
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-memory'] }), false, true)).toEqual({ member: 'memory', off: true });
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-memory'] }), true, false)).toEqual({ member: 'memory', off: false });
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-dashboard'] }), false, false)).toEqual({ member: 'dashboard', off: false });
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-knowledge'] }), true, false)).toEqual({ member: 'knowledge', off: true });
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-knowledge'] }), false, true)).toEqual({ member: 'knowledge', off: false });
+    expect(waitingFor(hook({ id: '1', name: 'A' }), false, false)).toBeNull();
   });
 });

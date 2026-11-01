@@ -118,7 +118,7 @@
     const members = new Map<string, WaitingFor & { count: number }>();
 
     for (const view of views) {
-      const needs = view.status === 'paused' && view.hook ? waitingFor(view.hook, prefs.value?.memoryEnabled !== false) : null;
+      const needs = view.status === 'paused' && view.hook ? waitingFor(view.hook, prefs.value?.memoryEnabled !== false, prefs.value?.knowledgeEnabled !== false) : null;
 
       if (needs) {
         const key = `${needs.member}:${needs.off}`;

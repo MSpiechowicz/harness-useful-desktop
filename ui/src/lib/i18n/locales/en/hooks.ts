@@ -266,4 +266,5 @@ export const hooks = {
   'hooks.value.changedSinceShared': 'Changed since you shared it',
   'hooks.list.teamTrusted': 'Trusted: run without asking',
   'hooks.member.knowledge': 'Harness Knowledge',
+  'hooks.family.recallNote': 'Recall sends each message you write to Harness Knowledge on this computer, which may look its words up in your team database. Nothing is added when no document matches.',
 } satisfies Record<string, string>;

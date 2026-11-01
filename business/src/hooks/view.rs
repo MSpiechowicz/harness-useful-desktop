@@ -29,6 +29,11 @@ pub struct HookCapabilities {
     /// dialog's `installed` only the feature counts, so the user may add the hook before the
     /// switch is on. A flag here, not a [`HookRequirement`], so the hook file format is unchanged.
     pub code_graph_available: bool,
+    /// Harness Knowledge is installed, its project knowledge setting is on and the server lists
+    /// `mcp` (`harness-knowledge`). For the family dialog's `installed` the setting does not
+    /// count. The recall of its `knowledge-recall` hook also needs the server's `recall` feature,
+    /// which the app checks when it runs the recall.
+    pub knowledge_available: bool,
 }
 
 impl HookCapabilities {
@@ -45,6 +50,7 @@ impl HookCapabilities {
         match requirement {
             HookRequirement::HarnessMemory => self.memory_available,
             HookRequirement::HarnessDashboard => self.dashboard_available,
+            HookRequirement::HarnessKnowledge => self.knowledge_available,
         }
     }
 }

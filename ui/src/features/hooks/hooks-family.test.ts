@@ -71,9 +71,10 @@ describe('Harness family hooks', () => {
     expect(within(dialog).getByText('Harness Dashboard · Session start')).toBeInTheDocument();
     expect(within(rowIn(dialog, 'Use the code graph first')).getByRole('button', { name: 'Install Use the code graph first' })).toBeEnabled();
     expect(within(dialog).getAllByText('Harness Memory · Prompt submit')).toHaveLength(3);
+    expect(within(dialog).getAllByText('Harness Knowledge · Prompt submit')).toHaveLength(2);
     // One action per row and a footer that only closes: nothing installs the rest in one go.
     expect(within(dialog).queryByRole('button', { name: /Add all/ })).not.toBeInTheDocument();
-    expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(5);
+    expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(7);
 
     await fireEvent.click(within(rowIn(dialog, 'Check limits before long work')).getByRole('button', { name: /^Install / }));
 
@@ -81,7 +82,7 @@ describe('Harness family hooks', () => {
     expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['dashboard-limits'] }]);
     expect(within(rowOf('Check limits before long work')).getByText('Active')).toBeInTheDocument();
     expect(toasts.items.map((toast) => toast.title)).toContain('1 family hook ready');
-    await waitFor(() => expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(4));
+    await waitFor(() => expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(6));
   });
 
   it('updates a family hook whose text the catalog has since changed', async () => {
@@ -155,6 +156,21 @@ describe('Harness family hooks', () => {
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByText('No hooks yet')).not.toBeInTheDocument());
     expect(within(rowOf('Save what you learned')).getByText('Active')).toBeInTheDocument();
+  });
+
+  it('installs the recall of Harness Knowledge and says it sends the message to that tool', async () => {
+    const { invoke } = fakeHooks();
+    await showHooks();
+    const dialog = await openFamily();
+
+    const recall = await waitFor(() => rowIn(dialog, 'Recall from Harness Knowledge'));
+    expect(within(dialog).getByText(/^Recall sends each message you write to Harness Knowledge on this computer/)).toBeInTheDocument();
+
+    await fireEvent.click(within(recall).getByRole('button', { name: /^Install / }));
+
+    await waitFor(() => expect(within(rowIn(dialog, 'Recall from Harness Knowledge')).getByText('Installed')).toBeInTheDocument());
+    expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['knowledge-recall'] }]);
+    await waitFor(() => expect(within(rowIn(dialog, 'Check Knowledge first')).getByRole('button', { name: /^Install / })).toBeEnabled());
   });
 
   it('installs a member that is missing, right in the row, after the user confirms', async () => {

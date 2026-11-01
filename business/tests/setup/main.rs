@@ -8,6 +8,8 @@ mod claude_support;
 mod codex_support;
 #[path = "../support/common/mod.rs"]
 mod common;
+#[path = "../support/hook_support/mod.rs"]
+mod hook_support;
 #[path = "../support/sync_support/import.rs"]
 mod import_support;
 #[path = "../support/knowledge_stand_in/mod.rs"]
@@ -42,6 +44,7 @@ mod knowledge_import;
 mod knowledge_intake;
 mod knowledge_names;
 mod knowledge_real_binary;
+mod knowledge_recall;
 mod knowledge_register;
 mod knowledge_remote;
 mod knowledge_search;

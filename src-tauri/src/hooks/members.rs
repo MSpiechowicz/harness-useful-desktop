@@ -10,6 +10,10 @@ pub(super) struct Members {
     pub(super) memory_enabled: bool,
     pub(super) dashboard_installed: bool,
     pub(super) code_graph: CodeGraphSupport,
+    pub(super) knowledge_installed: bool,
+    pub(super) knowledge_enabled: bool,
+    /// The installed Harness Knowledge lists `mcp`.
+    pub(super) knowledge_mcp: bool,
 }
 
 impl Members {
@@ -22,16 +26,18 @@ impl Members {
                 && self.memory_enabled
                 && self.code_graph.listed
                 && self.code_graph.on,
+            knowledge_available: self.knowledge_installed && self.knowledge_enabled && self.knowledge_mcp,
         }
     }
 
-    /// Which members are installed (Harness Memory whatever its setting, its code graph whatever
-    /// its switch).
+    /// Which members are installed (Harness Memory and Harness Knowledge whatever their setting, the
+    /// code graph whatever its switch).
     pub(super) fn installed(self) -> HookCapabilities {
         HookCapabilities {
             memory_available: self.memory_installed,
             dashboard_available: self.dashboard_installed,
             code_graph_available: self.memory_installed && self.code_graph.listed,
+            knowledge_available: self.knowledge_installed && self.knowledge_mcp,
         }
     }
 }

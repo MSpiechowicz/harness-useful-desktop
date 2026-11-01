@@ -334,6 +334,35 @@ describe('Hooks that wait for Harness Memory', () => {
   });
 });
 
+describe('Hooks that wait for Harness Knowledge', () => {
+  it('say so above the list while its switch is off, and the way to its Settings', async () => {
+    const { state } = fakeHooks('ok', { on: true }, false, { on: false });
+    state.applyFamily(['knowledge-first', 'knowledge-recall']);
+    prefs.value = { ...(prefs.value as NonNullable<typeof prefs.value>), knowledgeEnabled: false };
+    await showHooks();
+
+    const notice = screen.getByText('Harness Knowledge is off').closest<HTMLElement>('[role="status"]') as HTMLElement;
+    expect(within(notice).getByText('2 hooks use Harness Knowledge and wait until it is back on.')).toBeInTheDocument();
+    expect(within(rowOf('Recall from Harness Knowledge')).getByText('Paused')).toBeInTheDocument();
+    expect(screen.queryByText('Harness Memory is off')).not.toBeInTheDocument();
+
+    await fireEvent.click(within(notice).getByRole('button', { name: 'Open Settings' }));
+
+    expect(nav.current).toBe('settings');
+    expect(viewState.settingsTarget).toBe('knowledge');
+    prefs.value = { ...(prefs.value as NonNullable<typeof prefs.value>), knowledgeEnabled: true };
+  });
+
+  it('are quiet while it is on', async () => {
+    const { state } = fakeHooks();
+    state.applyFamily(['knowledge-first', 'knowledge-recall']);
+    await showHooks();
+
+    expect(within(rowOf('Recall from Harness Knowledge')).getByText('Active')).toBeInTheDocument();
+    expect(screen.queryByText('Harness Knowledge is off')).not.toBeInTheDocument();
+  });
+});
+
 describe('The states of the view', () => {
   it('explains an empty folder and offers a first hook and the Harness family hooks', async () => {
     fakeHooks('empty');

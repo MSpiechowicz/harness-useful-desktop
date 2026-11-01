@@ -19,6 +19,7 @@ mod hooks_agent {
         memory_available: false,
         dashboard_available: false,
         code_graph_available: false,
+        knowledge_available: false,
     };
 
     struct Folder {

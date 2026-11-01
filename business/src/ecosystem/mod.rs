@@ -26,6 +26,7 @@
 //!   [`knowledge_docs`] (the documents, repositories and counts), [`knowledge_import`] (the streamed
 //!   import and its cancel), [`knowledge_intake`] (the files and folders picked or dropped),
 //!   [`knowledge_held`] (the review queue of proposed documents), [`knowledge_search`],
+//!   [`knowledge_recall`] (the recall the app runs for chats),
 //!   [`knowledge_embedder`] (its own embedder and reindex), [`knowledge_remote`] (its team
 //!   database and `check --json`), all on top of the `sidecar_*` modules and [`knowledge_cli`].
 //! - [`memory_binary`]: the installed `harness-memory` server and its version.
@@ -85,6 +86,7 @@ pub mod knowledge_features;
 pub mod knowledge_held;
 pub mod knowledge_import;
 pub mod knowledge_intake;
+pub mod knowledge_recall;
 pub mod knowledge_record;
 pub mod knowledge_register;
 pub mod knowledge_remote;
@@ -173,6 +175,7 @@ pub use knowledge_import::{
 pub use knowledge_intake::{
     Checked, IMPORT_EXTENSIONS, IntakePaths, KnowledgeIntakes, MAX_DROPPED_PATHS, MAX_INTAKE_FILES, check_paths,
 };
+pub use knowledge_recall::{MAX_RECALL_OUTPUT_BYTES, MAX_RECALL_PROMPT_BYTES, RECALL_TIMEOUT, knowledge_recall};
 pub use knowledge_record::{KNOWLEDGE_RECORD_FILE, KnowledgeRecord};
 pub use knowledge_register::{
     KnowledgeRegistration, register_knowledge_mcp, register_knowledge_mcp_cli, unregister_knowledge_mcp,

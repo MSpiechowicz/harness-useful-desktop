@@ -9,7 +9,7 @@
 
   import type { Companion } from '../onboarding/setup-model';
   import FamilyInstall from './FamilyInstall.svelte';
-  import { MEMBER_LABELS } from './hook-format';
+  import { MEMBER_LABELS, switchSection } from './hook-format';
 
   interface Props {
     member: Companion;
@@ -24,7 +24,7 @@
   const name = $derived(t(MEMBER_LABELS[member]));
 
   function openSettings(): void {
-    viewState.settingsTarget = 'memory';
+    viewState.settingsTarget = switchSection(member);
     nav.go('settings');
   }
 </script>

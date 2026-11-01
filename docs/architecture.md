@@ -167,6 +167,16 @@ flowchart LR
    both, and the watcher removes an answer left alone for more than 60 s. `memory_scripts_trust` runs
    `harness-memory trust <id>=<sha256>… [--project <root>]` (`memory_trust.rs`, 20 s and 1 s per script (120 s at most), home directory, output capped
    and redacted) for the Scripts view's **Trust** buttons; a script changed since the user reviewed it is `conflict`.
+
+   **Knowledge recall in chats.** `knowledge-recall` is an ordinary `promptSubmit` `addContext` hook as far as the engine
+   goes, with a stand-in text in its file. `chat::send` passes the plan to `hooks::run_with_recall`
+   (`business/src/hooks/recall.rs`), which carries out the firings as before and, in the same `join!`, runs
+   `ecosystem::knowledge_recall`: `harness-knowledge recall --hook --project <the chat's project root>` from the
+   installed server (only while it lists `recall`), the message on stdin (at most 64 KiB), no shell, stdout capped at
+   2 KiB and redacted, killed after 3 s. A recalled block takes the place of the hook's stand-in text as
+   `<hook name="Knowledge">`, anything else (failure, timeout, no block) drops that part, so `compose_prompt` keeps
+   its 8 KiB limit and ordering. The message reaches no command hook and no team hook. Only chats started by the
+   desktop recall: plain harness sessions get Knowledge through the native hooks of Harness Skills.
 8. **Notes.** The Notes view lists, shows and deletes the agents' notes through `memory_notes_list`,
    `memory_note_get` and `memory_note_delete` (`business/src/ecosystem/memory_notes.rs`), each one run of
    `harness-memory notes` as `memory_cli.rs` runs the server's commands (15 s): `notes list --json --offset N --limit N
@@ -393,7 +403,9 @@ flowchart LR
    code tools before grep; also needs the `code-index` feature and the Code index switch on: the
    `code_graph_available` capability, so no new `requires` value) and `branch-sync` (`sessionStart` `addContext`, asks the agent to fetch and
    compare its branch with the main branch) for Harness Memory, `dashboard-limits` (`sessionStart`
-   `addContext`) for Harness Dashboard, each global, `requires` its member and written by the window (approved), marked
+   `addContext`) for Harness Dashboard, `knowledge-first` (`promptSubmit` `addContext`, asks the agent to search Harness
+   Knowledge before it reads code) and `knowledge-recall` (see below) for Harness Knowledge (the `knowledge_available`
+   capability, `requires` `harness-knowledge`: installed, its switch on, `mcp` listed), each global, `requires` its member and written by the window (approved), marked
    by `seed`. Launch seeding (`hooks::spawn_on_launch`, and `seed_available` again when the memory switch is turned on)
    creates the hooks of every available member once (Harness Memory: installed and its switch on) and records the seed
    in `hooks-state.json`; a recorded seed is never created at launch
@@ -525,7 +537,7 @@ Codex child threads are not followed and nothing is recorded, so its subagents s
 | `prefs/`, `project/` | `prefs.json` store (atomic, self-healing), server-managed fields, the active and recent project list. |
 | `security/` | Deny-list and `SafeReader` (whose one opt-in read, `SafeReader::read_claude_global_file`, opens Claude Code's global file `.claude.json` only for a path registered by the Claude adapter), redaction, `canonical_within`, `validate_project_dir`, `is_safe_arg`. See [security-privacy.md](security-privacy.md). |
 | `process/` | `ProcessRunner` (run to completion), `BlockingRunner` (the same for blocking tasks, `StdRunner`) and `ProcessSpawner` (long-lived child) behind traits; binary resolution without a shell. |
-| `hooks/` | Hooks (see [Hooks](#hooks)): `format` (file validation), `store` (the folder: list, save, delete, approve, reject, prune), `approvals` (`hook-approvals.json`, approved copies), `view` (status of each file), `draft` (a `HookDraft` into a hook file), `plan` (`HookSet`, the firings the engine hands the shell), `engine` (`HookSession`, the per-chat state machine), `compose` (context block, follow-up prompt, `strip_hook_context`), `command` (the shell runs of command hooks), `family` (Harness family hooks and their seed record). |
+| `hooks/` | Hooks (see [Hooks](#hooks)): `format` (file validation), `store` (the folder: list, save, delete, approve, reject, prune), `approvals` (`hook-approvals.json`, approved copies), `view` (status of each file), `draft` (a `HookDraft` into a hook file), `plan` (`HookSet`, the firings the engine hands the shell), `engine` (`HookSession`, the per-chat state machine), `compose` (context block, follow-up prompt, `strip_hook_context`), `command` (the shell runs of command hooks), `recall` (the Harness Knowledge recall the app runs itself for the `knowledge-recall` hook), `family` (Harness family hooks and their seed record). |
 | `hooks_mcp/` | `harness-desktop mcp`: the JSON-RPC protocol (`protocol`), the five tools and their annotations (`tools`), the calls over `HookStore` as an agent (`calls`). |
 | `app_dirs.rs` | The app's folders outside Tauri: the config folder (`config_dir`, which the MCP mode needs because it starts no Tauri runtime) and the per-machine data folder (where older builds kept a copy of the bundled memory server, `legacy_memory_copy`). A test checks the identifier against `tauri.conf.json`. |
 | `update.rs` | Updater rules independent of Tauri: endpoint, public-key validation, progress reporting. |

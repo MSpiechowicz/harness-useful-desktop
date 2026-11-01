@@ -212,7 +212,7 @@ export function length(text: string): number {
 }
 
 /** The Harness family member each requirement stands for. */
-const MEMBER_OF: Record<HookRequirement, Companion> = { 'harness-memory': 'memory', 'harness-dashboard': 'dashboard' };
+const MEMBER_OF: Record<HookRequirement, Companion> = { 'harness-memory': 'memory', 'harness-dashboard': 'dashboard', 'harness-knowledge': 'knowledge' };
 
 export function memberOf(requirement: HookRequirement): Companion {
   return MEMBER_OF[requirement];
@@ -220,14 +220,14 @@ export function memberOf(requirement: HookRequirement): Companion {
 
 export const MEMBER_LABELS: Record<Companion, MessageKey> = { memory: 'hooks.member.memory', dashboard: 'hooks.member.dashboard', knowledge: 'hooks.member.knowledge' };
 
-/** The Harness family member a paused hook waits for, and whether it is installed but switched off (only Harness Memory has such a switch). */
+/** The Harness family member a paused hook waits for, and whether it is installed but switched off (Harness Memory and Harness Knowledge have such a switch). */
 export interface WaitingFor {
   member: Companion;
   off: boolean;
 }
 
 /** What a paused hook waits for, or null when it needs nothing. */
-export function waitingFor(hook: Hook, memoryEnabled: boolean): WaitingFor | null {
+export function waitingFor(hook: Hook, memoryEnabled: boolean, knowledgeEnabled: boolean): WaitingFor | null {
   const requirement = hook.requires[0];
 
   if (requirement === undefined) {
@@ -236,5 +236,10 @@ export function waitingFor(hook: Hook, memoryEnabled: boolean): WaitingFor | nul
 
   const member = memberOf(requirement);
 
-  return { member, off: member === 'memory' && !memoryEnabled };
+  return { member, off: (member === 'memory' && !memoryEnabled) || (member === 'knowledge' && !knowledgeEnabled) };
+}
+
+/** The Settings section whose switch turns `member` on again. */
+export function switchSection(member: Companion): 'memory' | 'knowledge' {
+  return member === 'knowledge' ? 'knowledge' : 'memory';
 }

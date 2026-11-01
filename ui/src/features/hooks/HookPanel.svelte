@@ -23,10 +23,11 @@
 
   import HiddenText from '../memory/HiddenText.svelte';
   import ScriptCode from '../memory/ScriptCode.svelte';
+  import type { Companion } from '../onboarding/setup-model';
   import SettingRow from '../settings/SettingRow.svelte';
   import FamilyInstall from './FamilyInstall.svelte';
   import { hookFacts } from './hook-facts';
-  import { actionText, EVENT_LABELS, EVENT_WHEN, hookDoc, hookTitle, MEMBER_LABELS, waitingFor } from './hook-format';
+  import { actionText, EVENT_LABELS, EVENT_WHEN, hookDoc, hookTitle, MEMBER_LABELS, switchSection, waitingFor } from './hook-format';
   import { switchLock, teamSwitchedOn } from './hook-team';
   import HookActions from './HookActions.svelte';
   import HookReview from './HookReview.svelte';
@@ -84,7 +85,7 @@
 
   const TEXT_HEADINGS = { addContext: 'hooks.field.context', followUp: 'hooks.field.message', command: 'hooks.field.command' } as const;
 
-  const waiting = $derived(hook && view?.status === 'paused' ? waitingFor(hook, prefs.value?.memoryEnabled !== false) : null);
+  const waiting = $derived(hook && view?.status === 'paused' ? waitingFor(hook, prefs.value?.memoryEnabled !== false, prefs.value?.knowledgeEnabled !== false) : null);
   const team = $derived(view?.origin === 'team');
   // Where the hook applies: Global, or the project it belongs to, which is not always the open one.
   const scope = $derived(view ? scopeText(docScope(hookDoc(view), projects)) : '');
@@ -105,8 +106,8 @@
     return team && (view.status === 'active' || view.status === 'off') ? `${text} ${t('hooks.panel.team.onlyHere')}` : text;
   });
 
-  function openSettings(): void {
-    viewState.settingsTarget = 'memory';
+  function openSettings(member: Companion): void {
+    viewState.settingsTarget = switchSection(member);
     nav.go('settings');
   }
 </script>
@@ -164,7 +165,7 @@
           </div>
 
           {#if waiting.off}
-            <Button onclick={openSettings}>{t('hooks.waiting.openSettings')}</Button>
+            <Button onclick={() => openSettings(waiting.member)}>{t('hooks.waiting.openSettings')}</Button>
           {:else}
             <FamilyInstall member={waiting.member} />
           {/if}

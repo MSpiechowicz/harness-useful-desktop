@@ -13,7 +13,9 @@
 //!   refresh of their copies ([`crate::team_sync`]), and the copies the chats run after the local
 //!   hooks.
 //! - Capabilities: `harness-memory` is met while Harness Memory is installed and the
-//!   `memoryEnabled` pref is on, `harness-dashboard` while Harness Dashboard is installed. The code
+//!   `memoryEnabled` pref is on, `harness-dashboard` while Harness Dashboard is installed,
+//!   `harness-knowledge` while Harness Knowledge is installed, lists `mcp` and the `knowledgeEnabled`
+//!   pref is on. The code
 //!   graph (for the "Use the code graph first" hook) is met while Harness Memory lists `code-index`
 //!   and its Code index switch is on. Looked
 //!   up at most every [`MEMBERS_TTL`], and again after an install or the memory switch. The
@@ -32,6 +34,7 @@
 
 pub mod chat;
 mod members;
+mod seeding;
 pub mod team;
 #[cfg(test)]
 mod team_tests;
@@ -46,33 +49,36 @@ mod tests_code_graph;
 #[cfg(test)]
 mod tests_codex;
 #[cfg(test)]
+mod tests_knowledge;
+#[cfg(test)]
 mod tests_opencode;
 #[cfg(test)]
 mod tests_opencode2;
 pub mod watch;
 
+pub use seeding::{after_member_install, seed_available, spawn_on_launch};
+
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 use harness_business::ecosystem::{
-    CodeGraphSupport, Companion, MemoryFeatures, code_graph_support, code_switch_is_on, installed_memory,
-    resolve_dashboard,
+    CodeGraphSupport, KnowledgeFeatures, MemoryFeatures, code_graph_support, code_switch_is_on, installed_knowledge,
+    installed_memory, resolve_dashboard,
 };
 use harness_business::env::Env;
 use harness_business::hooks::team::{TeamFolder, TeamViews, team_views};
-use harness_business::hooks::{HookCapabilities, HookKind, HookSet, HookStore, restore_member, seed_defaults};
-use harness_business::model::{HookRequirement, HookView, HooksEvent, TeamHooks};
+use harness_business::hooks::{HookCapabilities, HookKind, HookSet, HookStore};
+use harness_business::model::{HookView, HooksEvent, TeamHooks};
 use harness_business::process::TokioRunner;
 use harness_business::{BusinessError, Result};
 use tauri::async_runtime::JoinHandle;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager};
 
 use self::chat::ChatHooks;
 use self::members::Members;
 use crate::doc_watch::DocWatch;
-use crate::state::{AppState, SharedPrefs};
+use crate::state::SharedPrefs;
 use crate::team_sync::TeamSync;
 
 /// How long a lookup of the installed family members is used.
@@ -90,6 +96,9 @@ pub struct HookRuntime {
     cache: Mutex<Cache>,
     /// The features of the installed Harness Memory, for the code graph capability.
     features: MemoryFeatures,
+    /// The features of the installed Harness Knowledge: `mcp` for its capability, `recall` for the
+    /// app-run recall.
+    knowledge_features: KnowledgeFeatures,
     listener: Mutex<Option<Channel<HooksEvent>>>,
     /// Held by every write of the app (commands, seeding, pruning), so approvals are never lost
     /// to two writers that each load and save them.
@@ -129,6 +138,7 @@ impl HookRuntime {
             chats: Mutex::default(),
             cache: Mutex::default(),
             features: MemoryFeatures::new(),
+            knowledge_features: KnowledgeFeatures::new(),
             listener: Mutex::default(),
             writes: Arc::default(),
             watch: DocWatch::default(),
@@ -163,7 +173,13 @@ impl HookRuntime {
         capabilities
     }
 
-    /// Which family members are installed (Harness Memory whatever its setting).
+    /// The features of the installed Harness Knowledge (probed once per binary).
+    pub fn knowledge_features(&self) -> &KnowledgeFeatures {
+        &self.knowledge_features
+    }
+
+    /// Which family members are installed (Harness Memory and Harness Knowledge whatever their
+    /// setting).
     pub async fn installed(&self) -> HookCapabilities {
         self.members().await.installed()
     }
@@ -201,12 +217,16 @@ impl HookRuntime {
         let prefs = self.prefs.clone();
 
         let local = tauri::async_runtime::spawn_blocking(move || {
-            let memory_enabled = prefs.with(|store| store.load().memory_enabled);
+            let prefs = prefs.with(|store| store.load());
 
-            (memory_enabled, resolve_dashboard(&env).is_some())
+            (
+                prefs.memory_enabled,
+                prefs.knowledge_enabled,
+                resolve_dashboard(&env).is_some(),
+            )
         })
         .await;
-        let (memory_enabled, dashboard_installed) = local.unwrap_or_default();
+        let (memory_enabled, knowledge_enabled, dashboard_installed) = local.unwrap_or_default();
         let memory_installed = installed_memory(&self.env, &TokioRunner).await.is_some();
 
         // The code graph: the server's `code-index` feature, and its switch when listed.
@@ -216,11 +236,24 @@ impl HookRuntime {
             CodeGraphSupport::default()
         };
 
+        // Harness Knowledge: installed, and its server lists the MCP server the hooks ask agents to use.
+        let knowledge_installed = installed_knowledge(&self.env, &TokioRunner).await.is_some();
+        let knowledge_mcp = knowledge_installed
+            && self
+                .knowledge_features
+                .support(&self.env, &TokioRunner)
+                .await
+                .features()
+                .mcp;
+
         let members = Members {
             memory_installed,
             memory_enabled,
             dashboard_installed,
             code_graph,
+            knowledge_installed,
+            knowledge_enabled,
+            knowledge_mcp,
         };
 
         let mut cache = self.lock_cache();
@@ -435,61 +468,5 @@ impl HookRuntime {
     fn lock_cache(&self) -> MutexGuard<'_, Cache> {
         // Every write leaves a complete value, so a panic cannot leave it half-written.
         self.cache.lock().unwrap_or_else(PoisonError::into_inner)
-    }
-}
-
-/// Seeds the Harness family hooks of the available members in the background, and starts the
-/// watcher and the team hooks refresh; the window does not wait for any of them.
-pub fn spawn_on_launch(app: &AppHandle) {
-    let state = app.state::<AppState>();
-    watch::spawn(state.hooks.clone());
-    team::spawn(state.hooks.clone());
-
-    let app = app.clone();
-    drop(tauri::async_runtime::spawn(async move {
-        let state = app.state::<AppState>();
-        seed_available(&state.hooks).await;
-    }));
-}
-
-/// Launch seeding: the family hooks of every available member that were never seeded.
-pub async fn seed_available(runtime: &HookRuntime) {
-    let available = runtime.capabilities().await;
-
-    if available == HookCapabilities::default() {
-        return;
-    }
-
-    let seeded = runtime
-        .write(move |store| seed_defaults(store, available, SystemTime::now()))
-        .await;
-
-    match seeded {
-        Ok(seeds) => tracing::info!(created = seeds.len(), "harness family hooks seeded"),
-        Err(error) => tracing::warn!(code = ?error.code(), "harness family hooks not seeded"),
-    }
-}
-
-/// After the app installed `companion`: its missing family hooks are added again (even ones the
-/// user deleted), never overwriting one that exists. The Harness Skills (and, for now, Harness
-/// Knowledge) bring no family hooks, so nothing changes for them.
-pub async fn after_member_install(runtime: &HookRuntime, companion: Companion) {
-    let member = match companion {
-        Companion::Memory => HookRequirement::HarnessMemory,
-        Companion::Dashboard => HookRequirement::HarnessDashboard,
-        // Harness Knowledge's family hooks come with the app-run recall.
-        Companion::Knowledge | Companion::OpenCodeSkills | Companion::CodexSkills => return,
-    };
-
-    runtime.refresh_members();
-    let available = runtime.capabilities().await;
-
-    let restored = runtime
-        .write(move |store| restore_member(store, member, available, SystemTime::now()))
-        .await;
-
-    match restored {
-        Ok(seeds) => tracing::info!(?member, added = seeds.len(), "harness family hooks restored"),
-        Err(error) => tracing::warn!(?member, code = ?error.code(), "harness family hooks not restored"),
     }
 }

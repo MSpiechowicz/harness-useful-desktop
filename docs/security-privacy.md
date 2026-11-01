@@ -1662,13 +1662,23 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
 - **The approvals file is the trust anchor.** A process running as you that can write the app's config folder can approve
   a hook for itself, as it could change `prefs.json`. The privacy of that folder is the boundary. Hook files alone are not
   enough: a planted file is pending until its hash is approved.
-- **Harness family hooks.** The app can write seven hooks that tell agents to use the other Harness tools: six for Harness
-  Memory (`memory-search` and `branch-sync` at `sessionStart`, `useful-skills`, `memory-first` and `code-graph-first` at `promptSubmit`, `memory-save` at `turnEnd`) and one for Harness Dashboard (`dashboard-limits`
-  at `sessionStart`), each global and `requires` its member. `branch-sync` only asks the agent to run `git fetch` and merge the main branch into its branch; the app runs no git command for it, and the agent's own permission prompts apply. Launch seeding creates them once for a member that is
+- **Harness family hooks.** The app can write nine hooks that tell agents to use the other Harness tools: six for Harness
+  Memory (`memory-search` and `branch-sync` at `sessionStart`, `useful-skills`, `memory-first` and `code-graph-first` at `promptSubmit`, `memory-save` at `turnEnd`) one for Harness Dashboard (`dashboard-limits`
+  at `sessionStart`) and two for Harness Knowledge (`knowledge-first` and `knowledge-recall` at `promptSubmit`), each global and `requires` its member. `branch-sync` only asks the agent to run `git fetch` and merge the main branch into its branch; the app runs no git command for it, and the agent's own permission prompts apply. Launch seeding creates them once for a member that is
   available (Harness Memory: installed and its switch on) and records the seed in `hooks-state.json`, so a deleted one is
   not created at launch again; the dialog adds or updates them on your request, and an install of the member through the
   app adds its missing ones again. Nothing overwrites a hook you edited unless you ask for the update, and uninstalling
   a member deletes nothing.
+- **Knowledge recall sends your message to a local process.** While the `knowledge-recall` hook is active (Harness
+  Knowledge installed, its switch on, the hook not turned off) the app starts the installed `harness-knowledge recall
+  --hook` for every eligible message of a desktop chat, with no shell, writes the message (at most 64 KiB) to its
+  stdin and the chat's project root on its command line. That process runs on this computer, but it may query the
+  team database you configured for Harness Knowledge with the words of the message, so those words reach that database
+  (and its operator) the way a Knowledge search from the Knowledge view does. Nothing else gets the message: command
+  hooks and team hooks never see it, and neither the message nor the answer is logged. The answer (at most 2 KiB, killed
+  after 3 s) is redacted for secrets and added to the prompt as an untrusted `<hook name="Knowledge">` element, or
+  nothing when the recall fails. A hook you do not want turns this off: switch the hook off in the Hooks view, or turn
+  off project knowledge in Settings.
 - **Registration.** `harness-desktop` is an MCP server entry in the user `mcp.json` of OMP and PI (OpenCode's `mcp`
   object). See [Process spawning](#process-spawning).
 - **Team hooks are remote code.** With a team database set and "Share hooks with the team" on, teammates' hooks reach

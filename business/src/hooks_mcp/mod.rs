@@ -32,7 +32,10 @@ use std::process::ExitCode;
 use serde_json::{Value, json};
 
 use crate::app_dirs::config_dir;
-use crate::ecosystem::{CodeGraphSupport, MemoryFeatures, code_graph_support, installed_memory, resolve_dashboard};
+use crate::ecosystem::{
+    CodeGraphSupport, KnowledgeFeatures, MemoryFeatures, code_graph_support, installed_knowledge, installed_memory,
+    resolve_dashboard,
+};
 use crate::env::Env;
 use crate::hooks::{HookCapabilities, HookStore};
 use crate::pi_family::rpc::MAX_FRAME_BYTES;
@@ -220,9 +223,10 @@ pub fn run_stdio() -> ExitCode {
 /// The family members this machine has, checked like the app window does: Harness Memory counts
 /// when it is installed and reports its version (`runner` asks it) and its memory setting is on
 /// (the prefs file read without changing it), Harness Dashboard when it is installed, and the code
-/// graph when that Harness Memory lists `code-index` and the Code index switch is on.
+/// graph when that Harness Memory lists `code-index` and the Code index switch is on, Harness
+/// Knowledge like [`knowledge_available`].
 pub async fn machine_capabilities(env: &Env, runner: &dyn ProcessRunner) -> HookCapabilities {
-    let memory_on = memory_enabled(&config_dir(env));
+    let memory_on = pref_on(&config_dir(env), "memoryEnabled");
     let memory_available = memory_on && installed_memory(env, runner).await.is_some();
 
     let code_graph = if memory_available {
@@ -235,18 +239,29 @@ pub async fn machine_capabilities(env: &Env, runner: &dyn ProcessRunner) -> Hook
         memory_available,
         dashboard_available: resolve_dashboard(env).is_some(),
         code_graph_available: code_graph.listed && code_graph.on,
+        knowledge_available: knowledge_available(env, runner).await,
     }
 }
 
-/// The stored `memoryEnabled` pref, read only (on when unset or unreadable, like its default).
-fn memory_enabled(config_dir: &Path) -> bool {
+/// Harness Knowledge counts when its `knowledgeEnabled` pref is on, it is installed and reports
+/// its version, and it lists `mcp`.
+async fn knowledge_available(env: &Env, runner: &dyn ProcessRunner) -> bool {
+    if !pref_on(&config_dir(env), "knowledgeEnabled") || installed_knowledge(env, runner).await.is_none() {
+        return false;
+    }
+
+    KnowledgeFeatures::new().support(env, runner).await.features().mcp
+}
+
+/// The stored boolean pref `key`, read only (on when unset or unreadable, like its default).
+fn pref_on(config_dir: &Path, key: &str) -> bool {
     let Ok(text) = SafeReader::read_to_string(&config_dir.join(PREFS_FILE), MAX_PREFS_BYTES) else {
         return true;
     };
 
     serde_json::from_str::<Value>(&text)
         .ok()
-        .and_then(|prefs| prefs.get("memoryEnabled").and_then(Value::as_bool))
+        .and_then(|prefs| prefs.get(key).and_then(Value::as_bool))
         .unwrap_or(true)
 }
 
