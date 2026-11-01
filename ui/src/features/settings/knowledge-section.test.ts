@@ -67,7 +67,7 @@ describe('the words of a database check', () => {
 });
 
 describe('Knowledge section', () => {
-  it('is its own entry in the section nav and holds the switch, the vector search and the team database', async () => {
+  it('is its own entry in the section nav and holds the switch, the vector search and remote knowledge', async () => {
     render(SettingsView);
     const nav = screen.getByRole('navigation', { name: 'Settings sections' });
 
@@ -75,7 +75,7 @@ describe('Knowledge section', () => {
 
     expect(within(nav).getByRole('button', { name: 'Knowledge' })).toHaveAttribute('aria-current', 'true');
     expect(within(section()).getByRole('switch', { name: 'Project knowledge' })).toBeInTheDocument();
-    expect(await within(section()).findByRole('switch', { name: 'Team database' })).toBeInTheDocument();
+    expect(await within(section()).findByRole('switch', { name: 'Remote knowledge' })).toBeInTheDocument();
   });
 
   it('turns Project knowledge on and off through its own command, leaving memory alone', async () => {
@@ -104,11 +104,11 @@ describe('Knowledge section', () => {
     expect(knowledgeStatus.value?.availability.type).toBe('available');
   });
 
-  it('tests a team database and explains what it lacks, then saves one that has everything', async () => {
+  it('tests a remote knowledge database and explains what it lacks, then saves one that has everything', async () => {
     const invoke = vi.spyOn(ipc, 'invoke');
     render(SettingsView);
 
-    const toggle = await within(section()).findByRole('switch', { name: 'Team database' });
+    const toggle = await within(section()).findByRole('switch', { name: 'Remote knowledge' });
     await waitFor(() => expect(toggle).toBeEnabled());
     await fireEvent.click(toggle);
 
@@ -126,7 +126,7 @@ describe('Knowledge section', () => {
     expect(await within(section()).findByText('The database has everything Harness Knowledge needs.')).toBeInTheDocument();
 
     await fireEvent.click(within(section()).getByRole('button', { name: 'Save' }));
-    expect(await within(section()).findByText('Saved. The team database is on.')).toBeInTheDocument();
+    expect(await within(section()).findByText('Saved. Remote knowledge is on.')).toBeInTheDocument();
     expect(invoke).toHaveBeenCalledWith('knowledge_remote_set', { enabled: true, kind: 'postgres', url: 'postgres://me:pw@db.ok.example/knowledge', token: null });
     expect(knowledgeRemote.value?.urlRedacted).toBe('postgres://me@db.ok.example/knowledge');
   });
