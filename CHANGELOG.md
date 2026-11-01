@@ -1,3 +1,40 @@
+# [0.49.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.48.0...v0.49.0) (2026-11-01)
+
+
+### Bug Fixes
+
+* **knowledge:** a Review scope that leaves nothing keeps the filters, so it can be undone ([44afe1f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/44afe1f68d4a39dbf8dab4c8e2e3687ea1df8f66))
+* **knowledge:** Add path field fades in place instead of sliding ([10954a9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/10954a9360c74cc13e603941c356dab60f92113d))
+* **knowledge:** book icon for Knowledge, the bar icon looked thin next to the others ([3c1ab2b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3c1ab2bffdd75d3c899c88c35d6dadd539226c7c))
+* **knowledge:** call the team database Remote knowledge, like Remote memory ([cb56fa2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cb56fa28a028219a8ec4e5e9cae81d8b7ebbf3e9))
+* **knowledge:** counts and live updates across both places, typed offline errors, env-set routing shown, feature gates ([2992d9a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2992d9a158047dc09e9046908b1bf0cfc50c1b61))
+* **knowledge:** even padding in the part box and room under the section title ([d5a3291](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d5a3291880316bb22862d0d39e3da276a0d4bca9))
+* **knowledge:** import lists without row dividers, so a scrolled list shows one border ([8a6ffef](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8a6ffefa559b14ee4c855af2c3a7d25dded71bf0))
+* **knowledge:** keep the deletion error when the refresh after it fails ([a798c55](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a798c55e34de1c9ae3d659d7254ec5fdf9350c40))
+* **knowledge:** Link a repository menu keeps the search menu width ([02e3bb3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/02e3bb327504b321b720e3c46ddfad285c11d71d))
+* **knowledge:** match only the server's upgrading line, not any message with the word ([71ee420](https://github.com/MSpiechowicz/harness-useful-desktop/commit/71ee420e083f9f886d6f3afaccf15b771597d705))
+* **knowledge:** no-match result reads as a state, not a second description ([e90b82f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e90b82f46a7132f1e0c7fe1cb9b119ef6dcbf279))
+* **knowledge:** part text keeps a gap before its scrollbar ([5838374](https://github.com/MSpiechowicz/harness-useful-desktop/commit/58383748d957bca83d13fb8a4f16d949d460cf97))
+* **knowledge:** parts of a long section framed with a visible label, inner scroll stays inside ([b111b1d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b111b1dedb45ee1c8f18a2ec1a09e01d07e9ba73))
+* **knowledge:** remote-only outage shows an unreachable state, localized write errors, exact pulse hash, upgrading notice ([11babc2](https://github.com/MSpiechowicz/harness-useful-desktop/commit/11babc283c343a3f5596c18a65cceaff6d62c1de))
+* **knowledge:** review findings (approve after full text, delete-all failures, cheaper pulse, intake tokens, recall timeout) ([d26e958](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d26e95892d6aa067523dfa45187db9a684929154))
+* **knowledge:** roomier part boxes and a larger part label ([88a4f8d](https://github.com/MSpiechowicz/harness-useful-desktop/commit/88a4f8d2bdc575267bae1c51a5943139b92cd8f2))
+* **knowledge:** wider Format, Chunks, Updated and Proposed columns so headers and times are not cut ([6f169ac](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6f169ac6f9d6f548942d4eca1fbeface815dc598))
+* **ui:** table skeleton waits 250 ms, so a quick filter, sort or scope change does not blink ([229cba4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/229cba45927644ec68e4fc8594b4a9f2512e1364))
+
+
+### Features
+
+* **hooks:** Knowledge recall and check-Knowledge-first family hooks for desktop chats ([84181a0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/84181a0150995b61fdc9372b33d9a367ce4f426b))
+* **knowledge:** Harness Knowledge sidecar integration, settings, onboarding and Ecosystem ([d007dec](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d007dec87a6b93e8b533a2054e0850bc18e9f443)), closes [#45](https://github.com/MSpiechowicz/harness-useful-desktop/issues/45)
+* **knowledge:** Kept in routing, Save to, place chips, local ids and per-document matches ([cce9646](https://github.com/MSpiechowicz/harness-useful-desktop/commit/cce96461fdabba38ca185e1ca16235f07e121282))
+* **knowledge:** Knowledge view with documents, review queue, links editor and import dialog ([d4e563a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d4e563a1c326a3e236f6ca0a605cf22c80cc3a5a))
+* **knowledge:** long sections show one part at a time with a pager ([3b04a0f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3b04a0feb51489d7acd916244cd292af60a2f765))
+* **knowledge:** offline banner, Kept in filter, clear message for remote documents while offline ([3b1ae2e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3b1ae2ea8e4054f350727ae4de9897253310a75e))
+* **knowledge:** read section text and search matches in the document panel ([fb966e0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fb966e05a0af7960a822e16958c2b3fb57d04c9e))
+* **knowledge:** Review tab sorts by every column and has a Scope filter ([b7d77cd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b7d77cdf18c452d26579527a38656b2bf92805e1))
+* **knowledge:** sort documents by format, repositories and chunks; outline lists each section once ([e35e105](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e35e105a06c0e851226d283d3e287bf4aeee85aa))
+
 # [0.48.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.47.0...v0.48.0) (2026-10-31)
 
 
