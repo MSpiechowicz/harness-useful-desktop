@@ -249,8 +249,8 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.sidebar.step.1.title': 'Instale o plugin',
   'ecosystem.product.sidebar.step.2.title': 'Configure a barra lateral',
   'ecosystem.product.knowledge.tagline': 'Documentação de projeto que todo agente de programação pode pesquisar.',
-  'ecosystem.product.knowledge.description': 'Um servidor MCP local que guarda documentos (Markdown, texto, HTML, OpenAPI, AsciiDoc, reStructuredText e PDF) por projeto e encontra os trechos de que um agente precisa com ranking por palavras-chave e vetorial. O app importa arquivos e pastas, registra o servidor em cada harness detectado enquanto Conhecimento do projeto está ativado, e adiciona referências aos trechos correspondentes à primeira mensagem de um novo chat.',
-  'ecosystem.product.knowledge.note.0': 'Roda localmente como `harness-knowledge mcp` e nada é enviado pela rede.',
+  'ecosystem.product.knowledge.description': 'Um servidor MCP local que guarda documentos (Markdown, texto, HTML, OpenAPI, AsciiDoc, reStructuredText e PDF) por projeto e encontra os trechos de que um agente precisa com ranking por palavras-chave e vetorial. O app importa arquivos e pastas, registra o servidor em cada harness detectado enquanto Conhecimento do projeto está ativado, e adiciona referências aos trechos correspondentes a cada mensagem que você envia.',
+  'ecosystem.product.knowledge.note.0': 'Roda localmente como `harness-knowledge mcp`. Com um banco de dados de equipe, as palavras de uma busca ou de uma recuperação vão para esse banco.',
   'ecosystem.product.knowledge.note.1': 'Ative ou desative para todos os harnesses em Configurações, em Conhecimento do projeto.',
   'ecosystem.product.knowledge.step.0.title': 'Instale o binário',
 };

@@ -52,7 +52,6 @@ pub struct KnowledgeIntakes {
 
 #[derive(Debug, Default)]
 struct State {
-    counter: u64,
     kept: VecDeque<(String, IntakePaths)>,
     dropped: Option<Vec<PathBuf>>,
 }
@@ -69,8 +68,7 @@ impl KnowledgeIntakes {
         let checked = check_paths(paths);
         let mut state = self.lock();
 
-        state.counter += 1;
-        let token = format!("intake-{}", state.counter);
+        let token = format!("intake-{}", uuid::Uuid::new_v4().simple());
 
         if !checked.files.is_empty() || !checked.folders.is_empty() {
             let kept = IntakePaths {

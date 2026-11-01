@@ -106,7 +106,8 @@ fn a_real_server_imports_lists_searches_and_checks() {
         Vec::new(),
         vec![handbook(home.path()).to_string_lossy().into_owned()],
         KnowledgeImportOptions::default(),
-    );
+    )
+    .unwrap();
     let importer = KnowledgeImporter::new();
     let run = importer.begin().unwrap();
     let mut events = Vec::new();
@@ -376,7 +377,8 @@ fn a_real_server_recalls_pointers_for_a_prompt_and_nothing_for_an_unrelated_one(
         Vec::new(),
         vec![folder.to_string_lossy().into_owned()],
         KnowledgeImportOptions::default(),
-    );
+    )
+    .unwrap();
     let importer = KnowledgeImporter::new();
     let run = importer.begin().unwrap();
     let imported = wait(run_import(&env, &TokioSpawner, &path, &manifest, &run, |_| {})).unwrap();

@@ -120,30 +120,48 @@ export class KnowledgeDocsStore {
     }
   }
 
-  /** Deletes every document, a batch at a time, whatever the table is narrowed to. Rejects with the server's reason. */
-  async removeAll(): Promise<number> {
+  /**
+   * Deletes every document, a batch at a time, whatever the table is narrowed to. Rejects with the server's reason, and when a page
+   * comes back from a server that is not available (that is no empty database). Answers how many went and how many there were at
+   * the start, so a caller can tell when some remain.
+   */
+  async removeAll(): Promise<{ deleted: number; total: number }> {
     let deleted = 0;
+    let total: number | null = null;
 
-    for (;;) {
-      const page = await this.transport.invoke('knowledge_docs_list', { filter: null, offset: 0, limit: BATCH, query: null });
+    try {
+      for (;;) {
+        const page = await this.transport.invoke('knowledge_docs_list', { filter: null, offset: 0, limit: BATCH, query: null });
 
-      if (page.items.length === 0) {
-        break;
+        if (page.availability.type !== 'available') {
+          throw new Error(this.why(page.availability));
+        }
+
+        total ??= page.total;
+
+        if (page.items.length === 0) {
+          break;
+        }
+
+        const gone = (await this.transport.invoke('knowledge_docs_delete', { ids: page.items.map((doc) => doc.id) })).deleted;
+
+        // A batch that took nothing would be read again for ever.
+        if (gone === 0) {
+          break;
+        }
+
+        deleted += gone;
       }
-
-      const gone = (await this.transport.invoke('knowledge_docs_delete', { ids: page.items.map((doc) => doc.id) })).deleted;
-
-      // A batch that took nothing would be read again for ever.
-      if (gone === 0) {
-        break;
-      }
-
-      deleted += gone;
+    } finally {
+      await this.refresh();
     }
 
-    await this.refresh();
+    return { deleted, total: total ?? 0 };
+  }
 
-    return deleted;
+  /** What a page that is not available says, for the error of a delete that could not go on. */
+  private why(availability: KnowledgePage['availability']): string {
+    return 'message' in availability && availability.message !== '' ? availability.message : t('knowledge.deleteAll.unavailable');
   }
 }
 

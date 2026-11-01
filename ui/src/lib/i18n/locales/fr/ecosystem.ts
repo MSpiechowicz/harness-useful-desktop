@@ -251,8 +251,8 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.sidebar.step.1.title': 'Installer le plugin',
   'ecosystem.product.sidebar.step.2.title': 'Configurer la barre latérale',
   'ecosystem.product.knowledge.tagline': 'La documentation de projet que chaque agent de code peut chercher.',
-  'ecosystem.product.knowledge.description': 'Un serveur MCP local qui garde des documents (Markdown, texte, HTML, OpenAPI, AsciiDoc, reStructuredText et PDF) par projet et trouve les passages dont un agent a besoin avec un classement par mots-clés et vectoriel. L’app importe des fichiers et des dossiers, enregistre le serveur dans chaque harness détecté tant que Connaissances du projet est activé, et ajoute au premier message d’une nouvelle conversation des renvois vers les passages correspondants.',
-  'ecosystem.product.knowledge.note.0': 'S’exécute en local sous la forme `harness-knowledge mcp` et rien n’est envoyé sur le réseau.',
+  'ecosystem.product.knowledge.description': 'Un serveur MCP local qui garde des documents (Markdown, texte, HTML, OpenAPI, AsciiDoc, reStructuredText et PDF) par projet et trouve les passages dont un agent a besoin avec un classement par mots-clés et vectoriel. L’app importe des fichiers et des dossiers, enregistre le serveur dans chaque harness détecté tant que Connaissances du projet est activé, et ajoute à chaque message que vous envoyez des renvois vers les passages correspondants.',
+  'ecosystem.product.knowledge.note.0': 'S’exécute en local sous la forme `harness-knowledge mcp`. Avec une base de données d’équipe, les mots d’une recherche ou d’un rappel sont envoyés à cette base.',
   'ecosystem.product.knowledge.note.1': 'Activez-le ou désactivez-le pour tous les harnesses dans les Réglages, sous Connaissances du projet.',
   'ecosystem.product.knowledge.step.0.title': 'Installer l’exécutable',
 };

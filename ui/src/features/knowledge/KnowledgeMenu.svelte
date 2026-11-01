@@ -27,17 +27,24 @@
   }
 
   async function remove(): Promise<void> {
-    let deleted: number;
+    let done: { deleted: number; total: number };
 
     try {
-      deleted = await knowledgeDocs.removeAll();
+      done = await knowledgeDocs.removeAll();
     } catch (error) {
       throw new Error(`${t('knowledge.deleteAll.failed')}: ${IpcFailure.from(error).message}`);
     }
 
     viewState.knowledgeDocId = null;
     viewState.knowledgePage = 0;
-    toasts.push({ title: tn('knowledge.deleteAll.done', deleted), tone: 'success' });
+
+    if (done.deleted < done.total) {
+      toasts.push({ title: t('knowledge.deleteAll.partial', { deleted: done.deleted, total: done.total }), tone: 'warning' });
+
+      return;
+    }
+
+    toasts.push({ title: tn('knowledge.deleteAll.done', done.deleted), tone: 'success' });
   }
 </script>
 

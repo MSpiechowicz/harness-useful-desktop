@@ -208,3 +208,32 @@ fn the_element_is_redacted_and_the_block_stays_within_the_limit_with_other_conte
     assert!(items.iter().any(|item| item.name == "Knowledge"));
     assert!(!sent.contains(&token), "the secret is redacted");
 }
+
+/// A runner whose commands never end, like a probe of a server that hangs.
+struct Hanging;
+
+impl harness_business::process::ProcessRunner for Hanging {
+    fn run<'a>(
+        &'a self,
+        _spec: &'a harness_business::process::ExecSpec,
+    ) -> harness_business::process::BoxFuture<'a, harness_business::error::Result<ExecOutput>> {
+        Box::pin(std::future::pending())
+    }
+}
+
+#[test]
+fn a_probe_that_hangs_is_cut_with_the_recall_after_its_timeout() {
+    let (_dir, env) = installed();
+    let started = std::time::Instant::now();
+
+    let block = wait(harness_business::ecosystem::knowledge_recall(
+        &env,
+        &Hanging,
+        &KnowledgeFeatures::new(),
+        "How does the gateway route requests?",
+        Some(PROJECT),
+    ));
+
+    assert_eq!(block, None);
+    assert!(started.elapsed() < Duration::from_secs(6), "{:?}", started.elapsed());
+}

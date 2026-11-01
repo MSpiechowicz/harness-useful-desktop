@@ -254,10 +254,10 @@ fn knowledge(os: OsKind) -> EcosystemItem {
         "A local MCP server that keeps documents (Markdown, text, HTML, OpenAPI, AsciiDoc, reStructuredText and \
          PDF) per project and finds the passages an agent needs with keyword and vector ranking. The app imports \
          files and folders, registers the server with each detected harness while Project knowledge is on, and \
-         adds pointers to matching passages to the first message of a new chat.",
+         adds pointers to matching passages to every message you send.",
         vec![step("Install the binary", install)],
         &[
-            "Runs locally as `harness-knowledge mcp` and nothing is sent over the network.",
+            "Runs locally as `harness-knowledge mcp`. With a team database, the words of a search or a recall go to that database.",
             "Turn it on or off for every harness in Settings, under Project knowledge.",
         ],
     )

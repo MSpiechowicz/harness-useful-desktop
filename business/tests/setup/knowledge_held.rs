@@ -339,6 +339,22 @@ fn the_counts_follow_the_generation_and_the_queue_when_there_is_one() {
     let pulse = wait(knowledge_pulse(&env, &without_queue, &KnowledgeFeatures::new())).expect("answers");
     assert_eq!(pulse.held, None);
 
+    // A server that counts the proposals itself is asked once, and never for the queue.
+    let counting = queue().starting(
+        &["stats"],
+        answers(
+            json!({ "documents": 13, "generation": 17, "chunks": 1, "embeddedChunks": 1, "bytes": 1,
+                        "globalDocuments": 0, "repositories": 0, "schema": 1, "model": null, "held": 5 }),
+        ),
+    );
+    let pulse = wait(knowledge_pulse(&env, &counting, &probe)).expect("answers");
+    assert_eq!(pulse.held, Some(5));
+    assert!(
+        counting.commands().iter().all(|command| command[0] == "stats"),
+        "{:?}",
+        counting.commands()
+    );
+
     let broken = cli(ALL_FEATURES).starting(&["stats"], exits(1, "", "harness-knowledge: locked\n"));
     assert!(wait(knowledge_pulse(&env, &broken, &KnowledgeFeatures::new())).is_none());
 }

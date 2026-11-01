@@ -39,4 +39,8 @@ schema: number,
 /**
  * The model that embedded the chunks, once any were.
  */
-model: string | null, };
+model: string | null, 
+/**
+ * How many proposals wait in the review queue. Absent from a server that predates it.
+ */
+held?: number, };

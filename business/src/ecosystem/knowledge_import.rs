@@ -26,6 +26,7 @@ use tokio::sync::Notify;
 use tokio::time::{Instant, sleep_until, timeout};
 
 use super::catalog::KNOWLEDGE_SIDECAR;
+use super::knowledge_docs::check_links;
 use super::sidecar_cli::clean;
 use super::sidecar_embedder_lines::next_line;
 use crate::env::Env;
@@ -63,14 +64,24 @@ pub struct ImportManifest {
 }
 
 impl ImportManifest {
-    /// The manifest of `paths` and `folders` with the options the user chose.
-    pub fn new(paths: Vec<String>, folders: Vec<String>, options: KnowledgeImportOptions) -> Self {
-        Self {
+    /// The manifest of `paths` and `folders` with the options the user chose. `invalidInput` for
+    /// links the server would refuse (the same check as setting a document's links), and for
+    /// `replaces` unless the import is exactly one file.
+    pub fn new(paths: Vec<String>, folders: Vec<String>, options: KnowledgeImportOptions) -> Result<Self> {
+        check_links(&options.links)?;
+
+        if options.replaces.is_some() && !(paths.len() == 1 && folders.is_empty()) {
+            return Err(BusinessError::InvalidInput(
+                "a document is replaced by exactly one file".to_owned(),
+            ));
+        }
+
+        Ok(Self {
             paths,
             folders,
             links: options.links,
             replaces: options.replaces,
-        }
+        })
     }
 
     /// The manifest as the server reads it. `invalidInput` above [`MANIFEST_MAX_BYTES`].

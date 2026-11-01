@@ -248,8 +248,8 @@ export const ecosystem = {
   'ecosystem.product.sidebar.step.2.title': 'Set up the sidebar',
   'ecosystem.product.knowledge.tagline': 'Project documentation that every coding agent can search.',
   'ecosystem.product.knowledge.description':
-    'A local MCP server that keeps documents (Markdown, text, HTML, OpenAPI, AsciiDoc, reStructuredText and PDF) per project and finds the passages an agent needs with keyword and vector ranking. The app imports files and folders, registers the server with each detected harness while Project knowledge is on, and adds pointers to matching passages to the first message of a new chat.',
-  'ecosystem.product.knowledge.note.0': 'Runs locally as `harness-knowledge mcp` and nothing is sent over the network.',
+    'A local MCP server that keeps documents (Markdown, text, HTML, OpenAPI, AsciiDoc, reStructuredText and PDF) per project and finds the passages an agent needs with keyword and vector ranking. The app imports files and folders, registers the server with each detected harness while Project knowledge is on, and adds pointers to matching passages to every message you send.',
+  'ecosystem.product.knowledge.note.0': 'Runs locally as `harness-knowledge mcp`. With a team database, the words of a search or a recall go to that database.',
   'ecosystem.product.knowledge.note.1': 'Turn it on or off for every harness in Settings, under Project knowledge.',
   'ecosystem.product.knowledge.step.0.title': 'Install the binary',
 } satisfies Record<string, string>;

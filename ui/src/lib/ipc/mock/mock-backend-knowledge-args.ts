@@ -23,6 +23,7 @@ export const KNOWLEDGE_ARGS: { [K in Extract<CommandName, `knowledge_${string}`>
   knowledge_held_get: { id: '0b6f2f0e-7f63-4c0e-9d1a-0d5a4a0a7e11' },
   knowledge_held_decide: { id: '0b6f2f0e-7f63-4c0e-9d1a-0d5a4a0a7e11', decision: 'reject', revision: null },
   knowledge_changes_listen: { onEvent: () => {} },
+  knowledge_changes_watch: { watching: true },
   knowledge_pick_files: undefined,
   knowledge_pick_folder: undefined,
   knowledge_drop_intake: undefined,

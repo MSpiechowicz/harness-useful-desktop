@@ -250,8 +250,8 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.sidebar.step.1.title': 'Instalar el plugin',
   'ecosystem.product.sidebar.step.2.title': 'Configurar la barra lateral',
   'ecosystem.product.knowledge.tagline': 'Documentación de proyecto en la que puede buscar cada agente de programación.',
-  'ecosystem.product.knowledge.description': 'Un servidor MCP local que guarda documentos (Markdown, texto, HTML, OpenAPI, AsciiDoc, reStructuredText y PDF) por proyecto y encuentra los pasajes que necesita un agente con ranking por palabras clave y vectorial. La app importa archivos y carpetas, registra el servidor en cada harness detectado mientras Conocimiento del proyecto está activado, y añade referencias a los pasajes que coinciden al primer mensaje de un chat nuevo.',
-  'ecosystem.product.knowledge.note.0': 'Se ejecuta en local como `harness-knowledge mcp` y no se envía nada por la red.',
+  'ecosystem.product.knowledge.description': 'Un servidor MCP local que guarda documentos (Markdown, texto, HTML, OpenAPI, AsciiDoc, reStructuredText y PDF) por proyecto y encuentra los pasajes que necesita un agente con ranking por palabras clave y vectorial. La app importa archivos y carpetas, registra el servidor en cada harness detectado mientras Conocimiento del proyecto está activado, y añade referencias a los pasajes que coinciden a cada mensaje que envías.',
+  'ecosystem.product.knowledge.note.0': 'Se ejecuta en local como `harness-knowledge mcp`. Con una base de datos de equipo, las palabras de una búsqueda o de una recuperación van a esa base de datos.',
   'ecosystem.product.knowledge.note.1': 'Actívalo o desactívalo para todos los harnesses en Ajustes, en Conocimiento del proyecto.',
   'ecosystem.product.knowledge.step.0.title': 'Instalar el ejecutable',
 };

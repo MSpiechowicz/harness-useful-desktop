@@ -9,10 +9,11 @@
 //! webview.
 
 use super::file::read_config;
-use super::knowledge_config_path;
+use super::{knowledge_config_path, unsupported_kind};
 use crate::ecosystem::catalog::KNOWLEDGE_SIDECAR;
 use crate::ecosystem::knowledge_binary::installed_knowledge;
 use crate::ecosystem::knowledge_cli::problem_of;
+use crate::ecosystem::memory_remote::is_documentdb_url;
 use crate::ecosystem::sidecar_cli::clean;
 use crate::ecosystem::sidecar_remote_check::{CheckRequest, run_check_raw};
 use crate::ecosystem::sidecar_remote_url::{
@@ -56,6 +57,11 @@ pub async fn knowledge_remote_test(
         && let Some(problem) = saved_url_problem(saved.url.as_deref(), |url| scheme_fits(url, kind), kind)
     {
         return refused(problem);
+    }
+
+    // Like saving: a MongoDB URL at an Amazon DocumentDB host is not a database this server supports.
+    if kind == MemoryRemoteKind::Mongodb && url.as_deref().or(saved.url.as_deref()).is_some_and(is_documentdb_url) {
+        return refused(unsupported_kind(MemoryRemoteKind::Documentdb).unwrap_or_default());
     }
 
     // `Some(None)`: test without a token; `None`: use the saved one (and never for other kinds).

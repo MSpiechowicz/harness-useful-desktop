@@ -181,9 +181,10 @@ pub async fn decide_knowledge_held(
     }
 }
 
-/// The counts the live view follows: the documents and the generation (`stats --json`) and, while
-/// the server has a review queue, how many proposals wait (`held list --json`). `None` while the
-/// server cannot answer `stats`.
+/// The counts the live view follows, all from one `stats --json` call: the documents, the
+/// generation and how many proposals wait (`held`). A server that predates that field is asked for
+/// `held list --json` instead, while it has a review queue. `None` while the server cannot answer
+/// `stats`.
 pub async fn knowledge_pulse(
     env: &Env,
     runner: &dyn ProcessRunner,
@@ -192,9 +193,12 @@ pub async fn knowledge_pulse(
     let server = docs_server(env, runner, features).await.ok()?;
     let stats = read_stats(env, runner, &server).await.ok()?;
 
-    let held = match knowledge_held_server(env, runner, features).await {
-        Ok(server) => held_total(env, runner, &server).await,
-        Err(_) => None,
+    let held = match stats.held {
+        Some(held) => Some(held),
+        None => match knowledge_held_server(env, runner, features).await {
+            Ok(server) => held_total(env, runner, &server).await,
+            Err(_) => None,
+        },
     };
 
     Some(KnowledgePulse {

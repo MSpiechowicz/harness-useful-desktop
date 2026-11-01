@@ -38,7 +38,8 @@
   // Whoever is decided on is the version that was shown: the read of it is newer than the row once it is in.
   const shown = $derived(detail ?? item);
   const text = $derived(shown?.text ?? '');
-  const hidden = $derived(revealHidden(text).count);
+  // The list only gives a preview, so hidden characters are only looked for in the whole text, and a proposal is approved only after that was read.
+  const hidden = $derived(revealHidden(detail?.text ?? '').count);
 </script>
 
 <SidePanel {open} {inline} title={item?.title ?? ''} subtitle={item ? `${formatLabel(item.format)} · ${linksText(item.links)}` : ''} {onclose}>
@@ -65,13 +66,13 @@
         <p class="text-sm text-fg-3">{t('knowledge.held.links.global')}</p>
       {:else}
         <ul class="flex flex-col gap-2">
-          {#each shown.links as link (link.repo)}
+          {#each shown.links as link, index (index)}
             <li class="flex flex-col gap-1.5 rounded-lg border border-line bg-surface-2 p-3">
               <span class="flex items-center gap-2.5 text-sm font-medium text-fg"><GitBranch size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" /><span class="truncate" title={link.repo}>{repoLabel(link.repo)}</span></span>
 
               {#if link.globs.length > 0}
                 <ul class="flex flex-wrap gap-1.5">
-                  {#each link.globs as glob (glob)}
+                  {#each link.globs as glob, position (position)}
                     <li class="rounded-sm bg-surface-3 px-2 py-0.5 font-mono text-xs text-fg-2">{glob}</li>
                   {/each}
                 </ul>
@@ -88,7 +89,7 @@
       <p class="mb-3 text-sm text-fg-3">{t('knowledge.review.hint')}</p>
 
       <div class="flex flex-wrap items-center gap-2">
-        <Button variant="primary" loading={busy} onclick={() => onapprove(shown)}>
+        <Button variant="primary" loading={busy} disabled={detail === null || status === 'error'} onclick={() => onapprove(detail ?? shown)}>
           {#snippet leading()}<Check size={ICON.sm} aria-hidden="true" />{/snippet}
           {t('knowledge.held.approve')}
         </Button>

@@ -74,6 +74,13 @@ export function useKnowledgeData(): void {
     untrack(() => revalidateProjectScopes());
   });
 
+  // The backend reads the counts every few seconds only while this view is open.
+  $effect(() => {
+    knowledgeChanges.watch(true);
+
+    return () => knowledgeChanges.watch(false);
+  });
+
   // The database changed (an agent added a document, a proposal came in, an import went on): everything on screen is read again.
   let seen = untrack(() => knowledgeChanges.pulse?.generation ?? null);
 

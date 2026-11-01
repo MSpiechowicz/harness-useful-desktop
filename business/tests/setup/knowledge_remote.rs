@@ -306,6 +306,8 @@ fn a_test_that_cannot_run_says_why() {
     };
 
     assert!(test(MemoryRemoteKind::Documentdb, Some(POSTGRES)).contains("DocumentDB"));
+    let docdb = "mongodb://u:p@cluster.cluster-abc.eu-west-1.docdb.amazonaws.com:27017/knowledge";
+    assert!(test(MemoryRemoteKind::Mongodb, Some(docdb)).contains("DocumentDB"));
     assert!(test(MemoryRemoteKind::Postgres, Some("mysql://x/y")).contains("must start with"));
     assert!(test(MemoryRemoteKind::Postgres, None).contains("no database URL is saved"));
     assert!(

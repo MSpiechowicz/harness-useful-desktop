@@ -24,7 +24,8 @@ type KnowledgeCommands =
   | 'knowledge_held_list'
   | 'knowledge_held_get'
   | 'knowledge_held_decide'
-  | 'knowledge_changes_listen';
+  | 'knowledge_changes_listen'
+  | 'knowledge_changes_watch';
 
 /**
  * Browser-preview switch `?knowledge=`: `empty` starts without documents and proposals, `outdated` is a Harness Knowledge that predates
@@ -259,5 +260,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
 
       return null;
     },
+
+    knowledge_changes_watch: () => null,
   };
 }

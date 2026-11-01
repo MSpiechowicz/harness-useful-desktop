@@ -89,6 +89,8 @@ export const knowledgeCommands = {
   knowledge_held_decide: cmd<{ id: string; decision: KnowledgeDecision; revision: string | null }, KnowledgeDecided>(),
   /** Sends the database's counts to `onEvent` now and whenever one changes, replacing the previous listener: the live list and the review badge. */
   knowledge_changes_listen: cmd<{ onEvent: EventSink<KnowledgePulse> }, null>(),
+  /** Tells that the Knowledge view is open or closed: the counts are read every 4 s while it is, every 30 s otherwise. */
+  knowledge_changes_watch: cmd<{ watching: boolean }, null>(),
   /** Lets the user choose documents in a native dialog and checks them. Null when cancelled. */
   knowledge_pick_files: cmd<undefined, KnowledgeIntake | null>(),
   /** Lets the user choose a folder of documents in a native dialog and checks it. Null when cancelled. */

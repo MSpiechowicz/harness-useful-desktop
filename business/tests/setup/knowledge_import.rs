@@ -46,6 +46,7 @@ fn manifest() -> ImportManifest {
             replaces: None,
         },
     )
+    .unwrap()
 }
 
 /// An installed server, a spawner that hands its child to the test, and the importer.
@@ -324,6 +325,39 @@ async fn a_child_that_does_not_start_is_an_error_and_a_huge_manifest_is_refused(
         vec!["a".repeat(5 * 1024 * 1024)],
         vec![],
         KnowledgeImportOptions::default(),
-    );
+    )
+    .unwrap();
     assert!(matches!(huge.to_json(), Err(BusinessError::InvalidInput(_))));
+}
+
+#[test]
+fn a_manifest_refuses_links_the_server_would_refuse_and_replaces_without_exactly_one_file() {
+    let bad_link = KnowledgeImportOptions {
+        links: vec![KnowledgeLink {
+            repo: "not a key".to_owned(),
+            globs: Vec::new(),
+        }],
+        replaces: None,
+    };
+    let error = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], bad_link).expect_err("bad link");
+    assert!(matches!(error, BusinessError::InvalidInput(_)));
+
+    let replaces = KnowledgeImportOptions {
+        links: vec![],
+        replaces: Some(7),
+    };
+    for (paths, folders) in [
+        (vec!["/docs/a.md", "/docs/b.md"], vec![]),
+        (vec!["/docs/a.md"], vec!["/docs/handbook"]),
+        (vec![], vec!["/docs/handbook"]),
+        (vec![], vec![]),
+    ] {
+        let paths = paths.into_iter().map(str::to_owned).collect();
+        let folders = folders.into_iter().map(str::to_owned).collect();
+        let error = ImportManifest::new(paths, folders, replaces.clone()).expect_err("not one file");
+        assert!(matches!(error, BusinessError::InvalidInput(_)));
+    }
+
+    let one = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], replaces).unwrap();
+    assert_eq!(one.replaces, Some(7));
 }

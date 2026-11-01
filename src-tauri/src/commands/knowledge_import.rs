@@ -109,11 +109,14 @@ pub async fn knowledge_import(
         )
         .await?;
     let paths = state.knowledge_intakes.get(&token)?;
+    let manifest = ImportManifest::new(paths.files, paths.folders, options.unwrap_or_default())?;
     let run = state.knowledge_importer.begin()?;
+
+    // The selection is used up as the import starts: it cannot be started a second time.
+    state.knowledge_intakes.forget(&token);
 
     ready_for_import(&state).await;
 
-    let manifest = ImportManifest::new(paths.files, paths.folders, options.unwrap_or_default());
     let spawner = state.agents.spawner();
 
     let result = run_import(&state.env, spawner.as_ref(), &server, &manifest, &run, |event| {
@@ -121,8 +124,6 @@ pub async fn knowledge_import(
         on_event.send(event).ok();
     })
     .await?;
-
-    state.knowledge_intakes.forget(&token);
 
     Ok(result)
 }

@@ -38,6 +38,13 @@ export class KnowledgeChangesStore {
     };
   }
 
+  /** Tells the backend whether the Knowledge view is open: it reads the counts every 4 s then, every 30 s otherwise. */
+  watch(watching: boolean): void {
+    this.transport.invoke('knowledge_changes_watch', { watching }).catch(() => {
+      // No backend to tell: the slow rhythm stays.
+    });
+  }
+
   /** Forgets what was read, e.g. for a test. */
   reset(): void {
     this.pulse = null;

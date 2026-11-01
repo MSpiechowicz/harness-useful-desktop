@@ -33,6 +33,7 @@ const COMMANDS: &[&str] = &[
     "knowledge_held_get",
     "knowledge_held_decide",
     "knowledge_changes_listen",
+    "knowledge_changes_watch",
     "knowledge_set_vector_search",
     "knowledge_embedder_watch",
     "knowledge_embedder_remove_model",

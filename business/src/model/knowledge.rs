@@ -321,6 +321,10 @@ pub struct KnowledgeStats {
     pub schema: u32,
     /// The model that embedded the chunks, once any were.
     pub model: Option<String>,
+    /// How many proposals wait in the review queue. Absent from a server that predates it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub held: Option<u32>,
 }
 
 /// The answer of `knowledge_docs_delete`.

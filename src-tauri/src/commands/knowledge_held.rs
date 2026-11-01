@@ -71,3 +71,12 @@ pub async fn knowledge_changes_listen(
 
     Ok(())
 }
+
+/// Tells that the Knowledge view is open (`watching`) or closed: the counts of
+/// `knowledge_changes_listen` are read every 4 s while it is open and every 30 s otherwise.
+#[tauri::command]
+pub fn knowledge_changes_watch(state: State<'_, AppState>, watching: bool) -> CommandResult<()> {
+    state.knowledge_pulse.set_watching(watching);
+
+    Ok(())
+}

@@ -78,6 +78,18 @@ fn an_intake_is_kept_by_its_token_until_forgotten_and_an_empty_one_is_not_kept()
 }
 
 #[test]
+fn tokens_are_random_not_a_count() {
+    let dir = dir_with_docs();
+    let intakes = KnowledgeIntakes::new();
+    let first = intakes.put(&[dir.path().join("guide.md")]).token;
+    let second = intakes.put(&[dir.path().join("guide.md")]).token;
+
+    assert_ne!(first, second);
+    assert!(!first.ends_with("-1") && !second.ends_with("-2"), "{first} {second}");
+    assert!(first.len() >= "intake-".len() + 32, "{first}");
+}
+
+#[test]
 fn only_the_newest_intakes_are_kept() {
     let dir = dir_with_docs();
     let intakes = KnowledgeIntakes::new();

@@ -106,6 +106,7 @@ pub fn run() -> ExitCode {
             commands::knowledge_held::knowledge_held_get,
             commands::knowledge_held::knowledge_held_decide,
             commands::knowledge_held::knowledge_changes_listen,
+            commands::knowledge_held::knowledge_changes_watch,
             commands::knowledge_embedder::knowledge_set_vector_search,
             commands::knowledge_embedder::knowledge_embedder_watch,
             commands::knowledge_embedder::knowledge_embedder_remove_model,

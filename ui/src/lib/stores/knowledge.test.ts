@@ -43,6 +43,16 @@ describe('the live counts of the knowledge database', () => {
     expect(store.pulse?.generation).toBe(4);
   });
 
+  it('tells the backend whether the Knowledge view is open, so it reads fast only then', () => {
+    const told: boolean[] = [];
+    const store = new KnowledgeChangesStore(fakeTransport({ knowledge_changes_watch: ({ watching }: { watching: boolean }) => (told.push(watching), null) }));
+
+    store.watch(true);
+    store.watch(false);
+
+    expect(told).toEqual([true, false]);
+  });
+
   it('stays quiet when there is no server to follow', async () => {
     const store = new KnowledgeChangesStore(fakeTransport({ knowledge_changes_listen: () => Promise.reject(IpcFailure.from({ code: 'notFound', message: 'not installed' })) }));
 

@@ -29,6 +29,7 @@
     "allow-knowledge-held-get",
     "allow-knowledge-held-decide",
     "allow-knowledge-changes-listen",
+    "allow-knowledge-changes-watch",
     "allow-knowledge-set-vector-search",
     "allow-knowledge-embedder-watch",
     "allow-knowledge-embedder-remove-model",

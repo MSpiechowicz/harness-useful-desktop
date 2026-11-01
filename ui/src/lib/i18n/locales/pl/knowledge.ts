@@ -99,6 +99,8 @@ export const knowledge: AreaMessages<typeof enKnowledge> = {
   'knowledge.deleteAll.confirm': 'Usuń wszystkie',
   'knowledge.deleteAll.cancel': 'Zostaw je',
   'knowledge.deleteAll.failed': 'Nie udało się usunąć dokumentów',
+  'knowledge.deleteAll.unavailable': 'Harness Knowledge nie odpowiedział',
+  'knowledge.deleteAll.partial': 'Usunięto {deleted} z {total} dokumentów, reszta nadal tam jest',
   'knowledge.deleteAll.done.one': 'Usunięto {count} dokument',
   'knowledge.deleteAll.done.other': 'Usunięto {count} dokumentu',
   'knowledge.deleteAll.done.few': 'Usunięto {count} dokumenty',

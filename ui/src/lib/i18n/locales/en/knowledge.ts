@@ -99,6 +99,8 @@ export const knowledge = {
   'knowledge.deleteAll.confirm': 'Delete all',
   'knowledge.deleteAll.cancel': 'Keep them',
   'knowledge.deleteAll.failed': 'Could not delete the documents',
+  'knowledge.deleteAll.unavailable': 'Harness Knowledge did not answer',
+  'knowledge.deleteAll.partial': 'Deleted {deleted} of {total} documents and the rest are still there',
   'knowledge.deleteAll.done.one': 'Deleted {count} document',
   'knowledge.deleteAll.done.other': 'Deleted {count} documents',
   'knowledge.table.label': 'Documents',

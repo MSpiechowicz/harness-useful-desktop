@@ -271,8 +271,8 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.sidebar.step.1.title': 'Zainstaluj wtyczkę',
   'ecosystem.product.sidebar.step.2.title': 'Skonfiguruj pasek boczny',
   'ecosystem.product.knowledge.tagline': 'Dokumentacja projektu, którą może przeszukiwać każdy agent programistyczny.',
-  'ecosystem.product.knowledge.description': 'Lokalny serwer MCP, który przechowuje dokumenty (Markdown, tekst, HTML, OpenAPI, AsciiDoc, reStructuredText i PDF) osobno dla każdego projektu i znajduje fragmenty potrzebne agentowi dzięki rankingowi po słowach kluczowych i wektorowemu. Aplikacja importuje pliki i foldery, rejestruje serwer w każdym wykrytym harnessie, gdy Wiedza projektu jest włączona, i dodaje do pierwszej wiadomości nowego czatu odnośniki do pasujących fragmentów.',
-  'ecosystem.product.knowledge.note.0': 'Działa lokalnie jako `harness-knowledge mcp` i nic nie jest wysyłane przez sieć.',
+  'ecosystem.product.knowledge.description': 'Lokalny serwer MCP, który przechowuje dokumenty (Markdown, tekst, HTML, OpenAPI, AsciiDoc, reStructuredText i PDF) osobno dla każdego projektu i znajduje fragmenty potrzebne agentowi dzięki rankingowi po słowach kluczowych i wektorowemu. Aplikacja importuje pliki i foldery, rejestruje serwer w każdym wykrytym harnessie, gdy Wiedza projektu jest włączona, i dodaje do każdej wysyłanej wiadomości odnośniki do pasujących fragmentów.',
+  'ecosystem.product.knowledge.note.0': 'Działa lokalnie jako `harness-knowledge mcp`. Z zespołową bazą danych słowa wyszukiwania lub przywołania trafiają do tej bazy.',
   'ecosystem.product.knowledge.note.1': 'Włącz lub wyłącz go dla wszystkich harnessów w Ustawieniach, w sekcji Wiedza projektu.',
   'ecosystem.product.knowledge.step.0.title': 'Zainstaluj plik wykonywalny',
 };

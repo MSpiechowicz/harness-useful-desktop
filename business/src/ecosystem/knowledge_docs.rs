@@ -304,7 +304,7 @@ fn check_repo_key(key: &str) -> Result<()> {
 
 /// The links the server would take: at most 32, each with a repository key and at most 32 globs
 /// of at most 256 characters without control characters.
-fn check_links(links: &[KnowledgeLink]) -> Result<()> {
+pub(super) fn check_links(links: &[KnowledgeLink]) -> Result<()> {
     if links.len() > MAX_LINKS {
         return Err(invalid(&format!(
             "a document links to at most {MAX_LINKS} repositories"

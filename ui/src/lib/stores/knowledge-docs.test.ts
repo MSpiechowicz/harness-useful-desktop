@@ -97,8 +97,39 @@ describe('what changes a document', () => {
     const { transport, asked } = listing(Array.from({ length: 450 }, (_, index) => doc(index + 1)));
     const store = new KnowledgeDocsStore(transport);
 
-    expect(await store.removeAll()).toBe(450);
+    expect(await store.removeAll()).toEqual({ deleted: 450, total: 450 });
     expect(asked.filter((args) => (args as { filter: unknown }).filter === null)).toHaveLength(4);
+  });
+
+  it('stops with the reason when a page comes from a server that is not available, instead of taking it for an empty database', async () => {
+    let deletes = 0;
+    const store = new KnowledgeDocsStore(
+      fakeTransport({
+        knowledge_docs_list: () => ({ availability: { type: 'failed', message: 'the database is locked' }, items: [], total: 0 }),
+        knowledge_docs_delete: () => (deletes += 1, { deleted: 0 }),
+        knowledge_repos_list: () => ({ availability: { type: 'available' }, global: 0, repos: [] }),
+      }),
+    );
+
+    await expect(store.removeAll()).rejects.toThrow('the database is locked');
+
+    const outdated = new KnowledgeDocsStore(fakeTransport({ knowledge_docs_list: () => ({ availability: { type: 'outdated' }, items: [], total: 0 }), knowledge_repos_list: () => ({ availability: { type: 'available' }, global: 0, repos: [] }) }));
+
+    await expect(outdated.removeAll()).rejects.toThrow('Harness Knowledge did not answer');
+    expect(deletes).toBe(0);
+  });
+
+  it('answers fewer deleted than there were when the server stopped taking documents', async () => {
+    const all = [doc(1), doc(2), doc(3)];
+    const store = new KnowledgeDocsStore(
+      fakeTransport({
+        knowledge_docs_list: () => ({ availability: { type: 'available' }, items: all, total: 3 }),
+        knowledge_docs_delete: () => ({ deleted: 0 }),
+        knowledge_repos_list: () => ({ availability: { type: 'available' }, global: 0, repos: [] }),
+      }),
+    );
+
+    expect(await store.removeAll()).toEqual({ deleted: 0, total: 3 });
   });
 
   it('says why in a toast when the server refused a rename, and answers null', async () => {

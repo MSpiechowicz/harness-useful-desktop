@@ -33,8 +33,23 @@ const OPEN: &str = "<harness-knowledge-recall>";
 const CLOSE: &str = "</harness-knowledge-recall>";
 
 /// The pointers Harness Knowledge recalls for `prompt` in `project` (the chat's project root, none
-/// without one), as the server's block; `None` when there are none or the recall did not work.
+/// without one), as the server's block; `None` when there are none or the recall did not work. The
+/// whole of it, the features probe included, gets [`RECALL_TIMEOUT`] (plus the process kill that
+/// follows a timeout of the server itself), so a slow probe never holds a message back.
 pub async fn knowledge_recall(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    features: &KnowledgeFeatures,
+    prompt: &str,
+    project: Option<&str>,
+) -> Option<String> {
+    tokio::time::timeout(RECALL_TIMEOUT, recall(env, runner, features, prompt, project))
+        .await
+        .ok()
+        .flatten()
+}
+
+async fn recall(
     env: &Env,
     runner: &dyn ProcessRunner,
     features: &KnowledgeFeatures,

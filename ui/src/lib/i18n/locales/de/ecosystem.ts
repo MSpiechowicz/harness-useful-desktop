@@ -250,8 +250,8 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.sidebar.step.1.title': 'Das Plugin installieren',
   'ecosystem.product.sidebar.step.2.title': 'Die Seitenleiste einrichten',
   'ecosystem.product.knowledge.tagline': 'Projektdokumentation, die jeder Coding-Agent durchsuchen kann.',
-  'ecosystem.product.knowledge.description': 'Ein lokaler MCP-Server, der Dokumente (Markdown, Text, HTML, OpenAPI, AsciiDoc, reStructuredText und PDF) pro Projekt verwaltet und die Passagen, die ein Agent braucht, mit Stichwort- und Vektor-Ranking findet. Die App importiert Dateien und Ordner, registriert den Server in jedem erkannten Harness, solange Projektwissen aktiv ist, und fügt der ersten Nachricht eines neuen Chats Hinweise auf passende Passagen hinzu.',
-  'ecosystem.product.knowledge.note.0': 'Läuft lokal als `harness-knowledge mcp` und es wird nichts über das Netzwerk gesendet.',
+  'ecosystem.product.knowledge.description': 'Ein lokaler MCP-Server, der Dokumente (Markdown, Text, HTML, OpenAPI, AsciiDoc, reStructuredText und PDF) pro Projekt verwaltet und die Passagen, die ein Agent braucht, mit Stichwort- und Vektor-Ranking findet. Die App importiert Dateien und Ordner, registriert den Server in jedem erkannten Harness, solange Projektwissen aktiv ist, und fügt jeder Nachricht, die du sendest, Hinweise auf passende Passagen hinzu.',
+  'ecosystem.product.knowledge.note.0': 'Läuft lokal als `harness-knowledge mcp`. Mit einer Team-Datenbank gehen die Wörter einer Suche oder eines Abrufs an diese Datenbank.',
   'ecosystem.product.knowledge.note.1': 'Schalte es für alle Harnesses in den Einstellungen unter Projektwissen ein oder aus.',
   'ecosystem.product.knowledge.step.0.title': 'Das Programm installieren',
 };
