@@ -134,6 +134,7 @@ async fn installed_tools_report_their_version_and_where_they_were_found() {
             EcosystemId::Dashboard,
             EcosystemId::Memory,
             EcosystemId::Knowledge,
+            EcosystemId::Code,
             EcosystemId::Skills,
             EcosystemId::Sidebar
         ]
@@ -153,6 +154,11 @@ async fn installed_tools_report_their_version_and_where_they_were_found() {
     assert!(!knowledge.installed);
     assert!(knowledge.via.is_empty());
     assert!(knowledge.install_steps[0].command.contains("harness-useful-knowledge"));
+
+    let code = item(&status, EcosystemId::Code);
+    assert!(!code.installed);
+    assert!(code.via.is_empty());
+    assert!(code.install_steps[0].command.contains("harness-useful-code"));
 
     let skills = item(&status, EcosystemId::Skills);
     assert!(skills.installed);

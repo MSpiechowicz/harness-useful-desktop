@@ -3,6 +3,7 @@
 
 pub mod agent;
 pub mod app;
+pub mod code;
 pub mod desktop_mcp;
 pub mod drops;
 pub mod ecosystem;
@@ -17,7 +18,6 @@ pub mod knowledge_held;
 pub mod knowledge_import;
 pub mod knowledge_remote;
 pub mod memory;
-pub mod memory_code;
 pub mod memory_embedder;
 pub mod memory_guards;
 pub mod memory_notes;

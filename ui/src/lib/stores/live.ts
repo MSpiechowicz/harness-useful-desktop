@@ -82,5 +82,8 @@ export const RETRY_BACKOFF_MS: readonly number[] = [2_000, 5_000, 15_000, 30_000
 /** The settings that say Harness Knowledge is missing or too old: the user may be installing it in the Ecosystem view, and the row gives way by itself. */
 export const KNOWLEDGE_STATUS_POLL_MS = 10_000;
 
+/** The settings that say Harness Code is missing or too old: the user may be installing it in the Ecosystem view, and the row gives way by itself. */
+export const CODE_STATUS_POLL_MS = 10_000;
+
 /** The Knowledge view, as a backstop for the database's own change events: a server that was missing or failing is asked again, so the view comes back by itself. */
 export const KNOWLEDGE_POLL_MS = 15_000;

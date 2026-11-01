@@ -1,0 +1,152 @@
+//! `harness-code` stand-in (the code graph server). The switch is kept between runs in
+//! `.fake-code-switch` of the working directory.
+//!
+//! - `--version` prints `harness-code 0.0.0` (`FAKE_CODE_VERSION` replaces the version).
+//! - `features` lists one feature per line: `code-index`, `code-hint`, `code-prepare` and
+//!   `code-match`, or what `FAKE_CODE_FEATURES` (comma separated, `none` for a server that predates
+//!   the command) or `.fake-code-features` of the working directory says.
+//! - `status --json` prints `{"enabled": …, "source": …}`: `file` with what the last
+//!   `enable|disable` of that working directory said, else `env` with `FAKE_CODE_INDEX` (`off` is
+//!   off, anything else on), else `default` (on).
+//! - `enable|disable --json` remember the switch and print the state they left, or exit 1 with the
+//!   server's line when `FAKE_CODE_REFUSE` is set.
+//! - `build|repo --project P --json` (only while `code-prepare` is listed) prints
+//!   `{"built": true, "files": 3}` the first time in a working directory and `{"built": false,
+//!   "reason": "indexed"}` after that (`.fake-code-built` remembers it), and `reason` `off` while
+//!   the switch is off. `FAKE_CODE_BUILD` scripts other answers: `error` (reason `error` with a
+//!   line), `garbled` (not JSON) and `incomplete` (`built` false without a `reason`). The project
+//!   must be an absolute path, else it is a usage error.
+//! - Any other command or option is a usage error (exit 2).
+
+use serde_json::json;
+
+/// Where `enable|disable` remember the switch, in the working directory.
+const SWITCH_FILE: &str = ".fake-code-switch";
+
+/// Where the first `build` remembers that it ran, in the working directory.
+const BUILT_FILE: &str = ".fake-code-built";
+
+/// The features of a stand-in without `FAKE_CODE_FEATURES`.
+const DEFAULT_FEATURES: [&str; 4] = ["code-index", "code-hint", "code-prepare", "code-match"];
+
+/// `harness-code <args>` (without the program name).
+pub fn run(args: &[String]) -> ! {
+    match args {
+        [version] if version == "--version" => {
+            let number = std::env::var("FAKE_CODE_VERSION").unwrap_or_else(|_| "0.0.0".to_owned());
+            println!("harness-code {number}");
+            std::process::exit(0);
+        }
+        [command] if command == "features" => features(),
+        [command, json] if command == "status" && json == "--json" && lists("code-index") => print_state(),
+        [command, json] if (command == "enable" || command == "disable") && json == "--json" && lists("code-index") => {
+            if std::env::var_os("FAKE_CODE_REFUSE").is_some() {
+                eprintln!("harness-code: cannot write code.toml: permission denied");
+                std::process::exit(1);
+            }
+
+            std::fs::write(SWITCH_FILE, command).ok();
+            print_state()
+        }
+        [command, option, project, json]
+            if (command == "build" || command == "repo")
+                && option == "--project"
+                && json == "--json"
+                && lists("code-prepare") =>
+        {
+            build(project)
+        }
+        _ => {
+            eprintln!("usage: harness-code status|enable|disable|build|repo|features");
+            std::process::exit(2);
+        }
+    }
+}
+
+/// `harness-code features`.
+fn features() -> ! {
+    if features_setting().as_deref() == Some("none") {
+        eprintln!("usage: harness-code status|enable|disable|build|repo");
+        std::process::exit(2);
+    }
+
+    println!("{}", listed().join("\n"));
+    std::process::exit(0);
+}
+
+/// The features this stand-in lists: what `FAKE_CODE_FEATURES` says (`none` lists nothing), else
+/// [`DEFAULT_FEATURES`].
+fn listed() -> Vec<String> {
+    match features_setting().as_deref() {
+        Some("none") => Vec::new(),
+        Some(setting) => setting.split(',').map(|feature| feature.trim().to_owned()).collect(),
+        None => DEFAULT_FEATURES.iter().map(|feature| (*feature).to_owned()).collect(),
+    }
+}
+
+/// Whether this stand-in lists `feature`: the commands of a feature it does not list are usage
+/// errors, as an older server answers.
+fn lists(feature: &str) -> bool {
+    listed().iter().any(|listed| listed == feature)
+}
+
+/// `FAKE_CODE_FEATURES`, else the text of `.fake-code-features` in the working directory.
+fn features_setting() -> Option<String> {
+    std::env::var("FAKE_CODE_FEATURES").ok().or_else(|| {
+        std::fs::read_to_string(".fake-code-features")
+            .ok()
+            .map(|text| text.trim().to_owned())
+    })
+}
+
+/// `build --project <project> --json`.
+fn build(project: &str) -> ! {
+    if !std::path::Path::new(project).is_absolute() {
+        eprintln!("harness-code: --project must be an absolute path");
+        std::process::exit(2);
+    }
+
+    match std::env::var("FAKE_CODE_BUILD").as_deref() {
+        Ok("garbled") => {
+            println!("indexing {project}");
+            std::process::exit(0);
+        }
+        Ok("incomplete") => answer(json!({ "built": false })),
+        Ok("error") => answer(json!({ "built": false, "reason": "error", "error": "disk full" })),
+        _ => {}
+    }
+
+    if !switch().0 {
+        answer(json!({ "built": false, "reason": "off" }));
+    }
+
+    if std::path::Path::new(BUILT_FILE).exists() {
+        answer(json!({ "built": false, "reason": "indexed" }));
+    }
+
+    std::fs::write(BUILT_FILE, project).ok();
+    answer(json!({ "built": true, "files": 3 }))
+}
+
+fn answer(value: serde_json::Value) -> ! {
+    println!("{value}");
+    std::process::exit(0);
+}
+
+/// Whether the switch is on, and where that comes from.
+fn switch() -> (bool, &'static str) {
+    match std::fs::read_to_string(SWITCH_FILE).as_deref() {
+        Ok(saved) => (saved == "enable", "file"),
+        Err(_) => match std::env::var("FAKE_CODE_INDEX") {
+            Ok(value) => (value != "off", "env"),
+            Err(_) => (true, "default"),
+        },
+    }
+}
+
+fn print_state() -> ! {
+    let (enabled, source) = switch();
+
+    println!("{}", json!({ "enabled": enabled, "source": source }));
+    std::process::exit(0);
+}

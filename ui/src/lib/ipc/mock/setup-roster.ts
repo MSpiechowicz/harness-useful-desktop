@@ -23,21 +23,21 @@ export interface RosterEntry {
   desktopMcp: McpState;
 }
 
-/** The knowledge server's MCP state before anything is set up: the memory server's, for the knowledge server's entry. */
-export function knowledgeMcpOf(entry: RosterEntry): McpState {
+/** A sibling server's MCP state before anything is set up (`harness-knowledge`, `harness-code`): the memory server's, for the sibling's entry. */
+export function siblingMcpOf(entry: RosterEntry, name: string): McpState {
   const memory = entry.memoryMcp;
 
   if (memory.type === 'configured') {
-    return { ...memory, name: 'harness-knowledge' };
+    return { ...memory, name };
   }
 
-  // Switched off in the file for Harness Memory only: the knowledge server was never added there.
+  // Switched off in the file for Harness Memory only: the sibling was never added there.
   if (memory.type === 'disabled') {
     return { type: 'missing', file: memory.file, exists: true };
   }
 
   if (memory.type === 'manualEdit') {
-    return { ...memory, snippet: opencodeSnippet('harness-knowledge') };
+    return { ...memory, snippet: opencodeSnippet(name) };
   }
 
   return memory;

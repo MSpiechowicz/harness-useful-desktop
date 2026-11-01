@@ -38,6 +38,8 @@ pub const SCOPED: Vars = &[("FAKE_MEMORY_CLI", "scoped")];
 /// a spawn runs `fake_agent <args>` (the MCP server), a run `fake_agent <the spec's arguments>`
 /// named `harness-memory`.
 pub struct StandIn {
+    /// The server the stand-in plays: `harness-memory`, or another Harness family server.
+    name: &'static str,
     args: &'static [&'static str],
     vars: Mutex<Vars>,
     requested: Mutex<Vec<ExecSpec>>,
@@ -50,7 +52,7 @@ impl StandIn {
         vars.iter().fold(
             ExecSpec::new(env!("CARGO_BIN_EXE_fake_agent"))
                 .args(args)
-                .env("FAKE_AGENT_NAME", "harness-memory"),
+                .env("FAKE_AGENT_NAME", self.name),
             |fake, (name, value)| fake.env(name, value),
         )
     }
@@ -94,7 +96,12 @@ pub struct Setup {
 impl Setup {
     /// A home with `~/.local/bin/harness-memory` (never run: the stand-in replaces it).
     pub fn installed(args: &'static [&'static str], vars: Vars) -> Self {
-        let setup = Self::without_server(args, vars);
+        Self::installed_as("harness-memory", args, vars)
+    }
+
+    /// [`Self::installed`] for the Harness family server `name` (`harness-code`).
+    pub fn installed_as(name: &'static str, args: &'static [&'static str], vars: Vars) -> Self {
+        let setup = Self::without_server_as(name, args, vars);
 
         std::fs::create_dir_all(setup.binary.parent().unwrap()).unwrap();
         std::fs::write(&setup.binary, "placeholder").unwrap();
@@ -109,14 +116,20 @@ impl Setup {
     }
 
     pub fn without_server(args: &'static [&'static str], vars: Vars) -> Self {
+        Self::without_server_as("harness-memory", args, vars)
+    }
+
+    /// [`Self::without_server`] for the Harness family server `name`.
+    pub fn without_server_as(name: &'static str, args: &'static [&'static str], vars: Vars) -> Self {
         let home = tempfile::tempdir().unwrap();
         let env = Env::for_tests(home.path());
         let binary = home
             .path()
             .join(".local/bin")
-            .join(format!("harness-memory{}", std::env::consts::EXE_SUFFIX));
+            .join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
 
         let stand_in = Arc::new(StandIn {
+            name,
             args,
             vars: Mutex::new(vars),
             requested: Mutex::new(Vec::new()),

@@ -17,11 +17,7 @@
 //! - `settings`: `settings get|set --json` (the English notes setting);
 //! - `notes-lang`: `notes list --json` rows carry `lang` and `--lang` filters by it;
 //! - `notes-useful`: `notes list --json` rows carry `shown`, `useful` and `lastUsefulAt`, and `--sort
-//!   useful|lastUseful` and `--useful ever|never` use them;
-//! - `code-index`: `code status|enable|disable --json`, the switch of the code index behind the
-//!   `code_*` tools;
-//! - `code-prepare`: `code build --project P --json`, the build of a repository's code index before
-//!   an agent asks for it.
+//!   useful|lastUseful` and `--useful ever|never` use them.
 //!
 //! An older server does not know the command and exits non-zero. [`MemoryFeatures::support`] asks
 //! once per binary through a [`LineProbe`] (cached per binary, an older server cached as one
@@ -65,12 +61,6 @@ const NOTES_LANG: &str = "notes-lang";
 /// The line for the usefulness counts of a note, `--sort useful|lastUseful` and `--useful`.
 const NOTES_USEFUL: &str = "notes-useful";
 
-/// The line for the code index switch (`code status|enable|disable`).
-const CODE_INDEX: &str = "code-index";
-
-/// The line for building the code index of a repository ahead of the first agent call.
-const CODE_PREPARE: &str = "code-prepare";
-
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeaturesSupport {
@@ -98,10 +88,6 @@ pub enum FeaturesSupport {
         notes_lang: bool,
         /// `notes-useful` is listed.
         notes_useful: bool,
-        /// `code-index` is listed.
-        code_index: bool,
-        /// `code-prepare` is listed.
-        code_prepare: bool,
     },
     /// It predates `features` (or failed it): none of them.
     Unsupported,
@@ -166,16 +152,6 @@ impl FeaturesSupport {
     pub fn notes_useful(self) -> bool {
         matches!(self, Self::Listed { notes_useful: true, .. })
     }
-
-    /// Whether the server has `code status|enable|disable`: `code-index` is listed.
-    pub fn code_index(self) -> bool {
-        matches!(self, Self::Listed { code_index: true, .. })
-    }
-
-    /// Whether the server has `code build`: `code-prepare` is listed.
-    pub fn code_prepare(self) -> bool {
-        matches!(self, Self::Listed { code_prepare: true, .. })
-    }
 }
 
 /// The probe of the installed server's features. See the module docs.
@@ -213,8 +189,6 @@ impl MemoryFeatures {
                 settings: answer.lists(SETTINGS),
                 notes_lang: answer.lists(NOTES_LANG),
                 notes_useful: answer.lists(NOTES_USEFUL),
-                code_index: answer.lists(CODE_INDEX),
-                code_prepare: answer.lists(CODE_PREPARE),
             },
             LineAnswer::Unsupported => FeaturesSupport::Unsupported,
             LineAnswer::NotInstalled => FeaturesSupport::NotInstalled,

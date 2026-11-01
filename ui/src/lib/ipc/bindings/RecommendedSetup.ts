@@ -21,6 +21,10 @@ memory: DashboardSetup,
  */
 knowledge: DashboardSetup, 
 /**
+ * The Harness Code binary (`harness-code`), which the code graph registers with the harnesses.
+ */
+code: DashboardSetup, 
+/**
  * One entry per registered harness, in registry order.
  */
 harnesses: Array<HarnessSetup>, };

@@ -20,6 +20,8 @@ pub enum EcosystemId {
     /// Harness Knowledge: the project documentation MCP server every harness shares
     /// (`harness-knowledge`).
     Knowledge,
+    /// Harness Code: the code graph MCP server every harness shares (`harness-code`).
+    Code,
     /// Harness Skills: the `us-*` skills plugin for OMP.
     Skills,
     /// Harness Sidebar: live token charts and session history for OMP in a tmux sidebar.

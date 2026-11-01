@@ -29,9 +29,9 @@
   const soon = $derived(comingSoon(entry.harness));
 
   /** What a missing entry says while the server it runs is not installed; the app's own entry runs the app and never waits. */
-  const NEEDS: Record<McpKind, MessageKey | null> = { mcp: 'onboarding.setup.mcp.needsDashboard', memoryMcp: 'onboarding.setup.memoryMcp.needsMemory', knowledgeMcp: 'knowledge.onboarding.mcp.needsKnowledge', desktopMcp: null };
+  const NEEDS: Record<McpKind, MessageKey | null> = { mcp: 'onboarding.setup.mcp.needsDashboard', memoryMcp: 'onboarding.setup.memoryMcp.needsMemory', knowledgeMcp: 'knowledge.onboarding.mcp.needsKnowledge', codeMcp: 'code.onboarding.mcp.needsCode', desktopMcp: null };
 
-  /** One MCP column of the row: its cell and what its note would say. The dashboard's, the memory server's, the knowledge server's and the app's own work alike. */
+  /** One MCP column of the row: its cell and what its note would say. The dashboard's, the memory server's, the knowledge server's, the code server's and the app's own work alike. */
   function mcpColumn(kind: McpKind) {
     const mcp = entry[kind];
     const key: SetupKey = `${kind}:${entry.harness}`;

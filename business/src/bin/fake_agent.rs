@@ -37,9 +37,12 @@
 //! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0. `harness-memory trust
 //! <id>=<sha256>… [--project <path>]` approves the stand-in's scripts, see [`memory::trust`].
 //! `harness-memory notes list|get|delete` and `harness-memory scripts list` answer from fixtures,
-//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`]; `harness-memory embedder …` and `settings …`, see [`memory_embedder`]; `harness-memory code status|enable|disable`, see [`memory_code`].
+//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`]; `harness-memory embedder …` and `settings …`, see [`memory_embedder`].
 //! `harness-memory hooks|routines config|list|put|delete` answer from files
 //! next to the copy, see [`memory_hooks`].
+//!
+//! Copied under the name `harness-code` (or with `FAKE_AGENT_NAME=harness-code`), it is the code
+//! graph server instead: `--version`, `features`, `status|enable|disable` and `build`, see [`code`].
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -51,6 +54,8 @@ use serde_json::{Map, Value, json};
 
 #[path = "fake_agent/claude.rs"]
 mod claude;
+#[path = "fake_agent/code.rs"]
+mod code;
 #[path = "fake_agent/codex.rs"]
 mod codex;
 #[path = "fake_agent/memory.rs"]
@@ -59,8 +64,6 @@ mod memory;
 mod memory_cli;
 #[path = "fake_agent/memory_cli_notes.rs"]
 mod memory_cli_notes;
-#[path = "fake_agent/memory_code.rs"]
-mod memory_code;
 #[path = "fake_agent/memory_embedder.rs"]
 mod memory_embedder;
 #[path = "fake_agent/memory_hooks.rs"]
@@ -91,6 +94,10 @@ mod recorded;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
 
+    if is_named("harness-code") {
+        code::run(&args[1..]);
+    }
+
     if is_memory_stand_in(&args, "--version") {
         println!("harness-memory {}", memory::version());
         std::process::exit(0);
@@ -116,7 +123,6 @@ fn main() {
             Some("features") => memory_push::features(),
             Some("embedder") if memory_push::lists("embedder") => memory_embedder::embedder(&args[2..]),
             Some("settings") if memory_push::lists("settings") => memory_embedder::settings(&args[2..]),
-            Some("code") if memory_push::lists("code-index") => memory_code::code(&args[2..]),
             Some("push") => memory_push::push(&args[2..]),
             Some(plural @ ("hooks" | "routines")) => memory_hooks::docs(plural, &args[2..]),
             _ => {}
@@ -198,9 +204,14 @@ fn is_memory_stand_in(args: &[String], argument: &str) -> bool {
 /// Whether this binary runs as a copy named `harness-memory`, or with `FAKE_AGENT_NAME=harness-memory`
 /// (tests that run it in place of an installed server without copying it).
 fn is_memory_named() -> bool {
-    let named = std::env::var("FAKE_AGENT_NAME").is_ok_and(|name| name == "harness-memory");
+    is_named("harness-memory")
+}
 
-    named || std::env::current_exe().is_ok_and(|exe| exe.file_stem().is_some_and(|stem| stem == "harness-memory"))
+/// Whether this binary runs as a copy named `name`, or with `FAKE_AGENT_NAME=<name>`.
+fn is_named(name: &str) -> bool {
+    let named = std::env::var("FAKE_AGENT_NAME").is_ok_and(|given| given == name);
+
+    named || std::env::current_exe().is_ok_and(|exe| exe.file_stem().is_some_and(|stem| stem == name))
 }
 
 /// `harness-memory check`, answered from the environment (see the module docs).

@@ -8,7 +8,7 @@ import { branchSync } from '$lib/stores/branch-sync.svelte';
 import { git } from '$lib/stores/git.svelte';
 import { harness } from '$lib/stores/harness.svelte';
 import { BRANCH_FETCH_MS, GIT_POLL_MS, HARNESS_FOCUS_GAP_MS, RETRY_BACKOFF_MS } from '$lib/stores/live';
-import { memoryCode } from '$lib/stores/memoryCode.svelte';
+import { codeGraph } from '$lib/stores/codeGraph.svelte';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { project } from '$lib/stores/project.svelte';
@@ -158,14 +158,28 @@ describe('the shell keeps what it shows current', () => {
 describe('the shell builds the code index of an open project', () => {
   it('asks once a chat runs in the project, without Settings having read the switch first', async () => {
     // a fresh launch: the switch not read yet, no project prepared (earlier tests of this file prepared this one)
-    memoryCode.reset();
+    codeGraph.reset();
+    // Harness Code is installed: without it the switch cannot be read and nothing is built.
+    await ipc.invoke('setup_install_code', { confirmed: true, onLog: () => {} });
     const invoke = vi.spyOn(ipc, 'invoke');
 
     render(Shell);
     await agentSessions.create('omp', project.active?.path ?? '');
 
-    // the switch is read at launch: no visit to Settings → Memory is needed
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith('memory_code_prepare', { project: project.active?.path }));
-    expect(invoke.mock.calls.filter(([name]) => name === 'memory_code_prepare')).toHaveLength(1);
+    // the switch is read at launch: no visit to Settings → Code is needed
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('code_prepare', { project: project.active?.path }));
+    expect(invoke.mock.calls.filter(([name]) => name === 'code_prepare')).toHaveLength(1);
+  });
+
+  it('builds nothing while the Code graph setting is off, even with the index switch on', async () => {
+    codeGraph.reset();
+    prefs.value = samplePrefs({ motion: 'off', defaultHarness: 'omp', onboardingCompleted: true, codeEnabled: false });
+    const invoke = vi.spyOn(ipc, 'invoke');
+
+    render(Shell);
+    await agentSessions.create('omp', project.active?.path ?? '');
+    await waitFor(() => expect(codeGraph.index?.enabled).toBe(true));
+
+    expect(invoke).not.toHaveBeenCalledWith('code_prepare', expect.anything());
   });
 });

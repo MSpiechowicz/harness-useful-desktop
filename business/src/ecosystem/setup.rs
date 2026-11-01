@@ -1,7 +1,6 @@
-//! What the "Recommended setup" step offers (`setup_status`): the dashboard, memory and knowledge
-//! binaries, and per harness the Harness Skills and the dashboard's, the memory server's, the
-//! knowledge server's and the app's own
-//! (`harness-desktop mcp`) MCP servers.
+//! What the "Recommended setup" step offers (`setup_status`): the dashboard, memory, knowledge and code
+//! binaries, and per harness the Harness Skills and the dashboard's, the memory, knowledge and
+//! code servers' and the app's own (`harness-desktop mcp`) MCP servers.
 //!
 //! Everything here only reads: the dashboard's and the memory server's version probes, the OMP,
 //! Claude Code and Codex plugin and marketplace registries ([`registries`]), PI's user settings, the Harness Skills' OpenCode and Codex install records (see
@@ -21,14 +20,14 @@ pub use self::legacy::{LegacySkillsStep, legacy_skills_step};
 use self::legacy::{SourceRegistration, install_actions, is_plugin_named, source_registration};
 use self::registries::marketplace_registries;
 use self::side_effects::{
-    MIGRATION_SIDE_EFFECT, codex_skills_side_effects, dashboard_side_effects, knowledge_side_effects, lines,
-    memory_side_effects, skills_side_effects,
+    MIGRATION_SIDE_EFFECT, code_side_effects, codex_skills_side_effects, dashboard_side_effects,
+    knowledge_side_effects, lines, memory_side_effects, skills_side_effects,
 };
 use super::catalog::{CODEX_SKILLS_MIN_VERSION, SKILLS_PLUGIN, supported_on};
 use super::desktop_register::{current_app_command, desktop_mcp_state};
 use super::installer::{Companion, Installed, installer};
 use super::mcp_merge::Shape;
-use super::mcp_register::{knowledge_mcp_state, mcp_state, memory_mcp_state};
+use super::mcp_register::{code_mcp_state, knowledge_mcp_state, mcp_state, memory_mcp_state};
 use super::releases::is_newer_release;
 use super::skills_record::skills_install;
 use crate::env::Env;
@@ -53,6 +52,7 @@ pub async fn setup_status(
     let dashboard = binary_setup(env, runner, Companion::Dashboard).await;
     let memory = memory_server_setup(env, runner).await;
     let knowledge = knowledge_server_setup(env, runner).await;
+    let code = code_server_setup(env, runner).await;
 
     let harnesses = registry
         .all()
@@ -69,6 +69,7 @@ pub async fn setup_status(
                 mcp: harness_mcp_state(env, harness, mcp_state),
                 memory_mcp: harness_mcp_state(env, harness, memory_mcp_state),
                 knowledge_mcp: harness_mcp_state(env, harness, knowledge_mcp_state),
+                code_mcp: harness_mcp_state(env, harness, code_mcp_state),
                 desktop_mcp: harness_mcp_state(env, harness, app_mcp_state),
             }
         })
@@ -78,6 +79,7 @@ pub async fn setup_status(
         dashboard,
         memory,
         knowledge,
+        code,
         harnesses,
     }
 }
@@ -235,6 +237,11 @@ pub async fn knowledge_server_setup(env: &Env, runner: &dyn ProcessRunner) -> Da
     binary_setup(env, runner, Companion::Knowledge).await
 }
 
+/// The `harness-code` binary: whether and which version is installed, and its installer.
+pub async fn code_server_setup(env: &Env, runner: &dyn ProcessRunner) -> DashboardSetup {
+    binary_setup(env, runner, Companion::Code).await
+}
+
 async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companion) -> DashboardSetup {
     let found = companion.installed(env, runner).await;
 
@@ -242,6 +249,7 @@ async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companio
         Companion::Dashboard => (EcosystemId::Dashboard, lines(dashboard_side_effects(env.os))),
         Companion::Memory => (EcosystemId::Memory, lines(memory_side_effects(env.os))),
         Companion::Knowledge => (EcosystemId::Knowledge, lines(knowledge_side_effects(env.os))),
+        Companion::Code => (EcosystemId::Code, lines(code_side_effects(env.os))),
         Companion::OpenCodeSkills => (EcosystemId::Skills, lines(skills_side_effects(env.os))),
         Companion::CodexSkills => (EcosystemId::Skills, codex_skills_side_effects(env)),
     };
@@ -249,9 +257,11 @@ async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companio
     // A memory server without a version is never registered or run, so the installer is offered.
     let installed = match companion {
         Companion::Dashboard => found != Installed::Missing,
-        Companion::Memory | Companion::Knowledge | Companion::OpenCodeSkills | Companion::CodexSkills => {
-            found.version().is_some()
-        }
+        Companion::Memory
+        | Companion::Knowledge
+        | Companion::Code
+        | Companion::OpenCodeSkills
+        | Companion::CodexSkills => found.version().is_some(),
     };
 
     DashboardSetup {

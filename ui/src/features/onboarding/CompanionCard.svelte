@@ -21,6 +21,7 @@
     dashboard: { title: 'onboarding.setup.dashboard.title', body: 'onboarding.setup.dashboard.body' },
     memory: { title: 'onboarding.setup.memory.title', body: 'onboarding.setup.memory.body' },
     knowledge: { title: 'knowledge.onboarding.title', body: 'knowledge.onboarding.body' },
+    code: { title: 'code.onboarding.title', body: 'code.onboarding.body' },
   };
 
   const effects = $derived(companionEffects(companion, server));

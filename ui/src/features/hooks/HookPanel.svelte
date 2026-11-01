@@ -17,6 +17,7 @@
   import type { HookView } from '$lib/ipc/bindings/HookView';
   import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
   import { nav } from '$lib/stores/nav.svelte';
+  import { codeGraph } from '$lib/stores/codeGraph.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { cx } from '$lib/utils/cx';
@@ -27,7 +28,7 @@
   import SettingRow from '../settings/SettingRow.svelte';
   import FamilyInstall from './FamilyInstall.svelte';
   import { hookFacts } from './hook-facts';
-  import { actionText, EVENT_LABELS, EVENT_WHEN, hookDoc, hookTitle, MEMBER_LABELS, switchSection, waitingFor } from './hook-format';
+  import { actionText, EVENT_LABELS, EVENT_WHEN, hookDoc, hookTitle, MEMBER_LABELS, memberSwitches, switchSection, waitingFor } from './hook-format';
   import { switchLock, teamSwitchedOn } from './hook-team';
   import HookActions from './HookActions.svelte';
   import HookReview from './HookReview.svelte';
@@ -85,7 +86,7 @@
 
   const TEXT_HEADINGS = { addContext: 'hooks.field.context', followUp: 'hooks.field.message', command: 'hooks.field.command' } as const;
 
-  const waiting = $derived(hook && view?.status === 'paused' ? waitingFor(hook, prefs.value?.memoryEnabled !== false, prefs.value?.knowledgeEnabled !== false) : null);
+  const waiting = $derived(hook && view?.status === 'paused' ? waitingFor(hook, memberSwitches(prefs.value, codeGraph.index?.enabled !== false)) : null);
   const team = $derived(view?.origin === 'team');
   // Where the hook applies: Global, or the project it belongs to, which is not always the open one.
   const scope = $derived(view ? scopeText(docScope(hookDoc(view), projects)) : '');

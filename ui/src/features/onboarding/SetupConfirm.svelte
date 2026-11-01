@@ -10,6 +10,7 @@
     dashboard: 'onboarding.setup.confirm.effects.dashboard',
     memory: 'onboarding.setup.confirm.effects.memory',
     knowledge: 'knowledge.onboarding.effects',
+    code: 'code.onboarding.effects',
     opencodeSkills: 'onboarding.setup.confirm.effects.skills',
     codexSkills: 'onboarding.setup.confirm.effects.codexSkills',
   };

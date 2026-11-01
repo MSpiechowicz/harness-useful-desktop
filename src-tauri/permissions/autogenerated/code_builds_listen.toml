@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-code-builds-listen"
+description = "Enables the code_builds_listen command without any pre-configured scope."
+commands.allow = ["code_builds_listen"]
+
+[[permission]]
+identifier = "deny-code-builds-listen"
+description = "Denies the code_builds_listen command without any pre-configured scope."
+commands.deny = ["code_builds_listen"]

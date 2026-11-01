@@ -26,6 +26,7 @@
     dashboard: () => t('onboarding.setup.dashboard.title'),
     memory: () => t('onboarding.setup.memory.title'),
     knowledge: () => t('knowledge.onboarding.title'),
+    code: () => t('code.onboarding.title'),
   };
 
   const targets = $derived(skillsTargets(data.harnesses));

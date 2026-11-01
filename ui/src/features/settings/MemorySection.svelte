@@ -8,7 +8,6 @@
   import { prefs } from '$lib/stores/prefs.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
 
-  import CodeIndexRow from './CodeIndexRow.svelte';
   import ManualRemovalNote from './ManualRemovalNote.svelte';
   import MemoryGuardsSections from './MemoryGuardsSections.svelte';
   import MemorySearchRows from './MemorySearchRows.svelte';
@@ -62,8 +61,6 @@
   {/if}
 
   <MemorySearchRows />
-
-  <CodeIndexRow />
 
   <TeamDatabaseRows copy={MEMORY_TEAM_DATABASE} saved={remote?.enabled ?? false} loaded={remote !== null} loadFailed={memoryRemote.loadFailed && remote === null} off={!memoryOn} {turnOff}>
     {#snippet panel()}

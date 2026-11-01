@@ -43,7 +43,7 @@ export class MockHooks {
   private files = new Map<string, Stored>();
   private invalid = new Map<string, string>();
   private listener: (() => void) | null = null;
-  private installed: Record<HookRequirement, boolean> = { 'harness-memory': true, 'harness-dashboard': true, 'harness-knowledge': true };
+  private installed: Record<HookRequirement, boolean> = { 'harness-memory': true, 'harness-dashboard': true, 'harness-knowledge': true, 'harness-code': true };
   private readonly team: MockTeam;
 
   constructor(
@@ -135,6 +135,7 @@ export class MockHooks {
       case 'harness-knowledge':
         return this.installed[requirement] && this.knowledgeOn();
       case 'harness-dashboard':
+      case 'harness-code':
         return this.installed[requirement];
     }
   }

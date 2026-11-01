@@ -23,9 +23,11 @@ use crate::agents::Agents;
 use crate::state::AppState;
 
 mod claude;
+mod code;
 mod git;
 mod memory;
 mod opencode2;
+pub use code::code_data_setup;
 pub use git::{open_git_project, setup_git, stranger_beside};
 pub use memory::{REQUEST_ID, memory_data_setup, write_script_request};
 pub use opencode2::agent_setup_opencode2;

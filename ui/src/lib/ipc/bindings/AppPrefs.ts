@@ -137,6 +137,19 @@ knowledgeEnabled: boolean,
  */
 knowledgeVectorSearch: boolean, 
 /**
+ * Whether the app registers the installed `harness-code` MCP server (Harness Code) in every
+ * detected harness's user MCP file at launch and after its install (default on). Server-managed:
+ * only `code_set_enabled` changes it, since turning it off also removes the app's entries.
+ */
+codeEnabled: boolean, 
+/**
+ * Whether the background updater already installed Harness Code once for a user who has Harness
+ * Memory without it (default off). Set before that install starts, so a failed or later removed
+ * Harness Code is never installed again on its own, and by any install of Harness Code from the
+ * app. Server-managed: only `code_auto_install_claim` and `setup_install_code` change it.
+ */
+codeAutoInstallDone: boolean, 
+/**
  * Whether closing the main window hides it to the tray instead of quitting, so routines keep
  * running (default off). Without a tray icon closing always quits.
  */

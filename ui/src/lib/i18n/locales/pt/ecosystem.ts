@@ -17,7 +17,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.hero.title': 'Ferramentas que tornam os agentes mensuráveis',
   'ecosystem.hero.body':
-    'O Harness Useful é uma pequena família de ferramentas de código aberto para os seus agentes de programação. O **dashboard** mede quanto eles custam, as **skills** tornam o trabalho deles repetível, a **memory** dá a cada agente uma memória de projeto compartilhada, o **knowledge** deixa que eles pesquisem os documentos do projeto e a **sidebar** mantém as sessões deles à vista. O Harness Desktop funciona sozinho e mostra mais a cada ferramenta que você adiciona.',
+    'O Harness Useful é uma pequena família de ferramentas de código aberto para os seus agentes de programação. O **dashboard** mede quanto eles custam, as **skills** tornam o trabalho deles repetível, a **memory** dá a cada agente uma memória de projeto compartilhada, o **knowledge** deixa que eles pesquisem os documentos do projeto, o grafo de **código** mostra onde o código é definido e usado e a **sidebar** mantém as sessões deles à vista. O Harness Desktop funciona sozinho e mostra mais a cada ferramenta que você adiciona.',
   'ecosystem.hero.failed': 'Não foi possível ler os membros instalados da família Harness.',
   'ecosystem.hero.looking': 'Procurando a família Harness…',
   'ecosystem.setup.run': 'Executar a configuração recomendada',
@@ -25,6 +25,8 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.autoUpdate.done': '{name} atualizado para a {version}',
   'ecosystem.autoUpdate.failed': 'Falha na atualização de {name}',
   'ecosystem.autoUpdate.noReason': 'O instalador não disse o motivo.',
+  'ecosystem.autoInstall.done': '{name} instalado para o grafo de código continuar a funcionar',
+  'ecosystem.autoInstall.failed': 'Falha na instalação de {name}',
 
   'ecosystem.skillsMigration.done': 'Harness Skills renomeado em {harnesses}',
   'ecosystem.skillsMigration.failed': 'Não foi possível renomear o Harness Skills em {harnesses}',
@@ -253,4 +255,9 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.knowledge.note.0': 'Roda localmente como `harness-knowledge mcp`. Com um banco de dados de equipe, as palavras de uma busca ou de uma recuperação vão para esse banco.',
   'ecosystem.product.knowledge.note.1': 'Ative ou desative para todos os harnesses em Configurações, em Conhecimento do projeto.',
   'ecosystem.product.knowledge.step.0.title': 'Instale o binário',
+  'ecosystem.product.code.tagline': 'Um grafo de código que todo agente de programação pode consultar antes de usar grep.',
+  'ecosystem.product.code.description': 'Um servidor MCP local que indexa o código de um repositório e responde onde um nome é definido e usado, o que uma mudança afeta e como uma parte chega a outra. O app o registra em cada harness detectado enquanto o Grafo de código está ativado, e constrói o índice de um projeto quando você o abre.',
+  'ecosystem.product.code.note.0': 'Roda localmente como `harness-code mcp`. Nada é enviado pela rede.',
+  'ecosystem.product.code.note.1': 'Ative ou desative para todos os harnesses em Configurações, em Código.',
+  'ecosystem.product.code.step.0.title': 'Instale o binário',
 };

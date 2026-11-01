@@ -12,7 +12,10 @@ import { onboarding } from '../onboarding/onboarding-state.svelte';
 import { setup } from '../onboarding/setup-state.svelte';
 
 /** The Harness family members that have an official installer the app can run, in the order they are updated. */
-const UPDATABLE: readonly EcosystemId[] = ['dashboard', 'memory', 'knowledge'];
+const UPDATABLE: readonly EcosystemId[] = ['dashboard', 'memory', 'knowledge', 'code'];
+
+/** The key of the one install Harness Code gets without being installed. */
+const CODE_INSTALL_KEY = 'code:install';
 
 interface Dependencies {
   transport: Transport;
@@ -28,9 +31,11 @@ interface Dependencies {
 }
 
 /**
- * Keeps the installed Harness family members (Harness Dashboard, Harness Memory and Harness Knowledge) current without the user clicking.
+ * Keeps the installed Harness family members (Harness Dashboard, Harness Memory, Harness Knowledge and Harness Code) current without the user clicking.
  * When the latest reading says an installed member has a newer release, the official installer runs, one member at a
- * time, through the same commands as the first-run setup. Never installs a member that is not installed.
+ * time, through the same commands as the first-run setup. The one member it installs without being there is Harness Code, once,
+ * for a user who has Harness Memory without it (Harness Memory 3.0 no longer carries the code tools). The backend records that
+ * claim before the install starts, so it is not repeated after a failure or after the user removed Harness Code.
  *
  * Each release of a member is tried once per launch, whatever the outcome, so a failing installer produces one toast and
  * not one per reading.
@@ -74,6 +79,59 @@ export class FamilyUpdater {
       if (item !== null) {
         await this.update(item);
       }
+    }
+
+    await this.installMissingCode();
+  }
+
+  /** Installs Harness Code when Harness Memory is installed without it, once per launch and once ever (the backend's claim). */
+  private async installMissingCode(): Promise<void> {
+    if (!this.deps.enabled() || this.deps.busy() || this.attempted.has(CODE_INSTALL_KEY)) {
+      return;
+    }
+
+    const items = this.deps.status()?.items;
+    const memory = items?.find((candidate) => candidate.id === 'memory');
+    const code = items?.find((candidate) => candidate.id === 'code');
+
+    if (!memory?.installed || !code || code.installed) {
+      return;
+    }
+
+    // Whatever the answer, not again in this launch: a refusal stays a refusal, and a failure is told once.
+    this.attempted.add(CODE_INSTALL_KEY);
+
+    try {
+      if (!(await this.deps.transport.invoke('code_auto_install_claim', undefined))) {
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    const name = code.name;
+    let failure: string | null;
+
+    try {
+      const result = await this.install('code');
+
+      failure = result.ok ? null : (result.summary ?? t('ecosystem.autoUpdate.noReason'));
+    } catch (error) {
+      const reason = IpcFailure.from(error);
+
+      // The user's own install of it is running: it does the job.
+      if (isAlreadyRunning(reason)) {
+        return;
+      }
+
+      failure = reason.message;
+    }
+
+    if (failure === null) {
+      this.deps.notifications.push({ title: t('ecosystem.autoInstall.done', { name }), tone: 'success' });
+      await this.deps.updated('code');
+    } else {
+      this.deps.notifications.push({ title: t('ecosystem.autoInstall.failed', { name }), description: failure, tone: 'danger' });
     }
   }
 
@@ -127,10 +185,16 @@ export class FamilyUpdater {
     switch (id) {
       case 'dashboard':
         return this.deps.transport.invoke('setup_install_dashboard', args);
+      case 'memory':
+        return this.deps.transport.invoke('setup_install_memory', args);
       case 'knowledge':
         return this.deps.transport.invoke('setup_install_knowledge', args);
-      default:
-        return this.deps.transport.invoke('setup_install_memory', args);
+      case 'code':
+        return this.deps.transport.invoke('setup_install_code', args);
+      case 'skills':
+      case 'sidebar':
+        // Not installed by an installer the app runs, so they are not in UPDATABLE.
+        throw new Error(`${id} has no installer the app runs`);
     }
   }
 }
@@ -152,8 +216,8 @@ export const familyUpdater = new FamilyUpdater({
   updated: async (id) => {
     await ecosystem.load(true);
 
-    // The installer re-registers the memory or knowledge server (the backend owns that part of the preferences).
-    if (id === 'memory' || id === 'knowledge') {
+    // The installer re-registers the memory, knowledge or code server (the backend owns that part of the preferences).
+    if (id === 'memory' || id === 'knowledge' || id === 'code') {
       await prefs.syncServerManaged();
     }
   },

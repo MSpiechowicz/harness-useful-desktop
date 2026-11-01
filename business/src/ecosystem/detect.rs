@@ -3,7 +3,7 @@
 //! - Dashboard: the `harness-dashboard` binary ([`resolve_dashboard`]) and its bare version from
 //!   `harness-dashboard version` (5 s limit). Its data directory, `usage.db` and `auth-token` are
 //!   never read.
-//! - Memory and knowledge: the `harness-memory` and `harness-knowledge` binaries
+//! - Memory, knowledge and code: the `harness-memory`, `harness-knowledge` and `harness-code` binaries
 //!   ([`resolve_sidecar`]) and their version from `<binary> --version` (5 s limit). Their
 //!   databases are never read.
 //! - Skills and sidebar: the user's OMP plugins ([`installed_plugins`]: marketplace installs such
@@ -13,7 +13,8 @@
 use std::path::PathBuf;
 
 use super::catalog::{
-    DASHBOARD_BINARY, ECOSYSTEM, KNOWLEDGE_SIDECAR, MEMORY_SIDECAR, SIDEBAR_PLUGIN, SKILLS_PLUGIN, catalog_item,
+    CODE_SIDECAR, DASHBOARD_BINARY, ECOSYSTEM, KNOWLEDGE_SIDECAR, MEMORY_SIDECAR, SIDEBAR_PLUGIN, SKILLS_PLUGIN,
+    catalog_item,
 };
 use super::dashboard::resolve_dashboard;
 use super::sidecar::Sidecar;
@@ -46,6 +47,7 @@ pub async fn ecosystem_status(env: &Env, runner: &dyn ProcessRunner) -> Ecosyste
             EcosystemId::Dashboard => detect_dashboard(env, runner, &mut item).await,
             EcosystemId::Memory => detect_sidecar(&MEMORY_SIDECAR, env, runner, &mut item).await,
             EcosystemId::Knowledge => detect_sidecar(&KNOWLEDGE_SIDECAR, env, runner, &mut item).await,
+            EcosystemId::Code => detect_sidecar(&CODE_SIDECAR, env, runner, &mut item).await,
             EcosystemId::Skills => detect_plugin(&plugins, SKILLS_PLUGIN, &mut item),
             EcosystemId::Sidebar => detect_plugin(&plugins, SIDEBAR_PLUGIN, &mut item),
         }

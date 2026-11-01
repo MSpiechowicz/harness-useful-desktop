@@ -2,14 +2,14 @@
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d70044",
   "name": "Use the code graph first",
-  "description": "Seeded default. Asks the agent, on every message, to answer code-structure questions with the Harness Memory code tools before grep.",
+  "description": "Seeded default. Asks the agent, on every message, to answer code-structure questions with the Harness Code tools before grep.",
   "scope": "global",
   "project": null,
   "event": "promptSubmit",
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "Before your first tool call, decide which Harness Memory code tool answers the question and call it first: code_map for an overview of the repository or an area, code_symbol for where a name is defined and used, code_impact for what a change affects, code_path for how A reaches B. Pass project_path, the repository root. grep, find and file reads come after, for literal text and for details the graph does not show. A small repository is no reason to skip them: one code_map call costs less than listing and reading files. A question about a flow (how a request, an event or data gets from one part to another) is answered by code_path from the entry point to the part it ends in, after code_map named both: do not reconstruct the flow by reading files one by one. If the code tools are listed as deferred tools, load them with ToolSearch first. If they are not available in this chat, say so once and go on with the usual tools."
+    "text": "Before your first tool call, decide which Harness Code tool answers the question and call it first: code_map for an overview of the repository or an area, code_symbol for where a name is defined and used, code_impact for what a change affects, code_path for how A reaches B. Pass project_path, the repository root. grep, find and file reads come after, for literal text and for details the graph does not show. A small repository is no reason to skip them: one code_map call costs less than listing and reading files. A question about a flow (how a request, an event or data gets from one part to another) is answered by code_path from the entry point to the part it ends in, after code_map named both: do not reconstruct the flow by reading files one by one. If the code tools are listed as deferred tools, load them with ToolSearch first. If they are not available in this chat, say so once and go on with the usual tools."
   },
   "enabled": true,
   "createdAt": "2026-10-29T10:00:00Z",
@@ -17,7 +17,7 @@
   "updatedAt": "2026-10-29T10:00:00Z",
   "updatedBy": "desktop",
   "requires": [
-    "harness-memory"
+    "harness-code"
   ],
   "seed": "code-graph-first"
 }

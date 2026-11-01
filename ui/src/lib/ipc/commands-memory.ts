@@ -46,8 +46,6 @@ import type { MemoryChatGuardsSet } from './bindings/MemoryChatGuardsSet';
 import type { MemoryGuards } from './bindings/MemoryGuards';
 import type { MemoryGuardsPatch } from './bindings/MemoryGuardsPatch';
 import type { MemoryHeldEvent } from './bindings/MemoryHeldEvent';
-import type { CodeBuildEvent } from './bindings/CodeBuildEvent';
-import type { CodeIndexState } from './bindings/CodeIndexState';
 import type { EventSink } from './transport';
 import { cmd } from './command-spec';
 
@@ -58,32 +56,6 @@ export const memoryCommands = {
    * `server.installed` false means nothing was registered; offer `setup_install_memory`.
    */
   memory_set_enabled: cmd<{ enabled: boolean }, MemorySwitchResult>(),
-  /**
-   * Whether the code index is on (`code status --json`) and where the switch comes from: `source` is `default` (never set), `file` (the
-   * user's choice) or `env` (the server's environment overrides it). Rejects with `unsupported` for a Harness Memory without the `code-index`
-   * feature, `notFound` when it is not installed.
-   */
-  memory_code_index_get: cmd<undefined, CodeIndexState>(),
-  /**
-   * Turns the code index on or off (`code enable|disable --json`; off hides the `code_*` tools and keeps the index) and answers the state as the
-   * server reports it afterwards (an `env` source can still override `enabled`). Errors as `memory_code_index_get`, `process` with the server's
-   * line when it cannot write the choice.
-   */
-  memory_code_index_set: cmd<{ on: boolean }, CodeIndexState>(),
-  /**
-   * Sends the code graph builds to `onEvent`, replacing the previous listener, and at once the builds still in progress. One event when a build
-   * begins, moves into another 10 % step of its files, or ends (nothing while a file is unchanged). `buildId` identifies a build (a new number is a
-   * new build of the same `root`), `kind` is `full` or `bulk`, `phase` is `building`, `ready`, `error` (`error` holds the reason), or `stale`
-   * and `cancelled` (dismiss the toast, neither is a failure). Only the first index of a repository and a large change are announced.
-   */
-  memory_code_builds_listen: cmd<{ onEvent: EventSink<CodeBuildEvent> }, null>(),
-  /**
-   * Starts a background build of the code index of `project`, only when it has none, and answers at once: the build can run for minutes and
-   * shows up in `memory_code_builds_listen`. Does nothing without support in the server, with the Code index switch off, on Windows, or while a
-   * run for that path is going. The page asks once per project in an app run (again after the switch is turned back on), so a build that
-   * failed is tried again on the next launch, or by the agent's first code tool call.
-   */
-  memory_code_prepare: cmd<{ project: string }, null>(),
   /**
    * The "Vector search" switch: runs `embedder enable|disable`, stores `vectorSearch`, then starts or stops the embedder (it starts only while
    * `memoryEnabled` is on too). The answer holds the stored pref and the embedder's state right then: follow it with `memory_embedder_watch`.

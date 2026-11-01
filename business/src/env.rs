@@ -56,6 +56,10 @@ pub const CAPTURED_VARS: &[&str] = &[
     // Where Harness Knowledge keeps project and global documents, over its config file.
     "HARNESS_KNOWLEDGE_REPOSITORY_DOCUMENTS",
     "HARNESS_KNOWLEDGE_GLOBAL_DOCUMENTS",
+    // Harness Code's data folder, when not the default one, and its code graph switch override
+    // (`0` or `1`), which the agents and so their servers inherit.
+    "HARNESS_CODE_DIR",
+    "HARNESS_CODE_INDEX",
     // The hooks folder, shared by the app window and its `harness-desktop mcp` mode.
     "HARNESS_HOOKS_DIR",
     // The routines folder, shared the same way.

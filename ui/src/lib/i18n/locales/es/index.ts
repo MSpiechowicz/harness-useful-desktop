@@ -22,6 +22,7 @@ import { memoryGuards } from './memory-guards';
 import { branch } from './branch';
 import { subagents } from './subagents';
 import { knowledge } from './knowledge';
+import { code } from './code';
 
 export const es: Dict = {
   ...common,
@@ -47,4 +48,5 @@ export const es: Dict = {
   ...branch,
   ...subagents,
   ...knowledge,
+  ...code,
 };

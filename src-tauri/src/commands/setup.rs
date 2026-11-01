@@ -1,8 +1,10 @@
 //! The "Recommended setup" onboarding step: what is set up (`setup_status`), the official
 //! installers of the dashboard (`setup_install_dashboard`), of the memory server
-//! (`setup_install_memory`), of the knowledge server (`setup_install_knowledge`) and of the Harness
-//! Skills for OpenCode and Codex (`setup_install_opencode_skills`, `setup_install_codex_skills`), and the dashboard's and the memory server's MCP servers in a
-//! harness's user MCP file (`setup_register_mcp`, `setup_register_memory`, `setup_register_knowledge`).
+//! (`setup_install_memory`), of the knowledge server (`setup_install_knowledge`), of the code server
+//! (`setup_install_code`) and of the Harness Skills for OpenCode and Codex
+//! (`setup_install_opencode_skills`, `setup_install_codex_skills`), and the dashboard's and the
+//! servers' MCP entries in a harness's user MCP file (`setup_register_mcp`, `setup_register_memory`,
+//! `setup_register_knowledge`, `setup_register_code`).
 //!
 //! The webview sends no command line and no path: the installer is fixed per OS and the MCP file
 //! follows from the harness id (its user agent directory, the active OMP profile's when one is
@@ -27,7 +29,7 @@ use crate::hooks::after_member_install;
 use crate::mcp_cli::CliContext;
 use crate::memory_embedder::reconcile;
 use crate::memory_setup::{after_install, register_in};
-use crate::product::Knowledge;
+use crate::product::{Code, Knowledge};
 use crate::state::AppState;
 use crate::{sidecar_embedder, sidecar_setup};
 
@@ -95,6 +97,42 @@ pub async fn setup_install_knowledge(
     Ok(result)
 }
 
+/// Runs the code server's installer like [`setup_install_dashboard`] (its own lock: one code install
+/// at a time). Once `ok`, while the code graph is on, the installed server is registered in every
+/// detected harness (as at launch) and the hook that needs it is added.
+#[tauri::command]
+pub async fn setup_install_code(
+    state: State<'_, AppState>,
+    confirmed: bool,
+    on_log: Channel<InstallLogLine>,
+) -> CommandResult<DashboardInstallResult> {
+    let result = install(&state, &TokioSpawner, Companion::Code, confirmed, &on_log).await?;
+
+    if result.ok {
+        // An install from the app counts as the one the updater would make: it never adds Harness Code
+        // again after the user removed it.
+        mark_code_installed(&state).await;
+        sidecar_setup::after_install::<Code>(&state).await;
+    }
+
+    Ok(result)
+}
+
+/// Records that Harness Code was installed from the app, so the updater does not install it again.
+/// A pref that cannot be stored is logged: the install itself succeeded.
+async fn mark_code_installed(state: &AppState) {
+    let prefs = state.prefs.clone();
+
+    let stored = tauri::async_runtime::spawn_blocking(move || {
+        prefs.with(|store| store.update(|prefs| prefs.code_auto_install_done = true))
+    })
+    .await;
+
+    if !matches!(stored, Ok(Ok(_))) {
+        tracing::warn!("the Harness Code install could not be recorded");
+    }
+}
+
 /// Runs the Harness Skills' OpenCode installer like [`setup_install_dashboard`] (its own lock: one
 /// skills install at a time). `ok` once their install record holds a version; OpenCode and its
 /// running chats load them after a restart. OpenCode is detected first, so its generation is known
@@ -154,6 +192,7 @@ pub(crate) async fn install_streaming(
         Companion::Dashboard => &state.dashboard_install,
         Companion::Memory => &state.memory_install,
         Companion::Knowledge => &state.knowledge_install,
+        Companion::Code => &state.code_install,
         Companion::OpenCodeSkills => &state.opencode_skills_install,
         Companion::CodexSkills => &state.codex_skills_install,
     };
@@ -276,6 +315,31 @@ async fn register_knowledge(state: &AppState, harness: HarnessId) -> CommandResu
         ?harness,
         outcome = outcome(&registered),
         "knowledge MCP registration finished"
+    );
+
+    Ok(registered)
+}
+
+/// Adds the code server's MCP entry to the user MCP file of `harness` (also where the user removed
+/// it before) and returns the file's state (`refused`, nothing written, when the file cannot be
+/// changed safely). Turns the code graph on when it is off. `notFound` when the harness is not
+/// installed, `invalidInput` when Harness Code is not installed, `unsupported` when the harness has
+/// no user MCP file.
+#[tauri::command]
+pub async fn setup_register_code(state: State<'_, AppState>, harness: HarnessId) -> CommandResult<McpState> {
+    register_code(&state, harness).await
+}
+
+async fn register_code(state: &AppState, harness: HarnessId) -> CommandResult<McpState> {
+    find(state, harness)?;
+    installed_binary(state, harness).await?;
+
+    let registered = sidecar_setup::register_in::<Code>(state, harness).await?;
+
+    tracing::info!(
+        ?harness,
+        outcome = outcome(&registered),
+        "code MCP registration finished"
     );
 
     Ok(registered)

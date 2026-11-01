@@ -12,6 +12,7 @@ import type { ScopedDoc } from '$lib/components/docs/doc-scope';
 import type { IconComponent } from '$lib/components/icon';
 import { t } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
+import type { AppPrefs } from '$lib/ipc/bindings/AppPrefs';
 import type { Hook } from '$lib/ipc/bindings/Hook';
 import type { HookAction } from '$lib/ipc/bindings/HookAction';
 import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
@@ -212,22 +213,34 @@ export function length(text: string): number {
 }
 
 /** The Harness family member each requirement stands for. */
-const MEMBER_OF: Record<HookRequirement, Companion> = { 'harness-memory': 'memory', 'harness-dashboard': 'dashboard', 'harness-knowledge': 'knowledge' };
+const MEMBER_OF: Record<HookRequirement, Companion> = { 'harness-memory': 'memory', 'harness-dashboard': 'dashboard', 'harness-knowledge': 'knowledge', 'harness-code': 'code' };
 
 export function memberOf(requirement: HookRequirement): Companion {
   return MEMBER_OF[requirement];
 }
 
-export const MEMBER_LABELS: Record<Companion, MessageKey> = { memory: 'hooks.member.memory', dashboard: 'hooks.member.dashboard', knowledge: 'hooks.member.knowledge' };
+export const MEMBER_LABELS: Record<Companion, MessageKey> = { memory: 'hooks.member.memory', dashboard: 'hooks.member.dashboard', knowledge: 'hooks.member.knowledge', code: 'hooks.member.code' };
 
-/** The Harness family member a paused hook waits for, and whether it is installed but switched off (Harness Memory and Harness Knowledge have such a switch). */
+/** The Harness family member a paused hook waits for, and whether it is installed but switched off (Harness Memory, Harness Knowledge and Harness Code have such a switch). */
 export interface WaitingFor {
   member: Companion;
   off: boolean;
 }
 
+/** Which of the members with a switch are switched on. */
+export interface MemberSwitches {
+  memory: boolean;
+  knowledge: boolean;
+  code: boolean;
+}
+
+/** The switches as the preferences hold them (a switch not read yet counts as on), and the code index, which the one Code graph switch turns on and off with Harness Code's registration. */
+export function memberSwitches(value: Pick<AppPrefs, 'memoryEnabled' | 'knowledgeEnabled' | 'codeEnabled'> | null, codeIndexOn: boolean): MemberSwitches {
+  return { memory: value?.memoryEnabled !== false, knowledge: value?.knowledgeEnabled !== false, code: value?.codeEnabled !== false && codeIndexOn };
+}
+
 /** What a paused hook waits for, or null when it needs nothing. */
-export function waitingFor(hook: Hook, memoryEnabled: boolean, knowledgeEnabled: boolean): WaitingFor | null {
+export function waitingFor(hook: Hook, switches: MemberSwitches): WaitingFor | null {
   const requirement = hook.requires[0];
 
   if (requirement === undefined) {
@@ -236,10 +249,17 @@ export function waitingFor(hook: Hook, memoryEnabled: boolean, knowledgeEnabled:
 
   const member = memberOf(requirement);
 
-  return { member, off: (member === 'memory' && !memoryEnabled) || (member === 'knowledge' && !knowledgeEnabled) };
+  return { member, off: (member === 'memory' && !switches.memory) || (member === 'knowledge' && !switches.knowledge) || (member === 'code' && !switches.code) };
 }
 
 /** The Settings section whose switch turns `member` on again. */
-export function switchSection(member: Companion): 'memory' | 'knowledge' {
-  return member === 'knowledge' ? 'knowledge' : 'memory';
+export function switchSection(member: Companion): 'memory' | 'knowledge' | 'code' {
+  switch (member) {
+    case 'knowledge':
+    case 'code':
+      return member;
+    case 'memory':
+    case 'dashboard':
+      return 'memory';
+  }
 }

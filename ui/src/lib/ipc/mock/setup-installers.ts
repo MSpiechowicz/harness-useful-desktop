@@ -39,6 +39,14 @@ export const KNOWLEDGE_SIDE_EFFECTS = [
   'Running knowledge servers keep working, and each harness starts the new version next time.',
 ];
 
+export const CODE_VERSION = '1.0.0';
+export const CODE_COMMAND = installScript('harness-useful-code');
+export const CODE_SIDE_EFFECTS = [
+  'Installs the harness-code command to ~/.local/bin, replacing an older one there.',
+  'Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.',
+  'Running code servers keep working, and each harness starts the new version next time.',
+];
+
 export const OPENCODE_SKILLS_VERSION = '0.2.40';
 export const CODEX_SKILLS_VERSION = '0.3.13';
 
@@ -97,7 +105,7 @@ export interface MockInstaller {
   failedSummary: string;
 }
 
-/** The installer of a family server (`harness-memory`, `harness-knowledge`). */
+/** The installer of a family server (`harness-memory`, `harness-knowledge`, `harness-code`). */
 function serverInstaller(binary: string, version: string, command: string): MockInstaller {
   return { binary, version, command, output: binaryOutput(binary, version), failedOutput: binaryFailed(binary), failedSummary: 'error: download failed' };
 }
@@ -114,6 +122,8 @@ export const DASHBOARD_INSTALLER: MockInstaller = {
 export const MEMORY_INSTALLER = serverInstaller('harness-memory', MEMORY_VERSION, MEMORY_COMMAND);
 
 export const KNOWLEDGE_INSTALLER = serverInstaller('harness-knowledge', KNOWLEDGE_VERSION, KNOWLEDGE_COMMAND);
+
+export const CODE_INSTALLER = serverInstaller('harness-code', CODE_VERSION, CODE_COMMAND);
 
 export const OPENCODE_SKILLS_INSTALLER: MockInstaller = {
   binary: 'Harness Skills for OpenCode',

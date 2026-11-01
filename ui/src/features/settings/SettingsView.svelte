@@ -30,6 +30,7 @@
   import SyncSection from '../sync/SyncSection.svelte';
   import AboutCard from './AboutCard.svelte';
   import HarnessSettings from './HarnessSettings.svelte';
+  import CodeSection from './CodeSection.svelte';
   import KnowledgeSection from './KnowledgeSection.svelte';
   import MemorySection from './MemorySection.svelte';
   import PrivacySection from './PrivacySection.svelte';
@@ -283,6 +284,8 @@
           <MemorySection id="memory" />
 
           <KnowledgeSection id="knowledge" />
+
+          <CodeSection id="code" />
 
           <SyncSection id="sync" />
 

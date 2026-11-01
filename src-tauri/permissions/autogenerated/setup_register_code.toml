@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-setup-register-code"
+description = "Enables the setup_register_code command without any pre-configured scope."
+commands.allow = ["setup_register_code"]
+
+[[permission]]
+identifier = "deny-setup-register-code"
+description = "Denies the setup_register_code command without any pre-configured scope."
+commands.deny = ["setup_register_code"]

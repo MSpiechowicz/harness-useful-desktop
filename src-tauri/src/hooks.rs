@@ -15,10 +15,9 @@
 //! - Capabilities: `harness-memory` is met while Harness Memory is installed and the
 //!   `memoryEnabled` pref is on, `harness-dashboard` while Harness Dashboard is installed,
 //!   `harness-knowledge` while Harness Knowledge is installed, lists `mcp` and the `knowledgeEnabled`
-//!   pref is on. The code
-//!   graph (for the "Use the code graph first" hook) is met while Harness Memory lists `code-index`
-//!   and its Code index switch is on. Looked
-//!   up at most every [`MEMBERS_TTL`], and again after an install or the memory switch. The
+//!   pref is on. `harness-code` (the "Use the code graph first" hook) is met while Harness Code is
+//!   installed, lists `code-index`, the `codeEnabled` pref is on and its Code index switch is on.
+//!   Looked up at most every [`MEMBERS_TTL`], and again after an install or a member's switch. The
 //!   switch file (`code.toml`) is read again on every use, so a switch turned off outside the app
 //!   stops that hook on the next prompt.
 //! - Harness family hooks: seeded once at launch for the members available
@@ -45,7 +44,7 @@ mod tests_claude;
 #[cfg(test)]
 mod tests_cli;
 #[cfg(test)]
-mod tests_code_graph;
+mod tests_code;
 #[cfg(test)]
 mod tests_codex;
 #[cfg(test)]
@@ -63,8 +62,8 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use harness_business::ecosystem::{
-    CodeGraphSupport, KnowledgeFeatures, MemoryFeatures, code_graph_support, code_switch_is_on, installed_knowledge,
-    installed_memory, resolve_dashboard,
+    CodeFeatures, KnowledgeFeatures, code_graph_support, code_switch_is_on, installed_knowledge, installed_memory,
+    resolve_dashboard,
 };
 use harness_business::env::Env;
 use harness_business::hooks::team::{TeamFolder, TeamViews, team_views};
@@ -94,8 +93,8 @@ pub struct HookRuntime {
     env: Arc<Env>,
     chats: Mutex<HashMap<String, Arc<ChatHooks>>>,
     cache: Mutex<Cache>,
-    /// The features of the installed Harness Memory, for the code graph capability.
-    features: MemoryFeatures,
+    /// The features of the installed Harness Code, for the code graph capability.
+    features: CodeFeatures,
     /// The features of the installed Harness Knowledge: `mcp` for its capability, `recall` for the
     /// app-run recall.
     knowledge_features: KnowledgeFeatures,
@@ -137,7 +136,7 @@ impl HookRuntime {
             env,
             chats: Mutex::default(),
             cache: Mutex::default(),
-            features: MemoryFeatures::new(),
+            features: CodeFeatures::new(),
             knowledge_features: KnowledgeFeatures::new(),
             listener: Mutex::default(),
             writes: Arc::default(),
@@ -157,8 +156,8 @@ impl HookRuntime {
     /// What the hooks' `requires` are checked against now.
     ///
     /// The members are cached for [`MEMBERS_TTL`], but the Code index switch is read again from
-    /// its file on every call, so a switch turned off outside the app (`harness-memory code
-    /// disable`) stops the code graph hook on the next prompt, not up to 30 s later.
+    /// its file on every call, so a switch turned off outside the app (`harness-code disable`)
+    /// stops the code graph hook on the next prompt, not up to 30 s later.
     pub async fn capabilities(&self) -> HookCapabilities {
         let mut capabilities = self.members().await.capabilities();
 
@@ -222,19 +221,16 @@ impl HookRuntime {
             (
                 prefs.memory_enabled,
                 prefs.knowledge_enabled,
+                prefs.code_enabled,
                 resolve_dashboard(&env).is_some(),
             )
         })
         .await;
-        let (memory_enabled, knowledge_enabled, dashboard_installed) = local.unwrap_or_default();
+        let (memory_enabled, knowledge_enabled, code_enabled, dashboard_installed) = local.unwrap_or_default();
         let memory_installed = installed_memory(&self.env, &TokioRunner).await.is_some();
 
         // The code graph: the server's `code-index` feature, and its switch when listed.
-        let code_graph = if memory_installed {
-            code_graph_support(&self.env, &TokioRunner, &self.features).await
-        } else {
-            CodeGraphSupport::default()
-        };
+        let code_graph = code_graph_support(&self.env, &TokioRunner, &self.features).await;
 
         // Harness Knowledge: installed, and its server lists the MCP server the hooks ask agents to use.
         let knowledge_installed = installed_knowledge(&self.env, &TokioRunner).await.is_some();
@@ -250,6 +246,7 @@ impl HookRuntime {
             memory_installed,
             memory_enabled,
             dashboard_installed,
+            code_enabled,
             code_graph,
             knowledge_installed,
             knowledge_enabled,

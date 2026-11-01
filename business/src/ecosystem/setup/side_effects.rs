@@ -42,6 +42,21 @@ pub(super) fn knowledge_side_effects(os: OsKind) -> &'static [&'static str] {
     }
 }
 
+/// What the code server's installer of `os` changes, per its script (`install.sh`, `install.ps1`).
+pub(super) fn code_side_effects(os: OsKind) -> &'static [&'static str] {
+    match os {
+        OsKind::Linux | OsKind::MacOs => &[
+            "Installs the harness-code command to ~/.local/bin, replacing an older one there.",
+            "Appends a line that puts ~/.local/bin on your PATH to your shell profile, if it is not on PATH yet.",
+            "Running code servers keep working and each harness starts the new version next time.",
+        ],
+        OsKind::Windows => &[
+            r"Puts the harness-code command in %LOCALAPPDATA%\Programs\harness-code and adds that folder to your user PATH.",
+            "Running code servers keep working and each harness starts the new version next time.",
+        ],
+    }
+}
+
 /// What the installer does on top when it finds an install from before Harness Skills 0.4.0.
 pub(super) const MIGRATION_SIDE_EFFECT: &str = "Renames the existing useful-skills install to harness-useful-skills and moves your model roles and settings along.";
 

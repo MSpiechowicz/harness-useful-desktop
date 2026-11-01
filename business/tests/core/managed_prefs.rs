@@ -155,6 +155,24 @@ fn save_ui_cannot_switch_project_knowledge_or_its_vector_search() {
 }
 
 #[test]
+fn save_ui_cannot_switch_the_code_graph() {
+    let dir = TempDir::new().unwrap();
+    let store = PrefsStore::new(dir.path().to_path_buf());
+
+    let saved = store
+        .save_ui(&AppPrefs {
+            code_enabled: false,
+            ..AppPrefs::default()
+        })
+        .unwrap();
+    assert!(saved.code_enabled);
+
+    store.update(|prefs| prefs.code_enabled = false).unwrap();
+
+    assert!(!store.save_ui(&AppPrefs::default()).unwrap().code_enabled);
+}
+
+#[test]
 fn turning_off_recent_projects_through_the_ui_clears_them() {
     let dir = TempDir::new().unwrap();
     let (store, stored) = store_with_server_state(&dir);

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-code-prepare"
+description = "Enables the code_prepare command without any pre-configured scope."
+commands.allow = ["code_prepare"]
+
+[[permission]]
+identifier = "deny-code-prepare"
+description = "Denies the code_prepare command without any pre-configured scope."
+commands.deny = ["code_prepare"]

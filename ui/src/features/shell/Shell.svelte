@@ -20,7 +20,7 @@
   import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { memoryChat } from '$lib/stores/memoryChat.svelte';
-  import { memoryCode } from '$lib/stores/memoryCode.svelte';
+  import { codeGraph } from '$lib/stores/codeGraph.svelte';
   import { memoryHeld } from '$lib/stores/memoryHeld.svelte';
   import { scriptRequests } from '$lib/stores/scriptRequests.svelte';
   import { updates } from '$lib/stores/updates.svelte';
@@ -259,22 +259,22 @@
   });
 
   // A code graph build shows one toast that follows it until it is done, wherever the user is, so the shell listens from the start.
-  $effect(() => memoryCode.startBuilds());
+  $effect(() => codeGraph.startBuilds());
   // The switch is read at launch too, not only in Settings: building a project's index on open waits for it to be on.
-  $effect(() => untrack(() => void memoryCode.load()));
+  $effect(() => untrack(() => void codeGraph.load()));
 
   // A project with a running chat is one the user trusted, so its code index is built in the background (a toast follows the
   // build). Not before: an untrusted folder is not read. Once per project, and again after the switch is turned back on.
-  // The switch counts only once the server confirmed it, or the backend would still see it off.
+  // The setting and the switch count only once confirmed, or the backend would still see them off.
   $effect(() => {
     const path = project.active?.path ?? null;
     const running = agentSessions.sessions.some((session) => session.info.project === path && !session.ended);
-    const on = memoryCode.index?.enabled === true && !memoryCode.pending;
+    const on = prefs.value?.codeEnabled === true && codeGraph.index?.enabled === true && !codeGraph.pending;
 
     untrack(() => {
       // The window of a global routine works in a folder of the routines' own, which is no project to index.
       if (path !== null && running && on && !routines.inWorkspace(path)) {
-        memoryCode.prepare(path);
+        codeGraph.prepare(path);
       }
     });
   });

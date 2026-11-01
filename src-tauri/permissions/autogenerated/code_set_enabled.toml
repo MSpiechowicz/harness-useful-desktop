@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-code-set-enabled"
+description = "Enables the code_set_enabled command without any pre-configured scope."
+commands.allow = ["code_set_enabled"]
+
+[[permission]]
+identifier = "deny-code-set-enabled"
+description = "Denies the code_set_enabled command without any pre-configured scope."
+commands.deny = ["code_set_enabled"]

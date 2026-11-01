@@ -13,18 +13,18 @@ import { harness as harnesses } from '$lib/stores/harness.svelte';
 export type ItemPhase = 'idle' | 'running' | 'done' | 'failed' | 'skipped';
 
 /** The companions the step installs from their own installers, in the order a run installs them. */
-export const COMPANIONS = ['dashboard', 'memory', 'knowledge'] as const;
+export const COMPANIONS = ['dashboard', 'memory', 'knowledge', 'code'] as const;
 export type Companion = (typeof COMPANIONS)[number];
 
-/** The MCP servers the step registers per harness, in the order of their columns: the dashboard's (`mcp`), the memory server's (`memoryMcp`), the knowledge server's (`knowledgeMcp`) and the app's own, which lets agents manage hooks (`desktopMcp`). */
-export const MCP_KINDS = ['mcp', 'memoryMcp', 'knowledgeMcp', 'desktopMcp'] as const;
+/** The MCP servers the step registers per harness, in the order of their columns: the dashboard's (`mcp`), the memory server's (`memoryMcp`), the knowledge server's (`knowledgeMcp`), the code server's (`codeMcp`) and the app's own, which lets agents manage hooks (`desktopMcp`). */
+export const MCP_KINDS = ['mcp', 'memoryMcp', 'knowledgeMcp', 'codeMcp', 'desktopMcp'] as const;
 export type McpKind = (typeof MCP_KINDS)[number];
 
 /** The things the step can set up: the companions, and per harness its skills and its MCP entries. */
 export type SetupKey = Companion | `skills:${HarnessId}` | `${McpKind}:${HarnessId}`;
 
 /** The companion each MCP entry runs, which has to be installed before the entry can be added. The app's own entry runs the app itself, so it waits for nothing. */
-export const MCP_COMPANION: Record<McpKind, Companion | null> = { mcp: 'dashboard', memoryMcp: 'memory', knowledgeMcp: 'knowledge', desktopMcp: null };
+export const MCP_COMPANION: Record<McpKind, Companion | null> = { mcp: 'dashboard', memoryMcp: 'memory', knowledgeMcp: 'knowledge', codeMcp: 'code', desktopMcp: null };
 
 /** The Harness Skills' installer script, one run per harness it installs for. */
 export type SkillsInstaller = 'opencodeSkills' | 'codexSkills';
@@ -70,7 +70,7 @@ export interface Plan {
 }
 
 /**
- * What a companion's installer changes: the backend's list, and for the memory and knowledge servers the entry they add to the
+ * What a companion's installer changes: the backend's list, and for the memory, knowledge and code servers the entry they add to the
  * harnesses' MCP config once installed (the backend does that after the installer, so its list does not say it).
  */
 export function companionEffects(companion: Companion, server: DashboardSetup): string[] {
@@ -79,6 +79,8 @@ export function companionEffects(companion: Companion, server: DashboardSetup): 
       return [...server.sideEffects, t('onboarding.setup.memory.registers')];
     case 'knowledge':
       return [...server.sideEffects, t('knowledge.onboarding.registers')];
+    case 'code':
+      return [...server.sideEffects, t('code.onboarding.registers')];
     case 'dashboard':
       return server.sideEffects;
   }
@@ -102,7 +104,7 @@ export interface Chip {
   none?: boolean;
 }
 
-const MCP_TITLES: Record<McpKind, MessageKey> = { mcp: 'onboarding.setup.mcp.title', memoryMcp: 'onboarding.setup.memoryMcp.title', knowledgeMcp: 'knowledge.onboarding.mcp.title', desktopMcp: 'onboarding.setup.desktopMcp.title' };
+const MCP_TITLES: Record<McpKind, MessageKey> = { mcp: 'onboarding.setup.mcp.title', memoryMcp: 'onboarding.setup.memoryMcp.title', knowledgeMcp: 'knowledge.onboarding.mcp.title', codeMcp: 'code.onboarding.mcp.title', desktopMcp: 'onboarding.setup.desktopMcp.title' };
 
 /** The column title of each MCP entry. */
 export function mcpTitle(kind: McpKind): string {
@@ -110,7 +112,7 @@ export function mcpTitle(kind: McpKind): string {
 }
 
 /** The server name and command of each MCP entry. */
-const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory', knowledgeMcp: 'harness-knowledge', desktopMcp: 'harness-desktop' };
+const MCP_SERVER: Record<McpKind, string> = { mcp: 'harness-dashboard', memoryMcp: 'harness-memory', knowledgeMcp: 'harness-knowledge', codeMcp: 'harness-code', desktopMcp: 'harness-desktop' };
 
 /**
  * The entry a person adds to an MCP file when the app leaves it alone (a `[mcp_servers.<name>]` table for Codex, JSON for the rest), one key per line so it never wraps mid-token.
@@ -322,7 +324,7 @@ export function skillsChip(setup: HarnessSetup, phase: ItemPhase, waiting: boole
   });
 }
 
-/** The chip of one of the harness's MCP entries (`mcp` the dashboard's, `memoryMcp` the memory server's, `knowledgeMcp` the knowledge server's, `desktopMcp` the app's own). */
+/** The chip of one of the harness's MCP entries (`mcp` the dashboard's, `memoryMcp` the memory server's, `knowledgeMcp` the knowledge server's, `codeMcp` the code server's, `desktopMcp` the app's own). */
 export function mcpChip(setup: HarnessSetup, kind: McpKind, phase: ItemPhase, waiting: boolean): Chip {
   return rowChip(setup, phase, waiting, () => {
     const mcp = setup[kind];

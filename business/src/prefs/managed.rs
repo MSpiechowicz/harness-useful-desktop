@@ -6,7 +6,7 @@
 //! and the dedicated project/harness commands, never through `prefs_set`. Project memory
 //! (`memory_enabled`) writes to the harnesses' MCP files when switched, and vector search (`vector_search`) starts or
 //! stops the embedder, so each has its own command too, as have Project knowledge (`knowledge_enabled`)
-//! and its vector search (`knowledge_vector_search`). The main branch picked per project
+//! and its vector search (`knowledge_vector_search`), and the code graph (`code_enabled`). The main branch picked per project
 //! (`main_branches`) is written by `git_set_main_branch` only, after validating the name.
 
 use std::path::Path;
@@ -125,6 +125,8 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         vector_search: _,
         knowledge_enabled: _,
         knowledge_vector_search: _,
+        code_enabled: _,
+        code_auto_install_done: _,
         main_branches: _,
     } = ui.clone();
 

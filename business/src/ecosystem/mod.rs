@@ -29,6 +29,11 @@
 //!   [`knowledge_recall`] (the recall the app runs for chats),
 //!   [`knowledge_embedder`] (its own embedder and reindex), [`knowledge_remote`] (its team
 //!   database and `check --json`), all on top of the `sidecar_*` modules and [`knowledge_cli`].
+//! - [`code_binary`]: the installed `harness-code` server and its version, with [`code_register`]
+//!   (that server in a harness's user MCP file), [`code_record`] (the files the app registered it
+//!   in), [`code_features`] (`harness-code features`), [`code`] (the code graph switch the hooks
+//!   follow), [`code_prepare`] (building a project's index when it opens) and [`code_builds`] (the
+//!   builds announced in a toast), all on top of the `sidecar_*` modules and [`code_cli`].
 //! - [`memory_binary`]: the installed `harness-memory` server and its version.
 //! - [`memory_register`]: that server in a harness's user MCP file, [`memory_record`]: the files
 //!   the app registered it in, and [`memory_migrate`]: the old copy of the bundled server retired.
@@ -72,6 +77,14 @@
 //!   (`harness-memory push --json`, `scripts push --json`), its answer read by `memory_copy_answer`.
 
 pub mod catalog;
+pub mod code;
+pub mod code_binary;
+pub mod code_builds;
+pub(crate) mod code_cli;
+pub mod code_features;
+pub mod code_prepare;
+pub mod code_record;
+pub mod code_register;
 pub mod dashboard;
 pub mod desktop_record;
 pub mod desktop_register;
@@ -100,8 +113,6 @@ pub mod mcp_register;
 pub mod mcp_rename;
 pub mod memory_binary;
 pub mod memory_cli;
-pub mod memory_code;
-pub mod memory_code_prepare;
 mod memory_copy_answer;
 pub mod memory_embedder;
 pub mod memory_features;
@@ -149,6 +160,17 @@ pub mod skills_paths;
 pub mod skills_record;
 
 pub use catalog::{ECOSYSTEM, catalog_item, supported_on};
+pub use code::{
+    CodeGraphSupport, code_data_dir, code_graph_support, code_switch_is_on, get_code_index, set_code_index,
+};
+pub use code_binary::{code_version, installed_code, parse_code_version, resolve_code};
+pub use code_builds::CodeBuildWatcher;
+pub use code_features::{CodeFeatures, CodeSupport};
+pub use code_prepare::{CodePrepared, prepare_code_index};
+pub use code_record::{CODE_RECORD_FILE, CodeRecord};
+pub use code_register::{
+    CodeRegistration, register_code_mcp, register_code_mcp_cli, unregister_code_mcp, unregister_code_mcp_cli,
+};
 pub use dashboard::{Dashboard, DashboardOptions, resolve_dashboard};
 pub use desktop_record::{DESKTOP_RECORD_FILE, DesktopRecord, DesktopRecordEntry};
 pub use desktop_register::{
@@ -197,15 +219,11 @@ pub use mcp_cli::{
 pub use mcp_client::{McpClient, McpOptions, McpTool, ToolOutput};
 pub use mcp_merge::{Blocked, MergeOutcome, MergeResult, MergedServer, Shape, existing_server, merge_servers};
 pub use mcp_pool::{McpPool, PoolOptions};
-pub use mcp_register::{knowledge_mcp_state, mcp_state, memory_mcp_state, register_dashboard_mcp};
+pub use mcp_register::{code_mcp_state, knowledge_mcp_state, mcp_state, memory_mcp_state, register_dashboard_mcp};
 pub use mcp_rename::rename_dashboard_mcp_file;
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
 pub use memory_cli::Repos;
-pub use memory_code::{
-    CodeBuildWatcher, CodeGraphSupport, code_graph_support, code_switch_is_on, get_code_index, set_code_index,
-};
-pub use memory_code_prepare::{CodePrepared, prepare_code_index};
 pub use memory_embedder::{
     EmbedderEvent, EmbedderStatus, EmbedderTracker, embedder_status, feature_server, get_settings, parse_event,
     remove_embedder_model, set_embedder_enabled, set_settings,
@@ -246,8 +264,8 @@ pub use memory_trust::{script_sha256, trust_scripts};
 pub use memory_user_save::SaveRoute;
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{
-    LegacySkillsStep, McpFile, knowledge_server_setup, legacy_skills_step, mcp_target, mcp_target_paths,
-    memory_server_setup, setup_status, share_mcp_target,
+    LegacySkillsStep, McpFile, code_server_setup, knowledge_server_setup, legacy_skills_step, mcp_target,
+    mcp_target_paths, memory_server_setup, setup_status, share_mcp_target,
 };
 pub use sidecar_embedder_supervisor::{
     EmbedderFeatures, EmbedderSupervisor, Reconciled, SupervisorOptions, embedder_spec,

@@ -8,8 +8,8 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { nav } from '$lib/stores/nav.svelte';
 
-  import KnowledgeInstallConfirm from './KnowledgeInstallConfirm.svelte';
-  import { KnowledgeInstallFlow } from './knowledge-install.svelte';
+  import FamilyInstallConfirm from '../settings/FamilyInstallConfirm.svelte';
+  import { FamilyInstallFlow } from '../settings/family-install.svelte';
 
   interface Props {
     /** Harness Knowledge is installed but too old. Otherwise it is not installed at all. */
@@ -20,7 +20,8 @@
 
   let { update, onfinished }: Props = $props();
 
-  const flow = new KnowledgeInstallFlow(
+  const flow = new FamilyInstallFlow(
+    'knowledge',
     () => update,
     () => onfinished(),
   );
@@ -48,4 +49,4 @@
   {/if}
 </div>
 
-<KnowledgeInstallConfirm {flow} />
+<FamilyInstallConfirm {flow} />

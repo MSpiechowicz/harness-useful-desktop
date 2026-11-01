@@ -32,7 +32,7 @@ async function show(switches: Parameters<typeof freshBackend>[0] = {}) {
 }
 
 describe('Ecosystem view', () => {
-  it('explains the ecosystem and lists the five companions with their state', async () => {
+  it('explains the ecosystem and lists the six companions with their state', async () => {
     await show();
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Tools that make agents measurable' })).toBeInTheDocument();
@@ -56,13 +56,18 @@ describe('Ecosystem view', () => {
     expect(within(knowledge).getByText('Not installed')).toBeInTheDocument();
     expect(within(knowledge).getByText('Project documentation that every coding agent can search.')).toBeInTheDocument();
 
+    // Harness Code is a member of the family like Knowledge: its own card, not installed on a fresh machine.
+    const code = screen.getByRole('article', { name: /Harness Code/ });
+    expect(within(code).getByText('Not installed')).toBeInTheDocument();
+    expect(within(code).getByText('A code graph that every coding agent can ask before it greps.')).toBeInTheDocument();
+
     const sidebar = screen.getByRole('article', { name: /Harness Sidebar/ });
     expect(within(sidebar).getByText('Not installed')).toBeInTheDocument();
     // The GitHub release lookup lands just after the local reading.
-    expect(await screen.findByText('3 of 5 installed · 1 update available', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    expect(await screen.findByText('3 of 6 installed · 1 update available', { selector: 'p[role="status"]' })).toBeInTheDocument();
 
-    // All five wear their own mark in the family tree.
-    const tree = screen.getByRole('img', { name: /^3 of 5 installed/ });
+    // All six wear their own mark in the family tree.
+    const tree = screen.getByRole('img', { name: /^3 of 6 installed/ });
     expect(tree.getAttribute('aria-label')).toMatch(/Harness Memory/);
     expect(within(tree).getByText('Memory')).toBeInTheDocument();
   });
@@ -291,7 +296,7 @@ describe('Ecosystem view in Polish', () => {
     await show();
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Narzędzia, dzięki którym agentów da się zmierzyć' })).toBeInTheDocument();
-    expect(await screen.findByText('Zainstalowano 3 z 5 · 1 dostępna aktualizacja', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    expect(await screen.findByText('Zainstalowano 3 z 6 · 1 dostępna aktualizacja', { selector: 'p[role="status"]' })).toBeInTheDocument();
 
     const sessions = await screen.findByRole('article', { name: 'Sesje, ostatnie 7 dni' });
     expect(sessions).toHaveTextContent('318 promptów');

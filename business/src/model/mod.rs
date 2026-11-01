@@ -10,6 +10,7 @@ mod agent_action;
 mod agent_event;
 mod app;
 mod chat;
+mod code;
 mod command;
 mod config;
 mod config_value;
@@ -29,7 +30,6 @@ mod knowledge_held;
 mod knowledge_import;
 mod knowledge_remote;
 mod knowledge_stats;
-mod memory_code;
 mod memory_embedder;
 mod memory_guards;
 mod memory_import;
@@ -65,6 +65,7 @@ pub use chat::{
     AgentOption, ChatBlock, ChatMessage, ContextUsage, MessageRole, ModelOption, PromptStatus, SessionState,
     SessionStats, TokenUsage,
 };
+pub use code::{CodeBuildEvent, CodeIndexState, CodeSwitchResult};
 pub use command::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
 pub use config::{ConfigFormat, ConfigLayer, ConfigSection, ConfigSource, ConfigView, Notice, NoticeLevel};
 pub use config_value::{ConfigField, ConfigValue, SecretKind};
@@ -119,7 +120,6 @@ pub use knowledge_remote::{
     KnowledgeProblem, KnowledgeRemote,
 };
 pub use knowledge_stats::{KnowledgePlaceStats, KnowledgeStats, KnowledgeStatsPlaces};
-pub use memory_code::{CodeBuildEvent, CodeIndexState};
 pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 pub use memory_guards::{
     GlobalKindGuard, HeldItem, HeldKind, HeldSaved, HeldTool, KindGuard, MemoryChatGuards, MemoryChatGuardsSet,

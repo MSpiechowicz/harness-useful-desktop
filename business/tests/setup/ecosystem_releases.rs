@@ -13,13 +13,21 @@ use pretty_assertions::assert_eq;
 use serde_json::json;
 
 const DASHBOARD_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-dashboard/releases/latest";
+const CODE_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-code/releases/latest";
 const KNOWLEDGE_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-knowledge/releases/latest";
 const MEMORY_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-memory/releases/latest";
 const SKILLS_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-skills/releases/latest";
 const SIDEBAR_URL: &str = "https://api.github.com/repos/MSpiechowicz/harness-useful-sidebar/releases/latest";
 
-/// Every lookup round asks for all five, whichever are installed (sorted like `requested`).
-const ALL_URLS: [&str; 5] = [DASHBOARD_URL, KNOWLEDGE_URL, MEMORY_URL, SIDEBAR_URL, SKILLS_URL];
+/// Every lookup round asks for all six, whichever are installed (sorted like `requested`).
+const ALL_URLS: [&str; 6] = [
+    CODE_URL,
+    DASHBOARD_URL,
+    KNOWLEDGE_URL,
+    MEMORY_URL,
+    SIDEBAR_URL,
+    SKILLS_URL,
+];
 
 fn installed(id: EcosystemId, version: &str) -> EcosystemInstalled {
     EcosystemInstalled {

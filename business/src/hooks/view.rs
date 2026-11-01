@@ -21,13 +21,14 @@ pub struct HookCapabilities {
     pub memory_available: bool,
     /// Harness Dashboard is installed (`harness-dashboard`).
     pub dashboard_available: bool,
-    /// The installed Harness Memory lists the `code-index` feature, so the code graph tools exist.
-    /// Where the hooks run (`memory_available` and this) the Code index switch must be on too: with
+    /// Harness Code is installed, lists the `code-index` feature (so the code graph tools exist)
+    /// and, where the hooks run, its code graph setting and the Code index switch are on too: with
     /// the switch off the server hides the `code_*` tools, so the "Use the code graph first" hook
-    /// ([`HookSeed::needs_code_graph`](crate::model::HookSeed::needs_code_graph)) is not seeded
-    /// and an existing one pauses instead of asking for tools that are not there. For the family
-    /// dialog's `installed` only the feature counts, so the user may add the hook before the
-    /// switch is on. A flag here, not a [`HookRequirement`], so the hook file format is unchanged.
+    /// (`harness-code`) is not seeded and an existing one pauses instead of asking for tools that
+    /// are not there. For the family dialog's `installed` only the feature counts, so the user may
+    /// add the hook before the switch is on. Also what a hook with the old seed
+    /// ([`HookSeed::needs_code_graph`](crate::model::HookSeed::needs_code_graph)) waits for, since
+    /// one written while the graph was part of Harness Memory still requires `harness-memory`.
     pub code_graph_available: bool,
     /// Harness Knowledge is installed, its project knowledge setting is on and the server lists
     /// `mcp` (`harness-knowledge`). For the family dialog's `installed` the setting does not
@@ -51,6 +52,7 @@ impl HookCapabilities {
             HookRequirement::HarnessMemory => self.memory_available,
             HookRequirement::HarnessDashboard => self.dashboard_available,
             HookRequirement::HarnessKnowledge => self.knowledge_available,
+            HookRequirement::HarnessCode => self.code_graph_available,
         }
     }
 }

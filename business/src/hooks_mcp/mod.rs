@@ -33,7 +33,7 @@ use serde_json::{Value, json};
 
 use crate::app_dirs::config_dir;
 use crate::ecosystem::{
-    CodeGraphSupport, KnowledgeFeatures, MemoryFeatures, code_graph_support, installed_knowledge, installed_memory,
+    CodeFeatures, CodeGraphSupport, KnowledgeFeatures, code_graph_support, installed_knowledge, installed_memory,
     resolve_dashboard,
 };
 use crate::env::Env;
@@ -223,14 +223,14 @@ pub fn run_stdio() -> ExitCode {
 /// The family members this machine has, checked like the app window does: Harness Memory counts
 /// when it is installed and reports its version (`runner` asks it) and its memory setting is on
 /// (the prefs file read without changing it), Harness Dashboard when it is installed, and the code
-/// graph when that Harness Memory lists `code-index` and the Code index switch is on, Harness
-/// Knowledge like [`knowledge_available`].
+/// graph when Harness Code's `codeEnabled` pref is on, it lists `code-index` and the Code index
+/// switch is on, Harness Knowledge like [`knowledge_available`].
 pub async fn machine_capabilities(env: &Env, runner: &dyn ProcessRunner) -> HookCapabilities {
     let memory_on = pref_on(&config_dir(env), "memoryEnabled");
     let memory_available = memory_on && installed_memory(env, runner).await.is_some();
 
-    let code_graph = if memory_available {
-        code_graph_support(env, runner, &MemoryFeatures::new()).await
+    let code_graph = if pref_on(&config_dir(env), "codeEnabled") {
+        code_graph_support(env, runner, &CodeFeatures::new()).await
     } else {
         CodeGraphSupport::default()
     };

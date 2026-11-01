@@ -1,4 +1,4 @@
-//! The embedder behind vector search of a [`Product`] (see
+//! The embedder behind vector search of an [`EmbedderProduct`] (see
 //! `harness_business::ecosystem::sidecar_embedder_supervisor`): it runs while the product and its
 //! vector search pref are on and the installed server lists `embedder`, from launch (also after an
 //! update that finds the pref on and the embedder's own switch off), after the server's install,
@@ -22,14 +22,14 @@ use tauri::{AppHandle, Manager};
 
 use crate::commands::blocking;
 use crate::error::CommandResult;
-use crate::product::Product;
+use crate::product::EmbedderProduct;
 use crate::state::AppState;
 
 /// The longest the embedder gets to stop when the app exits, after its stdin closed and the kill.
 pub const EXIT_STOP_LIMIT: Duration = Duration::from_secs(5);
 
 /// Starts the embedder in the background when it is wanted; the window does not wait for it.
-pub(crate) fn spawn_on_launch<P: Product>(app: &AppHandle) {
+pub(crate) fn spawn_on_launch<P: EmbedderProduct>(app: &AppHandle) {
     let app = app.clone();
 
     drop(async_runtime::spawn(async move {
@@ -42,7 +42,7 @@ pub(crate) fn spawn_on_launch<P: Product>(app: &AppHandle) {
 /// Does nothing once shutdown began, also when it began while the server was being asked. An
 /// embedder switched off on the command line stays off and turns the vector search pref off, so
 /// the switch in the settings shows what runs.
-pub(crate) async fn reconcile<P: Product>(state: &AppState) {
+pub(crate) async fn reconcile<P: EmbedderProduct>(state: &AppState) {
     let closing = || state.agents.is_shutting_down();
 
     if closing() {
@@ -60,7 +60,7 @@ pub(crate) async fn reconcile<P: Product>(state: &AppState) {
     }
 }
 
-async fn turn_vector_search_off<P: Product>(state: &AppState) {
+async fn turn_vector_search_off<P: EmbedderProduct>(state: &AppState) {
     let prefs = state.prefs.clone();
 
     let saved = async_runtime::spawn_blocking(move || {
@@ -79,7 +79,7 @@ async fn turn_vector_search_off<P: Product>(state: &AppState) {
 }
 
 /// True while the product and its vector search are both on.
-pub(crate) async fn wanted<P: Product>(state: &AppState) -> bool {
+pub(crate) async fn wanted<P: EmbedderProduct>(state: &AppState) -> bool {
     let prefs = state.prefs.clone();
 
     async_runtime::spawn_blocking(move || {
@@ -94,7 +94,7 @@ pub(crate) async fn wanted<P: Product>(state: &AppState) -> bool {
 }
 
 /// Stops the embedder for good (app exit), within [`EXIT_STOP_LIMIT`].
-pub(crate) fn stop_for_exit<P: Product>(state: &AppState) {
+pub(crate) fn stop_for_exit<P: EmbedderProduct>(state: &AppState) {
     // `timeout` registers its timer when created, so it must be built inside the runtime
     // (on the exit event's thread there is none and creating it there panics).
     let stopping = async { tokio::time::timeout(EXIT_STOP_LIMIT, P::embedder(state).stop()).await };
@@ -106,7 +106,7 @@ pub(crate) fn stop_for_exit<P: Product>(state: &AppState) {
 
 /// The installed server when its features list the embedder: `notFound` when it is not installed,
 /// `unsupported` when it predates it.
-pub(crate) async fn embedder_server<P: Product>(state: &AppState) -> Result<PathBuf> {
+pub(crate) async fn embedder_server<P: EmbedderProduct>(state: &AppState) -> Result<PathBuf> {
     P::features(state).embedder_server(&state.env, &state.runner).await
 }
 
@@ -118,7 +118,7 @@ pub(crate) async fn embedder_server<P: Product>(state: &AppState) -> Result<Path
 ///
 /// Turning it off also works on a server without `embedder` (`unsupported` for turning it on): the
 /// pref is stored, there is nothing to switch, and the choice holds once the server is updated.
-pub(crate) async fn set_vector_search<P: Product>(
+pub(crate) async fn set_vector_search<P: EmbedderProduct>(
     state: &AppState,
     enabled: bool,
 ) -> CommandResult<MemoryVectorSwitchResult> {
@@ -156,7 +156,7 @@ pub(crate) async fn set_vector_search<P: Product>(
     })
 }
 
-async fn stored_vector_search<P: Product>(state: &AppState) -> bool {
+async fn stored_vector_search<P: EmbedderProduct>(state: &AppState) -> bool {
     let prefs = state.prefs.clone();
 
     blocking(move || Ok(prefs.with(|store| P::vector_search(&store.load()))))
@@ -164,7 +164,7 @@ async fn stored_vector_search<P: Product>(state: &AppState) -> bool {
         .unwrap_or(true)
 }
 
-async fn store_vector_search<P: Product>(state: &AppState, enabled: bool) -> CommandResult<AppPrefs> {
+async fn store_vector_search<P: EmbedderProduct>(state: &AppState, enabled: bool) -> CommandResult<AppPrefs> {
     let prefs = state.prefs.clone();
 
     blocking(move || Ok(prefs.with(|store| store.update(|prefs| P::set_vector_search(prefs, enabled)))?)).await
@@ -172,7 +172,7 @@ async fn store_vector_search<P: Product>(state: &AppState, enabled: bool) -> Com
 
 /// Sends the embedder's state to `on_event` now and on every change, replacing the previous
 /// listener.
-pub(crate) fn watch<P: Product>(state: &AppState, on_event: Channel<MemoryEmbedderState>) {
+pub(crate) fn watch<P: EmbedderProduct>(state: &AppState, on_event: Channel<MemoryEmbedderState>) {
     P::watch(state).listen(P::embedder(state).subscribe(), on_event);
 }
 
@@ -180,7 +180,7 @@ pub(crate) fn watch<P: Product>(state: &AppState, on_event: Channel<MemoryEmbedd
 /// (`embedder remove-model`, 60 s). Answers the embedder's state (`off`, `modelPresent` false).
 /// The vector search pref is left as it is, so turn vector search off first to keep the model from
 /// being fetched again at the next launch. Errors as [`set_vector_search`].
-pub(crate) async fn remove_model<P: Product>(state: &AppState) -> CommandResult<MemoryEmbedderState> {
+pub(crate) async fn remove_model<P: EmbedderProduct>(state: &AppState) -> CommandResult<MemoryEmbedderState> {
     let server = embedder_server::<P>(state).await?;
 
     P::embedder(state)

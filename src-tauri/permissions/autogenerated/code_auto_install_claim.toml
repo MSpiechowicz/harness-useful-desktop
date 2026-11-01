@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-code-auto-install-claim"
+description = "Enables the code_auto_install_claim command without any pre-configured scope."
+commands.allow = ["code_auto_install_claim"]
+
+[[permission]]
+identifier = "deny-code-auto-install-claim"
+description = "Denies the code_auto_install_claim command without any pre-configured scope."
+commands.deny = ["code_auto_install_claim"]

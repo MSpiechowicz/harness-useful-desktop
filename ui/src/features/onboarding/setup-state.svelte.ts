@@ -25,16 +25,16 @@ interface Hooks {
   chatsChanged: (harness: HarnessId) => Promise<number>;
   /** After a run, so the Ecosystem screen shows the new state. */
   companionsChanged: () => Promise<void>;
-  /** After the memory or knowledge server was registered in a harness, which turns Project memory or knowledge on, so Settings shows it. */
+  /** After the memory, knowledge or code server was registered in a harness, which turns Project memory, knowledge or the code graph on, so Settings shows it. */
   memoryChanged: () => Promise<void>;
 }
 
 /**
  * The recommended setup, shown on two steps: "Meet the Harness family" reads the machine and describes what each member
  * would change, "Set up" runs it. Opening only reads; nothing runs until the user has seen the
- * list of commands and files and confirmed it. A run goes in a fixed order: the dashboard, then the memory server and
- * the knowledge server, then the skills of each harness and, per harness, the dashboard's entry, the memory server's and
- * the knowledge server's entry in its MCP file.
+ * list of commands and files and confirmed it. A run goes in a fixed order: the dashboard, then the memory server, the
+ * knowledge server and the code server, then the skills of each harness and, per harness, the dashboard's entry, the memory server's,
+ * the knowledge server's and the code server's entry in its MCP file.
  */
 export class SetupController {
   data = $state.raw<RecommendedSetup | null>(null);
@@ -64,6 +64,7 @@ export class SetupController {
       dashboard: new CompanionInstaller('dashboard', transport),
       memory: new CompanionInstaller('memory', transport),
       knowledge: new CompanionInstaller('knowledge', transport),
+      code: new CompanionInstaller('code', transport),
       opencodeSkills: new CompanionInstaller('opencodeSkills', transport),
       codexSkills: new CompanionInstaller('codexSkills', transport),
     };
@@ -317,7 +318,7 @@ export class SetupController {
     }
   }
 
-  /** Runs the confirmed selection: the dashboard, then the memory server and the knowledge server, then everything else together. A failure stops only what depends on it. */
+  /** Runs the confirmed selection: the dashboard, then the memory, knowledge and code servers, then everything else together. A failure stops only what depends on it. */
   async run(): Promise<void> {
     const data = this.data;
     if (!data || this.running) {
@@ -344,7 +345,7 @@ export class SetupController {
         registerMcp: (kind, harness, companionOk) => this.registerMcp(kind, harness, companionOk),
       });
     } finally {
-      const memoryRegistered = [...this.picked].some((key) => (key.startsWith('memoryMcp:') || key.startsWith('knowledgeMcp:')) && this.phase(key) === 'done');
+      const memoryRegistered = [...this.picked].some((key) => (key.startsWith('memoryMcp:') || key.startsWith('knowledgeMcp:') || key.startsWith('codeMcp:')) && this.phase(key) === 'done');
       this.picked = new Set();
       // The rows already show the outcome, so the flow is free at once. Re-reading the machine and letting Settings
       // and the Ecosystem screen catch up all happen together in the background.
@@ -442,6 +443,8 @@ export class SetupController {
         return this.transport.invoke('setup_register_memory', { harness });
       case 'knowledgeMcp':
         return this.transport.invoke('setup_register_knowledge', { harness });
+      case 'codeMcp':
+        return this.transport.invoke('setup_register_code', { harness });
       case 'desktopMcp':
         return this.transport.invoke('setup_register_desktop_mcp', { harness });
     }

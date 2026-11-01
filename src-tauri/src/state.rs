@@ -9,9 +9,9 @@ use std::sync::{Arc, Mutex, PoisonError};
 use harness_business::app_dirs::{child_processes_dir, local_data_dir};
 use harness_business::ecosystem::catalog::{KNOWLEDGE_SIDECAR, MEMORY_SIDECAR};
 use harness_business::ecosystem::{
-    ChatGuardWrites, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor, KnowledgeFeatures,
-    KnowledgeImporter, KnowledgeIntakes, MemoryFeatures, MemoryKinds, MemoryScripts, NotesCopyCache, PoolOptions,
-    SaveRoute, StoredNotesImport,
+    ChatGuardWrites, CodeFeatures, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor,
+    KnowledgeFeatures, KnowledgeImporter, KnowledgeIntakes, MemoryFeatures, MemoryKinds, MemoryScripts, NotesCopyCache,
+    PoolOptions, SaveRoute, StoredNotesImport,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -27,11 +27,11 @@ use tauri::async_runtime::{self, RwLock};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::agents::Agents;
+use crate::code_builds::CodeBuilds;
+use crate::code_prepares::CodePrepares;
 use crate::drops::DropSink;
 use crate::hooks::HookRuntime;
 use crate::knowledge_pulse::PulseWatch;
-use crate::memory_code_builds::CodeBuilds;
-use crate::memory_code_prepares::CodePrepares;
 use crate::memory_embedder::EmbedderWatch;
 use crate::memory_held::HeldWatcher;
 use crate::memory_requests::ScriptRequests;
@@ -87,6 +87,8 @@ pub struct AppState {
     pub knowledge_intakes: Arc<KnowledgeIntakes>,
     /// The page told when Harness Knowledge's documents or review queue change.
     pub knowledge_pulse: PulseWatch,
+    /// What the installed Harness Code can do (`harness-code features`, probed once per binary).
+    pub code_features: CodeFeatures,
     /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
     pub script_requests: Arc<ScriptRequests>,
     /// The page told when the saves Harness Memory holds for review change.
@@ -110,6 +112,8 @@ pub struct AppState {
     pub memory_install: async_runtime::Mutex<()>,
     /// Held while the knowledge server's installer runs, so only one runs at a time.
     pub knowledge_install: async_runtime::Mutex<()>,
+    /// Held while the code server's installer runs, so only one runs at a time.
+    pub code_install: async_runtime::Mutex<()>,
     /// Held while the Harness Skills' OpenCode installer runs, so only one runs at a time.
     pub opencode_skills_install: async_runtime::Mutex<()>,
     /// Held while the Harness Skills' Codex installer runs, so only one runs at a time.
@@ -133,6 +137,8 @@ pub struct AppState {
     /// Held while the knowledge server is installed, registered or unregistered, so one runs at a
     /// time.
     pub knowledge_setup: async_runtime::Mutex<()>,
+    /// Held while the code server is installed, registered or unregistered, so one runs at a time.
+    pub code_setup: async_runtime::Mutex<()>,
     /// Held while the app's own MCP server is registered, so one registration runs at a time.
     pub desktop_mcp_setup: async_runtime::Mutex<()>,
     /// The hooks folder, its approvals and the hooks of each chat.
@@ -141,7 +147,7 @@ pub struct AppState {
     pub routines: Arc<RoutineRuntime>,
     /// The Harness Memory repository key of each project, for the session (`project_scopes`).
     pub project_keys: ProjectKeys,
-    /// The projects whose code index is being prepared (`memory_code_prepare`).
+    /// The projects whose code index is being prepared (`code_prepare`).
     pub code_prepares: CodePrepares,
     /// The locks that let one git write (fetch, push, rebase, switch...) run at a time per project.
     pub git_writes: GitWriteLocks,
@@ -200,6 +206,7 @@ impl AppState {
             knowledge_importer: KnowledgeImporter::new(),
             knowledge_intakes: Arc::new(KnowledgeIntakes::new()),
             knowledge_pulse: PulseWatch::default(),
+            code_features: CodeFeatures::new(),
             script_requests: Arc::new(ScriptRequests::default()),
             memory_held: Arc::new(HeldWatcher::default()),
             code_builds: Arc::new(CodeBuilds::default()),
@@ -211,6 +218,7 @@ impl AppState {
             dashboard_install: async_runtime::Mutex::new(()),
             memory_install: async_runtime::Mutex::new(()),
             knowledge_install: async_runtime::Mutex::new(()),
+            code_install: async_runtime::Mutex::new(()),
             opencode_skills_install: async_runtime::Mutex::new(()),
             codex_skills_install: async_runtime::Mutex::new(()),
             sync_plan: Mutex::new(None),
@@ -221,6 +229,7 @@ impl AppState {
             config_dir: prefs_dir,
             memory_setup: async_runtime::Mutex::new(()),
             knowledge_setup: async_runtime::Mutex::new(()),
+            code_setup: async_runtime::Mutex::new(()),
             desktop_mcp_setup: async_runtime::Mutex::new(()),
             hooks: Arc::new(hooks),
             routines: Arc::new(routines),

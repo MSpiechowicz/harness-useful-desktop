@@ -233,6 +233,11 @@ describe('mock transport', () => {
       await mock.invoke('setup_install_knowledge', { confirmed: true, onLog: () => {} });
     }
 
+    // The code server is registered, switched and used only once it is installed.
+    if (name === 'setup_register_code' || name === 'code_index_get' || name === 'code_index_set' || name === 'code_prepare') {
+      await mock.invoke('setup_install_code', { confirmed: true, onLog: () => {} });
+    }
+
     // A change to a hook names the version it was read at: the pending sample hook is read first.
     if (name === 'hook_delete' || name === 'hook_approve' || name === 'hook_reject') {
       const { hooks } = await mock.invoke('hooks_list', { project: fixtures.recentProjects[0].path });

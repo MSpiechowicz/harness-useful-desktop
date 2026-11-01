@@ -4,6 +4,8 @@
 mod access;
 mod agent_sink;
 mod agents;
+mod code_builds;
+mod code_prepares;
 mod commands;
 mod desktop_mcp;
 mod dialogs;
@@ -16,8 +18,6 @@ mod knowledge_pulse;
 mod lifecycle;
 mod logging;
 mod mcp_cli;
-mod memory_code_builds;
-mod memory_code_prepares;
 mod memory_embedder;
 mod memory_held;
 mod memory_requests;
@@ -67,6 +67,7 @@ pub fn run() -> ExitCode {
             memory_embedder::spawn_on_launch(app.handle());
             sidecar_setup::spawn_on_launch::<product::Knowledge>(app.handle());
             sidecar_embedder::spawn_on_launch::<product::Knowledge>(app.handle());
+            sidecar_setup::spawn_on_launch::<product::Code>(app.handle());
             desktop_mcp::spawn_on_launch(app.handle());
             hooks::spawn_on_launch(app.handle());
             routines::agent_run::install(app.handle());
@@ -87,6 +88,7 @@ pub fn run() -> ExitCode {
             commands::app::prefs_get,
             commands::app::prefs_set,
             commands::memory::memory_set_enabled,
+            commands::code::code_set_enabled,
             commands::knowledge::knowledge_status,
             commands::knowledge::knowledge_set_enabled,
             commands::knowledge_docs::knowledge_docs_list,
@@ -115,10 +117,11 @@ pub fn run() -> ExitCode {
             commands::knowledge_remote::knowledge_remote_get,
             commands::knowledge_remote::knowledge_remote_set,
             commands::knowledge_remote::knowledge_remote_test,
-            commands::memory_code::memory_code_index_get,
-            commands::memory_code::memory_code_index_set,
-            commands::memory_code::memory_code_builds_listen,
-            commands::memory_code::memory_code_prepare,
+            commands::code::code_index_get,
+            commands::code::code_index_set,
+            commands::code::code_builds_listen,
+            commands::code::code_prepare,
+            commands::code::code_auto_install_claim,
             commands::memory_embedder::memory_set_vector_search,
             commands::memory_embedder::memory_embedder_watch,
             commands::memory_embedder::memory_embedder_remove_model,
@@ -212,10 +215,12 @@ pub fn run() -> ExitCode {
             commands::setup::setup_install_memory,
             commands::setup::setup_install_knowledge,
             commands::setup::setup_install_opencode_skills,
+            commands::setup::setup_install_code,
             commands::setup::setup_install_codex_skills,
             commands::skills_migration::skills_migrate_names,
             commands::setup::setup_register_mcp,
             commands::setup::setup_register_memory,
+            commands::setup::setup_register_code,
             commands::setup::setup_register_knowledge,
             commands::desktop_mcp::setup_register_desktop_mcp,
             commands::hooks::hooks_list,

@@ -40,8 +40,6 @@ fn a_server_that_lists_every_feature_routes_notes_and_scripts_to_both_and_is_ask
             settings: false,
             notes_lang: false,
             notes_useful: false,
-            code_index: false,
-            code_prepare: false,
         }
     );
     assert!(answer.team_and_local());
@@ -184,45 +182,5 @@ fn the_embedder_settings_and_lang_features_are_read_from_their_own_lines() {
             !other.embedder() && !other.settings() && !other.notes_lang(),
             "{other:?}"
         );
-    }
-}
-
-#[test]
-fn the_code_index_is_read_from_its_own_line() {
-    let (_dir, env) = installed();
-
-    let current = wait(MemoryFeatures::new().support(&env, &features("embedder\n Code-Index \n")));
-    assert!(current.code_index());
-
-    let older = wait(MemoryFeatures::new().support(&env, &features("embedder\nsettings\nnotes-useful\n")));
-    assert!(matches!(older, FeaturesSupport::Listed { .. }));
-    assert!(!older.code_index());
-
-    for other in [
-        FeaturesSupport::Unsupported,
-        FeaturesSupport::NotInstalled,
-        FeaturesSupport::Unknown,
-    ] {
-        assert!(!other.code_index(), "{other:?}");
-    }
-}
-
-#[test]
-fn the_code_prepare_is_read_from_its_own_line() {
-    let (_dir, env) = installed();
-
-    let current = wait(MemoryFeatures::new().support(&env, &features("code-index\n Code-Prepare \n")));
-    assert!(current.code_prepare());
-
-    let older = wait(MemoryFeatures::new().support(&env, &features("code-index\n")));
-    assert!(matches!(older, FeaturesSupport::Listed { .. }));
-    assert!(!older.code_prepare());
-
-    for other in [
-        FeaturesSupport::Unsupported,
-        FeaturesSupport::NotInstalled,
-        FeaturesSupport::Unknown,
-    ] {
-        assert!(!other.code_prepare(), "{other:?}");
     }
 }

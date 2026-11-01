@@ -46,6 +46,8 @@ export function defaultPrefs(): AppPrefs {
     vectorSearch: true,
     knowledgeEnabled: true,
     knowledgeVectorSearch: true,
+    codeEnabled: true,
+    codeAutoInstallDone: false,
     keepRunningInTray: false,
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
@@ -67,6 +69,8 @@ export class MockState {
   vectorSearch = true;
   knowledgeEnabled = true;
   knowledgeVectorSearch = true;
+  codeEnabled = true;
+  codeAutoInstallDone = false;
   /** The main branch picked per project: only `git_set_main_branch` changes it. */
   mainBranches: MainBranchChoice[] = [];
   recents: ProjectInfo[] = structuredClone(fixtures.recentProjects);
@@ -105,6 +109,8 @@ export class MockState {
       vectorSearch: this.vectorSearch,
       knowledgeEnabled: this.knowledgeEnabled,
       knowledgeVectorSearch: this.knowledgeVectorSearch,
+      codeEnabled: this.codeEnabled,
+      codeAutoInstallDone: this.codeAutoInstallDone,
       mainBranches: structuredClone(this.mainBranches),
     };
   }
@@ -128,6 +134,24 @@ export class MockState {
     this.knowledgeEnabled = enabled;
 
     return this.snapshot();
+  }
+
+  /** The "Code graph" setting: the only way to change `codeEnabled`. */
+  setCodeEnabled(enabled: boolean): AppPrefs {
+    this.codeEnabled = enabled;
+
+    return this.snapshot();
+  }
+
+  /** The background install of Harness Code: allowed once, and not while the Code graph setting is off. */
+  claimCodeAutoInstall(): boolean {
+    if (!this.codeEnabled || this.codeAutoInstallDone) {
+      return false;
+    }
+
+    this.codeAutoInstallDone = true;
+
+    return true;
   }
 
   /** The knowledge "Vector search" switch: the only way to change `knowledgeVectorSearch`. */

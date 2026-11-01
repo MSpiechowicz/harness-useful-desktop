@@ -26,6 +26,7 @@ const COMMANDS_TS = 'ui/src/lib/ipc/commands.ts';
 const SPREAD_FILES: Record<string, string> = {
   memoryCommands: 'ui/src/lib/ipc/commands-memory.ts',
   knowledgeCommands: 'ui/src/lib/ipc/commands-knowledge.ts',
+  codeCommands: 'ui/src/lib/ipc/commands-code.ts',
 };
 const BUILD_RS = 'src-tauri/build.rs';
 const CAPABILITY = 'src-tauri/capabilities/main.json';

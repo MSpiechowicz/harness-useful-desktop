@@ -11,7 +11,7 @@ import { skillsUnavailable } from './setup-model';
 function opencodeWith(skills: SkillsSetup): HarnessSetup {
   const missing = { type: 'missing', file: '~/.config/opencode/opencode.json', exists: true } as const;
 
-  return { harness: 'opencode', installed: true, skills, mcp: missing, memoryMcp: missing, knowledgeMcp: missing, desktopMcp: missing };
+  return { harness: 'opencode', installed: true, skills, mcp: missing, memoryMcp: missing, knowledgeMcp: missing, codeMcp: missing, desktopMcp: missing };
 }
 
 /** Renders the card with its details open, which is where the reason is. */

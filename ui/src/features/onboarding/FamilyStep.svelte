@@ -28,6 +28,7 @@
       <CompanionCard companion="dashboard" server={data.dashboard} />
       <CompanionCard companion="memory" server={data.memory} />
       <CompanionCard companion="knowledge" server={data.knowledge} />
+      <CompanionCard companion="code" server={data.code} />
       <SkillsCard harnesses={data.harnesses} />
     {/snippet}
   </SetupStatus>

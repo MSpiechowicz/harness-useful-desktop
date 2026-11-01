@@ -24,6 +24,7 @@
     { product: 'dashboard', title: 'onboarding.setup.mcp.title', body: 'onboarding.setup.mcp.body', note: 'onboarding.setup.mcp.note' },
     { product: 'memory', title: 'onboarding.setup.memoryMcp.title', body: 'onboarding.setup.memoryMcp.body', note: 'onboarding.setup.memoryMcp.note' },
     { product: 'knowledge', title: 'knowledge.onboarding.mcp.title', body: 'knowledge.onboarding.mcp.body', note: 'knowledge.onboarding.mcp.note' },
+    { product: 'code', title: 'code.onboarding.mcp.title', body: 'code.onboarding.mcp.body', note: 'code.onboarding.mcp.note' },
     { product: 'desktop', title: 'onboarding.setup.desktopMcp.title', body: 'onboarding.setup.desktopMcp.body', note: 'onboarding.setup.desktopMcp.note' },
   ];
 </script>
@@ -46,7 +47,7 @@
   </ul>
 
   <SetupDetails>
-    <div class="grid grid-cols-4 gap-6">
+    <div class="grid grid-cols-3 gap-x-6 gap-y-5">
       {#each SERVERS as server (server.product)}
         <section class="flex flex-col gap-2" aria-label={t(server.title)}>
           <h4 class="flex items-center gap-2 text-sm font-medium text-fg"><Logo variant="mark" product={server.product} size={13} />{t(server.title)}</h4>

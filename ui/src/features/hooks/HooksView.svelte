@@ -44,7 +44,7 @@
   import DesktopMcpHint from './DesktopMcpHint.svelte';
   import DeleteAllDialog from './DeleteAllDialog.svelte';
   import FamilyDialog from './FamilyDialog.svelte';
-  import { deletableCount, EVENT_LABELS, EVENT_WHEN, EVENTS, filterCounts, hookDoc, hookTitle, inSource, inStatus, inWhen, matchesQuery, sortHooks, STATUS_LABELS, STATUSES, type WaitingFor, viewKey, waitingFor } from './hook-format';
+  import { deletableCount, EVENT_LABELS, EVENT_WHEN, EVENTS, filterCounts, hookDoc, hookTitle, inSource, inStatus, inWhen, matchesQuery, memberSwitches, sortHooks, STATUS_LABELS, STATUSES, type WaitingFor, viewKey, waitingFor } from './hook-format';
   import { type EditorTarget } from './hook-form';
   import { originalOf } from './hook-team';
   import HookEditor from './HookEditor.svelte';
@@ -52,6 +52,7 @@
   import HookPanel from './HookPanel.svelte';
   import { hooks } from './hooks-data.svelte';
   import PausedNotice from './PausedNotice.svelte';
+  import { codeGraph } from '$lib/stores/codeGraph.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
 
   let confirmer: SessionConfirm | undefined = $state();
@@ -118,7 +119,7 @@
     const members = new Map<string, WaitingFor & { count: number }>();
 
     for (const view of views) {
-      const needs = view.status === 'paused' && view.hook ? waitingFor(view.hook, prefs.value?.memoryEnabled !== false, prefs.value?.knowledgeEnabled !== false) : null;
+      const needs = view.status === 'paused' && view.hook ? waitingFor(view.hook, memberSwitches(prefs.value, codeGraph.index?.enabled !== false)) : null;
 
       if (needs) {
         const key = `${needs.member}:${needs.off}`;

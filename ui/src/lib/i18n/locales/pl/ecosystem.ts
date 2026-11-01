@@ -19,7 +19,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
 
   'ecosystem.hero.title': 'Narzędzia, dzięki którym agentów da się zmierzyć',
   'ecosystem.hero.body':
-    'Harness Useful to niewielka rodzina otwartych narzędzi do twoich agentów programistycznych. **Dashboard** mierzy, ile kosztują, **skille** czynią ich pracę powtarzalną, **pamięć** daje im wspólną pamięć projektu, **wiedza** pozwala im przeszukiwać dokumenty projektu, a **pasek boczny** trzyma ich sesje w zasięgu wzroku. Harness Desktop działa samodzielnie i pokazuje więcej z każdym dodanym narzędziem.',
+    'Harness Useful to niewielka rodzina otwartych narzędzi do twoich agentów programistycznych. **Dashboard** mierzy, ile kosztują, **skille** czynią ich pracę powtarzalną, **pamięć** daje im wspólną pamięć projektu, **wiedza** pozwala im przeszukiwać dokumenty projektu, graf **kodu** pokazuje, gdzie kod jest zdefiniowany i używany, a **pasek boczny** trzyma ich sesje w zasięgu wzroku. Harness Desktop działa samodzielnie i pokazuje więcej z każdym dodanym narzędziem.',
   'ecosystem.hero.failed': 'Nie udało się odczytać zainstalowanych członków rodziny Harness.',
   'ecosystem.hero.looking': 'Szukanie rodziny Harness…',
   'ecosystem.setup.run': 'Uruchom polecaną konfigurację',
@@ -27,6 +27,8 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.autoUpdate.done': '{name} zaktualizowany do wersji {version}',
   'ecosystem.autoUpdate.failed': 'Aktualizacja {name} nie powiodła się',
   'ecosystem.autoUpdate.noReason': 'Instalator nie podał powodu.',
+  'ecosystem.autoInstall.done': '{name} zainstalowany, aby graf kodu nadal działał',
+  'ecosystem.autoInstall.failed': 'Instalacja {name} nie powiodła się',
 
   'ecosystem.skillsMigration.done': 'Harness Skills ma nowe nazwy w: {harnesses}',
   'ecosystem.skillsMigration.failed': 'Nie udało się zmienić nazw Harness Skills w: {harnesses}',
@@ -275,4 +277,9 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.knowledge.note.0': 'Działa lokalnie jako `harness-knowledge mcp`. Z zespołową bazą danych słowa wyszukiwania lub przywołania trafiają do tej bazy.',
   'ecosystem.product.knowledge.note.1': 'Włącz lub wyłącz go dla wszystkich harnessów w Ustawieniach, w sekcji Wiedza projektu.',
   'ecosystem.product.knowledge.step.0.title': 'Zainstaluj plik wykonywalny',
+  'ecosystem.product.code.tagline': 'Graf kodu, o który może zapytać każdy agent programistyczny, zanim sięgnie po grep.',
+  'ecosystem.product.code.description': 'Lokalny serwer MCP, który indeksuje kod repozytorium i odpowiada, gdzie nazwa jest zdefiniowana i używana, na co wpływa zmiana i jak jedna część dociera do drugiej. Aplikacja rejestruje go w każdym wykrytym harnessie, gdy Graf kodu jest włączony, i buduje indeks projektu, gdy go otwierasz.',
+  'ecosystem.product.code.note.0': 'Działa lokalnie jako `harness-code mcp`. Nic nie jest wysyłane przez sieć.',
+  'ecosystem.product.code.note.1': 'Włącz lub wyłącz go dla wszystkich harnessów w Ustawieniach, w sekcji Kod.',
+  'ecosystem.product.code.step.0.title': 'Zainstaluj plik wykonywalny',
 };

@@ -33,6 +33,13 @@ mod sync_support;
 #[path = "../support/team_support/mod.rs"]
 mod team_support;
 
+mod code;
+mod code_builds;
+mod code_features;
+mod code_prepare;
+mod code_register;
+mod code_setup_status;
+mod code_switch;
 mod desktop_register;
 mod ecosystem_detect;
 mod ecosystem_model;
@@ -53,9 +60,6 @@ mod knowledge_search;
 mod knowledge_setup_status;
 mod live_ecosystem;
 mod mcp_merge;
-mod memory_code;
-mod memory_code_prepare;
-mod memory_code_switch;
 mod memory_embedder;
 mod memory_embedder_supervisor;
 mod memory_features;

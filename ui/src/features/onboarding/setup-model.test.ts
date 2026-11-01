@@ -163,10 +163,10 @@ describe('Harness Knowledge in the recommended setup', () => {
     expect(mcpTitle('knowledgeMcp')).toBe('Harness Knowledge MCP');
   });
 
-  it('runs its entry only with its own server, and installs it after the other two', () => {
+  it('runs its entry only with its own server, and installs it after the first two', () => {
     expect(MCP_COMPANION.knowledgeMcp).toBe('knowledge');
-    expect(COMPANIONS).toEqual(['dashboard', 'memory', 'knowledge']);
-    expect(MCP_KINDS).toEqual(['mcp', 'memoryMcp', 'knowledgeMcp', 'desktopMcp']);
+    expect(COMPANIONS).toEqual(['dashboard', 'memory', 'knowledge', 'code']);
+    expect(MCP_KINDS).toEqual(['mcp', 'memoryMcp', 'knowledgeMcp', 'codeMcp', 'desktopMcp']);
   });
 
   it('says that its install adds it to the harnesses', () => {
@@ -175,5 +175,25 @@ describe('Harness Knowledge in the recommended setup', () => {
 
     expect(plan.commands).toEqual([{ owner: 'knowledge', command: 'install' }]);
     expect(plan.effects[0].effects).toEqual(['Installs the command.', expect.stringContaining('harness-knowledge mcp')]);
+  });
+});
+
+describe('Harness Code in the recommended setup', () => {
+  it('writes its MCP entry like the other servers', () => {
+    expect(JSON.parse(mcpSnippet('codeMcp', 'claude'))).toEqual({ mcpServers: { 'harness-code': { command: 'harness-code', args: ['mcp'] } } });
+    expect(mcpSnippet('codeMcp', 'codex')).toBe('[mcp_servers.harness-code]\ncommand = "harness-code"\nargs = ["mcp"]');
+    expect(mcpTitle('codeMcp')).toBe('Harness Code MCP');
+  });
+
+  it('runs its entry only with its own server', () => {
+    expect(MCP_COMPANION.codeMcp).toBe('code');
+  });
+
+  it('says that its install adds it to the harnesses', () => {
+    const server = { installed: false, version: null, supportedOnThisOs: true, command: 'install', sideEffects: ['Installs the command.'] };
+    const plan = companionPlan('code', server);
+
+    expect(plan.commands).toEqual([{ owner: 'code', command: 'install' }]);
+    expect(plan.effects[0].effects).toEqual(['Installs the command.', expect.stringContaining('harness-code mcp')]);
   });
 });

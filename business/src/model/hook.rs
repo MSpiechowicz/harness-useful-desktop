@@ -113,6 +113,10 @@ pub enum HookRequirement {
     /// listed.
     #[serde(rename = "harness-knowledge")]
     HarnessKnowledge,
+    /// Harness Code is installed, its code graph setting is on, its server lists `code-index` and
+    /// the Code index switch is on.
+    #[serde(rename = "harness-code")]
+    HarnessCode,
 }
 
 impl HookRequirement {
@@ -122,14 +126,20 @@ impl HookRequirement {
             Self::HarnessMemory => "harness-memory",
             Self::HarnessDashboard => "harness-dashboard",
             Self::HarnessKnowledge => "harness-knowledge",
+            Self::HarnessCode => "harness-code",
         }
     }
 
     /// The requirement named `name`.
     pub fn parse(name: &str) -> Option<Self> {
-        [Self::HarnessMemory, Self::HarnessDashboard, Self::HarnessKnowledge]
-            .into_iter()
-            .find(|requirement| requirement.as_str() == name)
+        [
+            Self::HarnessMemory,
+            Self::HarnessDashboard,
+            Self::HarnessKnowledge,
+            Self::HarnessCode,
+        ]
+        .into_iter()
+        .find(|requirement| requirement.as_str() == name)
     }
 }
 
@@ -150,8 +160,8 @@ pub enum HookSeed {
     BranchSync,
     /// Harness Memory: "Check Memory first" (`promptSubmit`).
     MemoryFirst,
-    /// Harness Memory: "Use the code graph first" (`promptSubmit`). Offered only while the installed
-    /// Harness Memory lists `code-index` (and runs only while the Code index switch is on).
+    /// Harness Code: "Use the code graph first" (`promptSubmit`). Offered only while the installed
+    /// Harness Code lists `code-index` (and runs only while the Code index switch is on).
     CodeGraphFirst,
     /// Harness Knowledge: "Check Knowledge first" (`promptSubmit`).
     KnowledgeFirst,
@@ -189,8 +199,9 @@ impl HookSeed {
         }
     }
 
-    /// True when the hook also needs the code graph of Harness Memory (see
-    /// `HookCapabilities::code_graph_available`), beyond its `requires`.
+    /// True when the hook also needs the code graph of Harness Code (see
+    /// `HookCapabilities::code_graph_available`), beyond its `requires`: a file written before the
+    /// graph moved out of Harness Memory still requires `harness-memory`, and pauses with the graph.
     pub fn needs_code_graph(self) -> bool {
         self == Self::CodeGraphFirst
     }

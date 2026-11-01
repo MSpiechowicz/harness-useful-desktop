@@ -51,6 +51,7 @@ pub async fn after_member_install(runtime: &HookRuntime, companion: Companion) {
         Companion::Memory => HookRequirement::HarnessMemory,
         Companion::Dashboard => HookRequirement::HarnessDashboard,
         Companion::Knowledge => HookRequirement::HarnessKnowledge,
+        Companion::Code => HookRequirement::HarnessCode,
         Companion::OpenCodeSkills | Companion::CodexSkills => return,
     };
 

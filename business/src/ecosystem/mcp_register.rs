@@ -1,7 +1,8 @@
 //! The `harness-dashboard` MCP server in a harness's MCP file (`mcp_state`,
-//! `register_dashboard_mcp`), and the state of the `harness-memory` and `harness-knowledge` ones
-//! (`memory_mcp_state`, `knowledge_mcp_state`; they are registered by [`super::memory_register`] and
-//! [`super::knowledge_register`]).
+//! `register_dashboard_mcp`), and the state of the `harness-memory`, `harness-knowledge` and
+//! `harness-code` ones (`memory_mcp_state`, `knowledge_mcp_state`, `code_mcp_state`; they are
+//! registered by [`super::memory_register`], [`super::knowledge_register`] and
+//! [`super::code_register`]).
 //!
 //! - Found: a server named [`DASHBOARD_MCP_SERVER`], or any server that runs `harness-dashboard`
 //!   (any directory, `.exe` or not) with the single argument `mcp`, as `"command"` and `"args"`
@@ -25,7 +26,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::catalog::{DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, KNOWLEDGE_SIDECAR, MEMORY_SIDECAR};
+use super::catalog::{CODE_SIDECAR, DASHBOARD_BINARY, DASHBOARD_MCP_SERVER, KNOWLEDGE_SIDECAR, MEMORY_SIDECAR};
 use super::mcp_merge::{Blocked, Change, Shape, Target, change_file, load, servers, servers_mut};
 use super::setup::McpFile;
 use super::sidecar::Sidecar;
@@ -49,6 +50,12 @@ pub fn memory_mcp_state(env: &Env, file: &McpFile) -> McpState {
 /// `harness-knowledge` the app would register.
 pub fn knowledge_mcp_state(env: &Env, file: &McpFile) -> McpState {
     server_state(env, file, KNOWLEDGE)
+}
+
+/// The code server in `file`, read-only (see the module docs). A manual edit names the
+/// `harness-code` the app would register.
+pub fn code_mcp_state(env: &Env, file: &McpFile) -> McpState {
+    server_state(env, file, CODE)
 }
 
 /// A companion's MCP server: the entry name the app writes, and the binary it runs.
@@ -88,6 +95,12 @@ const KNOWLEDGE: Server = Server {
     name: KNOWLEDGE_SIDECAR.mcp_server,
     binary: KNOWLEDGE_SIDECAR.binary,
     by_path: Some(&KNOWLEDGE_SIDECAR),
+};
+
+const CODE: Server = Server {
+    name: CODE_SIDECAR.mcp_server,
+    binary: CODE_SIDECAR.binary,
+    by_path: Some(&CODE_SIDECAR),
 };
 
 fn server_state(env: &Env, file: &McpFile, server: Server) -> McpState {

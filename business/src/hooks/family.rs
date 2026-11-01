@@ -1,5 +1,5 @@
 //! Harness family hooks: a catalog of hooks for the family members agents use over MCP (Harness
-//! Memory, Harness Dashboard), each marked by its `seed`.
+//! Memory, Harness Dashboard, Harness Knowledge, Harness Code), each marked by its `seed`.
 //!
 //! - Launch seeding ([`seed_defaults`]): a member's hooks are created once while it is
 //!   available, global, `requires` the member, written and approved by the desktop. Each seed is
@@ -10,12 +10,14 @@
 //!   updates outdated ones on the user's request.
 //! - After a member is installed, [`restore_member`] adds its missing hooks again (never
 //!   overwriting one that exists).
-//! - `code-graph-first` also needs the code graph of Harness Memory (the capability
-//!   `code_graph_available`: the installed server lists `code-index` and the Code index switch is
-//!   on). Without it launch seeding and [`restore_member`] skip it (it stays unrecorded, so it is
-//!   seeded once the code graph is there: at a launch, after the switch or after Harness Memory
-//!   was updated), the dialog shows it as needing the member, and a file already in the folder
-//!   is paused.
+//! - `code-graph-first` is Harness Code's: its member is available when the code graph is (the
+//!   capability `code_graph_available`: the installed server lists `code-index`, the code graph
+//!   setting and the Code index switch are on). Without it launch seeding and [`restore_member`]
+//!   skip it (it stays unrecorded, so it is seeded once the code graph is there: at a launch, after
+//!   the switch or after Harness Code was updated), the dialog shows it as needing the member, and
+//!   a file already in the folder is paused. A file from before the graph left Harness Memory
+//!   still requires `harness-memory` and holds an earlier text: it pauses with the graph too, and
+//!   the automatic update (or the dialog) brings it to Harness Code.
 //! - The two Harness Knowledge hooks need the member (installed, its setting on, `mcp` listed). The
 //!   `knowledge-recall` hook has no text of its own: the app runs the recall for it (see
 //!   [`super::recall`]).
@@ -84,17 +86,27 @@ pub const SEED_MEMORY_FIRST_TEXT: &str = "Before you act on this message, search
      the repository you are working in (its git root), so nothing is read from or saved to another \
      repository. If the memory settings say saving is off, still search; just do not save.";
 
+/// The `code-graph-first` context. `$tool` names the code tools: the earlier text, from Harness Memory, differs only there.
+macro_rules! code_graph_first_text {
+    ($tool:literal) => {
+        concat!(
+            "Before your first tool call, decide which ",
+            $tool,
+            " answers the question and call it first: code_map for an overview of the repository or an area, code_symbol \
+     for where a name is defined and used, code_impact for what a change affects, code_path for how A reaches B. \
+     Pass project_path, the repository root. grep, find and file reads come after, for literal text and for \
+     details the graph does not show. A small repository is no reason to skip them: one code_map call costs less \
+     than listing and reading files. A question about a flow (how a request, an event or data gets from one part \
+     to another) is answered by code_path from the entry point to the part it ends in, after code_map named both: \
+     do not reconstruct the flow by reading files one by one. If the code tools are listed as deferred tools, \
+     load them with ToolSearch first. If they are not available in this chat, say so once and go on with the \
+     usual tools."
+        )
+    };
+}
+
 /// The `code-graph-first` context.
-pub const SEED_CODE_GRAPH_FIRST_TEXT: &str = "Before your first tool call, decide which Harness Memory code tool answers the question and call it \
-     first: code_map for an overview of the repository or an area, code_symbol for where a name is \
-     defined and used, code_impact for what a change affects, code_path for how A reaches B. Pass \
-     project_path, the repository root. grep, find and file reads come after, for literal text and for \
-     details the graph does not show. A small repository is no reason to skip them: one code_map call \
-     costs less than listing and reading files. A question about a flow (how a request, an event or data \
-     gets from one part to another) is answered by code_path from the entry point to the part it ends in, \
-     after code_map named both: do not reconstruct the flow by reading files one by one. If the code \
-     tools are listed as deferred tools, load them with ToolSearch first. If they are not available in \
-     this chat, say so once and go on with the usual tools.";
+pub const SEED_CODE_GRAPH_FIRST_TEXT: &str = code_graph_first_text!("Harness Code tool");
 
 /// The `knowledge-first` context.
 pub const SEED_KNOWLEDGE_FIRST_TEXT: &str = "For how-does-X-work questions, search Harness Knowledge (knowledge_search) \
@@ -156,10 +168,9 @@ impl FamilyHook {
         hook.name == self.name && event && self.earlier.contains(&text)
     }
 
-    /// True when a machine with `capabilities` can use this entry: its member, and the code graph
-    /// when its seed needs it.
+    /// True when a machine with `capabilities` can use this entry: its member is there.
     fn offered_by(&self, capabilities: HookCapabilities) -> bool {
-        capabilities.meets(self.member) && (capabilities.code_graph_available || !self.seed.needs_code_graph())
+        capabilities.meets(self.member)
     }
 
     /// A new file of this entry, created now with a fresh id.
@@ -278,12 +289,13 @@ pub const FAMILY: [FamilyHook; 9] = [
     },
     FamilyHook {
         seed: HookSeed::CodeGraphFirst,
-        member: HookRequirement::HarnessMemory,
+        member: HookRequirement::HarnessCode,
         name: "Use the code graph first",
-        description: "Seeded default. Asks the agent, on every message, to answer code-structure questions with the Harness Memory code tools before grep.",
+        description: "Seeded default. Asks the agent, on every message, to answer code-structure questions with the Harness Code tools before grep.",
         event: HookEvent::PromptSubmit,
         text: SEED_CODE_GRAPH_FIRST_TEXT,
         earlier: &[
+            code_graph_first_text!("Harness Memory code tool"),
             "Use the Harness Memory code tools (code_map, code_symbol, code_impact, code_path) for code-structure \
             questions before grep, ls, find or reading files, also in a small repository, and pass project_path. \
             In Claude Code they may be listed as deferred tools: load them first with ToolSearch, query \

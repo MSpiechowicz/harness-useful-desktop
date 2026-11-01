@@ -30,6 +30,7 @@ pub fn status() -> Value {
             ),
             installed(EcosystemId::Memory, "1.0.0", "binary ~/.local/bin/harness-memory"),
             catalog_item(EcosystemId::Knowledge, OsKind::Linux),
+            catalog_item(EcosystemId::Code, OsKind::Linux),
             installed(
                 EcosystemId::Skills,
                 "0.2.36",

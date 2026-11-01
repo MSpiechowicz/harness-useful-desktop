@@ -5,7 +5,7 @@ import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { HookView } from '$lib/ipc/bindings/HookView';
 import { LOCAL_ORIGIN } from '$lib/ipc/mock/hooks-team-state';
 
-import { deletableCount, filterCounts, hookDoc, inSource, inStatus, inWhen, matchesQuery, pendingCount, viewKey, waitingFor } from './hook-format';
+import { deletableCount, filterCounts, hookDoc, inSource, inStatus, inWhen, matchesQuery, MEMBER_LABELS, memberSwitches, pendingCount, switchSection, viewKey, waitingFor } from './hook-format';
 
 const LOCAL = { ...LOCAL_ORIGIN, shareBlock: null } as const;
 
@@ -139,12 +139,32 @@ describe('the team hooks', () => {
 });
 
 describe('what a paused hook waits for', () => {
+  const on = { memory: true, knowledge: true, code: true };
+
   it('is a Harness family member, off or not installed', () => {
-    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-memory'] }), false, true)).toEqual({ member: 'memory', off: true });
-    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-memory'] }), true, false)).toEqual({ member: 'memory', off: false });
-    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-dashboard'] }), false, false)).toEqual({ member: 'dashboard', off: false });
-    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-knowledge'] }), true, false)).toEqual({ member: 'knowledge', off: true });
-    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-knowledge'] }), false, true)).toEqual({ member: 'knowledge', off: false });
-    expect(waitingFor(hook({ id: '1', name: 'A' }), false, false)).toBeNull();
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-memory'] }), { ...on, memory: false })).toEqual({ member: 'memory', off: true });
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-memory'] }), { ...on, knowledge: false })).toEqual({ member: 'memory', off: false });
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-dashboard'] }), { memory: false, knowledge: false, code: false })).toEqual({ member: 'dashboard', off: false });
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-knowledge'] }), { ...on, knowledge: false })).toEqual({ member: 'knowledge', off: true });
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-knowledge'] }), { ...on, memory: false })).toEqual({ member: 'knowledge', off: false });
+    expect(waitingFor(hook({ id: '1', name: 'A' }), { memory: false, knowledge: false, code: false })).toBeNull();
+  });
+
+  it('is Harness Code for the code graph hook, and Settings → Code turns it on again', () => {
+    const waits = waitingFor(hook({ id: '1', name: 'A', requires: ['harness-code'] }), { ...on, code: false });
+
+    expect(waits).toEqual({ member: 'code', off: true });
+    expect(MEMBER_LABELS.code).toBe('hooks.member.code');
+    expect(switchSection('code')).toBe('code');
+    expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-code'] }), { ...on, memory: false })).toEqual({ member: 'code', off: false });
+  });
+
+  it('counts the code graph as off while either its registration or its index is off', () => {
+    const prefs = { memoryEnabled: true, knowledgeEnabled: true, codeEnabled: true };
+
+    expect(memberSwitches(prefs, true).code).toBe(true);
+    expect(memberSwitches({ ...prefs, codeEnabled: false }, true).code).toBe(false);
+    expect(memberSwitches(prefs, false).code).toBe(false);
+    expect(memberSwitches(null, true)).toEqual({ memory: true, knowledge: true, code: true });
   });
 });

@@ -13,8 +13,8 @@
 
   import { KNOWLEDGE_EMBEDDER_COPY } from './embedder-status';
   import EmbedderRows from './EmbedderRows.svelte';
+  import FamilyInstallRow from './FamilyInstallRow.svelte';
   import { KNOWLEDGE_TEAM_DATABASE } from './knowledge-remote';
-  import KnowledgeInstallRow from './KnowledgeInstallRow.svelte';
   import KnowledgeRemotePanel from './KnowledgeRemotePanel.svelte';
   import ManualRemovalNote from './ManualRemovalNote.svelte';
   import SettingRow from './SettingRow.svelte';
@@ -76,7 +76,7 @@
 
   {#if installable !== null}
     <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
-      <KnowledgeInstallRow update={installable === 'update'} onfinished={installed} />
+      <FamilyInstallRow member="knowledge" update={installable === 'update'} onfinished={installed} />
     </div>
   {/if}
 

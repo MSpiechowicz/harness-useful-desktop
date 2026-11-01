@@ -77,6 +77,30 @@
       ]
     },
     {
+      "id": "code",
+      "name": "Harness Code",
+      "tagline": "A code graph that every coding agent can ask before it greps.",
+      "description": "A local MCP server that indexes a repository's code and answers where a name is defined and used, what a change affects and how one part reaches another. The app registers it with each detected harness while the code graph is on, and builds the index of a project when you open it.",
+      "repoUrl": "https://github.com/MSpiechowicz/harness-useful-code",
+      "docsUrl": "https://github.com/MSpiechowicz/harness-useful-code#readme",
+      "installed": false,
+      "version": null,
+      "latestVersion": null,
+      "updateAvailable": false,
+      "via": [],
+      "supportedOnThisOs": true,
+      "installSteps": [
+        {
+          "label": "Install the binary",
+          "command": "curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/MSpiechowicz/harness-useful-code/main/install.sh | sh"
+        }
+      ],
+      "notes": [
+        "Runs locally as `harness-code mcp`. Nothing is sent over the network.",
+        "Turn it on or off for every harness in Settings, under Code."
+      ]
+    },
+    {
       "id": "skills",
       "name": "Harness Skills",
       "tagline": "From a natural-language request to reviewed, verified work.",

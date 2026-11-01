@@ -169,6 +169,15 @@ pub struct AppPrefs {
     /// Server-managed: only `knowledge_set_vector_search` changes it, since it also starts or stops
     /// the embedder.
     pub knowledge_vector_search: bool,
+    /// Whether the app registers the installed `harness-code` MCP server (Harness Code) in every
+    /// detected harness's user MCP file at launch and after its install (default on). Server-managed:
+    /// only `code_set_enabled` changes it, since turning it off also removes the app's entries.
+    pub code_enabled: bool,
+    /// Whether the background updater already installed Harness Code once for a user who has Harness
+    /// Memory without it (default off). Set before that install starts, so a failed or later removed
+    /// Harness Code is never installed again on its own, and by any install of Harness Code from the
+    /// app. Server-managed: only `code_auto_install_claim` and `setup_install_code` change it.
+    pub code_auto_install_done: bool,
     /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
     /// running (default off). Without a tray icon closing always quits.
     pub keep_running_in_tray: bool,
@@ -226,6 +235,8 @@ impl Default for AppPrefs {
             vector_search: true,
             knowledge_enabled: true,
             knowledge_vector_search: true,
+            code_enabled: true,
+            code_auto_install_done: false,
             keep_running_in_tray: false,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,

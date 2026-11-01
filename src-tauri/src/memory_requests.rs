@@ -6,7 +6,7 @@
 //! the user through [`crate::notifications`] while the main window is not in front), and every
 //! [`HEARTBEAT_INTERVAL`] touches `desktop.alive` while Harness Memory is installed and its data
 //! folder exists (the server creates it), and on every poll tells [`crate::memory_held`]'s
-//! listener when the held saves changed (one event per burst) and [`crate::memory_code_builds`]'s
+//! listener when the held saves changed (one event per burst) and [`crate::code_builds`]'s
 //! listener about the code graph builds. [`ScriptRequests::stop`] (app exit)
 //! ends both and removes the heartbeat file, so the server stops waiting for an answer from this
 //! app. Before its first poll the thread removes the chats' memory guards files untouched for 30 days

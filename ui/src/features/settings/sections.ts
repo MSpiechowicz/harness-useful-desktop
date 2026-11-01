@@ -1,5 +1,6 @@
 import Brain from '@lucide/svelte/icons/brain';
 import BookOpenText from '@lucide/svelte/icons/book-open-text';
+import CodeXml from '@lucide/svelte/icons/code-xml';
 import Download from '@lucide/svelte/icons/download';
 import Info from '@lucide/svelte/icons/info';
 import FolderClock from '@lucide/svelte/icons/folder-clock';
@@ -63,6 +64,16 @@ export const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; label: string;
     icon: BookOpenText,
     get keywords() {
       return t('knowledge.settings.keywords');
+    },
+  },
+  {
+    id: 'code',
+    get label() {
+      return t('settings.code.section');
+    },
+    icon: CodeXml,
+    get keywords() {
+      return t('settings.code.keywords');
     },
   },
   {

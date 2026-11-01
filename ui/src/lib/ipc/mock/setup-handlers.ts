@@ -12,6 +12,10 @@ import type { SkillsSetup } from '../bindings/SkillsSetup';
 import { HARNESS_IDS } from '../harness-ids';
 import { IpcFailure } from '../transport';
 import {
+  CODE_COMMAND,
+  CODE_INSTALLER,
+  CODE_SIDE_EFFECTS,
+  CODE_VERSION,
   CODEX_SKILLS_INSTALLER,
   CODEX_SKILLS_VERSION,
   COMMAND,
@@ -33,10 +37,10 @@ import {
   VERSION,
   type MockInstaller,
 } from './setup-installers';
-import { CODEX_SKILLS, knowledgeMcpOf, OPENCODE_SKILLS, opencodeSnippet, rosterFor, SKILLS_NO_NODE, type RosterEntry } from './setup-roster';
+import { CODEX_SKILLS, OPENCODE_SKILLS, opencodeSnippet, rosterFor, siblingMcpOf, SKILLS_NO_NODE, type RosterEntry } from './setup-roster';
 import type { Handlers } from './types';
 
-type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_knowledge' | 'setup_install_opencode_skills' | 'setup_install_codex_skills' | 'skills_migrate_names' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_knowledge' | 'setup_register_desktop_mcp';
+type SetupCommands = 'setup_status' | 'setup_install_dashboard' | 'setup_install_memory' | 'setup_install_knowledge' | 'setup_install_code' | 'setup_install_opencode_skills' | 'setup_install_codex_skills' | 'skills_migrate_names' | 'setup_register_mcp' | 'setup_register_memory' | 'setup_register_knowledge' | 'setup_register_code' | 'setup_register_desktop_mcp';
 
 /**
  * What the mock recommended setup starts from. The browser preview picks one with `?setup=<name>`:
@@ -119,6 +123,8 @@ export interface SetupMock {
   memoryServer: () => DashboardSetup;
   /** The knowledge server as `setup_status` reports it (also the answer of `knowledge_set_enabled`). */
   knowledgeServer: () => DashboardSetup;
+  /** The code server as `setup_status` reports it (also the answer of `code_set_enabled`). */
+  codeServer: () => DashboardSetup;
   /** Tells the mock that an extension action went through, so the skills it installs show as installed. */
   actionApplied: (harness: HarnessId, action: ExtensionAction) => void;
 }
@@ -133,14 +139,17 @@ export function setupHandlers(
   scenario: () => SetupScenario = setupScenarioFromLocation,
   memoryOn: () => void = () => {},
   knowledgeOn: () => void = () => {},
+  codeOn: () => void = () => {},
 ): SetupMock {
   let dashboardInstalled = false;
   let memoryInstalled = false;
   let knowledgeInstalled = false;
+  let codeInstalled = false;
   const skills = new Set<HarnessId>();
   const mcp = new Set<HarnessId>();
   const memoryMcp = new Set<HarnessId>();
   const knowledgeMcp = new Set<HarnessId>();
+  const codeMcp = new Set<HarnessId>();
   const desktopMcp = new Set<HarnessId>();
 
   /** The `configured` scenario starts with everything in place; read on first use so a page URL set before it counts. */
@@ -156,12 +165,14 @@ export function setupHandlers(
       dashboardInstalled = true;
       memoryInstalled = true;
       knowledgeInstalled = true;
+      codeInstalled = true;
 
       HARNESS_IDS.forEach((id) => {
         skills.add(id);
         mcp.add(id);
         memoryMcp.add(id);
         knowledgeMcp.add(id);
+        codeMcp.add(id);
         desktopMcp.add(id);
       });
     }
@@ -176,9 +187,9 @@ export function setupHandlers(
   const commentedOpencode = () => scenario() === 'manualEdit';
 
   /** The name an MCP entry has in the file, by the set that holds the harnesses it is registered in. */
-  const entryName = (registered: Set<HarnessId>) => (registered === mcp ? 'harness-dashboard' : registered === memoryMcp ? 'harness-memory' : registered === knowledgeMcp ? 'harness-knowledge' : 'harness-desktop');
+  const entryName = (registered: Set<HarnessId>) => (registered === mcp ? 'harness-dashboard' : registered === memoryMcp ? 'harness-memory' : registered === knowledgeMcp ? 'harness-knowledge' : registered === codeMcp ? 'harness-code' : 'harness-desktop');
 
-  /** The dashboard's entry (`registered` holds `mcp`), the memory server's (`memoryMcp`) or the app's own (`desktopMcp`) in a harness's MCP file. */
+  /** The dashboard's entry (`registered` holds `mcp`), the memory server's (`memoryMcp`), a sibling's or the app's own (`desktopMcp`) in a harness's MCP file. */
   function mcpState(harness: HarnessId, registered: Set<HarnessId> = mcp): McpState {
     if (MCP_FILE[harness] === '') {
       return { type: 'refused', file: '', reason: 'unreadable' };
@@ -208,8 +219,10 @@ export function setupHandlers(
     const id = entry.id;
     const registered = mcp.has(id) && entry.mcp.type === 'missing';
     const memoryRegistered = memoryMcp.has(id) && entry.memoryMcp.type === 'missing';
-    const knowledgeState = knowledgeMcpOf(entry);
+    const knowledgeState = siblingMcpOf(entry, 'harness-knowledge');
     const knowledgeRegistered = knowledgeMcp.has(id) && knowledgeState.type === 'missing';
+    const codeState = siblingMcpOf(entry, 'harness-code');
+    const codeRegistered = codeMcp.has(id) && codeState.type === 'missing';
     const desktopRegistered = desktopMcp.has(id) && entry.desktopMcp.type === 'missing';
 
     return {
@@ -219,6 +232,7 @@ export function setupHandlers(
       mcp: registered ? { type: 'configured', file: entry.mcp.file, name: 'harness-dashboard' } : entry.mcp,
       memoryMcp: memoryRegistered ? { type: 'configured', file: entry.memoryMcp.file, name: 'harness-memory' } : entry.memoryMcp,
       knowledgeMcp: knowledgeRegistered ? { type: 'configured', file: knowledgeState.file, name: 'harness-knowledge' } : knowledgeState,
+      codeMcp: codeRegistered ? { type: 'configured', file: codeState.file, name: 'harness-code' } : codeState,
       desktopMcp: desktopRegistered ? { type: 'configured', file: entry.desktopMcp.file, name: 'harness-desktop' } : entry.desktopMcp,
     };
   }
@@ -238,6 +252,7 @@ export function setupHandlers(
       mcp: mcpState(id),
       memoryMcp: mcpState(id, memoryMcp),
       knowledgeMcp: mcpState(id, knowledgeMcp),
+      codeMcp: mcpState(id, codeMcp),
       desktopMcp: mcpState(id, desktopMcp),
     };
   }
@@ -274,6 +289,12 @@ export function setupHandlers(
     return { installed: knowledgeInstalled, version: knowledgeInstalled ? KNOWLEDGE_VERSION : null, supportedOnThisOs: true, command: KNOWLEDGE_COMMAND, sideEffects: KNOWLEDGE_SIDE_EFFECTS };
   }
 
+  function codeServer(): DashboardSetup {
+    start();
+
+    return { installed: codeInstalled, version: codeInstalled ? CODE_VERSION : null, supportedOnThisOs: true, command: CODE_COMMAND, sideEffects: CODE_SIDE_EFFECTS };
+  }
+
   /** Runs `installer` once the user confirmed it; `ok` in the result when it installed. */
   async function install(installer: MockInstaller, confirmed: boolean, onLog: (line: InstallLogLine) => void): Promise<DashboardInstallResult> {
     start();
@@ -294,6 +315,7 @@ export function setupHandlers(
           dashboard: { installed: dashboardInstalled, version: dashboardInstalled ? VERSION : null, supportedOnThisOs: true, command: COMMAND, sideEffects: SIDE_EFFECTS },
           memory: memoryServer(),
           knowledge: knowledgeServer(),
+          code: codeServer(),
           harnesses: (await harnesses()).map(harnessSetup),
         };
       },
@@ -315,6 +337,13 @@ export function setupHandlers(
       setup_install_knowledge: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
         const result = await install(KNOWLEDGE_INSTALLER, confirmed, onLog);
         knowledgeInstalled ||= result.ok;
+
+        return result;
+      },
+
+      setup_install_code: async ({ confirmed, onLog }): Promise<DashboardInstallResult> => {
+        const result = await install(CODE_INSTALLER, confirmed, onLog);
+        codeInstalled ||= result.ok;
 
         return result;
       },
@@ -366,12 +395,24 @@ export function setupHandlers(
         return register(harness, knowledgeMcp, (setup) => setup.knowledgeMcp);
       },
 
+      setup_register_code: async ({ harness }): Promise<McpState> => {
+        if (!codeInstalled) {
+          start();
+          throw IpcFailure.from({ code: 'invalidInput', message: 'Harness Code is not installed' });
+        }
+
+        codeOn();
+
+        return register(harness, codeMcp, (setup) => setup.codeMcp);
+      },
+
       // The app is the server, so nothing has to be installed first.
       setup_register_desktop_mcp: ({ harness }) => register(harness, desktopMcp, (setup) => setup.desktopMcp),
     },
 
     memoryServer,
     knowledgeServer,
+    codeServer,
 
     actionApplied: (harness, action) => {
       if (action.type === 'pluginInstall' && (action.target === SKILLS_TARGET || action.target === CLAUDE_SKILLS_TARGET)) {

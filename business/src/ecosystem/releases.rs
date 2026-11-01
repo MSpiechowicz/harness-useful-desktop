@@ -1,7 +1,7 @@
 //! The latest GitHub release of each companion tool (`ecosystem_releases`).
 //!
 //! The shell requests [`release_endpoint`] of every companion, nothing else, and hands the
-//! response body here. All four are looked up whichever are installed, so the requests do not
+//! response body here. Every companion is looked up whichever are installed, so the requests do not
 //! tell GitHub what this machine has. This module owns the fixed URLs, validates the `tag_name` it
 //! reads from the body, compares it with the installed version ([`is_newer_release`]) and caches
 //! the outcome: a found release for [`RELEASE_TTL`], a failed lookup for [`FAILURE_TTL`] so a
@@ -49,6 +49,7 @@ pub const fn release_endpoint(id: EcosystemId) -> &'static str {
         EcosystemId::Dashboard => "https://api.github.com/repos/MSpiechowicz/harness-useful-dashboard/releases/latest",
         EcosystemId::Memory => "https://api.github.com/repos/MSpiechowicz/harness-useful-memory/releases/latest",
         EcosystemId::Knowledge => "https://api.github.com/repos/MSpiechowicz/harness-useful-knowledge/releases/latest",
+        EcosystemId::Code => "https://api.github.com/repos/MSpiechowicz/harness-useful-code/releases/latest",
         EcosystemId::Skills => "https://api.github.com/repos/MSpiechowicz/harness-useful-skills/releases/latest",
         EcosystemId::Sidebar => "https://api.github.com/repos/MSpiechowicz/harness-useful-sidebar/releases/latest",
     }
@@ -152,13 +153,13 @@ impl CompanionReleases {
             .collect();
 
         // One future per companion; those with a fresh lookup finish at once without a request.
-        let [first, second, third, fourth, fifth] = ECOSYSTEM.map(|id| fetch_missing(id, &missing, &fetch));
-        let fetched = tokio::join!(first, second, third, fourth, fifth);
+        let [first, second, third, fourth, fifth, sixth] = ECOSYSTEM.map(|id| fetch_missing(id, &missing, &fetch));
+        let fetched = tokio::join!(first, second, third, fourth, fifth, sixth);
 
         let done = Instant::now();
         for (id, lookup) in ECOSYSTEM
             .into_iter()
-            .zip([fetched.0, fetched.1, fetched.2, fetched.3, fetched.4])
+            .zip([fetched.0, fetched.1, fetched.2, fetched.3, fetched.4, fetched.5])
         {
             if let Some(lookup) = lookup {
                 cache.put(id, lookup, done);

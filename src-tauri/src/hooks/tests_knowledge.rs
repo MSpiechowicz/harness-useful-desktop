@@ -8,7 +8,7 @@ use harness_business::hooks::{HookCapabilities, seed_defaults};
 use tauri::async_runtime::block_on;
 
 use super::members::Members;
-use super::tests_code_graph::planned_names;
+use super::tests_code::planned_names;
 use crate::state::AppState;
 use crate::test_support::{TempDir, home_state};
 

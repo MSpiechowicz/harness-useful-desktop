@@ -146,6 +146,8 @@ async fn the_ecosystem_tab_lists_it_after_memory_with_its_version() {
     );
 
     let (_dir, env) = installed();
+    // The install folder and its `via` text are the Linux and macOS ones.
+    let env = env.with_os(OsKind::Linux);
     let status = ecosystem_status(&env, &cli(ALL_FEATURES)).await;
     let found = status
         .items

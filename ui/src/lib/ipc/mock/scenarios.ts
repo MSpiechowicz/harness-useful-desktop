@@ -19,7 +19,7 @@ import { usesBothPlaces } from '$lib/utils/knowledge-routing';
 import { knowledgeRemoteHandlers, knowledgeRemoteScenarioFromLocation } from './knowledge-remote-handlers';
 import { knowledgeOfflineFromLocation, knowledgeRoutingFromLocation } from './knowledge-routing';
 import { MockMemoryGuards } from './memory-guards-handlers';
-import { memoryCodeHandlers } from './memory-code-handlers';
+import { codeHandlers, codeScenarioFromLocation } from './code-handlers';
 import { memoryEmbedderHandlers } from './memory-embedder-handlers';
 import { memoryRemoteHandlers } from './memory-remote-handlers';
 import { memoryNotesHandlers } from './memory-notes-handlers';
@@ -89,7 +89,7 @@ export function defaultScenario(): Scenario {
 
     return roster && list[0] ? rosterSummaries(roster, list) : list;
   };
-  const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true), () => state.setKnowledgeEnabled(true));
+  const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true), () => state.setKnowledgeEnabled(true), () => state.setCodeEnabled(true));
   // A routed preview (`?kroute=`) needs a remote database, so it starts with one unless `?kremote=` says otherwise.
   const routing = knowledgeRoutingFromLocation();
   const remoteScenario = () => {
@@ -123,6 +123,14 @@ export function defaultScenario(): Scenario {
         Object.assign(knowledgeItem, { installed: true, version: knowledgeServer.version, via: ['script'] });
       }
 
+      // And for the code server.
+      const codeItem = status.items.find((item) => item.id === 'code');
+      const codeServer = setup.codeServer();
+
+      if (codeItem && codeServer.installed) {
+        Object.assign(codeItem, { installed: true, version: codeServer.version, via: ['script'] });
+      }
+
       // The outdated Memory previews have Harness Memory installed: an old release (updated to 1.1.0 from the Notes or Scripts view) or a source build, which reports a pre-release version no release is ever newer than.
       const preview = scriptScenarioFromLocation();
 
@@ -154,6 +162,13 @@ export function defaultScenario(): Scenario {
       server: setup.knowledgeServer(),
       manualRemovals: enabled ? [] : manualRemovalsOf(setupScenarioFromLocation(), 'harness-knowledge'),
     }),
+    // The code graph setting reports the code server the setup mock installs.
+    code_set_enabled: ({ enabled }) => ({
+      codeEnabled: state.setCodeEnabled(enabled).codeEnabled,
+      server: setup.codeServer(),
+      manualRemovals: enabled ? [] : manualRemovalsOf(setupScenarioFromLocation(), 'harness-code'),
+    }),
+    code_auto_install_claim: () => state.claimCodeAutoInstall(),
     // `?knowledge=empty|outdated|bulk` changes what the Knowledge view finds, `?kremote=postgres|libsql|problem` starts with a saved team database.
     // A test passes for URLs containing "ok", and a URL with `nopgvector`, `nomongot`, `pgvectorprivilege`, `pgvectorold`, `nolibsqlvector`, `nofts5`, `indexbuilding` or `badauth` in it fails with that problem.
     ...knowledgeHandlers(knowledge, knowledgeScenarioFromLocation, () => setup.knowledgeServer().installed),
@@ -163,8 +178,8 @@ export function defaultScenario(): Scenario {
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".
     ...memoryRemoteHandlers(),
     ...memoryEmbedderHandlers(state),
-    // `?code=old|build|bulk|cancelled|stale`: a server without the code index, or a build that ends the named way.
-    ...memoryCodeHandlers(),
+    // `?code=old|build|bulk|cancelled|stale`: a server without the code index, or a build that ends the named way. Needs Harness Code installed (`?setup=configured`).
+    ...codeHandlers(codeScenarioFromLocation, undefined, () => setup.codeServer().installed),
     ...guards.handlers(),
     // Like the backend: refused while the chat's guards skip the memory-save hook, else the hook's text as the user keeps it sent to the agent.
     chat_memory_check_again: async ({ agentId }) => {

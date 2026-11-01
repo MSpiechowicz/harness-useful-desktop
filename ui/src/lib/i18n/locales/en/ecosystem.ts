@@ -14,7 +14,7 @@ export const ecosystem = {
 
   'ecosystem.hero.title': 'Tools that make agents measurable',
   'ecosystem.hero.body':
-    'Harness Useful is a small family of open-source tools for your coding agents. The **dashboard** measures what they cost, the **skills** make their work repeatable, the **memory** gives every agent one shared project memory, the **knowledge** lets them search your project documents, and the **sidebar** keeps their sessions in view. Harness Desktop works on its own and shows more with each one you add.',
+    'Harness Useful is a small family of open-source tools for your coding agents. The **dashboard** measures what they cost, the **skills** make their work repeatable, the **memory** gives every agent one shared project memory, the **knowledge** lets them search your project documents, the **code** graph lets them look up where code is defined and used, and the **sidebar** keeps their sessions in view. Harness Desktop works on its own and shows more with each one you add.',
   'ecosystem.hero.failed': 'The installed Harness family members could not be read.',
   'ecosystem.hero.looking': 'Looking for the Harness family…',
   'ecosystem.setup.run': 'Run recommended setup',
@@ -22,6 +22,8 @@ export const ecosystem = {
   'ecosystem.autoUpdate.done': '{name} updated to {version}',
   'ecosystem.autoUpdate.failed': '{name} update failed',
   'ecosystem.autoUpdate.noReason': 'The installer did not say why.',
+  'ecosystem.autoInstall.done': '{name} installed, so the code graph keeps working',
+  'ecosystem.autoInstall.failed': '{name} install failed',
 
   'ecosystem.skillsMigration.done': 'Harness Skills renamed in {harnesses}',
   'ecosystem.skillsMigration.failed': 'Harness Skills could not be renamed in {harnesses}',
@@ -252,4 +254,9 @@ export const ecosystem = {
   'ecosystem.product.knowledge.note.0': 'Runs locally as `harness-knowledge mcp`. With a team database, the words of a search or a recall go to that database.',
   'ecosystem.product.knowledge.note.1': 'Turn it on or off for every harness in Settings, under Project knowledge.',
   'ecosystem.product.knowledge.step.0.title': 'Install the binary',
+  'ecosystem.product.code.tagline': 'A code graph that every coding agent can ask before it greps.',
+  'ecosystem.product.code.description': 'A local MCP server that indexes a repository\'s code and answers where a name is defined and used, what a change affects and how one part reaches another. The app registers it with each detected harness while the code graph is on, and builds the index of a project when you open it.',
+  'ecosystem.product.code.note.0': 'Runs locally as `harness-code mcp`. Nothing is sent over the network.',
+  'ecosystem.product.code.note.1': 'Turn it on or off for every harness in Settings, under Code.',
+  'ecosystem.product.code.step.0.title': 'Install the binary',
 } satisfies Record<string, string>;

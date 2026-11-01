@@ -19,10 +19,14 @@ export class PrefsStore {
   knowledgePending = $state(false);
   /** True while `knowledge_set_vector_search` is in flight (set by the knowledge search store). */
   knowledgeVectorSearchPending = $state(false);
+  /** True while `code_set_enabled` is in flight. */
+  codePending = $state(false);
   /** Entries the last "off" switch left in files with comments: the user removes them by hand, so they stay listed until dismissed. */
   memoryManualRemovals = $state<ManualRemoval[]>([]);
   /** The same for Project knowledge. */
   knowledgeManualRemovals = $state<ManualRemoval[]>([]);
+  /** The same for the code graph. */
+  codeManualRemovals = $state<ManualRemoval[]>([]);
   error = $state<IpcFailure | null>(null);
 
   /** Incremented per update so only the newest request may overwrite or roll back state. */
@@ -59,7 +63,7 @@ export class PrefsStore {
   }
 
   /**
-   * Re-reads the fields the backend owns (active project, recent projects, binary overrides, project memory and knowledge, vector search)
+   * Re-reads the fields the backend owns (active project, recent projects, binary overrides, project memory, knowledge and the code graph, vector search)
    * without disturbing the UI-managed ones or an in-flight update.
    */
   async syncServerManaged(): Promise<void> {
@@ -78,6 +82,7 @@ export class PrefsStore {
           vectorSearch: this.vectorSearchPending ? this.value.vectorSearch : fresh.vectorSearch,
           knowledgeEnabled: this.knowledgePending ? this.value.knowledgeEnabled : fresh.knowledgeEnabled,
           knowledgeVectorSearch: this.knowledgeVectorSearchPending ? this.value.knowledgeVectorSearch : fresh.knowledgeVectorSearch,
+          codeEnabled: this.codePending ? this.value.codeEnabled : fresh.codeEnabled,
         };
       }
     } catch {
@@ -129,6 +134,30 @@ export class PrefsStore {
     }
   }
 
+  /** The "Code graph" setting, which works like the memory one through `code_set_enabled`. True when the backend stored it. */
+  async setCodeEnabled(enabled: boolean): Promise<boolean> {
+    if (this.codePending || !this.value) {
+      return false;
+    }
+
+    this.codePending = true;
+
+    try {
+      const saved = await this.transport.invoke('code_set_enabled', { enabled });
+
+      this.codeManualRemovals = saved.manualRemovals;
+      this.keepServerSwitch({ codeEnabled: saved.codeEnabled });
+
+      return true;
+    } catch (error) {
+      this.switchFailed(error);
+
+      return false;
+    } finally {
+      this.codePending = false;
+    }
+  }
+
   /** Takes only the switch's own field from its answer. */
   private keepServerSwitch(fields: Partial<AppPrefs>): void {
     if (this.value) {
@@ -151,6 +180,10 @@ export class PrefsStore {
 
   dismissKnowledgeManualRemovals(): void {
     this.knowledgeManualRemovals = [];
+  }
+
+  dismissCodeManualRemovals(): void {
+    this.codeManualRemovals = [];
   }
 
   /** Applies the patch immediately, persists it, and rolls back with a toast if the backend rejects it. */

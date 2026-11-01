@@ -14,12 +14,13 @@ import { SetupController } from './setup-state.svelte';
 const missing: McpState = { type: 'missing', file: '~/mcp.json', exists: true };
 const server: DashboardSetup = { installed: true, version: '1.0.0', supportedOnThisOs: true, command: 'install', sideEffects: [] };
 
-const entry = (id: HarnessId, skills: HarnessSetup['skills']): HarnessSetup => ({ harness: id, installed: true, skills, mcp: missing, memoryMcp: missing, knowledgeMcp: missing, desktopMcp: missing });
+const entry = (id: HarnessId, skills: HarnessSetup['skills']): HarnessSetup => ({ harness: id, installed: true, skills, mcp: missing, memoryMcp: missing, knowledgeMcp: missing, codeMcp: missing, desktopMcp: missing });
 
 const setupData: RecommendedSetup = {
   dashboard: server,
   memory: server,
   knowledge: server,
+  code: server,
   harnesses: [
     entry('omp', { type: 'installed', version: null }),
     entry('opencode', { type: 'script', command: 'install.sh', sideEffects: [], outdatedFrom: null }),
@@ -55,6 +56,7 @@ function fixture(options: { holdCodex?: boolean } = {}) {
         case 'setup_register_mcp':
         case 'setup_register_memory':
         case 'setup_register_knowledge':
+        case 'setup_register_code':
         case 'setup_register_desktop_mcp':
           events.push(`${name}:${(args as { harness: HarnessId }).harness}`);
           return { type: 'configured', file: '~/mcp.json', name: 'x' } satisfies McpState;
@@ -90,7 +92,7 @@ describe('A setup run with OpenCode’s skills script', () => {
     finishSkills(true);
     await run;
 
-    expect(events.filter((event) => event.endsWith(':opencode'))).toEqual(['setup_register_mcp:opencode', 'setup_register_memory:opencode', 'setup_register_knowledge:opencode', 'setup_register_desktop_mcp:opencode']);
+    expect(events.filter((event) => event.endsWith(':opencode'))).toEqual(['setup_register_mcp:opencode', 'setup_register_memory:opencode', 'setup_register_knowledge:opencode', 'setup_register_code:opencode', 'setup_register_desktop_mcp:opencode']);
     expect(events.indexOf('setup_register_mcp:opencode')).toBeGreaterThan(events.indexOf('skills:start'));
   });
 
@@ -106,7 +108,7 @@ describe('A setup run with OpenCode’s skills script', () => {
     await run;
 
     expect(controller.phase('skills:opencode')).toBe('failed');
-    expect(events.filter((event) => event.endsWith(':opencode'))).toEqual(['setup_register_mcp:opencode', 'setup_register_memory:opencode', 'setup_register_knowledge:opencode', 'setup_register_desktop_mcp:opencode']);
+    expect(events.filter((event) => event.endsWith(':opencode'))).toEqual(['setup_register_mcp:opencode', 'setup_register_memory:opencode', 'setup_register_knowledge:opencode', 'setup_register_code:opencode', 'setup_register_desktop_mcp:opencode']);
     expect(controller.phase('mcp:opencode')).toBe('done');
   });
 
@@ -128,7 +130,7 @@ describe('A setup run with OpenCode’s skills script', () => {
     await run;
 
     expect(controller.phase('skills:codex')).toBe('done');
-    expect(entriesOf(events, 'codex')).toEqual(['setup_register_mcp:codex', 'setup_register_memory:codex', 'setup_register_knowledge:codex', 'setup_register_desktop_mcp:codex']);
+    expect(entriesOf(events, 'codex')).toEqual(['setup_register_mcp:codex', 'setup_register_memory:codex', 'setup_register_knowledge:codex', 'setup_register_code:codex', 'setup_register_desktop_mcp:codex']);
     expect(events.indexOf('setup_register_mcp:codex')).toBeGreaterThan(events.indexOf('codex-skills:start'));
   });
 
@@ -145,6 +147,6 @@ describe('A setup run with OpenCode’s skills script', () => {
     expect(controller.phase('skills:codex')).toBe('failed');
     expect(controller.phase('skills:opencode')).toBe('done');
     expect(controller.skillsFailures()).toEqual([{ harness: 'codex', reason: 'could not download' }]);
-    expect(entriesOf(events, 'codex')).toEqual(['setup_register_mcp:codex', 'setup_register_memory:codex', 'setup_register_knowledge:codex', 'setup_register_desktop_mcp:codex']);
+    expect(entriesOf(events, 'codex')).toEqual(['setup_register_mcp:codex', 'setup_register_memory:codex', 'setup_register_knowledge:codex', 'setup_register_code:codex', 'setup_register_desktop_mcp:codex']);
   });
 });

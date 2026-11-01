@@ -16,9 +16,16 @@ pub const MEMORY: HookCapabilities = HookCapabilities {
     code_graph_available: false,
     knowledge_available: false,
 };
-/// Harness Memory lists `code-index` and its Code index switch is on.
+/// Harness Memory is available, and Harness Code lists `code-index` with its Code index switch on.
 pub const CODE_GRAPH: HookCapabilities = HookCapabilities {
     memory_available: true,
+    dashboard_available: false,
+    code_graph_available: true,
+    knowledge_available: false,
+};
+/// Only Harness Code is there: it lists `code-index` and its switch is on.
+pub const CODE_ONLY: HookCapabilities = HookCapabilities {
+    memory_available: false,
     dashboard_available: false,
     code_graph_available: true,
     knowledge_available: false,

@@ -75,6 +75,7 @@ import type { UpdateInfo } from './bindings/UpdateInfo';
 import type { UpdateProgress } from './bindings/UpdateProgress';
 import type { EventSink } from './transport';
 import { cmd } from './command-spec';
+import { codeCommands } from './commands-code';
 import { knowledgeCommands } from './commands-knowledge';
 import { memoryCommands } from './commands-memory';
 
@@ -90,6 +91,7 @@ export const commands = {
   prefs_set: cmd<{ prefs: AppPrefs }, AppPrefs>(),
   ...memoryCommands,
   ...knowledgeCommands,
+  ...codeCommands,
   open_external: cmd<{ url: string }, null>(),
   reveal_path: cmd<{ path: string }, null>(),
   harness_list: cmd<undefined, HarnessSummary[]>(),
@@ -156,11 +158,15 @@ export const commands = {
   skills_migrate_names: cmd<undefined, SkillsMigrationReport>(),
   /** Runs the Harness Knowledge installer; once `ok`, registers the server while project knowledge is on. */
   setup_install_knowledge: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
+  /** Runs the Harness Code installer; once `ok`, registers the server while the code graph is on. */
+  setup_install_code: cmd<{ confirmed: boolean; onLog: EventSink<InstallLogLine> }, DashboardInstallResult>(),
   setup_register_mcp: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the installed Harness Memory server in one harness (turning Project memory on); `invalidInput` while it is not installed. */
   setup_register_memory: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the installed Harness Knowledge server in one harness (turning Project knowledge on); `invalidInput` while it is not installed. */
   setup_register_knowledge: cmd<{ harness: HarnessId }, McpState>(),
+  /** Registers the installed Harness Code server in one harness (turning the code graph on); `invalidInput` while it is not installed. */
+  setup_register_code: cmd<{ harness: HarnessId }, McpState>(),
   /** Registers the app's own `harness-desktop mcp` server (hooks for agents) in one harness's user MCP file. Needs no installer: the app is the server. */
   setup_register_desktop_mcp: cmd<{ harness: HarnessId }, McpState>(),
   sync_export_preview: cmd<undefined, SyncExportPreview>(),

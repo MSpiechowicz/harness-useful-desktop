@@ -7,6 +7,7 @@ export const FAMILY = {
   dashboard: ['#F59E0B', '#F472B6'],
   memory: ['#D946EF', '#FB923C'],
   knowledge: ['#8B5A2B', '#D4A373'],
+  code: ['#DC2626', '#F87171'],
   sidebar: ['#8B5CF6', '#C084FC'],
   skills: ['#A3E635', '#22C55E'],
 } as const satisfies Record<string, readonly [string, string]>;
@@ -19,6 +20,7 @@ export const FAMILY_NAMES: Record<FamilyProduct, string> = {
   dashboard: 'Harness Dashboard',
   memory: 'Harness Memory',
   knowledge: 'Harness Knowledge',
+  code: 'Harness Code',
   sidebar: 'Harness Sidebar',
   skills: 'Harness Skills',
 };

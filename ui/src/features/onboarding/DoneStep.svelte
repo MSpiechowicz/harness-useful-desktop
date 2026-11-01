@@ -27,10 +27,12 @@
       data.dashboard.installed ? t('onboarding.done.companions.dashboard') : null,
       data.memory.installed ? t('onboarding.done.companions.memory') : null,
       data.knowledge.installed ? t('knowledge.onboarding.done') : null,
+      data.code.installed ? t('code.onboarding.done') : null,
       data.harnesses.some((entry) => entry.skills.type === 'installed') ? t('onboarding.done.companions.skills') : null,
       data.harnesses.some((entry) => entry.mcp.type === 'configured') ? t('onboarding.done.companions.mcp') : null,
       data.harnesses.some((entry) => entry.memoryMcp.type === 'configured') ? t('onboarding.done.companions.memoryMcp') : null,
       data.harnesses.some((entry) => entry.knowledgeMcp.type === 'configured') ? t('knowledge.onboarding.doneMcp') : null,
+      data.harnesses.some((entry) => entry.codeMcp.type === 'configured') ? t('code.onboarding.doneMcp') : null,
       data.harnesses.some((entry) => entry.desktopMcp.type === 'configured') ? t('onboarding.done.companions.desktopMcp') : null,
     ];
 
