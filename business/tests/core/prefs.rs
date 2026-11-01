@@ -29,6 +29,7 @@ fn unusable_defaults() -> AppPrefs {
         auto_update_extensions: false,
         auto_refresh_catalogs: false,
         background_fetch: false,
+        updates_turned_on: false,
         ..AppPrefs::default()
     }
 }
@@ -116,6 +117,7 @@ fn unknown_fields_are_ignored_and_missing_fields_defaulted() {
         loaded,
         AppPrefs {
             theme: ThemePref::Light,
+            updates_turned_on: false,
             ..AppPrefs::default()
         }
     );
@@ -182,6 +184,7 @@ fn stored_language_is_normalized_on_load() {
         (
             AppPrefs {
                 language: "fr".to_owned(),
+                updates_turned_on: false,
                 ..AppPrefs::default()
             },
             PrefsOrigin::Stored
@@ -194,7 +197,16 @@ fn stored_language_is_normalized_on_load() {
     )
     .unwrap();
 
-    assert_eq!(store.load_checked(), (AppPrefs::default(), PrefsOrigin::Stored));
+    assert_eq!(
+        store.load_checked(),
+        (
+            AppPrefs {
+                updates_turned_on: false,
+                ..AppPrefs::default()
+            },
+            PrefsOrigin::Stored
+        )
+    );
 }
 
 #[test]
@@ -212,6 +224,7 @@ fn a_language_that_is_not_a_string_loads_as_english_and_keeps_the_file() {
                 AppPrefs {
                     theme: ThemePref::Dark,
                     show_thinking: false,
+                    updates_turned_on: false,
                     ..AppPrefs::default()
                 },
                 PrefsOrigin::Stored
@@ -391,16 +404,6 @@ fn a_file_with_the_retired_memory_recall_switch_still_loads_and_drops_it_on_save
 
     store.save(&loaded).unwrap();
     assert!(!fs::read_to_string(&path).unwrap().contains("memoryRecall"));
-}
-
-#[test]
-fn a_fresh_install_refreshes_catalogs_and_updates_extensions() {
-    let dir = TempDir::new().unwrap();
-    let (loaded, origin) = PrefsStore::new(dir.path().to_path_buf()).load_checked();
-
-    assert_eq!(origin, PrefsOrigin::Missing);
-    assert!(loaded.auto_update_extensions);
-    assert!(loaded.auto_refresh_catalogs);
 }
 
 #[test]

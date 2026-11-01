@@ -11,12 +11,12 @@
 
 use std::path::Path;
 
-use super::PrefsStore;
+use super::{PrefsOrigin, PrefsStore};
 use crate::env::OsKind;
 use crate::error::{BusinessError, Result};
 use crate::git::validate_branch_name;
 use crate::harness::override_name_matches;
-use crate::model::{AppPrefs, BinaryOverride, HarnessId, MainBranchChoice};
+use crate::model::{AppPrefs, BinaryOverride, HarnessId, MainBranchChoice, UpdatePolicy};
 
 impl PrefsStore {
     /// Loads the stored prefs, applies `change`, then normalizes and saves them; returns what was
@@ -26,6 +26,29 @@ impl PrefsStore {
         change(&mut prefs);
 
         self.save(&prefs)
+    }
+
+    /// Turns every update setting to automatic once per install: the app updates itself
+    /// (`updatePolicy`), checks the Harness family, updates extensions and the Harness family, and
+    /// refreshes catalogs. Runs at launch. A file that already had it (`updatesTurnedOn`) keeps whatever
+    /// the user chose since. Prefs that could not be read stay as they load (off, failing closed) and
+    /// are not marked, so the switch happens once a readable file exists. True when it changed the file.
+    pub fn turn_updates_on_once(&self) -> Result<bool> {
+        let (mut prefs, origin) = self.load_checked();
+
+        if origin != PrefsOrigin::Stored || prefs.updates_turned_on {
+            return Ok(false);
+        }
+
+        prefs.update_policy = UpdatePolicy::AutoInstall;
+        prefs.check_companion_updates = true;
+        prefs.auto_update_extensions = true;
+        prefs.auto_refresh_catalogs = true;
+        prefs.updates_turned_on = true;
+
+        self.save(&prefs)?;
+
+        Ok(true)
     }
 
     /// Stores the UI-managed fields of `ui` and keeps every server-managed field as stored
@@ -127,6 +150,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         knowledge_vector_search: _,
         code_enabled: _,
         code_auto_install_done: _,
+        updates_turned_on: _,
         main_branches: _,
     } = ui.clone();
 

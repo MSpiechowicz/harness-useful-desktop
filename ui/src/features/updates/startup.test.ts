@@ -12,7 +12,7 @@ import Shell from '../shell/Shell.svelte';
 
 beforeAll(async () => {
   vi.stubEnv('VITE_TRANSPORT', 'mock');
-  prefs.value = samplePrefs({ motion: 'off', onboardingCompleted: false });
+  prefs.value = samplePrefs({ motion: 'off', onboardingCompleted: false, updatePolicy: 'startupAsk' });
   await harness.load();
 });
 
@@ -28,7 +28,7 @@ describe('update check at startup', () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     expect(updates.state.kind).toBe('idle');
 
-    prefs.value = samplePrefs({ motion: 'off', onboardingCompleted: true });
+    prefs.value = samplePrefs({ motion: 'off', onboardingCompleted: true, updatePolicy: 'startupAsk' });
 
     // The rail may be collapsed here; either way the notice names the version.
     expect(await screen.findByRole('button', { name: /Version 0\.2\.0 is available/ })).toBeInTheDocument();

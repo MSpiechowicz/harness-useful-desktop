@@ -167,6 +167,8 @@ fn unusable_defaults() -> AppPrefs {
         auto_update_extensions: false,
         auto_refresh_catalogs: false,
         background_fetch: false,
+        // Not marked: the one-time switch to automatic updates runs once a readable file is saved.
+        updates_turned_on: false,
         ..AppPrefs::default()
     }
 }

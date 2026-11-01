@@ -31,7 +31,7 @@ export function defaultPrefs(): AppPrefs {
     activeProject: null,
     rememberRecentProjects: true,
     recentProjects: [],
-    updatePolicy: 'startupAsk',
+    updatePolicy: 'autoInstall',
     checkCompanionUpdates: true,
     autoUpdateExtensions: true,
     autoRefreshCatalogs: true,
@@ -48,6 +48,7 @@ export function defaultPrefs(): AppPrefs {
     knowledgeVectorSearch: true,
     codeEnabled: true,
     codeAutoInstallDone: false,
+    updatesTurnedOn: true,
     keepRunningInTray: false,
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
@@ -111,6 +112,7 @@ export class MockState {
       knowledgeVectorSearch: this.knowledgeVectorSearch,
       codeEnabled: this.codeEnabled,
       codeAutoInstallDone: this.codeAutoInstallDone,
+      updatesTurnedOn: true,
       mainBranches: structuredClone(this.mainBranches),
     };
   }

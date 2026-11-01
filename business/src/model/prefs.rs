@@ -37,9 +37,9 @@ pub enum MotionPref {
 #[ts(export)]
 pub enum UpdatePolicy {
     /// Check at startup and ask before installing.
-    #[default]
     StartupAsk,
     /// Check at startup and install automatically.
+    #[default]
     AutoInstall,
     /// Never check automatically.
     Off,
@@ -178,6 +178,12 @@ pub struct AppPrefs {
     /// Harness Code is never installed again on its own, and by any install of Harness Code from the
     /// app. Server-managed: only `code_auto_install_claim` and `setup_install_code` change it.
     pub code_auto_install_done: bool,
+    /// Whether the one-time switch of every update setting to automatic already ran (see
+    /// [`PrefsStore::turn_updates_on_once`](crate::prefs::PrefsStore::turn_updates_on_once)). A file
+    /// without this key reads `false`, so every existing install gets it once; fresh installs start with
+    /// the automatic defaults and `true`. Server-managed: only that migration changes it.
+    #[serde(default)]
+    pub updates_turned_on: bool,
     /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
     /// running (default off). Without a tray icon closing always quits.
     pub keep_running_in_tray: bool,
@@ -221,7 +227,7 @@ impl Default for AppPrefs {
             active_project: None,
             remember_recent_projects: true,
             recent_projects: Vec::new(),
-            update_policy: UpdatePolicy::StartupAsk,
+            update_policy: UpdatePolicy::AutoInstall,
             check_companion_updates: true,
             auto_update_extensions: true,
             auto_refresh_catalogs: true,
@@ -237,6 +243,7 @@ impl Default for AppPrefs {
             knowledge_vector_search: true,
             code_enabled: true,
             code_auto_install_done: false,
+            updates_turned_on: true,
             keep_running_in_tray: false,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,

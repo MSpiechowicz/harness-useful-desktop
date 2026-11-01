@@ -59,7 +59,7 @@
   };
 
   const state = $derived(updates.state);
-  const policy = $derived(prefs.value?.updatePolicy ?? 'startupAsk');
+  const policy = $derived(prefs.value?.updatePolicy ?? 'autoInstall');
   const release = $derived(updates.info);
   const date = $derived(release ? formatReleaseDate(release.date) : null);
   const notes = $derived(release ? releaseNotes(release) : '');

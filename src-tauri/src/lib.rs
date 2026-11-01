@@ -61,6 +61,10 @@ pub fn run() -> ExitCode {
         .plugin(notifications::plugin())
         .setup(|app| {
             app.manage(AppState::from_app(app.handle())?);
+            // Once per install: every update setting becomes automatic (the user can turn them off after).
+            if let Err(error) = app.state::<AppState>().prefs.with(|store| store.turn_updates_on_once()) {
+                tracing::warn!(%error, "cannot turn the update settings on");
+            }
             app.state::<AppState>().agents.sweep_orphans_in_background();
             window::create_main_window(app)?;
             memory_setup::spawn_on_launch(app.handle());

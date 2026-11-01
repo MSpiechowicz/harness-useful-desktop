@@ -150,6 +150,13 @@ codeEnabled: boolean,
  */
 codeAutoInstallDone: boolean, 
 /**
+ * Whether the one-time switch of every update setting to automatic already ran (see
+ * [`PrefsStore::turn_updates_on_once`](crate::prefs::PrefsStore::turn_updates_on_once)). A file
+ * without this key reads `false`, so every existing install gets it once; fresh installs start with
+ * the automatic defaults and `true`. Server-managed: only that migration changes it.
+ */
+updatesTurnedOn: boolean, 
+/**
  * Whether closing the main window hides it to the tray instead of quitting, so routines keep
  * running (default off). Without a tray icon closing always quits.
  */

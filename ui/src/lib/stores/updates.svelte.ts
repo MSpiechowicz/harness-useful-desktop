@@ -238,7 +238,7 @@ export class UpdatesStore {
 
     this.started = true;
 
-    const policy = this.preferences.value?.updatePolicy ?? 'startupAsk';
+    const policy = this.preferences.value?.updatePolicy ?? 'autoInstall';
     if (policy === 'off') {
       return;
     }
@@ -271,7 +271,7 @@ export class UpdatesStore {
 
   /** A quiet look for a newer release: no "checking" state, a failure keeps what is shown, and it never disturbs an update in progress. */
   private async recheck(): Promise<void> {
-    const policy = this.preferences.value?.updatePolicy ?? 'startupAsk';
+    const policy = this.preferences.value?.updatePolicy ?? 'autoInstall';
     const state = this.state;
     const current = state.kind;
     const idle = current === 'idle' || current === 'upToDate' || (state.kind === 'failed' && state.during === 'check');
