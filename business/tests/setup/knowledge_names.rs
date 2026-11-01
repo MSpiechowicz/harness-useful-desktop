@@ -13,7 +13,7 @@ use harness_business::ecosystem::{
     parse_knowledge_version, parse_memory_version, register_knowledge_mcp, register_memory_mcp, resolve_knowledge,
     resolve_memory, unregister_knowledge_mcp,
 };
-use harness_business::env::Env;
+use harness_business::env::{Env, OsKind};
 use harness_business::model::MemoryRemoteKind;
 use knowledge_stand_in::{ALL_FEATURES, cli, installed};
 use mcp_support::{Home, read};
@@ -25,7 +25,9 @@ use team_support::{exits, wait};
 fn each_server_reads_its_own_config_variable_and_default_folder() {
     let dir = tempfile::tempdir().unwrap();
     let absolute = dir.path().join("elsewhere.toml");
-    let env = Env::for_tests(dir.path()).with_var("HARNESS_KNOWLEDGE_CONFIG", absolute.to_string_lossy());
+    let env = Env::for_tests(dir.path())
+        .with_os(OsKind::Linux)
+        .with_var("HARNESS_KNOWLEDGE_CONFIG", absolute.to_string_lossy());
 
     assert_eq!(knowledge_config_path(&env), Some(absolute));
     assert_ne!(
@@ -34,7 +36,9 @@ fn each_server_reads_its_own_config_variable_and_default_folder() {
         "memory ignores the knowledge variable"
     );
 
-    let relative = Env::for_tests(dir.path()).with_var("HARNESS_KNOWLEDGE_CONFIG", "relative.toml");
+    let relative = Env::for_tests(dir.path())
+        .with_os(OsKind::Linux)
+        .with_var("HARNESS_KNOWLEDGE_CONFIG", "relative.toml");
     assert_eq!(
         knowledge_config_path(&relative),
         None,
@@ -42,7 +46,7 @@ fn each_server_reads_its_own_config_variable_and_default_folder() {
     );
     assert!(memory_config_path(&relative).is_some());
 
-    let default = knowledge_config_path(&Env::for_tests(dir.path())).unwrap();
+    let default = knowledge_config_path(&Env::for_tests(dir.path()).with_os(OsKind::Linux)).unwrap();
     assert!(default.to_string_lossy().contains("harness-knowledge"));
     assert!(!default.to_string_lossy().contains("harness-memory"));
 }
@@ -51,7 +55,9 @@ fn each_server_reads_its_own_config_variable_and_default_folder() {
 fn the_data_folder_and_the_session_variable_carry_the_prefix() {
     let dir = tempfile::tempdir().unwrap();
     let folder = dir.path().join("kdata");
-    let env = Env::for_tests(dir.path()).with_var("HARNESS_KNOWLEDGE_DIR", folder.to_string_lossy());
+    let env = Env::for_tests(dir.path())
+        .with_os(OsKind::Linux)
+        .with_var("HARNESS_KNOWLEDGE_DIR", folder.to_string_lossy());
 
     assert_eq!(KNOWLEDGE_SIDECAR.data_dir(&env), Some(folder));
     assert_ne!(MEMORY_SIDECAR.data_dir(&env), KNOWLEDGE_SIDECAR.data_dir(&env));
