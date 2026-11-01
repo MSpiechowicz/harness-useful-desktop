@@ -8,10 +8,12 @@
 //! `availability`.
 
 use harness_business::ecosystem::{
-    ListWindow, approval_place, decide_knowledge_held, get_knowledge_held, knowledge_held_server, list_knowledge_held,
+    HeldSort, ListWindow, approval_place, decide_knowledge_held, get_knowledge_held, knowledge_held_server,
+    list_knowledge_held,
 };
 use harness_business::model::{
     KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgePlace, KnowledgePulse,
+    KnowledgeScope, SortOrder,
 };
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
@@ -28,10 +30,22 @@ pub async fn knowledge_held_list(
     offset: Option<u32>,
     limit: Option<u32>,
     query: Option<String>,
+    scope: Option<KnowledgeScope>,
+    sort: Option<String>,
+    order: Option<SortOrder>,
 ) -> CommandResult<KnowledgeHeldPage> {
-    let window = ListWindow::new(offset, limit, query, None)?;
+    let window = ListWindow::new(offset, limit, query, order)?;
+    let scope = scope.unwrap_or(KnowledgeScope::All);
 
-    Ok(list_knowledge_held(&state.env, &state.runner, &state.knowledge_features, &window).await)
+    Ok(list_knowledge_held(
+        &state.env,
+        &state.runner,
+        &state.knowledge_features,
+        &window,
+        HeldSort::of_key(sort.as_deref()),
+        &scope,
+    )
+    .await)
 }
 
 /// One proposal with all of its text, for the review. `notFound` when there is no such proposal.

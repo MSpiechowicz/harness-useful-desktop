@@ -34,13 +34,14 @@ use super::knowledge_cli::{
 };
 use super::knowledge_docs::{docs_server, read_stats};
 use super::knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
+use super::knowledge_held_window::{HeldSort, in_scope, sort_items};
 use super::sidecar_cli::{CliAnswer, ListWindow, USAGE_EXIT, clean, run_sidecar_cli};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     KnowledgeApproval, KnowledgeAvailability, KnowledgeDecided, KnowledgeDecision, KnowledgeEmbedding,
     KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeId, KnowledgeLink, KnowledgePlace, KnowledgePlaceStats,
-    KnowledgePulse, KnowledgeStats,
+    KnowledgePulse, KnowledgeScope, KnowledgeStats,
 };
 use crate::process::ProcessRunner;
 
@@ -68,13 +69,15 @@ pub async fn list_knowledge_held(
     runner: &dyn ProcessRunner,
     features: &KnowledgeFeatures,
     window: &ListWindow,
+    sort: HeldSort,
+    scope: &KnowledgeScope,
 ) -> KnowledgeHeldPage {
     let server = match knowledge_held_server(env, runner, features).await {
         Ok(server) => server,
         Err(error) => return KnowledgeHeldPage::unavailable(availability_of(error)),
     };
 
-    match read_page(env, runner, &server, window).await {
+    match read_page(env, runner, &server, window, sort, scope).await {
         Ok(page) => page,
         Err(failure) => KnowledgeHeldPage::unavailable(availability_of_failure(failure)),
     }
@@ -85,6 +88,8 @@ async fn read_page(
     runner: &dyn ProcessRunner,
     server: &Path,
     window: &ListWindow,
+    sort: HeldSort,
+    scope: &KnowledgeScope,
 ) -> std::result::Result<KnowledgeHeldPage, CliFailure> {
     let data = run_typed(
         env,
@@ -104,6 +109,9 @@ async fn read_page(
 
         items.retain(|item| item.title.to_lowercase().contains(&query) || item.name.to_lowercase().contains(&query));
     }
+
+    items.retain(|item| in_scope(item, scope));
+    sort_items(&mut items, sort);
 
     if !window.descending(true) {
         items.reverse();

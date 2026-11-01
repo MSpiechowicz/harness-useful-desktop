@@ -1,3 +1,4 @@
+import type { Sort } from '$lib/components/table';
 import { t } from '$lib/i18n/i18n.svelte';
 import type { KnowledgeDecided } from '$lib/ipc/bindings/KnowledgeDecided';
 import type { KnowledgeDecision } from '$lib/ipc/bindings/KnowledgeDecision';
@@ -7,14 +8,16 @@ import { ipc } from '$lib/ipc/client';
 import type { Transport } from '$lib/ipc/transport';
 import { writeFailureText } from '$lib/utils/knowledge-failure';
 
-import { KNOWLEDGE_PAGE_SIZE } from './knowledgeDocs.svelte';
+import { KNOWLEDGE_PAGE_SIZE, scopeOf } from './knowledgeDocs.svelte';
 import { toasts } from './toasts.svelte';
 import { ViewLoader } from './view-loader.svelte';
 
-/** What the review queue asks the server for: one page of the proposals that answer the search. */
+/** What the review queue asks for: one page of the proposals that answer the search and the scope, sorted by a column. */
 export interface HeldRequest {
   query: string;
   page: number;
+  scope: string;
+  sort: Sort;
 }
 
 export function heldKey(request: HeldRequest): string {
@@ -33,10 +36,17 @@ export class KnowledgeHeldStore {
 
   constructor(private readonly transport: Transport) {
     this.list = new ViewLoader((key) => {
-      const { query, page } = JSON.parse(key) as HeldRequest;
+      const { query, page, scope, sort } = JSON.parse(key) as HeldRequest;
       const search = query.trim();
 
-      return transport.invoke('knowledge_held_list', { offset: page * KNOWLEDGE_PAGE_SIZE, limit: KNOWLEDGE_PAGE_SIZE, query: search === '' ? null : search });
+      return transport.invoke('knowledge_held_list', {
+        offset: page * KNOWLEDGE_PAGE_SIZE,
+        limit: KNOWLEDGE_PAGE_SIZE,
+        query: search === '' ? null : search,
+        scope: scopeOf(scope),
+        sort: sort.key,
+        order: sort.desc ? 'desc' : 'asc',
+      });
     });
     this.detail = new ViewLoader((id) => transport.invoke('knowledge_held_get', { id }), { goneIsFinal: true });
   }

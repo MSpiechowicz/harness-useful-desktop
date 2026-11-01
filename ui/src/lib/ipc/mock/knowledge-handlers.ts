@@ -2,6 +2,8 @@ import type { KnowledgeAvailability } from '../bindings/KnowledgeAvailability';
 import type { KnowledgeDecided } from '../bindings/KnowledgeDecided';
 import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeHeldItem } from '../bindings/KnowledgeHeldItem';
+import type { KnowledgeScope } from '../bindings/KnowledgeScope';
+import type { SortOrder } from '../bindings/SortOrder';
 import type { KnowledgeHit } from '../bindings/KnowledgeHit';
 import type { KnowledgeId } from '../bindings/KnowledgeId';
 import type { KnowledgePlaceStats } from '../bindings/KnowledgePlaceStats';
@@ -278,12 +280,14 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
 
     knowledge_reindex: ({ ids }) => ({ documents: ids?.length ?? store.documents.length, embedded: 0, failed: 0, cancelled: false, model: 'multilingual-e5-small' }),
 
-    knowledge_held_list: ({ offset, limit, query }) => {
+    knowledge_held_list: ({ offset, limit, query, scope, sort, order }) => {
       const needle = (query ?? '').toLowerCase();
-      const matching = store.held.filter((item) => item.title.toLowerCase().includes(needle) || item.name.toLowerCase().includes(needle));
+      const matching = store.held
+        .filter((item) => item.title.toLowerCase().includes(needle) || item.name.toLowerCase().includes(needle))
+        .filter((item) => heldInScope(item, scope ?? { kind: 'all' }));
       const size = limit ?? DEFAULT_LIMIT;
 
-      return { availability: availability(), items: matching.slice(offset ?? 0, (offset ?? 0) + size), total: store.held.length };
+      return { availability: availability(), items: sortHeld(matching, sort, order).slice(offset ?? 0, (offset ?? 0) + size), total: store.held.length };
     },
 
     knowledge_held_get: ({ id }) => {
@@ -339,4 +343,37 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
 
     knowledge_changes_watch: () => null,
   };
+}
+
+/** As the app sorts the queue: by a column, newest or Z first unless asked, ties by the time. */
+function sortHeld(items: KnowledgeHeldItem[], sort: string | null, order: SortOrder | null): KnowledgeHeldItem[] {
+  const folder = (item: KnowledgeHeldItem) => (item.projectPath ?? '').split(/[\\/]/).filter(Boolean).at(-1)?.toLowerCase() ?? '';
+  const key = (item: KnowledgeHeldItem): string => {
+    switch (sort) {
+      case 'title':
+        return item.title.toLowerCase();
+      case 'client':
+        return item.client.toLowerCase();
+      case 'project':
+        return folder(item);
+      default:
+        return '';
+    }
+  };
+  const direction = order === 'asc' ? 1 : -1;
+
+  return [...items].sort((left, right) => (key(left).localeCompare(key(right)) || left.createdAt.localeCompare(right.createdAt)) * direction);
+}
+
+/** As the app scopes the queue: global when it links to no repository, else its repositories and the one its agent worked in. */
+function heldInScope(item: KnowledgeHeldItem, scope: KnowledgeScope): boolean {
+  if (scope.kind === 'all') {
+    return true;
+  }
+
+  if (scope.kind === 'global') {
+    return item.links.length === 0;
+  }
+
+  return item.links.some((link) => link.repo === scope.key) || item.repoKey === scope.key;
 }

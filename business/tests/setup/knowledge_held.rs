@@ -4,11 +4,12 @@
 //! anything runs.
 
 use crate::knowledge_stand_in;
+use crate::knowledge_stand_in::queue_page;
 use crate::team_support;
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
-    KnowledgeFeatures, ListWindow, decide_knowledge_held, get_knowledge_held, knowledge_pulse, list_knowledge_held,
+    KnowledgeFeatures, ListWindow, decide_knowledge_held, get_knowledge_held, knowledge_pulse,
 };
 use harness_business::model::{
     KnowledgeApproval, KnowledgeAvailability, KnowledgeDecided, KnowledgeDecision, KnowledgeEmbedding, SortOrder,
@@ -59,7 +60,7 @@ fn the_queue_is_one_call_and_the_window_filters_orders_and_pages_it_here() {
     let server_cli = queue();
 
     let window = ListWindow::new(None, None, None, None).unwrap();
-    let page = wait(list_knowledge_held(&env, &server_cli, &probe, &window));
+    let page = queue_page(&env, &server_cli, &probe, &window);
 
     assert_eq!(page.availability, KnowledgeAvailability::Available);
     assert_eq!(page.total, 2);
@@ -73,16 +74,16 @@ fn the_queue_is_one_call_and_the_window_filters_orders_and_pages_it_here() {
     assert_eq!(server_cli.commands().pop().unwrap(), ["held", "list", "--json"]);
 
     let oldest_first = ListWindow::new(None, None, None, Some(SortOrder::Asc)).unwrap();
-    let page = wait(list_knowledge_held(&env, &server_cli, &probe, &oldest_first));
+    let page = queue_page(&env, &server_cli, &probe, &oldest_first);
     assert_eq!(page.items[0].id, HELD_ID_2);
 
     let searched = ListWindow::new(None, None, Some("RUNBOOK".to_owned()), None).unwrap();
-    let page = wait(list_knowledge_held(&env, &server_cli, &probe, &searched));
+    let page = queue_page(&env, &server_cli, &probe, &searched);
     assert_eq!((page.total, page.items.len()), (1, 1));
     assert_eq!(page.items[0].id, HELD_ID_2);
 
     let second = ListWindow::new(Some(1), Some(1), None, None).unwrap();
-    let page = wait(list_knowledge_held(&env, &server_cli, &probe, &second));
+    let page = queue_page(&env, &server_cli, &probe, &second);
     assert_eq!(page.total, 2, "the total counts every page");
     assert_eq!(page.items.len(), 1);
     assert_eq!(page.items[0].id, HELD_ID_2);
@@ -101,17 +102,12 @@ fn a_proposal_the_app_cannot_read_fails_the_page_instead_of_being_skipped() {
         answers(json!({ "held": [held_item(HELD_ID, "Retry policy", "preview", "y"), partial] })),
     );
 
-    let page = wait(list_knowledge_held(&env, &server_cli, &probe, &window));
+    let page = queue_page(&env, &server_cli, &probe, &window);
     assert!(matches!(page.availability, KnowledgeAvailability::Failed { .. }));
     assert!(page.items.is_empty());
 
     let other_shape = cli(ALL_FEATURES).starting(&["held", "list"], answers(json!({ "items": [], "total": 0 })));
-    let page = wait(list_knowledge_held(
-        &env,
-        &other_shape,
-        &KnowledgeFeatures::new(),
-        &window,
-    ));
+    let page = queue_page(&env, &other_shape, &KnowledgeFeatures::new(), &window);
     assert!(matches!(page.availability, KnowledgeAvailability::Failed { .. }));
 }
 
@@ -122,7 +118,7 @@ fn a_server_without_the_queue_is_outdated_and_runs_nothing_else() {
     let server_cli = cli("docs\nimport-ndjson\n");
     let window = ListWindow::new(None, None, None, None).unwrap();
 
-    let page = wait(list_knowledge_held(&env, &server_cli, &probe, &window));
+    let page = queue_page(&env, &server_cli, &probe, &window);
 
     assert_eq!(page.availability, KnowledgeAvailability::Outdated);
     assert_eq!(server_cli.commands(), [["features"]]);

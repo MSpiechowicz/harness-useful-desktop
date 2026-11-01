@@ -206,7 +206,9 @@ pub(crate) fn availability_of(error: BusinessError) -> KnowledgeAvailability {
 /// Whether the server's line says it is upgrading its database (`upgrading the knowledge
 /// database`). The server has no code for it yet, so the words are matched.
 fn is_upgrading(message: &str) -> bool {
-    message.to_ascii_lowercase().contains("upgrading the knowledge database")
+    message
+        .to_ascii_lowercase()
+        .contains("upgrading the knowledge database")
 }
 
 /// `value` as the `u32` of a DTO (a count above `u32::MAX` is `u32::MAX`), 0 when it is no count.

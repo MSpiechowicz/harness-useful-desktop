@@ -78,10 +78,10 @@ export function docColumns(): Column[] {
 
 export function heldColumns(): Column[] {
   return [
-    { key: 'title', label: t('knowledge.column.proposal') },
-    { key: 'client', label: t('knowledge.column.client'), width: '10rem', from: 'sm' },
-    { key: 'project', label: t('knowledge.column.project'), width: '12rem', from: 'md' },
-    { key: 'proposed', label: t('knowledge.column.proposed'), width: '10rem', from: 'sm' },
+    { key: 'title', label: t('knowledge.column.proposal'), sortable: true },
+    { key: 'client', label: t('knowledge.column.client'), width: '11rem', sortable: true, from: 'sm' },
+    { key: 'project', label: t('knowledge.column.project'), width: '13rem', sortable: true, from: 'md' },
+    { key: 'proposed', label: t('knowledge.column.proposed'), width: '10rem', sortable: true, descFirst: true, from: 'sm' },
   ];
 }
 

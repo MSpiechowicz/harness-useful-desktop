@@ -3,11 +3,14 @@
   import ShieldCheck from '@lucide/svelte/icons/shield-check';
   import { untrack } from 'svelte';
 
+  import type { ScopeChoice } from '$lib/components/scope/scope-options';
+  import ScopeFilter from '$lib/components/scope/ScopeFilter.svelte';
   import type { Column } from '$lib/components/table';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeHeldItem } from '$lib/ipc/bindings/KnowledgeHeldItem';
   import { KNOWLEDGE_PAGE_SIZE } from '$lib/stores/knowledgeDocs.svelte';
   import { knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
+  import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
   import { clampPage, pageCount } from '$lib/utils/pagination';
@@ -17,6 +20,7 @@
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import HeldPanel from './HeldPanel.svelte';
   import { folderName, heldColumns, linksText } from './knowledge-format';
+  import { knowledgeScopeOptions } from './knowledge-repos';
   import KnowledgeEmpty from './KnowledgeEmpty.svelte';
   import KnowledgeTabs from './KnowledgeTabs.svelte';
   import { exitRow } from './row-exit';
@@ -27,6 +31,8 @@
   const rows = $derived(page?.items ?? []);
   // `total` of the page counts the whole queue, whatever the search: it is what the badge says.
   const queue = $derived(page?.total ?? 0);
+  /** The projects on this computer, all and global: the queue is small, so no counts per repository. */
+  const scopeOptions = $derived(knowledgeScopeOptions(projectScopes.data ?? [], null, queue));
   const none = $derived(page !== null && queue === 0);
   const noMatch = $derived(page !== null && rows.length === 0 && queue > 0 ? t('knowledge.review.noMatch') : null);
 
@@ -106,8 +112,11 @@
     tableId="knowledge-review"
     columns={heldColumns()}
     {rows}
-    sort={{ key: 'proposed', desc: true }}
-    onsort={() => {}}
+    sort={viewState.heldSort}
+    onsort={(next) => {
+      viewState.heldSort = next;
+      viewState.heldPage = 0;
+    }}
     page={viewState.heldPage}
     pageSize={KNOWLEDGE_PAGE_SIZE}
     total={queue}
@@ -117,6 +126,16 @@
   >
     {#snippet filters()}
       <KnowledgeTabs onchange={() => (viewState.heldId = null)} />
+
+      <ScopeFilter
+        options={scopeOptions}
+        value={viewState.heldScope as ScopeChoice}
+        onchange={(next) => {
+          viewState.heldScope = next;
+          viewState.heldPage = 0;
+          viewState.heldId = null;
+        }}
+      />
     {/snippet}
 
     {#snippet cell(item: KnowledgeHeldItem, column: Column)}

@@ -52,7 +52,7 @@ describe('the knowledge preview backend', () => {
     const pulses: KnowledgePulse[] = [];
     knowledge_changes_listen({ onEvent: (pulse) => pulses.push(pulse) });
 
-    const queue = knowledge_held_list({ offset: 0, limit: 50, query: null }) as Awaited<ReturnType<typeof knowledge_held_list>>;
+    const queue = knowledge_held_list({ offset: 0, limit: 50, query: null, scope: null, sort: null, order: null }) as Awaited<ReturnType<typeof knowledge_held_list>>;
     expect(queue.total).toBe(3);
     expect(pulses[0]).toMatchObject({ held: 3, documents: 10 });
 

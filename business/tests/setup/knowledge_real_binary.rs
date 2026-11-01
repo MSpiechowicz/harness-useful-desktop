@@ -12,6 +12,7 @@
 #![cfg(unix)]
 
 use crate::common::set_mode;
+use crate::knowledge_stand_in::queue_page;
 use crate::knowledge_stand_in::{installed_at, server};
 use crate::team_support::wait;
 
@@ -22,8 +23,8 @@ use harness_business::BusinessError;
 use harness_business::ecosystem::{
     ImportManifest, KnowledgeFeatures, KnowledgeImporter, KnowledgeRemoteChange, ListWindow, decide_knowledge_held,
     docs_server, get_doc, get_knowledge_held, knowledge_doc_matches, knowledge_held_server, knowledge_pulse,
-    knowledge_recall, knowledge_remote_get, knowledge_remote_set, knowledge_remote_test, list_docs,
-    list_knowledge_held, read_check, read_stats, run_import, search_knowledge,
+    knowledge_recall, knowledge_remote_get, knowledge_remote_set, knowledge_remote_test, list_docs, read_check,
+    read_stats, run_import, search_knowledge,
 };
 use harness_business::env::Env;
 use harness_business::model::{
@@ -220,7 +221,7 @@ fn a_real_server_imports_lists_searches_and_checks() {
     assert!(stats.chunks >= 2);
 
     // held list is empty, and the counts follow
-    let held = wait(list_knowledge_held(&env, &runner, &probe, &window));
+    let held = queue_page(&env, &runner, &probe, &window);
     assert_eq!(held.availability, KnowledgeAvailability::Available);
     assert_eq!((held.total, held.items.len()), (0, 0));
 
@@ -323,7 +324,7 @@ fn a_real_server_holds_a_proposal_and_approves_only_the_version_shown() {
 
     propose(&path, home.path());
 
-    let held = wait(list_knowledge_held(&env, &runner, &probe, &window));
+    let held = queue_page(&env, &runner, &probe, &window);
     assert_eq!((held.availability, held.total), (KnowledgeAvailability::Available, 1));
 
     let item = &held.items[0];
@@ -382,7 +383,7 @@ fn a_real_server_holds_a_proposal_and_approves_only_the_version_shown() {
     .unwrap();
     assert!(matches!(outcome, KnowledgeDecided::NotFound { .. }), "{outcome:?}");
 
-    let held = wait(list_knowledge_held(&env, &runner, &probe, &window));
+    let held = queue_page(&env, &runner, &probe, &window);
     assert_eq!(held.total, 0);
 
     let docs = wait(list_docs(

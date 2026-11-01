@@ -20,7 +20,7 @@ export const KNOWLEDGE_ARGS: { [K in Extract<CommandName, `knowledge_${string}`>
   knowledge_repos_list: undefined,
   knowledge_stats: undefined,
   knowledge_search: { query: 'billing', project: null, scope: null, limit: 5 },
-  knowledge_held_list: { offset: 0, limit: 50, query: null },
+  knowledge_held_list: { offset: 0, limit: 50, query: null, scope: null, sort: null, order: null },
   knowledge_held_get: { id: '0b6f2f0e-7f63-4c0e-9d1a-0d5a4a0a7e11' },
   knowledge_held_decide: { id: '0b6f2f0e-7f63-4c0e-9d1a-0d5a4a0a7e11', decision: 'reject', revision: null },
   knowledge_changes_listen: { onEvent: () => {} },

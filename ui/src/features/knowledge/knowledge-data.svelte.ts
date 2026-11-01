@@ -39,7 +39,7 @@ export function useKnowledgeData(): void {
   const active = $derived(project.active?.path ?? null);
 
   const documents = $derived<DocsRequest>(docsRequest(docsQuery.value));
-  const proposals = $derived<HeldRequest>({ query: heldQuery.value, page: viewState.heldPage });
+  const proposals = $derived<HeldRequest>({ query: heldQuery.value, page: viewState.heldPage, scope: viewState.heldScope, sort: viewState.heldSort });
 
   // Opening the view (or a change of the search, the filters, the sort or the page) reads again; a list already read is quietly refreshed.
   $effect(() => {

@@ -108,6 +108,8 @@ export class ViewState {
   knowledgePage = $state(0);
   heldId = $state<string | null>(null);
   heldQuery = $state('');
+  heldScope = $state<string>('all');
+  heldSort = $state<Sort>({ key: 'proposed', desc: true });
   heldPage = $state(0);
 
   /** The hook whose panel is open (its row key), what the Hooks search holds, and the three filters (an event, a status, a source; 'all' for none). */
@@ -236,6 +238,8 @@ export class ViewState {
       this.knowledgePage = 0;
       this.heldId = null;
       this.heldQuery = '';
+      this.heldScope = 'all';
+      this.heldSort = { key: 'proposed', desc: true };
       this.heldPage = 0;
     } else if (view === 'scripts') {
       this.scriptId = null;

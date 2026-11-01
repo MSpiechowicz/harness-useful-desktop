@@ -84,6 +84,7 @@ pub mod knowledge_docs;
 pub mod knowledge_embedder;
 pub mod knowledge_features;
 pub mod knowledge_held;
+mod knowledge_held_window;
 pub mod knowledge_import;
 pub mod knowledge_intake;
 pub mod knowledge_recall;
@@ -171,6 +172,7 @@ pub use knowledge_held::{
     approval_place, decide_knowledge_held, get_knowledge_held, knowledge_held_server, knowledge_pulse,
     list_knowledge_held,
 };
+pub use knowledge_held_window::HeldSort;
 pub use knowledge_import::{
     CANCEL_GRACE, ImportManifest, ImportRun, KnowledgeImporter, MANIFEST_MAX_BYTES, parse_import_event, run_import,
 };

@@ -40,6 +40,7 @@ mod ecosystem_releases;
 mod knowledge_docs;
 mod knowledge_features;
 mod knowledge_held;
+mod knowledge_held_window;
 mod knowledge_import;
 mod knowledge_intake;
 mod knowledge_names;

@@ -158,3 +158,20 @@ pub fn small_import() -> Vec<String> {
         })),
     ]
 }
+
+/// The review queue as the view first asks for it: every scope, newest first.
+pub fn queue_page(
+    env: &harness_business::env::Env,
+    runner: &dyn harness_business::process::ProcessRunner,
+    features: &harness_business::ecosystem::KnowledgeFeatures,
+    window: &harness_business::ecosystem::ListWindow,
+) -> harness_business::model::KnowledgeHeldPage {
+    crate::team_support::wait(harness_business::ecosystem::list_knowledge_held(
+        env,
+        runner,
+        features,
+        window,
+        harness_business::ecosystem::HeldSort::Proposed,
+        &harness_business::model::KnowledgeScope::All,
+    ))
+}

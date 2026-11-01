@@ -1,3 +1,5 @@
+import type { SortOrder } from './bindings/SortOrder';
+import type { KnowledgeScope } from './bindings/KnowledgeScope';
 import type { KnowledgeCheck } from './bindings/KnowledgeCheck';
 import type { KnowledgeDecided } from './bindings/KnowledgeDecided';
 import type { KnowledgeDecision } from './bindings/KnowledgeDecision';
@@ -96,7 +98,7 @@ export const knowledgeCommands = {
   /** Hybrid search over the documents: the passages that match `query`, best first. */
   knowledge_search: cmd<{ query: string; project: string | null; scope: KnowledgeSearchScope | null; limit: number | null }, KnowledgeHit[]>(),
   /** One page of the review queue of documents agents proposed, newest first. Never rejects for a missing or old server: see `availability`. */
-  knowledge_held_list: cmd<{ offset: number | null; limit: number | null; query: string | null }, KnowledgeHeldPage>(),
+  knowledge_held_list: cmd<{ offset: number | null; limit: number | null; query: string | null; scope: KnowledgeScope | null; sort: string | null; order: SortOrder | null }, KnowledgeHeldPage>(),
   /** One proposal with all of its text, for the review. */
   knowledge_held_get: cmd<{ id: string }, KnowledgeHeldItem>(),
   /**
