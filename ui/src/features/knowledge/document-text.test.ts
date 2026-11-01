@@ -77,13 +77,19 @@ describe('the sections of an open document', () => {
     await within(panel).findByText(/describes the install in detail/);
     expect(textReads(invoke)).toHaveLength(1);
 
-    // Configuration is cut into two chunks: both are read, told apart as parts, with a word on how they overlap.
+    // Configuration is cut into two chunks: one part at a time with a pager, each read only when shown.
     await fireEvent.click(within(panel).getByRole('button', { name: 'Configuration' }));
 
-    expect(await within(panel).findByText('Part 1')).toBeInTheDocument();
-    expect(within(panel).getByText('Part 2')).toBeInTheDocument();
+    expect(await within(panel).findByText('Part 1 of 2')).toBeInTheDocument();
     expect(within(panel).getByText(/Parts overlap a little/)).toBeInTheDocument();
-    expect(textReads(invoke)).toHaveLength(3);
+    expect(within(panel).getByRole('button', { name: 'Previous part' })).toBeDisabled();
+    await waitFor(() => expect(textReads(invoke)).toHaveLength(2));
+
+    await fireEvent.click(within(panel).getByRole('button', { name: 'Next part' }));
+
+    expect(await within(panel).findByText('Part 2 of 2')).toBeInTheDocument();
+    expect(within(panel).getByRole('button', { name: 'Next part' })).toBeDisabled();
+    await waitFor(() => expect(textReads(invoke)).toHaveLength(3));
   });
 
   it('say why the text is missing and read it again on retry', async () => {
