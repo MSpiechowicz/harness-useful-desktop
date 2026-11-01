@@ -297,6 +297,8 @@ pub struct KnowledgeListFilter {
     pub scope: Option<KnowledgeScope>,
     /// By format (`markdown`, `pdf`, ...).
     pub format: Option<String>,
+    /// By the place the document is kept in, when both are in use (every place unless given).
+    pub place: Option<KnowledgePlace>,
     /// The sort (`updated` unless given).
     pub sort: Option<KnowledgeSort>,
     /// The direction (the sort's own unless given).
@@ -314,6 +316,10 @@ pub struct KnowledgePage {
     pub items: Vec<KnowledgeDocument>,
     /// How many documents match the filters, over every page.
     pub total: u32,
+    /// The remote database cannot be reached, so the list holds this computer's documents only (or
+    /// nothing, for a list narrowed to the remote place).
+    #[serde(default)]
+    pub offline: bool,
 }
 
 impl KnowledgePage {
@@ -323,6 +329,18 @@ impl KnowledgePage {
             availability,
             items: Vec::new(),
             total: 0,
+            offline: false,
+        }
+    }
+
+    /// What a list holds while the remote database cannot be reached and the list asked for it
+    /// alone: nothing, said plainly.
+    pub fn offline() -> Self {
+        Self {
+            availability: KnowledgeAvailability::Available,
+            items: Vec::new(),
+            total: 0,
+            offline: true,
         }
     }
 }
@@ -349,6 +367,9 @@ pub struct KnowledgeReposPage {
     pub global: u32,
     /// The repositories, most documents first.
     pub repos: Vec<KnowledgeRepoCount>,
+    /// The remote database cannot be reached, so the counts are this computer's.
+    #[serde(default)]
+    pub offline: bool,
 }
 
 impl KnowledgeReposPage {
@@ -358,77 +379,9 @@ impl KnowledgeReposPage {
             availability,
             global: 0,
             repos: Vec::new(),
+            offline: false,
         }
     }
-}
-
-/// What the database holds (`harness-knowledge stats --json`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct KnowledgeStats {
-    /// How many documents.
-    pub documents: u32,
-    /// How many chunks.
-    pub chunks: u32,
-    /// How many chunks have a vector.
-    pub embedded_chunks: u32,
-    /// The size of all their text in bytes.
-    #[ts(type = "number")]
-    pub bytes: u64,
-    /// How many documents link to no repository.
-    pub global_documents: u32,
-    /// How many repositories have documents.
-    pub repositories: u32,
-    /// Changes whenever the database changes (the live view reloads on it).
-    #[ts(type = "number")]
-    pub generation: i64,
-    /// The schema version of the database.
-    pub schema: u32,
-    /// The model that embedded the chunks, once any were.
-    pub model: Option<String>,
-    /// How many proposals wait in the review queue. Absent from a server that predates it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub held: Option<u32>,
-    /// The counts of each place in use, only when both are.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub places: Option<KnowledgeStatsPlaces>,
-}
-
-/// The counts of each place in use (`stats --json` `places`).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct KnowledgeStatsPlaces {
-    /// The team database.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub remote: Option<KnowledgePlaceStats>,
-    /// This computer's store.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub local: Option<KnowledgePlaceStats>,
-}
-
-/// What one place holds.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct KnowledgePlaceStats {
-    /// How many documents.
-    #[serde(default)]
-    pub documents: u32,
-    /// How many chunks.
-    #[serde(default)]
-    pub chunks: u32,
-    /// How many chunks have a vector.
-    #[serde(default)]
-    pub embedded_chunks: u32,
-    /// How many documents link to no repository.
-    #[serde(default)]
-    pub global_documents: u32,
 }
 
 /// The answer of `knowledge_docs_delete`.

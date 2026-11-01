@@ -136,5 +136,11 @@
         {t('knowledge.panel.delete')}
       </Button>
     </SectionCard>
+  {:else if open && status === 'error'}
+    <!-- A document that is not on this page and cannot be read (its place is unreachable) has nothing else to show. -->
+    <div class="flex flex-col items-start gap-3">
+      <p class="text-sm text-danger" role="alert">{error ?? t('knowledge.panel.sections.failed')}</p>
+      <Button onclick={onretry}>{t('memory.tryAgain')}</Button>
+    </div>
   {/if}
 </SidePanel>

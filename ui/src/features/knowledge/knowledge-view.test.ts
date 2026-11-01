@@ -2,39 +2,16 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { documentOf } from '$lib/ipc/mock/knowledge-fixtures';
-import type { KnowledgeRemote } from '$lib/ipc/bindings/KnowledgeRemote';
-import { knowledgeHandlers, MockKnowledge, type KnowledgeScenario } from '$lib/ipc/mock/knowledge-handlers';
-import { knowledgeImportHandlers } from '$lib/ipc/mock/knowledge-import-handlers';
 import { fixtures } from '$lib/ipc/mock/fixtures';
 import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
-import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
-import { knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
-import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
-import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
 import { nav } from '$lib/stores/nav.svelte';
-import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
 
-import { calls, spyOnInvoke } from '../../../tests/doc-support';
+import { calls } from '../../../tests/doc-support';
 import { startMockApp } from '../../../tests/mock-app';
 import KnowledgeView from './KnowledgeView.svelte';
-
-/** A Harness Knowledge that keeps its documents in memory, as the preview does, and the spy that records what the view asked of it. */
-function fakeKnowledge(scenario: KnowledgeScenario = 'ok', split = false, extra: Record<string, (args: unknown) => unknown> = {}) {
-  const store = new MockKnowledge(scenario, split);
-  const handlers = { ...knowledgeHandlers(store, () => scenario, () => true), ...knowledgeImportHandlers(store) } as unknown as Record<string, (args: unknown) => unknown>;
-  // The real server answers with what it has now, not with the objects it keeps: a read after a change must not find the old answer changed under it.
-  const answering = Object.fromEntries(Object.entries(handlers).map(([name, handler]) => [name, async (args: unknown) => structuredClone(await handler(args))]));
-  const invoke = spyOnInvoke({ ...answering, ...extra });
-
-  return { store, invoke };
-}
-
-async function show(): Promise<void> {
-  render(KnowledgeView);
-  await screen.findByRole('grid', { name: 'Documents' });
-}
+import { fakeKnowledge, resetKnowledge, routedRemote, show } from './knowledge-view-support';
 
 const titles = () => screen.queryAllByRole('gridcell').map((cell) => cell.textContent?.trim());
 
@@ -43,16 +20,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  viewState.reset('knowledge');
-  knowledgeDocs.list.sync(null, null);
-  knowledgeDocs.detail.sync(null, null);
-  knowledgeDocs.repos.sync(null, null);
-  knowledgeHeld.list.sync(null, null);
-  knowledgeHeld.detail.sync(null, null);
-  knowledgeImport.reset();
-  knowledgeRemote.value = null;
-  knowledgeChanges.reset();
-  projectScopes.sync(null, null);
+  resetKnowledge();
 });
 
 afterEach(() => {
@@ -269,13 +237,6 @@ describe('adding documents', () => {
     expect(await screen.findByRole('button', { name: 'Start import' })).toBeInTheDocument();
   });
 });
-
-/** The settings a server with a remote database reports, with the routing of documents given. */
-function routedRemote(repositoryDocuments: KnowledgeRemote['repositoryDocuments'], globalDocuments: KnowledgeRemote['globalDocuments']): Record<string, (args: unknown) => unknown> {
-  const remote: KnowledgeRemote = { enabled: true, kind: 'postgres', urlRedacted: 'postgres://db/knowledge', hasToken: false, embedderSupported: true, repositoryDocuments, globalDocuments, routingSupported: true, configPath: '', problem: null };
-
-  return { knowledge_remote_get: () => remote };
-}
 
 async function stage(): Promise<void> {
   await fireEvent.click(screen.getAllByRole('button', { name: 'Add documents' })[0]);

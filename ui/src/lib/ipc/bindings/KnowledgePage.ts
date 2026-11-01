@@ -17,4 +17,9 @@ items: Array<KnowledgeDocument>,
 /**
  * How many documents match the filters, over every page.
  */
-total: number, };
+total: number, 
+/**
+ * The remote database cannot be reached, so the list holds this computer's documents only (or
+ * nothing, for a list narrowed to the remote place).
+ */
+offline: boolean, };

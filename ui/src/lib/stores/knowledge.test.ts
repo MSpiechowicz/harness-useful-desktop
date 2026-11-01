@@ -31,15 +31,15 @@ describe('the live counts of the knowledge database', () => {
     const stop = store.start();
     expect(store.held).toBe(0);
 
-    send({ documents: 12, generation: 3, held: 2 });
+    send({ documents: 12, generation: 3, held: 2, offline: false });
     expect(store.held).toBe(2);
 
     // A server without a review queue says nothing about one.
-    send({ documents: 12, generation: 4, held: null });
+    send({ documents: 12, generation: 4, held: null, offline: false });
     expect(store.held).toBe(0);
 
     stop();
-    send({ documents: 13, generation: 5, held: 7 });
+    send({ documents: 13, generation: 5, held: 7, offline: false });
     expect(store.pulse?.generation).toBe(4);
   });
 

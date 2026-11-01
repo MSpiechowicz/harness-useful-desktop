@@ -24,7 +24,7 @@ describe('the knowledge preview backend', () => {
     const last = knowledge_docs_list({ ...ALL, offset: 1500, limit: 50 }) as typeof first;
     expect(last.items).toHaveLength(10);
 
-    const pdf = knowledge_docs_list({ ...ALL, filter: { scope: null, format: 'pdf', sort: 'title', order: null } }) as typeof first;
+    const pdf = knowledge_docs_list({ ...ALL, filter: { scope: null, format: 'pdf', place: null, sort: 'title', order: null } }) as typeof first;
     expect(pdf.items.every((doc) => doc.format === 'pdf')).toBe(true);
     expect(pdf.items.map((doc) => doc.title)).toEqual([...pdf.items.map((doc) => doc.title)].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).slice(0, 50));
 
@@ -34,7 +34,7 @@ describe('the knowledge preview backend', () => {
 
   it('scopes the list to one repository or to the global documents', () => {
     const { knowledge_docs_list } = backend();
-    const scoped = (scope: { kind: 'global' } | { kind: 'repo'; key: string }) => knowledge_docs_list({ ...ALL, filter: { scope, format: null, sort: null, order: null } }) as Awaited<ReturnType<typeof knowledge_docs_list>>;
+    const scoped = (scope: { kind: 'global' } | { kind: 'repo'; key: string }) => knowledge_docs_list({ ...ALL, filter: { scope, format: null, place: null, sort: null, order: null } }) as Awaited<ReturnType<typeof knowledge_docs_list>>;
 
     expect(scoped({ kind: 'global' }).items.every((doc) => doc.links.length === 0)).toBe(true);
     expect(scoped({ kind: 'repo', key: 'git:github.com/useful/website' }).items.map((doc) => doc.title)).toEqual(['Release process']);

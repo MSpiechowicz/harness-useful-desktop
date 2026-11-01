@@ -7,8 +7,13 @@ import type { KnowledgeId } from '../bindings/KnowledgeId';
 export const KNOWLEDGE_ROUTES = ['remote', 'local', 'remote+local', 'split'] as const;
 export type KnowledgeRoute = (typeof KNOWLEDGE_ROUTES)[number];
 
+/** `?koffline=1` pretends the remote database cannot be reached. It needs both places, so it starts routed to both unless `?kroute=` says otherwise. */
+export function knowledgeOfflineFromLocation(search: string = globalThis.location?.search ?? ''): boolean {
+  return new URLSearchParams(search).get('koffline') === '1';
+}
+
 export function knowledgeRoutingFromLocation(search: string = globalThis.location?.search ?? ''): DocumentRouting {
-  const name = new URLSearchParams(search).get('kroute');
+  const name = new URLSearchParams(search).get('kroute') ?? (knowledgeOfflineFromLocation(search) ? 'remote+local' : null);
 
   switch (KNOWLEDGE_ROUTES.find((route) => route === name)) {
     case 'local':

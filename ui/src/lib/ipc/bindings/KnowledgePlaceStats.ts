@@ -19,4 +19,8 @@ embeddedChunks: number,
 /**
  * How many documents link to no repository.
  */
-globalDocuments: number, };
+globalDocuments: number, 
+/**
+ * The place cannot be reached, so its counts are not known (`{"offline": true}`).
+ */
+offline: boolean, };

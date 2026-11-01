@@ -43,6 +43,7 @@ mod knowledge_held;
 mod knowledge_import;
 mod knowledge_intake;
 mod knowledge_names;
+mod knowledge_offline;
 mod knowledge_real_binary;
 mod knowledge_recall;
 mod knowledge_register;

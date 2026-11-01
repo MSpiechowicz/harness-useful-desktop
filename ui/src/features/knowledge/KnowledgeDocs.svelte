@@ -20,19 +20,23 @@
   import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { knowledgeDocs, KNOWLEDGE_PAGE_SIZE } from '$lib/stores/knowledgeDocs.svelte';
   import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
+  import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
+  import { usesBothPlaces } from '$lib/utils/knowledge-routing';
   import { clampPage, pageCount } from '$lib/utils/pagination';
 
   import MemorySearch from '../memory/MemorySearch.svelte';
   import MemoryTable from '../memory/MemoryTable.svelte';
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import DocumentPanel from './DocumentPanel.svelte';
+  import { readFailureText } from './knowledge-failure';
   import { docColumns, docSubtitle, formatKey, formatLabel, formatTone, KNOWLEDGE_FORMATS, linksText, pathCount, pathsText, placeLabel, repoLabel } from './knowledge-format';
   import { knowledgeScopeOptions } from './knowledge-repos';
   import KnowledgeEmpty from './KnowledgeEmpty.svelte';
+  import KnowledgePlaceFilter from './KnowledgePlaceFilter.svelte';
   import KnowledgeTabs from './KnowledgeTabs.svelte';
   import { exitRow } from './row-exit';
 
@@ -42,9 +46,12 @@
   const rows = $derived(page?.items ?? []);
   const total = $derived(page?.total ?? 0);
   const searching = $derived(viewState.knowledgeQuery.trim() !== '');
-  const filtered = $derived(viewState.knowledgeScope !== 'all' || viewState.knowledgeFormat !== null);
+  const filtered = $derived(viewState.knowledgeScope !== 'all' || viewState.knowledgeFormat !== null || viewState.knowledgePlace !== null);
   // Nothing at all is kept: no documents, and no search or filter that would explain it.
   const none = $derived(page !== null && total === 0 && !searching && !filtered);
+  // Both places are in use while the routing says so, or while a document says where it is kept. The routing is known once it was read.
+  const routing = $derived(knowledgeRemote.value);
+  const bothPlaces = $derived((routing !== null && usesBothPlaces(routing.enabled, routing)) || rows.some((row) => row.place !== undefined));
   const options = $derived(knowledgeScopeOptions(projectScopes.data ?? [], knowledgeDocs.repos.data, knowledgeChanges.pulse?.documents));
 
   const formatOptions = $derived([
@@ -96,6 +103,14 @@
 
     if (choiceKey(choice as ScopeChoice) !== null && known?.availability.type === 'available' && projectScopes.data !== null && !options.some((option) => option.value === choice)) {
       untrack(() => (viewState.knowledgeScope = 'all'));
+      viewState.knowledgePage = 0;
+    }
+  });
+
+  // The routing went back to one place: there is nothing to narrow to any more.
+  $effect(() => {
+    if (routing !== null && !bothPlaces && viewState.knowledgePlace !== null) {
+      viewState.knowledgePlace = null;
       viewState.knowledgePage = 0;
     }
   });
@@ -156,6 +171,12 @@
   <ScopeFilter {options} value={viewState.knowledgeScope as ScopeChoice} onchange={(next) => choose(() => {
         viewState.knowledgeScope = next;
       })} disableKeyless />
+
+  {#if bothPlaces || viewState.knowledgePlace !== null}
+    <KnowledgePlaceFilter place={viewState.knowledgePlace} onchange={(next) => choose(() => {
+          viewState.knowledgePlace = next;
+        })} />
+  {/if}
 
   <FilterMenu
     label={t('knowledge.filter.format')}
@@ -243,7 +264,7 @@
       doc={shown}
       {detail}
       status={knowledgeDocs.detail.status}
-      error={knowledgeDocs.detail.error?.message ?? null}
+      error={knowledgeDocs.detail.error ? readFailureText(knowledgeDocs.detail.error) : null}
       {options}
       query={viewState.knowledgeQuery}
       onretry={() => void knowledgeDocs.detail.refresh()}

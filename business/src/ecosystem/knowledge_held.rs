@@ -215,6 +215,7 @@ pub async fn knowledge_pulse(
         documents: stats.documents,
         generation: stats.generation,
         held,
+        offline: stats.offline,
     })
 }
 

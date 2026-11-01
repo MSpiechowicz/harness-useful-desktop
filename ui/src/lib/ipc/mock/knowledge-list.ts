@@ -1,7 +1,7 @@
 import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeListFilter } from '../bindings/KnowledgeListFilter';
 
-/** The documents a list shows: by repository scope, format and the words of the search (in the title). */
+/** The documents a list shows: by repository scope, format, place and the words of the search (in the title). */
 export function visibleDocuments(documents: KnowledgeDocument[], filter: KnowledgeListFilter | null, query: string | null): KnowledgeDocument[] {
   const scope = filter?.scope ?? { kind: 'all' };
   const needle = (query ?? '').trim().toLowerCase();
@@ -16,6 +16,10 @@ export function visibleDocuments(documents: KnowledgeDocument[], filter: Knowled
     }
 
     if (filter?.format && doc.format !== filter.format) {
+      return false;
+    }
+
+    if (filter?.place && doc.place !== filter.place) {
       return false;
     }
 

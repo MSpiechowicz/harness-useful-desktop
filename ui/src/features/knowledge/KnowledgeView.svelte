@@ -12,6 +12,7 @@
   import { useKnowledgeData } from './knowledge-data.svelte';
   import KnowledgeHeader from './KnowledgeHeader.svelte';
   import KnowledgeOffNotice from './KnowledgeOffNotice.svelte';
+  import KnowledgeOfflineBanner from './KnowledgeOfflineBanner.svelte';
   import KnowledgeReview from './KnowledgeReview.svelte';
   import KnowledgeUnavailable from './KnowledgeUnavailable.svelte';
 
@@ -37,6 +38,8 @@
     <KnowledgeUnavailable availability={unavailable} onretry={() => void list.refresh()} onrefresh={refresh} />
   {:else}
     <KnowledgeOffNotice />
+
+    <KnowledgeOfflineBanner />
 
     <KnowledgeEmbedNotice />
 

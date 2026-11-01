@@ -17,7 +17,7 @@
   const documents = $derived(knowledgeChanges.pulse?.documents);
   const proposals = $derived(knowledgeChanges.pulse?.held ?? knowledgeHeld.list.data?.total);
   const options = $derived([
-    { value: 'docs' as const, label: t('knowledge.tab.documents'), count: documents ?? (viewState.knowledgeQuery === '' && viewState.knowledgeScope === 'all' && viewState.knowledgeFormat === null ? knowledgeDocs.list.data?.total : undefined) },
+    { value: 'docs' as const, label: t('knowledge.tab.documents'), count: documents ?? (viewState.knowledgeQuery === '' && viewState.knowledgeScope === 'all' && viewState.knowledgeFormat === null && viewState.knowledgePlace === null ? knowledgeDocs.list.data?.total : undefined) },
     { value: 'review' as const, label: t('knowledge.tab.review'), count: proposals || undefined },
   ]);
 </script>

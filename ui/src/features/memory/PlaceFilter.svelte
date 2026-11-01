@@ -9,12 +9,10 @@
 </script>
 
 <script lang="ts">
-  import FilterMenu from '$lib/components/FilterMenu.svelte';
+  import KeptInFilter from '$lib/components/KeptInFilter.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
   import { PLACE_LABELS } from './script-format';
-
-  type PlaceChoice = ScriptPlace | 'all';
 
   interface Props {
     /** How many are kept in each place under the other filters; null from a Harness Memory that cannot filter by place. */
@@ -26,23 +24,12 @@
 
   let { places, place, onchange }: Props = $props();
 
-
-  const options = $derived([
-    { value: 'all' as PlaceChoice, label: t('memory.filter.all'), count: places ? places.local + places.team : undefined },
-    { value: 'local' as PlaceChoice, label: t(PLACE_LABELS.local), count: places?.local },
-    { value: 'team' as PlaceChoice, label: t(PLACE_LABELS.team), count: places?.team },
+  const choices = $derived([
+    { value: 'local' as ScriptPlace, label: t(PLACE_LABELS.local), count: places?.local },
+    { value: 'team' as ScriptPlace, label: t(PLACE_LABELS.team), count: places?.team },
   ]);
 </script>
 
 {#if places !== null}
-  <FilterMenu
-    label={t('memory.filter.place')}
-    prefix={t('memory.filter.place')}
-    {options}
-    value={place ?? 'all'}
-    onchange={(next) => onchange(next === 'all' ? null : next)}
-    onclear={() => onchange(null)}
-    clearLabel={t('memory.filter.clearPlace')}
-    align="start"
-  />
+  <KeptInFilter places={choices} total={places.local + places.team} {place} {onchange} />
 {/if}

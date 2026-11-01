@@ -3,6 +3,7 @@ import type { KnowledgeDeleted } from '$lib/ipc/bindings/KnowledgeDeleted';
 import type { KnowledgeDetail } from '$lib/ipc/bindings/KnowledgeDetail';
 import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
 import type { KnowledgePage } from '$lib/ipc/bindings/KnowledgePage';
+import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
 import type { KnowledgeReposPage } from '$lib/ipc/bindings/KnowledgeReposPage';
 import type { KnowledgeScope } from '$lib/ipc/bindings/KnowledgeScope';
 import type { KnowledgeSort } from '$lib/ipc/bindings/KnowledgeSort';
@@ -27,6 +28,8 @@ export interface DocsRequest {
   /** A Scope filter choice: `all`, `global` or `repo:<key>`. */
   scope: string;
   format: string | null;
+  /** Narrows the table to the documents kept in one place, when both are in use. */
+  place: KnowledgePlace | null;
   sort: KnowledgeSort;
   order: SortOrder;
   page: number;
@@ -56,11 +59,11 @@ export class KnowledgeDocsStore {
 
   constructor(private readonly transport: Transport) {
     this.list = new ViewLoader((key) => {
-      const { query, scope, format, sort, order, page } = JSON.parse(key) as DocsRequest;
+      const { query, scope, format, place, sort, order, page } = JSON.parse(key) as DocsRequest;
       const search = query.trim();
 
       return transport.invoke('knowledge_docs_list', {
-        filter: { scope: scopeOf(scope), format, sort, order },
+        filter: { scope: scopeOf(scope), format, place, sort, order },
         offset: page * KNOWLEDGE_PAGE_SIZE,
         limit: KNOWLEDGE_PAGE_SIZE,
         query: search === '' ? null : search,

@@ -17,4 +17,8 @@ global: number,
 /**
  * The repositories, most documents first.
  */
-repos: Array<KnowledgeRepoCount>, };
+repos: Array<KnowledgeRepoCount>, 
+/**
+ * The remote database cannot be reached, so the counts are this computer's.
+ */
+offline: boolean, };

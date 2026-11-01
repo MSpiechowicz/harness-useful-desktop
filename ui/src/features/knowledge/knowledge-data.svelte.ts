@@ -3,6 +3,7 @@ import { untrack } from 'svelte';
 import { idKey } from '$lib/ipc/knowledge-id';
 import { KNOWLEDGE_POLL_MS } from '$lib/stores/live';
 import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
+import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
 import { type DocsRequest, docsKey, knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
 import { heldKey, type HeldRequest, knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
 import { revalidateProjectScopes } from '$lib/stores/project-scopes.svelte';
@@ -19,6 +20,7 @@ export function docsRequest(query: string): DocsRequest {
     query,
     scope: viewState.knowledgeScope,
     format: viewState.knowledgeFormat,
+    place: viewState.knowledgePlace,
     sort: sortOf(viewState.knowledgeSort.key),
     order: viewState.knowledgeSort.desc ? 'desc' : 'asc',
     page: viewState.knowledgePage,
@@ -67,6 +69,11 @@ export function useKnowledgeData(): void {
     untrack(() => knowledgeDocs.repos.revalidate('repos', null));
   });
 
+  // Where documents are kept decides whether the Kept in filter is offered.
+  $effect(() => {
+    untrack(() => void knowledgeRemote.load());
+  });
+
   // The repositories of the Scope filter and the editors are those of the open project and the recent ones.
   $effect(() => {
     void active;
@@ -83,13 +90,15 @@ export function useKnowledgeData(): void {
   });
 
   // The database changed (an agent added a document, a proposal came in, an import went on): everything on screen is read again.
-  let seen = untrack(() => knowledgeChanges.pulse?.generation ?? null);
+  // The remote database coming back or going away changes what the lists hold even when the generation stays.
+  const readState = () => `${knowledgeChanges.pulse?.generation ?? ''}:${knowledgeChanges.pulse?.offline ?? ''}`;
+  let seen = untrack(readState);
 
   $effect(() => {
-    const generation = knowledgeChanges.pulse?.generation ?? null;
+    const state = readState();
 
-    if (generation !== seen) {
-      seen = generation;
+    if (state !== seen) {
+      seen = state;
 
       untrack(() => void Promise.all([knowledgeDocs.refresh(), knowledgeHeld.refresh()]));
     }

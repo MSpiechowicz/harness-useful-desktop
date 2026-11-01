@@ -28,6 +28,7 @@ mod knowledge;
 mod knowledge_held;
 mod knowledge_import;
 mod knowledge_remote;
+mod knowledge_stats;
 mod memory_code;
 mod memory_embedder;
 mod memory_guards;
@@ -101,8 +102,8 @@ pub use ipc_error::{IpcError, IpcErrorCode};
 pub use knowledge::{
     KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatch, KnowledgeDocMatches,
     KnowledgeDocument, KnowledgeFeatures, KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgeOrigin,
-    KnowledgePage, KnowledgePlace, KnowledgePlaceStats, KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope,
-    KnowledgeSection, KnowledgeSort, KnowledgeStats, KnowledgeStatsPlaces, KnowledgeStatus, KnowledgeSwitchResult,
+    KnowledgePage, KnowledgePlace, KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope, KnowledgeSection,
+    KnowledgeSort, KnowledgeStatus, KnowledgeSwitchResult,
 };
 pub use knowledge_held::{
     KnowledgeApproval, KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeHit,
@@ -117,6 +118,7 @@ pub use knowledge_remote::{
     KnowledgeCapabilities, KnowledgeCheck, KnowledgeIndexState, KnowledgePlaceCheck, KnowledgePlaceChecks,
     KnowledgeProblem, KnowledgeRemote,
 };
+pub use knowledge_stats::{KnowledgePlaceStats, KnowledgeStats, KnowledgeStatsPlaces};
 pub use memory_code::{CodeBuildEvent, CodeIndexState};
 pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 pub use memory_guards::{

@@ -4,6 +4,7 @@ import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeHeldItem } from '../bindings/KnowledgeHeldItem';
 import type { KnowledgeHit } from '../bindings/KnowledgeHit';
 import type { KnowledgeId } from '../bindings/KnowledgeId';
+import type { KnowledgePlaceStats } from '../bindings/KnowledgePlaceStats';
 import type { KnowledgePulse } from '../bindings/KnowledgePulse';
 import type { CommandArgs } from '../commands';
 import { idKey } from '../knowledge-id';
@@ -44,6 +45,7 @@ export function knowledgeScenarioFromLocation(search: string = globalThis.locati
   return KNOWLEDGE_SCENARIOS.find((scenario) => scenario === name) ?? 'ok';
 }
 
+const UNREACHABLE_PREFIX = 'harness-knowledge:';
 const BULK_COUNT = 1500;
 const DEFAULT_LIMIT = 50;
 
@@ -59,6 +61,8 @@ export class MockKnowledge {
   constructor(
     scenario: KnowledgeScenario,
     readonly split = false,
+    /** The remote database cannot be reached: only the documents kept on this computer can be read, and writes to the remote are refused. */
+    public offline = false,
   ) {
     const all = scenario === 'empty' ? [] : [...sampleDocuments(), ...(scenario === 'bulk' ? bulkDocuments(BULK_COUNT) : [])];
 
@@ -67,7 +71,7 @@ export class MockKnowledge {
   }
 
   pulse(): KnowledgePulse {
-    return { documents: this.documents.length, generation: this.generation, held: this.held.length };
+    return { documents: this.reachable().length, generation: this.generation, held: this.held.length, offline: this.offline };
   }
 
   /** Tells the listener the database changed. */
@@ -90,11 +94,21 @@ export class MockKnowledge {
     return this.split && place === 'local' ? `local:${this.nextId()}` : this.nextId();
   }
 
-  find(id: KnowledgeId): KnowledgeDocument {
+  /** The documents that can be read now: all of them, or only this computer's while the remote is unreachable. */
+  reachable(): KnowledgeDocument[] {
+    return this.offline ? this.documents.filter((doc) => doc.place === 'local') : this.documents;
+  }
+
+  /** The document with this id. A remote one cannot be read while offline, or changed (`write`): the server's lines for each. */
+  find(id: KnowledgeId, write = false): KnowledgeDocument {
     const doc = this.documents.find((candidate) => idKey(candidate.id) === idKey(id));
 
     if (!doc) {
       throw IpcFailure.from({ code: 'process', message: `error: no document with id ${id}` });
+    }
+
+    if (this.offline && doc.place !== 'local') {
+      throw IpcFailure.from(write ? { code: 'process', message: `${UNREACHABLE_PREFIX} the remote database is unreachable, so nothing was changed` } : { code: 'unreachable', message: `${UNREACHABLE_PREFIX} remote knowledge is unreachable right now` });
     }
 
     return doc;
@@ -130,11 +144,11 @@ function snippetOf(text: string, phrase: string): string {
 }
 
 /** What one place holds, for the `places` of the counts. */
-function placeStats(documents: KnowledgeDocument[], place: 'remote' | 'local'): { documents: number; chunks: number; embeddedChunks: number; globalDocuments: number } {
+function placeStats(documents: KnowledgeDocument[], place: 'remote' | 'local', offline: boolean): KnowledgePlaceStats {
   const kept = documents.filter((doc) => doc.place === place);
   const chunks = kept.reduce((sum, doc) => sum + doc.chunkCount, 0);
 
-  return { documents: kept.length, chunks, embeddedChunks: chunks, globalDocuments: kept.filter((doc) => doc.links.length === 0).length };
+  return offline && place === 'remote' ? { documents: 0, chunks: 0, embeddedChunks: 0, globalDocuments: 0, offline: true } : { documents: kept.length, chunks, embeddedChunks: chunks, globalDocuments: kept.filter((doc) => doc.links.length === 0).length, offline: false };
 }
 
 function heldNotFound(): KnowledgeDecided {
@@ -171,13 +185,13 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
 
     knowledge_docs_list: ({ filter, offset, limit, query }) => {
       if (!available()) {
-        return { availability: availability(), items: [], total: 0 };
+        return { availability: availability(), items: [], total: 0, offline: false };
       }
 
-      const matching = sortDocuments(visibleDocuments(store.documents, filter, query), filter);
+      const matching = sortDocuments(visibleDocuments(store.reachable(), filter, query), filter);
       const size = limit ?? DEFAULT_LIMIT;
 
-      return { availability: availability(), items: matching.slice(offset ?? 0, (offset ?? 0) + size), total: matching.length };
+      return { availability: availability(), items: matching.slice(offset ?? 0, (offset ?? 0) + size), total: matching.length, offline: store.offline };
     },
 
     knowledge_doc_get: ({ id, chunkId }) => {
@@ -202,7 +216,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
     },
 
     knowledge_doc_rename: ({ id, title }) => {
-      const document = store.find(id);
+      const document = store.find(id, true);
       const trimmed = title.trim();
 
       if (trimmed === '' || trimmed.length > 300) {
@@ -216,13 +230,15 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
     },
 
     knowledge_doc_links_set: ({ id, links }) => {
-      store.find(id).links = structuredClone(links);
+      store.find(id, true).links = structuredClone(links);
       store.changed();
 
       return links;
     },
 
     knowledge_docs_delete: ({ ids }) => {
+      ids.forEach((id) => store.find(id, true));
+
       const before = store.documents.length;
       const gone = new Set(ids.map(idKey));
       store.documents = store.documents.filter((doc) => !gone.has(idKey(doc.id)));
@@ -233,24 +249,27 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
 
     knowledge_repos_list: () => ({
       availability: availability(),
-      global: store.documents.filter((doc) => doc.links.length === 0).length,
-      repos: [DESKTOP_REPO, 'git:github.com/useful/website'].map((key) => ({ key, docs: store.documents.filter((doc) => doc.links.some((link) => link.repo === key)).length })).filter((repo) => repo.docs > 0),
+      global: store.reachable().filter((doc) => doc.links.length === 0).length,
+      repos: [DESKTOP_REPO, 'git:github.com/useful/website'].map((key) => ({ key, docs: store.reachable().filter((doc) => doc.links.some((link) => link.repo === key)).length })).filter((repo) => repo.docs > 0),
+      offline: store.offline,
     }),
 
     knowledge_stats: () => {
-      const chunks = store.documents.reduce((sum, doc) => sum + doc.chunkCount, 0);
+      const kept = store.reachable();
+      const chunks = kept.reduce((sum, doc) => sum + doc.chunkCount, 0);
 
       return {
-        documents: store.documents.length,
+        documents: kept.length,
         chunks,
         embeddedChunks: chunks,
-        bytes: store.documents.reduce((sum, doc) => sum + doc.bytes, 0),
-        globalDocuments: store.documents.filter((doc) => doc.links.length === 0).length,
-        repositories: new Set(store.documents.flatMap((doc) => doc.links.map((link) => link.repo))).size,
+        bytes: kept.reduce((sum, doc) => sum + doc.bytes, 0),
+        globalDocuments: kept.filter((doc) => doc.links.length === 0).length,
+        repositories: new Set(kept.flatMap((doc) => doc.links.map((link) => link.repo))).size,
         generation: store.generation,
         schema: 1,
         model: chunks > 0 ? 'multilingual-e5-small' : null,
-        ...(store.split ? { places: { remote: placeStats(store.documents, 'remote'), local: placeStats(store.documents, 'local') } } : {}),
+        offline: store.offline,
+        ...(store.split ? { places: { remote: placeStats(store.documents, 'remote', store.offline), local: placeStats(store.documents, 'local', false) } } : {}),
       };
     },
 

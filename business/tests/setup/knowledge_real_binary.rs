@@ -29,7 +29,7 @@ use harness_business::env::Env;
 use harness_business::model::{
     KnowledgeApproval, KnowledgeAvailability, KnowledgeDecided, KnowledgeDecision, KnowledgeEmbedding,
     KnowledgeFileStatus, KnowledgeImportEvent, KnowledgeImportOptions, KnowledgeListFilter, KnowledgeOrigin,
-    KnowledgeSearchScope, MemoryNotesRouting, MemoryRemoteKind,
+    KnowledgePlace, KnowledgeSearchScope, MemoryNotesRouting, MemoryRemoteKind,
 };
 use harness_business::process::{ExecSpec, ProcessRunner, TokioRunner, TokioSpawner};
 use pretty_assertions::assert_eq;
@@ -166,6 +166,20 @@ fn a_real_server_imports_lists_searches_and_checks() {
         .find(|doc| doc.title == "Gateway")
         .expect("the gateway guide");
     assert!(gateway.links.is_empty(), "an import without links is global");
+
+    // `--place` with one place in use: this computer lists everything, the remote place nothing, and neither is offline
+    for (place, total) in [(KnowledgePlace::Local, 2), (KnowledgePlace::Remote, 0)] {
+        let filter = KnowledgeListFilter {
+            place: Some(place),
+            ..KnowledgeListFilter::default()
+        };
+        let narrowed = wait(list_docs(&env, &runner, &probe, &filter, &window)).unwrap();
+
+        assert_eq!(
+            (narrowed.availability, narrowed.total, narrowed.offline),
+            (KnowledgeAvailability::Available, total, false)
+        );
+    }
 
     let docs = wait(docs_server(&env, &runner, &probe)).unwrap();
     let detail = wait(get_doc(&env, &runner, &docs, &gateway.id, None)).unwrap();

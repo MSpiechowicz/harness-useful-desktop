@@ -1,7 +1,9 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
 import { idKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
-import { IpcFailure, type Transport } from '$lib/ipc/transport';
+import type { Transport } from '$lib/ipc/transport';
+
+import { readFailureText } from './knowledge-failure';
 
 /** Where the text of one chunk stands. */
 export type ChunkState = { status: 'loading' } | { status: 'ready'; text: string } | { status: 'error'; message: string };
@@ -37,7 +39,7 @@ export class ChunkTexts {
 
       this.set(chunkId, detail.chunk === null ? { status: 'error', message: t('knowledge.chunk.failed') } : { status: 'ready', text: detail.chunk.text });
     } catch (error) {
-      this.set(chunkId, { status: 'error', message: IpcFailure.from(error).message });
+      this.set(chunkId, { status: 'error', message: readFailureText(error) });
     }
   }
 

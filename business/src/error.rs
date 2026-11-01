@@ -70,6 +70,10 @@ pub enum BusinessError {
     #[error("{0}")]
     UntrustedUnreadable(String),
 
+    /// A team database cannot be reached right now. The text is the server's sentence.
+    #[error("{0}")]
+    Unreachable(String),
+
     /// A bug or unexpected state.
     #[error("internal error: {0}")]
     Internal(String),
@@ -102,6 +106,7 @@ impl BusinessError {
             Self::Changed(_) => IpcErrorCode::Changed,
             Self::Untrusted(_) => IpcErrorCode::Untrusted,
             Self::UntrustedUnreadable(_) => IpcErrorCode::UntrustedUnreadable,
+            Self::Unreachable(_) => IpcErrorCode::Unreachable,
             Self::Internal(_) => IpcErrorCode::Internal,
         }
     }

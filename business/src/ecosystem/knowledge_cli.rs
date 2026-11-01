@@ -7,7 +7,9 @@
 //! which this app does not read: the last `harness-knowledge:` line of stderr says the same. A
 //! command on a database that lacks a capability exits 3 with `{"error": "missing", "code",
 //! "message"}`: [`run_typed`] reads it into a [`KnowledgeProblem`] (the pages show it as their
-//! availability), [`run_json`] as a `process` error with the server's sentence.
+//! availability), [`run_json`] as a `process` error with the server's sentence. A command that
+//! needs the remote database while it cannot be reached (exit 1, "remote knowledge is unreachable
+//! right now") is an `unreachable` error, so the UI says so in its own words.
 
 use std::ffi::OsString;
 use std::path::Path;
@@ -99,8 +101,20 @@ pub(crate) async fn run_typed(
             "this {} predates `{name}`, so update {}",
             KNOWLEDGE_SIDECAR.binary, KNOWLEDGE_SIDECAR.product
         )))),
+        CliAnswer::Failed { message, .. } if is_unreachable(&message) => {
+            Err(CliFailure::Error(BusinessError::Unreachable(message)))
+        }
         CliAnswer::Failed { message, .. } => Err(CliFailure::Error(BusinessError::Process(message))),
     }
+}
+
+/// The end of the server's line when it cannot read a remote document or reach the remote database
+/// (`harness-knowledge: remote knowledge is unreachable right now`).
+const UNREACHABLE_LINE: &str = "remote knowledge is unreachable right now";
+
+/// Whether the server's line says the remote database cannot be reached right now.
+fn is_unreachable(message: &str) -> bool {
+    message.trim_end_matches('.').ends_with(UNREACHABLE_LINE)
 }
 
 /// [`run_typed`] with a missing capability as a `process` error carrying the server's sentence.

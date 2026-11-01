@@ -48,4 +48,8 @@ held?: number,
 /**
  * The counts of each place in use, only when both are.
  */
-places?: KnowledgeStatsPlaces, };
+places?: KnowledgeStatsPlaces, 
+/**
+ * The remote database cannot be reached: the counts are this computer's.
+ */
+offline: boolean, };

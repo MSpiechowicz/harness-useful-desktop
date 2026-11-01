@@ -11,12 +11,12 @@
   import type { KnowledgeDocMatch } from '$lib/ipc/bindings/KnowledgeDocMatch';
   import { ipc } from '$lib/ipc/client';
   import { idKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
-  import { IpcFailure } from '$lib/ipc/transport';
   import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
   import { uid } from '$lib/utils/ids';
 
   import type { ChunkTexts } from './chunk-texts.svelte';
   import ChunkPart from './ChunkPart.svelte';
+  import { readFailureText } from './knowledge-failure';
   import { headingLevel } from './knowledge-format';
   import { highlightPieces } from './knowledge-text';
 
@@ -90,7 +90,7 @@
       })
       .catch((failure: unknown) => {
         if (!stale) {
-          error = IpcFailure.from(failure).message;
+          error = readFailureText(failure);
         }
       });
 

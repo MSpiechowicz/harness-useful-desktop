@@ -16,4 +16,9 @@ generation: number,
 /**
  * How many proposals wait for review, none while the server has no review queue.
  */
-held: number | null, };
+held: number | null, 
+/**
+ * The remote database cannot be reached: the counts are this computer's, and writes to the
+ * remote are paused.
+ */
+offline: boolean, };

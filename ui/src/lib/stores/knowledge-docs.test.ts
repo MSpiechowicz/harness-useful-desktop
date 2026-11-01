@@ -14,7 +14,7 @@ afterEach(() => {
   toasts.items = [];
 });
 
-const REQUEST: DocsRequest = { query: '', scope: 'all', format: null, sort: 'updated', order: 'desc', page: 0 };
+const REQUEST: DocsRequest = { query: '', scope: 'all', format: null, place: null, sort: 'updated', order: 'desc', page: 0 };
 const doc = (id: number): KnowledgeDocument => documentOf({ id, title: `Doc ${id}`, name: `doc-${id}.md`, format: 'markdown', kb: 1, chunks: 1, age: id });
 
 function listing(documents: KnowledgeDocument[]) {
@@ -24,7 +24,7 @@ function listing(documents: KnowledgeDocument[]) {
     knowledge_docs_list: (args: { offset: number | null; limit: number | null }): KnowledgePage => {
       asked.push(args);
 
-      return { availability: { type: 'available' }, items: documents.slice(args.offset ?? 0, (args.offset ?? 0) + (args.limit ?? 50)), total: documents.length };
+      return { availability: { type: 'available' }, items: documents.slice(args.offset ?? 0, (args.offset ?? 0) + (args.limit ?? 50)), total: documents.length, offline: false };
     },
     knowledge_docs_delete: ({ ids }: { ids: (number | string)[] }) => {
       const before = documents.length;
@@ -47,7 +47,7 @@ describe('the documents table asks the server for one page', () => {
     await store.list.refresh();
 
     expect(asked.at(-1)).toEqual({
-      filter: { scope: { kind: 'repo', key: 'git:github.com/acme/widget' }, format: 'pdf', sort: 'title', order: 'asc' },
+      filter: { scope: { kind: 'repo', key: 'git:github.com/acme/widget' }, format: 'pdf', place: null, sort: 'title', order: 'asc' },
       offset: 2 * KNOWLEDGE_PAGE_SIZE,
       limit: KNOWLEDGE_PAGE_SIZE,
       query: 'runbook',

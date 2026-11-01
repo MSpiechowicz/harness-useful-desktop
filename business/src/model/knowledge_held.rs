@@ -146,6 +146,10 @@ pub struct KnowledgePulse {
     pub generation: i64,
     /// How many proposals wait for review, none while the server has no review queue.
     pub held: Option<u32>,
+    /// The remote database cannot be reached: the counts are this computer's, and writes to the
+    /// remote are paused.
+    #[serde(default)]
+    pub offline: bool,
 }
 
 /// Which documents a search sees besides the global ones.

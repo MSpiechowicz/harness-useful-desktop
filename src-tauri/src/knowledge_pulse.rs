@@ -101,6 +101,7 @@ async fn read(state: &AppState) -> Option<KnowledgePulse> {
             documents: 0,
             generation: 0,
             held: Some(0),
+            offline: false,
         });
     }
 

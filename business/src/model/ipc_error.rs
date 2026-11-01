@@ -35,6 +35,9 @@ pub enum IpcErrorCode {
     /// global file, which holds its trust answers) cannot be read: the UI says so and offers the
     /// same `trustOnce` start.
     UntrustedUnreadable,
+    /// A team database cannot be reached right now (Harness Knowledge's remote while offline): the
+    /// UI says so in its own words instead of showing a failure.
+    Unreachable,
     /// A bug or an unexpected internal state.
     Internal,
 }

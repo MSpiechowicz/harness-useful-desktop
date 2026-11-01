@@ -43,6 +43,7 @@ fn a_page_becomes_the_servers_page_number_with_the_sort_and_filters() {
     let filter = KnowledgeListFilter {
         scope: Some(KnowledgeScope::Repo { key: REPO.to_owned() }),
         format: Some("markdown".to_owned()),
+        place: None,
         sort: Some(KnowledgeSort::Title),
         order: None,
     };

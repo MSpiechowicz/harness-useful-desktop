@@ -17,7 +17,7 @@ import { knowledgeHandlers, knowledgeScenarioFromLocation, MockKnowledge } from 
 import { knowledgeImportHandlers } from './knowledge-import-handlers';
 import { usesBothPlaces } from '$lib/utils/knowledge-routing';
 import { knowledgeRemoteHandlers, knowledgeRemoteScenarioFromLocation } from './knowledge-remote-handlers';
-import { knowledgeRoutingFromLocation } from './knowledge-routing';
+import { knowledgeOfflineFromLocation, knowledgeRoutingFromLocation } from './knowledge-routing';
 import { MockMemoryGuards } from './memory-guards-handlers';
 import { memoryCodeHandlers } from './memory-code-handlers';
 import { memoryEmbedderHandlers } from './memory-embedder-handlers';
@@ -97,7 +97,7 @@ export function defaultScenario(): Scenario {
 
     return scenario === 'none' && usesBothPlaces(true, routing) ? 'postgres' : scenario;
   };
-  const knowledge = new MockKnowledge(knowledgeScenarioFromLocation(), usesBothPlaces(remoteScenario() !== 'none', routing));
+  const knowledge = new MockKnowledge(knowledgeScenarioFromLocation(), usesBothPlaces(remoteScenario() !== 'none', routing), knowledgeOfflineFromLocation());
   const ecosystem = ecosystemHandlers();
   const copyStores: CopyStores = {};
 

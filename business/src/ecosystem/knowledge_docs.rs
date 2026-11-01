@@ -22,8 +22,8 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches, KnowledgeDocument,
-    KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgePage, KnowledgeRepoCount, KnowledgeReposPage,
-    KnowledgeScope, KnowledgeSort, KnowledgeStats,
+    KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgePage, KnowledgePlace, KnowledgeRepoCount,
+    KnowledgeReposPage, KnowledgeScope, KnowledgeSort, KnowledgeStats,
 };
 use crate::process::ProcessRunner;
 
@@ -76,7 +76,11 @@ pub async fn list_docs(
         Err(failure) => Err(failure),
     };
 
-    Ok(page.unwrap_or_else(|failure| KnowledgePage::unavailable(availability_of_failure(failure))))
+    Ok(page.unwrap_or_else(|failure| match failure {
+        // A list narrowed to the remote place, asked while it cannot be reached.
+        CliFailure::Error(BusinessError::Unreachable(_)) => KnowledgePage::offline(),
+        other => KnowledgePage::unavailable(availability_of_failure(other)),
+    }))
 }
 
 /// The page in the answer of `docs list`.
@@ -85,10 +89,17 @@ fn read_page(data: &Value) -> Result<KnowledgePage> {
         availability: KnowledgeAvailability::Available,
         items: field::<Vec<KnowledgeDocument>>(data, "items", "docs list")?,
         total: count_of(data.get("total")),
+        offline: is_offline(data),
     })
 }
 
-/// `docs list --json [--repo KEY | --global] [--format F] [--query Q] --sort S [--desc] --page N
+/// Whether an answer says the remote database could not be reached (`"offline": true`, absent
+/// otherwise).
+fn is_offline(data: &Value) -> bool {
+    data.get("offline").and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// `docs list --json [--repo KEY | --global] [--format F] [--place P] [--query Q] --sort S [--desc] --page N
 /// --per-page N`.
 pub fn list_args(filter: &KnowledgeListFilter, window: &ListWindow) -> Result<Vec<std::ffi::OsString>> {
     let mut args = words(&["docs", "list", "--json"]);
@@ -105,6 +116,12 @@ pub fn list_args(filter: &KnowledgeListFilter, window: &ListWindow) -> Result<Ve
     if let Some(format) = &filter.format {
         check_format(format)?;
         args.extend(["--format".into(), format.into()]);
+    }
+
+    match filter.place {
+        Some(KnowledgePlace::Remote) => args.extend(["--place".into(), "remote".into()]),
+        Some(KnowledgePlace::Local) => args.extend(["--place".into(), "local".into()]),
+        None => {}
     }
 
     if let Some(query) = window.query() {
@@ -311,6 +328,7 @@ fn read_repos(data: &Value) -> Result<KnowledgeReposPage> {
         availability: KnowledgeAvailability::Available,
         global: field(data, "global", "repos")?,
         repos: field::<Vec<KnowledgeRepoCount>>(data, "repos", "repos")?,
+        offline: is_offline(data),
     })
 }
 
