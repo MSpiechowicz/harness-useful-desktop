@@ -64,12 +64,14 @@ describe('Ecosystem view', () => {
     const sidebar = screen.getByRole('article', { name: /Harness Sidebar/ });
     expect(within(sidebar).getByText('Not installed')).toBeInTheDocument();
     // The GitHub release lookup lands just after the local reading.
-    expect(await screen.findByText('3 of 6 installed · 1 update available', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    // The count is said once, under the diagram, not again in the text beside it.
+    expect(await screen.findByRole('group', { name: '3 of 6 modules loaded · 1 update' })).toBeInTheDocument();
+    expect(screen.queryByText('3 of 6 installed · 1 update available')).toBeNull();
 
-    // All six wear their own mark in the family tree.
-    const tree = screen.getByRole('img', { name: /^3 of 6 installed/ });
-    expect(tree.getAttribute('aria-label')).toMatch(/Harness Memory/);
-    expect(within(tree).getByText('Memory')).toBeInTheDocument();
+    // All six sit in the diagram of the Harness family, each with its own mark.
+    const diagram = screen.getByRole('group', { name: /^3 of 6 modules loaded/ });
+    expect(within(diagram).getByRole('button', { name: 'Harness Memory installed' })).toBeInTheDocument();
+    expect(within(diagram).getByRole('img', { name: 'Harness Desktop' })).toBeInTheDocument();
   });
 
   it('flags a companion whose GitHub release is newer and opens its update steps', async () => {
@@ -296,7 +298,7 @@ describe('Ecosystem view in Polish', () => {
     await show();
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Narzędzia, dzięki którym agentów da się zmierzyć' })).toBeInTheDocument();
-    expect(await screen.findByText('Zainstalowano 3 z 6 · 1 dostępna aktualizacja', { selector: 'p[role="status"]' })).toBeInTheDocument();
+    expect(await screen.findByRole('group', { name: /^Załadowano 3 z 6 modułów · 1 / })).toBeInTheDocument();
 
     const sessions = await screen.findByRole('article', { name: 'Sesje, ostatnie 7 dni' });
     expect(sessions).toHaveTextContent('318 promptów');

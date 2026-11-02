@@ -33,10 +33,14 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.skillsMigration.reason': '{harness}: {reason}',
   'ecosystem.skillsMigration.noReason': 'O instalador não disse o motivo.',
 
-  'ecosystem.orbit.description': '{summary}: {items}',
-  'ecosystem.orbit.installed': '{name} instalado',
-  'ecosystem.orbit.updating': '{name} instalado, atualização disponível',
-  'ecosystem.orbit.missing': '{name} não instalado',
+  'ecosystem.kernel.loaded.one': '{loaded} de {count} módulo carregado',
+  'ecosystem.kernel.loaded.other': '{loaded} de {count} módulos carregados',
+  'ecosystem.kernel.updates.one': '{count} atualização',
+  'ecosystem.kernel.updates.other': '{count} atualizações',
+  'ecosystem.kernel.focus': '{name} · {state}',
+  'ecosystem.kernel.installed': '{name} instalado',
+  'ecosystem.kernel.updating': '{name} instalado, atualização disponível',
+  'ecosystem.kernel.missing': '{name} não instalado',
 
   'ecosystem.card.details': 'Detalhes',
   'ecosystem.card.howToUpdate': 'Como atualizar',

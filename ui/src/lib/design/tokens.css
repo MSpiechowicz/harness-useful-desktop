@@ -246,6 +246,25 @@
   --notice-line: 18px;
   /* The height of the list in a menu with a search field (the Scope filter, a repository picker): fixed, so the menu does not jump while typing narrows it. */
   --menu-list-h: 288px;
+  /* The Harness family diagram of the ecosystem hero (the stage geometry lives in features/ecosystem/kernel/kernel-layout.ts): a module's
+     socket has this padding and gap between its card and its LED strip, the strip is this wide and its LED and ticks this big. */
+  --kernel-socket-pad: 3px;
+  --kernel-socket-gap: 4px;
+  --kernel-card-pad: 6px;
+  --kernel-card-gap: 5px;
+  --kernel-card-radius: 6px;
+  --kernel-strip-w: 10px;
+  --kernel-led: 6px;
+  /* The ring that pulses around a LED when an update is waiting: how far out it sits and how thick it is. */
+  --kernel-ring-gap: 2px;
+  --kernel-ring-w: 1.5px;
+  --kernel-tick-w: 8px;
+  --kernel-tick-h: 2px;
+  /* The update badge sits on the socket's outer top corner, this far out of it. */
+  --kernel-badge: 16px;
+  --kernel-badge-out: -6px;
+  /* A data blip is this big. */
+  --kernel-blip: 6px;
   --gutter: 24px;
   --chat-measure: 880px;
   --chat-col: calc(var(--chat-measure) + 2 * var(--gutter));

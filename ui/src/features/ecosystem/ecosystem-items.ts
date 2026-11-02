@@ -27,3 +27,8 @@ export function updatesSummary(items: EcosystemItem[]): string | null {
 }
 
 export const SHORT_NAMES: Record<EcosystemId, string> = { dashboard: 'Dashboard', memory: 'Memory', knowledge: 'Knowledge', code: 'Code', skills: 'Skills', sidebar: 'Sidebar' };
+
+/** The id of a card's title: the diagram of the family finds the card of a module by it. */
+export function cardTitleId(id: EcosystemId): string {
+  return `ecosystem-${id}`;
+}

@@ -12,7 +12,7 @@
   import { openExternal } from '$lib/ipc/actions';
   import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
 
-  import { itemState } from './ecosystem-items';
+  import { cardTitleId, itemState } from './ecosystem-items';
   import InlineCode from './InlineCode.svelte';
   import InstallSteps from './InstallSteps.svelte';
   import { productDescription, productNote, productTagline } from './product-copy';
@@ -27,7 +27,7 @@
 
   const status = $derived(itemState(item));
   const updating = $derived(status === 'installed' && item.updateAvailable);
-  const titleId = $derived(`ecosystem-${item.id}`);
+  const titleId = $derived(cardTitleId(item.id));
 
   // A lone step needs no count.
   const stepCount = $derived(item.installSteps.length > 1 ? tn('ecosystem.count.step', item.installSteps.length) : undefined);
@@ -88,10 +88,12 @@
   {/if}
 {/snippet}
 
+<!-- Focusable by script only: choosing a module in the family diagram brings its card into view and focus. -->
 <article
   aria-labelledby={titleId}
+  tabindex="-1"
   in:rise={{ y: 14, delay: 120 + index * 80, duration: 420 }}
-  class="flex min-w-0 flex-col gap-4 rounded-lg border border-line bg-surface-1 p-5 shadow-raised"
+  class="flex min-w-0 flex-col gap-4 rounded-lg border border-line bg-surface-1 p-5 shadow-raised outline-none focus-visible:outline-2 focus-visible:outline-offset-2"
 >
   <header class="flex flex-col gap-3">
     <!-- The family mark and the state share the top row, so the name below always gets the card's full width. -->

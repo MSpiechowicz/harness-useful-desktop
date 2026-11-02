@@ -30,10 +30,14 @@ export const ecosystem = {
   'ecosystem.skillsMigration.reason': '{harness}: {reason}',
   'ecosystem.skillsMigration.noReason': 'The installer did not say why.',
 
-  'ecosystem.orbit.description': '{summary}: {items}',
-  'ecosystem.orbit.installed': '{name} installed',
-  'ecosystem.orbit.updating': '{name} installed, update available',
-  'ecosystem.orbit.missing': '{name} not installed',
+  'ecosystem.kernel.loaded.one': '{loaded} of {count} module loaded',
+  'ecosystem.kernel.loaded.other': '{loaded} of {count} modules loaded',
+  'ecosystem.kernel.updates.one': '{count} update',
+  'ecosystem.kernel.updates.other': '{count} updates',
+  'ecosystem.kernel.focus': '{name} · {state}',
+  'ecosystem.kernel.installed': '{name} installed',
+  'ecosystem.kernel.updating': '{name} installed, update available',
+  'ecosystem.kernel.missing': '{name} not installed',
 
   'ecosystem.card.details': 'Details',
   'ecosystem.card.howToUpdate': 'How to update',
