@@ -6,6 +6,22 @@ import { IpcFailure } from '../transport';
 import { memoryScriptsHandlers, scriptScenarioFromLocation, scriptsSupported } from './memory-scripts-handlers';
 
 describe('mock scripts', () => {
+  it('says who added and changed a script, and nothing for a server without notes-authors', () => {
+    const listed = memoryScriptsHandlers(() => 'ok');
+    const old = memoryScriptsHandlers(() => 'ok', undefined, undefined, () => false);
+    const asked = { project: '/work/app', offset: 0 };
+
+    const scripts = listed.memory_scripts_list(asked).scripts;
+    const named = (name: string) => scripts.find((script) => script.name === name);
+    expect(named('lint-changed')?.addedBy).toEqual({ name: 'Ada Lovelace', via: 'claude-code' });
+    expect(named('ci-status')?.updatedBy).toEqual({ name: 'Grace Hopper', via: null });
+    expect(named('open-prs')?.addedBy).toBeNull();
+    expect(listed.memory_script_get({ id: 15, project: '/work/app' }).addedBy).toEqual(named('ci-status')?.addedBy);
+
+    expect(old.memory_scripts_list(asked).scripts.every((script) => !('addedBy' in script) && !('updatedBy' in script))).toBe(true);
+    expect('addedBy' in old.memory_script_get({ id: 12, project: '/work/app' })).toBe(false);
+  });
+
   it('lists the global scripts without a project and the repository ones with it, and never sends a body in the list', () => {
     const handlers = memoryScriptsHandlers(() => 'ok');
 

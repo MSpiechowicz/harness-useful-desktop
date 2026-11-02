@@ -2,6 +2,7 @@
   import CircleAlert from '@lucide/svelte/icons/circle-alert';
 
   import Markdown from '$lib/components/Markdown.svelte';
+  import type { KnowledgeUseIndex } from '$lib/chat/knowledge-use';
   import type { MemoryUseIndex } from '$lib/chat/memory-use';
   import type { MessageItem, ToolCallState } from '$lib/chat/types';
   import type { Subagent } from '$lib/ipc/bindings/Subagent';
@@ -19,11 +20,12 @@
     active: boolean;
     /** The session's subagents, for the `task` calls in this message. */
     subagents?: Record<string, Subagent>;
-    /** What each reply did with the notes its searches found, for the project-memory cards. */
+    /** What each reply did with the notes and documents its searches found, for the project-memory and project-documentation cards. */
     memoryUse?: MemoryUseIndex;
+    knowledgeUse?: KnowledgeUseIndex;
   }
 
-  let { item, toolCalls, active, subagents = {}, memoryUse }: Props = $props();
+  let { item, toolCalls, active, subagents = {}, memoryUse, knowledgeUse }: Props = $props();
 
   const lastIndex = $derived(item.blocks.length - 1);
   const empty = $derived(item.blocks.length === 0);
@@ -44,7 +46,7 @@
     {:else if block.type === 'tool'}
       {@const call = toolCalls[block.toolCallId]}
       {#if call}
-        <ChatToolCard {call} {active} {subagents} {memoryUse} />
+        <ChatToolCard {call} {active} {subagents} {memoryUse} {knowledgeUse} />
       {/if}
     {:else if block.type === 'image'}
       <p class="text-sm text-fg-3">{t('chat.assistant.image', { type: block.mimeType })}</p>

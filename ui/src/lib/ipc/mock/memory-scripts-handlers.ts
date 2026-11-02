@@ -12,6 +12,7 @@ import { deletion, requireServer } from './memory-delete-all';
 import { type Reach, reaches } from './memory-reach';
 import { combinesFilters } from './memory-notes-handlers';
 import { type CopyStores, type TeamScriptsHandlers, teamScriptsHandlers } from './memory-notes-team-handlers';
+import { notesAuthorsListed, withoutAuthors } from './authors';
 import { sampleScripts, summaryOf } from './memory-scripts-fixtures';
 import { sampleRunRequests } from './script-request-fixtures';
 
@@ -178,7 +179,7 @@ function withReadOnly(scenario: ScriptScenario): ScriptDetail[] {
   return sampleScripts().map((script) => ({ ...script, readOnly: scenario === 'readonly' && script.place === 'team' }));
 }
 
-export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptScenarioFromLocation, combined: () => boolean = combinesFilters, copyStores: CopyStores = {}): ScriptHandlers {
+export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptScenarioFromLocation, combined: () => boolean = combinesFilters, copyStores: CopyStores = {}, authorsListed: () => boolean = notesAuthorsListed): ScriptHandlers {
   let scripts: ScriptDetail[] | null = null;
   const current = (): ScriptDetail[] => (scripts ??= withReadOnly(scenario()));
 
@@ -231,9 +232,12 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
         return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
       }
 
-      return { availability, ...pageOfScripts(visible(args).map(summaryOf), args, combined(), current().map(summaryOf)) };
+      const page = pageOfScripts(visible(args).map(summaryOf), args, combined(), current().map(summaryOf));
+
+      // A server without `notes-authors` sends no author.
+      return { availability, ...page, scripts: authorsListed() ? page.scripts : page.scripts.map(withoutAuthors) };
     },
-    memory_script_get: ({ id, hidden, ...reach }) => find(id, reach, hidden),
+    memory_script_get: ({ id, hidden, ...reach }) => (authorsListed() ? find(id, reach, hidden) : withoutAuthors(find(id, reach, hidden))),
     memory_script_delete: ({ id, ...reach }) => {
       const script = find(id, reach);
       scripts = current().filter((candidate) => candidate !== script);

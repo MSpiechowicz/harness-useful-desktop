@@ -6,6 +6,7 @@
   import BookOpenText from '@lucide/svelte/icons/book-open-text';
   import { untrack } from 'svelte';
 
+  import AuthorCell from '$lib/components/AuthorCell.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
@@ -14,32 +15,41 @@
   import ScopeFilter from '$lib/components/scope/ScopeFilter.svelte';
   import { choiceKey, type ScopeChoice } from '$lib/components/scope/scope-options';
   import type { Column } from '$lib/components/table';
+  import UsefulCell from '$lib/components/UsefulCell.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeDocument } from '$lib/ipc/bindings/KnowledgeDocument';
   import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
+  import type { KnowledgeUsefulFilter } from '$lib/ipc/bindings/KnowledgeUsefulFilter';
   import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { knowledgeDocs, KNOWLEDGE_PAGE_SIZE } from '$lib/stores/knowledgeDocs.svelte';
   import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
   import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
+  import { knowledgeReplace } from '$lib/stores/knowledgeReplace.svelte';
+  import { knowledgeStats } from '$lib/stores/knowledgeStats.svelte';
   import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
-  import { formatDateTime, relativeTime } from '$lib/utils/format';
+  import { authorLine } from '$lib/utils/author-format';
+  import { formatBytes, formatDateTime, relativeTime } from '$lib/utils/format';
   import { readFailureText } from '$lib/utils/knowledge-failure';
   import { usesBothPlaces } from '$lib/utils/knowledge-routing';
   import { clampPage, pageCount } from '$lib/utils/pagination';
 
   import MemorySearch from '../memory/MemorySearch.svelte';
   import MemoryTable from '../memory/MemoryTable.svelte';
+  import { usefulCounts } from '../memory/note-format';
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import DocumentPanel from './DocumentPanel.svelte';
   import { docColumns, docSubtitle, formatKey, formatLabel, formatTone, KNOWLEDGE_FORMATS, linksText, pathCount, pathsText, placeLabel, repoLabel } from './knowledge-format';
+  import { keptRemote } from './knowledge-replace';
   import { knowledgeScopeOptions } from './knowledge-repos';
   import KnowledgeEmpty from './KnowledgeEmpty.svelte';
   import KnowledgePlaceFilter from './KnowledgePlaceFilter.svelte';
   import KnowledgeTabs from './KnowledgeTabs.svelte';
   import { exitRow } from './row-exit';
+
+  type UsefulChoice = KnowledgeUsefulFilter | 'all';
 
   let confirmer: SessionConfirm | undefined = $state();
 
@@ -47,7 +57,7 @@
   const rows = $derived(page?.items ?? []);
   const total = $derived(page?.total ?? 0);
   const searching = $derived(viewState.knowledgeQuery.trim() !== '');
-  const filtered = $derived(viewState.knowledgeScope !== 'all' || viewState.knowledgeFormat !== null || viewState.knowledgePlace !== null);
+  const filtered = $derived(viewState.knowledgeScope !== 'all' || viewState.knowledgeFormat !== null || viewState.knowledgePlace !== null || viewState.knowledgeUseful !== null);
   // Nothing at all is kept: no documents, and no search or filter that would explain it.
   const none = $derived(page !== null && total === 0 && !searching && !filtered);
   // Both places are in use while the routing says so, or while a document says where it is kept. The routing is known once it was read.
@@ -56,6 +66,18 @@
   // The server narrows a list to one place only with `offline-fallback`: without it the filter would change nothing, so it is not offered.
   const canNarrow = $derived(knowledgeStatus.value?.features.offlineFallback === true);
   const options = $derived(knowledgeScopeOptions(projectScopes.data ?? [], knowledgeDocs.repos.data, knowledgeChanges.pulse?.documents));
+
+  // A Harness Knowledge that counts how often agents found a document useful has the two columns and the Usefulness filter, and one that tells who added a document its "Added by" column.
+  // Which it is says the server, and until it was asked the rows do.
+  const features = $derived(knowledgeStatus.value?.features);
+  const usefulListed = $derived(features?.docsUseful ?? rows.some((row) => row.shown != null));
+  const authorsListed = $derived(features?.docsAuthors ?? rows.some((row) => row.addedBy != null));
+
+  const usefulOptions = $derived([
+    { value: 'all' as UsefulChoice, label: t('memory.filter.all') },
+    { value: 'ever' as UsefulChoice, label: t('knowledge.filter.useful.ever') },
+    { value: 'never' as UsefulChoice, label: t('knowledge.filter.useful.never'), hint: t('knowledge.filter.useful.neverHint') },
+  ]);
 
   const formatOptions = $derived([
     { value: 'all', label: t('memory.filter.all') },
@@ -162,6 +184,37 @@
     }
   }
 
+  // A read-only role on the remote place can neither replace nor delete what is kept there. While it is not known (no remote, a remote that is down) the actions stay on.
+  const readOnly = $derived(shown !== null && keptRemote(shown, routing) && knowledgeStats.remoteWritable === false);
+
+  /** Asks the user to confirm replacing the open document by `file`, and replaces it. */
+  async function replaceWith(source: 'pick' | 'drop'): Promise<void> {
+    const doc = shown;
+
+    if (!doc || readOnly || knowledgeReplace.busy) {
+      return;
+    }
+
+    const file = await (source === 'pick' ? knowledgeReplace.pick() : knowledgeReplace.takeDrop());
+
+    if (!file) {
+      return;
+    }
+
+    const confirmed = await confirmer?.ask({
+      title: t('knowledge.replace.title'),
+      description: t('knowledge.replace.body', { name: file.name, size: formatBytes(file.bytes ?? 0) }),
+      subject: { icon: FileText, name: doc.title, details: [formatLabel(formatKey(doc)), ...(doc.updatedBy ? [t('knowledge.replace.updatedBy', { name: authorLine(doc.updatedBy) })] : []), relativeTime(doc.updatedAt)].join(' · ') },
+      confirmLabel: t('knowledge.replace.confirm'),
+      cancelLabel: t('knowledge.replace.keep'),
+      tone: 'primary',
+    });
+
+    if (confirmed && (await knowledgeReplace.replace(doc, file))) {
+      await knowledgeDocs.refresh();
+    }
+  }
+
   function addFolder(): void {
     knowledgeImport.begin();
     void knowledgeImport.pick('folder');
@@ -195,6 +248,24 @@
     clearLabel={t('knowledge.filter.clearFormat')}
     align="start"
   />
+
+  {#if usefulListed || viewState.knowledgeUseful !== null}
+    <FilterMenu
+      label={t('knowledge.filter.useful')}
+      prefix={t('knowledge.filter.useful')}
+      options={usefulOptions}
+      value={viewState.knowledgeUseful ?? 'all'}
+      onchange={(next) => choose(() => {
+          viewState.knowledgeUseful = next === 'all' ? null : next;
+        })}
+      onclear={() => choose(() => {
+          viewState.knowledgeUseful = null;
+        })}
+      clearLabel={t('knowledge.filter.clearUseful')}
+      align="start"
+      wide
+    />
+  {/if}
 {/snippet}
 
 {#snippet emptyAction()}
@@ -230,7 +301,7 @@
   detailEmpty={t('knowledge.docs.detail.empty')}
   tableLabel={t('knowledge.table.label')}
   tableId="knowledge-docs"
-  columns={docColumns()}
+  columns={docColumns(usefulListed, authorsListed)}
   {rows}
   sort={viewState.knowledgeSort}
   onsort={(next) => choose(() => {
@@ -255,6 +326,17 @@
       {@render repos(doc.links)}
     {:else if column.key === 'chunks'}
       <span class="tabular text-fg-2">{doc.chunkCount}</span>
+    {:else if column.key === 'useful'}
+      {@const counts = usefulCounts(doc)}
+      {#if counts}<UsefulCell {counts} ratio={t('knowledge.useful.ratio', counts)} label={t('knowledge.useful.meter')} />{/if}
+    {:else if column.key === 'lastUseful'}
+      {#if doc.lastUsefulAt}
+        <span class="tabular text-fg-3" title={formatDateTime(doc.lastUsefulAt)}>{relativeTime(doc.lastUsefulAt)}</span>
+      {:else if usefulCounts(doc)}
+        <span class="text-fg-3">{t('knowledge.useful.never')}</span>
+      {/if}
+    {:else if column.key === 'addedBy'}
+      <AuthorCell author={doc.addedBy} />
     {:else}
       <span class="tabular text-fg-3" title={formatDateTime(doc.updatedAt)}>{relativeTime(doc.updatedAt)}</span>
     {/if}
@@ -274,6 +356,9 @@
       onrename={rename}
       onlinks={relink}
       ondelete={() => void remove()}
+      onreplace={() => void replaceWith('pick')}
+      onreplacedrop={() => void replaceWith('drop')}
+      {readOnly}
       onclose={close}
     />
   {/snippet}

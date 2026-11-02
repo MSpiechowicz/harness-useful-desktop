@@ -3,6 +3,7 @@
   import NotebookText from '@lucide/svelte/icons/notebook-text';
   import { untrack } from 'svelte';
 
+  import AuthorCell from '$lib/components/AuthorCell.svelte';
   import Button from '$lib/components/Button.svelte';
   import { memoryScope } from '$lib/components/docs/doc-scope';
   import DocNewButton from '$lib/components/docs/DocNewButton.svelte';
@@ -10,7 +11,7 @@
   import { ICON } from '$lib/components/icon';
   import ScopeLabel from '$lib/components/ScopeLabel.svelte';
   import type { Column } from '$lib/components/table';
-  import UsageMeter from '$lib/components/UsageMeter.svelte';
+  import UsefulCell from '$lib/components/UsefulCell.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
   import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
@@ -72,6 +73,8 @@
   const langListed = $derived(memoryRemote.value?.notesLangSupported ?? rows.some((row) => row.lang === 'en' || row.lang === 'other'));
   // Likewise `notesUsefulSupported` says whether it counts how often agents found a note useful: the columns and the Usefulness filter exist only then.
   const usefulListed = $derived(memoryRemote.value?.notesUsefulSupported ?? rows.some((row) => row.shown != null));
+  // And `notesAuthorsSupported` whether it tells who wrote a note: the "Added by" column exists only then, for every row alike.
+  const authorsListed = $derived(memoryRemote.value?.notesAuthorsSupported ?? rows.some((row) => row.addedBy != null));
   // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
   const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
 
@@ -328,7 +331,7 @@
   detailEmpty={t('memory.notes.detail.empty')}
   tableLabel={t('memory.notes.table.label')}
   tableId="memory-notes"
-  columns={noteColumns(usefulListed)}
+  columns={noteColumns(usefulListed, authorsListed)}
   {rows}
   sort={viewState.notesSort}
   onsort={(next) => {
@@ -359,22 +362,15 @@
       <span class="text-fg-2">{t(PLACE_LABELS[note.place])}</span>
     {:else if column.key === 'useful'}
       {@const counts = usefulCounts(note)}
-      <div class="flex items-center gap-2">
-        {#if counts}
-          <span class="tabular min-w-[6.5ch] shrink-0 text-sm whitespace-nowrap text-fg-2">{t('memory.notes.useful.ratio', counts)}</span>
-          <UsageMeter value={counts.useful} total={counts.shown} label={t('memory.notes.useful.meter')} />
-        {:else}
-          <span class="text-sm text-fg-3">—</span>
-        {/if}
-      </div>
+      {#if counts}<UsefulCell {counts} ratio={t('memory.notes.useful.ratio', counts)} label={t('memory.notes.useful.meter')} />{/if}
     {:else if column.key === 'lastUseful'}
       {#if note.lastUsefulAt}
         <span class="tabular text-fg-3" title={formatDateTime(note.lastUsefulAt)}>{relativeTime(note.lastUsefulAt)}</span>
       {:else if usefulCounts(note)}
         <span class="text-fg-3">{t('memory.notes.useful.never')}</span>
-      {:else}
-        <span class="text-fg-3">—</span>
       {/if}
+    {:else if column.key === 'addedBy'}
+      <AuthorCell author={note.addedBy} />
     {:else}
       <span class="tabular text-fg-3" title={formatDateTime(note.updatedAt)}>{relativeTime(note.updatedAt)}</span>
     {/if}

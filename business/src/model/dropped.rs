@@ -31,6 +31,21 @@ pub struct AttachedFile {
     pub bytes: u64,
 }
 
+/// Where a drag is over the window and how much it carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct DropSpot {
+    /// Distance from the left edge of the page, in CSS pixels.
+    pub x: i32,
+    /// Distance from the top edge of the page, in CSS pixels.
+    pub y: i32,
+    /// How many files and folders are dragged.
+    pub items: u32,
+    /// The one item dragged is a folder.
+    pub folder: bool,
+}
+
 /// What the native drag and drop machinery tells the webview.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -40,6 +55,10 @@ pub enum DropEvent {
     Hover {
         /// Whether a drag is over the window.
         active: bool,
+        /// Where the drag is, when the platform tells.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        at: Option<DropSpot>,
     },
     /// Files were dropped.
     Dropped {
@@ -49,5 +68,9 @@ pub enum DropEvent {
         files: Vec<AttachedFile>,
         /// Names of dropped items that were left out (folders, unreadable files).
         skipped: Vec<String>,
+        /// Where the drop landed, when the platform tells.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        at: Option<DropSpot>,
     },
 }

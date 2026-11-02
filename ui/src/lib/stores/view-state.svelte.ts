@@ -2,6 +2,7 @@ import type { Sort } from '$lib/components/table';
 import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
+import type { KnowledgeUsefulFilter } from '$lib/ipc/bindings/KnowledgeUsefulFilter';
 import type { KnowledgeId } from '$lib/ipc/knowledge-id';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
 import type { NoteUsefulFilter } from '$lib/ipc/bindings/NoteUsefulFilter';
@@ -104,6 +105,8 @@ export class ViewState {
   knowledgeFormat = $state<string | null>(null);
   /** The place the documents are narrowed to; null for both. Offered only while both places are in use. */
   knowledgePlace = $state<KnowledgePlace | null>(null);
+  /** Only the documents an agent found useful at least once (`ever`), or those shown often and never found useful (`never`); null for all. */
+  knowledgeUseful = $state<KnowledgeUsefulFilter | null>(null);
   knowledgeSort = $state<Sort>({ key: 'updated', desc: true });
   knowledgePage = $state(0);
   heldId = $state<string | null>(null);
@@ -234,6 +237,7 @@ export class ViewState {
       this.knowledgeScope = 'all';
       this.knowledgeFormat = null;
       this.knowledgePlace = null;
+      this.knowledgeUseful = null;
       this.knowledgeSort = { key: 'updated', desc: true };
       this.knowledgePage = 0;
       this.heldId = null;

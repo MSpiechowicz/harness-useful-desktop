@@ -9,6 +9,7 @@ mod agent;
 mod agent_action;
 mod agent_event;
 mod app;
+mod author;
 mod chat;
 mod code;
 mod command;
@@ -28,7 +29,9 @@ mod ipc_error;
 mod knowledge;
 mod knowledge_held;
 mod knowledge_import;
+mod knowledge_list;
 mod knowledge_remote;
+mod knowledge_similar;
 mod knowledge_stats;
 mod memory_embedder;
 mod memory_guards;
@@ -61,6 +64,8 @@ pub use agent_action::{
 };
 pub use agent_event::{AgentEnvelope, AgentEvent};
 pub use app::AppInfo;
+pub(crate) use author::display_text;
+pub use author::{AuthorRef, MAX_AUTHOR_NAME_CHARS, MAX_AUTHOR_VIA_CHARS, lenient_author};
 pub use chat::{
     AgentOption, ChatBlock, ChatMessage, ContextUsage, MessageRole, ModelOption, PromptStatus, SessionState,
     SessionStats, TokenUsage,
@@ -77,7 +82,7 @@ pub use dashboard_args::{
     MAX_DASHBOARD_ID_CHARS, MAX_DASHBOARD_NAME_CHARS, MAX_DASHBOARD_PATH_CHARS, MAX_DASHBOARD_REF_CHARS,
     MAX_DASHBOARD_ROWS, MAX_DASHBOARD_TIME_CHARS, MAX_DASHBOARD_TIPS, SessionCostArgs, TipsArgs, UsageSummaryArgs,
 };
-pub use dropped::{AttachedFile, DropEvent, DroppedImage};
+pub use dropped::{AttachedFile, DropEvent, DropSpot, DroppedImage};
 pub use ecosystem::{EcosystemId, EcosystemInstalled, EcosystemItem, EcosystemRelease, EcosystemStatus, InstallStep};
 pub use extension_action::{CliResult, ConfigEdit, ExtensionAction, InstallScope, MAX_CLI_OUTPUT_BYTES};
 pub use extensions::{
@@ -104,9 +109,8 @@ pub use hook::{
 pub use ipc_error::{IpcError, IpcErrorCode};
 pub use knowledge::{
     KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatch, KnowledgeDocMatches,
-    KnowledgeDocument, KnowledgeFeatures, KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgeOrigin,
-    KnowledgePage, KnowledgePlace, KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope, KnowledgeSection,
-    KnowledgeSort, KnowledgeStatus, KnowledgeSwitchResult,
+    KnowledgeDocument, KnowledgeFeatures, KnowledgeId, KnowledgeLink, KnowledgeOrigin, KnowledgePage, KnowledgePlace,
+    KnowledgeRepoCount, KnowledgeReposPage, KnowledgeSection, KnowledgeStatus, KnowledgeSwitchResult,
 };
 pub use knowledge_held::{
     KnowledgeApproval, KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeHit,
@@ -114,13 +118,15 @@ pub use knowledge_held::{
 };
 pub use knowledge_import::{
     KnowledgeEmbedding, KnowledgeFileStatus, KnowledgeImportCounts, KnowledgeImportEvent, KnowledgeImportOptions,
-    KnowledgeImportResult, KnowledgeIntake, KnowledgeIntakeEntry, KnowledgeReindexed, KnowledgeSkipReason,
-    KnowledgeSkipped,
+    KnowledgeImportResult, KnowledgeIntake, KnowledgeIntakeEntry, KnowledgeReindexed, KnowledgeReplacement,
+    KnowledgeSkipReason, KnowledgeSkipped,
 };
+pub use knowledge_list::{KnowledgeListFilter, KnowledgeScope, KnowledgeSort, KnowledgeUsefulFilter};
 pub use knowledge_remote::{
     KnowledgeCapabilities, KnowledgeCheck, KnowledgeIndexState, KnowledgePlaceCheck, KnowledgePlaceChecks,
     KnowledgeProblem, KnowledgeRemote,
 };
+pub use knowledge_similar::{KnowledgeMatch, KnowledgeMatchReason, KnowledgeSimilar, KnowledgeSimilarEntry};
 pub use knowledge_stats::{KnowledgePlaceStats, KnowledgeStats, KnowledgeStatsPlaces};
 pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 pub use memory_guards::{

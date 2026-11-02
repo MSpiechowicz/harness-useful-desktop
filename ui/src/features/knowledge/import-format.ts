@@ -9,6 +9,8 @@ import { type MessageKey, t } from '$lib/i18n/i18n.svelte';
 import type { KnowledgeFileStatus } from '$lib/ipc/bindings/KnowledgeFileStatus';
 import type { KnowledgeSkipReason } from '$lib/ipc/bindings/KnowledgeSkipReason';
 
+import { tildePath } from '../memory/script-format';
+
 /** The results of one file, in the order the chips list them. */
 export const FILE_STATUSES: readonly KnowledgeFileStatus[] = ['added', 'updated', 'unchanged', 'skipped', 'failed'];
 
@@ -51,4 +53,9 @@ export function etaText(seconds: number): string {
   }
 
   return t('knowledge.import.eta.minutes', { minutes: Math.round(seconds / 60) });
+}
+
+/** The folder of a file as the quiet line under its name reads it: the home folder is `~`. */
+export function folderLabel(path: string): string {
+  return tildePath(path.replace(/[\\/][^\\/]*$/, ''));
 }

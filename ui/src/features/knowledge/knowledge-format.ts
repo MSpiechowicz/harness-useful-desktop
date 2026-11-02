@@ -1,6 +1,6 @@
 import { type FactRow, momentFact } from '$lib/components/facts';
 import { shortRepoName } from '$lib/components/scope/scope-options';
-import type { Column } from '$lib/components/table';
+import { COLUMN_WIDTH, type Column } from '$lib/components/table';
 import { type MessageKey, t, tn } from '$lib/i18n/i18n.svelte';
 import type { KnowledgeDocument } from '$lib/ipc/bindings/KnowledgeDocument';
 import type { KnowledgeHeldItem } from '$lib/ipc/bindings/KnowledgeHeldItem';
@@ -8,10 +8,12 @@ import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
 import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
 import type { KnowledgeSort } from '$lib/ipc/bindings/KnowledgeSort';
 import type { KnowledgeId } from '$lib/ipc/knowledge-id';
+import { addedByFact, updatedByFact } from '$lib/utils/author-format';
 import { formatBytes } from '$lib/utils/format';
+import { KNOWLEDGE_FORMATS } from '$lib/utils/knowledge-formats';
 
 /** The formats the Format filter lists, in the order of the menu. */
-export const KNOWLEDGE_FORMATS = ['markdown', 'text', 'html', 'openapi', 'asciidoc', 'rst', 'pdf', 'transcript'] as const;
+export { KNOWLEDGE_FORMATS };
 
 const FORMAT_LABELS: Record<string, MessageKey> = {
   markdown: 'knowledge.format.markdown',
@@ -62,17 +64,35 @@ export function pathCount(links: readonly KnowledgeLink[]): number {
 /** The columns the server sorts the documents by. A key that is not one (a state left by an older version) sorts by time. */
 const SORTS: Record<string, KnowledgeSort> = { title: 'title', format: 'format', repos: 'repos', chunks: 'chunks', updated: 'updated' };
 
-export function sortOf(key: string): KnowledgeSort {
+/** The two columns of usefulness, which only a Harness Knowledge that counts it sorts by. */
+export const USEFUL_SORTS: readonly string[] = ['useful', 'lastUseful'];
+
+export function sortOf(key: string, usefulKnown = true): KnowledgeSort {
+  if (usefulKnown && (key === 'useful' || key === 'lastUseful')) {
+    return key;
+  }
+
   return SORTS[key] ?? 'updated';
 }
 
-export function docColumns(): Column[] {
+/**
+ * The columns of the documents table. The two of usefulness exist only for a Harness Knowledge that counts it, and "Added by" only for one that tells who added a
+ * document: an older one has nothing to show in them. Who added a document is not sortable, the server has no sort by it.
+ */
+export function docColumns(usefulness = false, authors = false): Column[] {
+  const useful: Column[] = [
+    { key: 'useful', label: t('knowledge.column.useful'), width: COLUMN_WIDTH.useful, from: 'xl', sortable: true, descFirst: true },
+    { key: 'lastUseful', label: t('knowledge.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, from: 'xl', sortable: true, descFirst: true },
+  ];
+
   return [
     { key: 'title', label: t('knowledge.column.title'), sortable: true },
-    { key: 'format', label: t('knowledge.column.format'), width: '10.5rem', sortable: true, from: 'sm' },
-    { key: 'repos', label: t('knowledge.column.repos'), width: '16rem', sortable: true, from: 'md' },
-    { key: 'chunks', label: t('knowledge.column.chunks'), width: '8rem', align: 'end', sortable: true, descFirst: true, from: 'lg' },
-    { key: 'updated', label: t('knowledge.column.updated'), width: '10rem', sortable: true, descFirst: true, from: 'sm' },
+    { key: 'format', label: t('knowledge.column.format'), width: '8.5rem', sortable: true, from: 'sm' },
+    { key: 'repos', label: t('knowledge.column.repos'), width: '12rem', sortable: true, from: 'md' },
+    { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', sortable: true, descFirst: true, from: 'lg' },
+    ...(usefulness ? useful : []),
+    ...(authors ? [{ key: 'addedBy', label: t('knowledge.column.addedBy'), width: COLUMN_WIDTH.author, from: 'xl' } satisfies Column] : []),
+    { key: 'updated', label: t('knowledge.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },
   ];
 }
 
@@ -99,8 +119,11 @@ export function docFacts(doc: KnowledgeDocument, sections: number | null): FactR
     { label: t('knowledge.fact.chunks'), value: String(doc.chunkCount) },
     ...(sections === null ? [] : [{ label: t('knowledge.fact.sections'), value: String(sections) }]),
     { label: t('knowledge.fact.source'), value: doc.sourceName, mono: true, title: doc.sourceKey },
+    ...addedByFact(doc),
     momentFact(t('knowledge.fact.updated'), doc.updatedAt),
-    { label: t('knowledge.fact.origin'), value: t(doc.origin === 'agentApproved' ? 'knowledge.origin.agent' : 'knowledge.origin.user') },
+    ...updatedByFact(doc),
+    // Who added it says more than how it came in, so Origin only stands in while the name is not known.
+    ...(doc.addedBy ? [] : [{ label: t('knowledge.fact.origin'), value: t(doc.origin === 'agentApproved' ? 'knowledge.origin.agent' : 'knowledge.origin.user') }]),
   ];
 }
 

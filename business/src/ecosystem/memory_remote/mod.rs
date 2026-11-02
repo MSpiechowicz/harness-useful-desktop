@@ -166,7 +166,7 @@ pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
 /// `saveGuardsSupported` [`FeaturesSupport::save_guards`], `embedderSupported`
 /// [`FeaturesSupport::embedder`], `settingsSupported` [`FeaturesSupport::settings`],
 /// `notesLangSupported` [`FeaturesSupport::notes_lang`], `notesUsefulSupported`
-/// [`FeaturesSupport::notes_useful`]; the saved values are reported either way. `kind` is the saved URL's
+/// [`FeaturesSupport::notes_useful`], `notesAuthorsSupported` [`FeaturesSupport::notes_authors`]; the saved values are reported either way. `kind` is the saved URL's
 /// as the server picks it ([`saved_kind`]).
 pub fn memory_remote_get(env: &Env, support: impl Into<MemorySupport>) -> MemoryRemote {
     let support = support.into();
@@ -210,6 +210,7 @@ fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport)
         settings_supported: support.features.settings(),
         notes_lang_supported: support.features.notes_lang(),
         notes_useful_supported: support.features.notes_useful(),
+        notes_authors_supported: support.features.notes_authors(),
         config_path,
         problem: config
             .status

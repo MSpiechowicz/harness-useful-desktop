@@ -11,14 +11,16 @@
   import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
   import { knowledgeImport as flow } from '$lib/stores/knowledgeImport.svelte';
   import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
+  import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
-  import { choosesPlace, effectivePlace } from '$lib/utils/knowledge-routing';
+  import { choosesPlace, effectivePlace, usesBothPlaces } from '$lib/utils/knowledge-routing';
 
   import ImportDrop from './ImportDrop.svelte';
   import ImportPlace from './ImportPlace.svelte';
   import ImportProgress from './ImportProgress.svelte';
   import ImportStaged from './ImportStaged.svelte';
   import { knowledgeScopeOptions } from './knowledge-repos';
+  import { summaryText } from './knowledge-match-text';
   import LinksEditor from './LinksEditor.svelte';
 
   const refused = NOTICE_LOOKS.error;
@@ -33,6 +35,21 @@
     flow.place = choosing && remote ? effectivePlace(remote, flow.links.length === 0, flow.place) : null;
     void flow.start();
   }
+
+  // The match table needs the room: a Harness Knowledge that compares files gets the wider window in every step, so it does not jump between them.
+  const wide = $derived(knowledgeStatus.value?.features.docsSimilar === true);
+  const summary = $derived(flow.rows === null ? '' : summaryText(flow.rows, flow.choices, flow.landing));
+
+  // A match in another place than the import goes to is added as new unless the user sets it to update: the store needs to know where the import goes.
+  $effect(() => {
+    if (remote === null) {
+      flow.landing = 'unknown';
+    } else if (!remote.routingSupported || !usesBothPlaces(remote.enabled, remote)) {
+      flow.landing = 'one';
+    } else {
+      flow.landing = effectivePlace(remote, flow.links.length === 0, flow.place);
+    }
+  });
 
   const running = $derived(flow.phase === 'running');
   const finished = $derived(flow.phase === 'done');
@@ -70,7 +87,7 @@
 </script>
 
 <!-- Closing the window does not stop an import: the header shows how far it is, and a toast says how it ended. -->
-<Dialog bind:open={flow.open} size="lg" {title} {description} onclose={() => flow.close()}>
+<Dialog bind:open={flow.open} size={wide ? 'wide' : 'lg'} {title} {description} onclose={() => flow.close()}>
   {#if flow.phase === 'idle'}
     <ImportDrop />
   {:else if flow.phase === 'staged' && flow.intake}
@@ -113,6 +130,7 @@
       <Button variant="dangerQuiet" loading={flow.cancelling} onclick={() => void flow.cancel()}>{flow.cancelling ? t('knowledge.import.cancelling') : t('knowledge.import.cancel')}</Button>
       <Button onclick={() => flow.close()}>{t('common.close')}</Button>
     {:else if flow.phase === 'staged'}
+      {#if summary}<span class="mr-auto self-center text-sm text-fg-3" aria-live="polite">{summary}</span>{/if}
       <Button disabled={flow.picking} onclick={() => void flow.pick('files')}>{t('knowledge.import.chooseOther')}</Button>
       <Button variant="primary" onclick={start}>
         {#snippet leading()}<Play size={ICON.sm} aria-hidden="true" />{/snippet}

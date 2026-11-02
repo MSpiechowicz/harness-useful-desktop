@@ -31,6 +31,7 @@ const COMMANDS: &[&str] = &[
     "knowledge_drop_intake",
     "knowledge_import",
     "knowledge_import_cancel",
+    "knowledge_similar",
     "knowledge_held_list",
     "knowledge_held_get",
     "knowledge_held_decide",

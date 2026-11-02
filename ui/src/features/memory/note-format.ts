@@ -1,9 +1,10 @@
 import { type FactRow, momentFact } from '$lib/components/facts';
-import type { Column } from '$lib/components/table';
+import { COLUMN_WIDTH, type Column } from '$lib/components/table';
 import { type MessageKey, t, tn } from '$lib/i18n/i18n.svelte';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
 import type { NoteKindCount } from '$lib/ipc/bindings/NoteKindCount';
 import type { NoteSummary } from '$lib/ipc/bindings/NoteSummary';
+import { addedByFact, updatedByFact } from '$lib/utils/author-format';
 
 import { authorFacts, PLACE_LABELS } from './script-format';
 
@@ -23,12 +24,13 @@ export const KIND_LABELS = {
 
 /**
  * Every column sorts, by the server. They are all text or dates, so they read from the left. A time or a count starts with the biggest.
- * The two columns of usefulness exist only for a Harness Memory that counts it: an older one has nothing to show in them.
+ * The two columns of usefulness exist only for a Harness Memory that counts it, and "Added by" only for one that tells who wrote a note: an older one has nothing to show in them.
+ * Who wrote a note is not sortable, the server has no sort by it.
  */
-export function noteColumns(usefulness = false): Column[] {
+export function noteColumns(usefulness = false, authors = false): Column[] {
   const useful: Column[] = [
-    { key: 'useful', label: t('memory.notes.column.useful'), width: '13rem', from: 'xl', sortable: true, descFirst: true },
-    { key: 'lastUseful', label: t('memory.notes.column.lastUseful'), width: '9rem', from: 'xl', sortable: true, descFirst: true },
+    { key: 'useful', label: t('memory.notes.column.useful'), width: COLUMN_WIDTH.useful, from: 'xl', sortable: true, descFirst: true },
+    { key: 'lastUseful', label: t('memory.notes.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, from: 'xl', sortable: true, descFirst: true },
   ];
 
   return [
@@ -37,6 +39,7 @@ export function noteColumns(usefulness = false): Column[] {
     { key: 'scope', label: t('memory.notes.column.scope'), width: '12rem', from: 'md', sortable: true },
     { key: 'place', label: t('memory.notes.column.place'), width: '8rem', from: 'lg', sortable: true },
     ...(usefulness ? useful : []),
+    ...(authors ? [{ key: 'addedBy', label: t('memory.notes.column.addedBy'), width: COLUMN_WIDTH.author, from: 'xl' } satisfies Column] : []),
     { key: 'updated', label: t('memory.notes.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },
   ];
 }
@@ -83,8 +86,10 @@ export function noteFacts(note: NoteSummary): FactRow[] {
     { label: t('memory.detail.scope'), value: noteScopeText(note), title: note.repo ?? undefined },
     { label: t('memory.detail.place'), value: t(PLACE_LABELS[note.place]) },
     ...authorFacts(note),
+    ...addedByFact(note),
     momentFact(t('memory.detail.created'), note.createdAt),
     momentFact(t('memory.detail.updated'), note.updatedAt),
+    ...updatedByFact(note),
     { label: t('memory.notes.detail.revision'), value: String(note.revision) },
     { label: t('memory.notes.detail.recalled'), value: note.hits === 0 ? t('memory.notes.detail.neverRecalled') : tn('memory.notes.detail.times', note.hits) },
   ];

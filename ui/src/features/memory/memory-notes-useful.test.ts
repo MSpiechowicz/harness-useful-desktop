@@ -67,16 +67,16 @@ describe('how useful the notes were', () => {
     expect(meterOf(8)).toBeNull();
     expect(within(noteRow(8) as HTMLElement).queryByText(/ of /)).toBeNull();
     expect(within(noteRow(8) as HTMLElement).queryByText('Never')).toBeNull();
-    expect(within(noteRow(8) as HTMLElement).getAllByText('—')).toHaveLength(2);
+    expect(within(noteRow(8) as HTMLElement).queryByText('—')).toBeNull();
   });
 
-  it('shows a dash and no meter where the counts are unknown', async () => {
+  it('shows nothing and no meter where the counts are unknown', async () => {
     fakeMemory({ kind: 'available' }, undefined, undefined, uncounted());
     await showNotes();
     await waitFor(() => expect(memoryRemote.value?.notesUsefulSupported).toBe(true));
 
     expect(screen.queryByRole('progressbar')).toBeNull();
-    expect(within(noteRow(3) as HTMLElement).getAllByText('—')).toHaveLength(2);
+    expect(within(noteRow(3) as HTMLElement).queryByText('—')).toBeNull();
     expect(within(noteRow(3) as HTMLElement).queryByText('Never')).toBeNull();
   });
 

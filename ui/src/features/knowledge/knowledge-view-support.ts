@@ -8,6 +8,8 @@ import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
 import { knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
 import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
 import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
+import { knowledgeReplace } from '$lib/stores/knowledgeReplace.svelte';
+import { knowledgeStats } from '$lib/stores/knowledgeStats.svelte';
 import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
 import { projectScopes } from '$lib/stores/project-scopes.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
@@ -42,6 +44,8 @@ export function resetKnowledge(): void {
   knowledgeHeld.detail.sync(null, null);
   knowledgeImport.reset();
   knowledgeRemote.value = null;
+  knowledgeReplace.reset();
+  knowledgeStats.reset();
   knowledgeStatus.value = null;
   knowledgeChanges.reset();
   projectScopes.sync(null, null);

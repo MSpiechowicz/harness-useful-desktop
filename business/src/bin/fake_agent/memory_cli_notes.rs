@@ -35,6 +35,34 @@ pub fn with_usefulness(mut note: Value) -> Value {
     note
 }
 
+/// `entry` (a note or a script) with the `addedBy` and `updatedBy` the stand-in gives by its id,
+/// when it lists `notes-authors`: Ada wrote it (through `claude-code` when the id is even) and
+/// Grace changed it last when the id is odd, and one with an id divisible by three has no author.
+pub fn with_authors(mut entry: Value) -> Value {
+    if !crate::memory_push::lists("notes-authors") {
+        return entry;
+    }
+
+    let id = entry["id"].as_i64().unwrap_or_default();
+
+    if id % 3 == 0 {
+        entry["addedBy"] = Value::Null;
+        entry["updatedBy"] = Value::Null;
+        return entry;
+    }
+
+    let via = if id % 2 == 0 { json!("claude-code") } else { Value::Null };
+
+    entry["addedBy"] = json!({ "name": "Ada Lovelace", "via": via });
+    entry["updatedBy"] = if id % 2 == 0 {
+        json!({ "name": "Ada Lovelace", "via": via })
+    } else {
+        json!({ "name": "Grace Hopper", "via": null })
+    };
+
+    entry
+}
+
 /// The links between fixtures: from, to, relation.
 pub const LINKS: [(i64, i64, &str); 3] = [(2, 3, "fixes"), (5, 2, "follows"), (6, 1, "explains")];
 
@@ -65,7 +93,7 @@ const NOTES: [&str; 8] = [
 /// The stand-in's notes, with their bodies.
 pub fn note_fixtures() -> Vec<Value> {
     let note = |id: i64, kind: &str, title: &str, scope: &str, place: &str, updated: &str| {
-        json!({
+        with_authors(json!({
             "id": id,
             "kind": kind,
             "title": title,
@@ -80,7 +108,7 @@ pub fn note_fixtures() -> Vec<Value> {
             "revision": id % 3 + 1,
             "hits": id * 2,
             "body": format!("{title}.\nWritten by an agent.\n"),
-        })
+        }))
     };
 
     let mut notes: Vec<Value> = NOTES

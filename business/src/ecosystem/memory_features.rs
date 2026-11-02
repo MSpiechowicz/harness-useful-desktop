@@ -17,7 +17,9 @@
 //! - `settings`: `settings get|set --json` (the English notes setting);
 //! - `notes-lang`: `notes list --json` rows carry `lang` and `--lang` filters by it;
 //! - `notes-useful`: `notes list --json` rows carry `shown`, `useful` and `lastUsefulAt`, and `--sort
-//!   useful|lastUseful` and `--useful ever|never` use them.
+//!   useful|lastUseful` and `--useful ever|never` use them;
+//! - `notes-authors`: notes and scripts carry `addedBy` and `updatedBy` (the git name of who wrote
+//!   them).
 //!
 //! An older server does not know the command and exits non-zero. [`MemoryFeatures::support`] asks
 //! once per binary through a [`LineProbe`] (cached per binary, an older server cached as one
@@ -61,6 +63,9 @@ const NOTES_LANG: &str = "notes-lang";
 /// The line for the usefulness counts of a note, `--sort useful|lastUseful` and `--useful`.
 const NOTES_USEFUL: &str = "notes-useful";
 
+/// The line for the authors of notes and scripts.
+const NOTES_AUTHORS: &str = "notes-authors";
+
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeaturesSupport {
@@ -88,6 +93,8 @@ pub enum FeaturesSupport {
         notes_lang: bool,
         /// `notes-useful` is listed.
         notes_useful: bool,
+        /// `notes-authors` is listed.
+        notes_authors: bool,
     },
     /// It predates `features` (or failed it): none of them.
     Unsupported,
@@ -152,6 +159,17 @@ impl FeaturesSupport {
     pub fn notes_useful(self) -> bool {
         matches!(self, Self::Listed { notes_useful: true, .. })
     }
+
+    /// Whether notes and scripts carry `addedBy` and `updatedBy`: `notes-authors` is listed.
+    pub fn notes_authors(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                notes_authors: true,
+                ..
+            }
+        )
+    }
 }
 
 /// The probe of the installed server's features. See the module docs.
@@ -189,6 +207,7 @@ impl MemoryFeatures {
                 settings: answer.lists(SETTINGS),
                 notes_lang: answer.lists(NOTES_LANG),
                 notes_useful: answer.lists(NOTES_USEFUL),
+                notes_authors: answer.lists(NOTES_AUTHORS),
             },
             LineAnswer::Unsupported => FeaturesSupport::Unsupported,
             LineAnswer::NotInstalled => FeaturesSupport::NotInstalled,

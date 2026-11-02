@@ -66,7 +66,7 @@
       <div class="flex items-center gap-2.5">
         <GitBranch size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />
         <span class="min-w-0 flex-1 truncate text-sm font-medium text-fg" title={entry.repo}>{name}</span>
-        <IconButton icon={X} iconSize={ICON.sm} label={t('knowledge.links.unlink', { repo: name })} class="-my-1 -mr-1.5 shrink-0" onclick={() => unlink(entry.repo)} />
+        <IconButton icon={X} iconSize={ICON.sm} label={t('knowledge.links.unlink', { repo: name })} class="-my-1 -mr-3 shrink-0" onclick={() => unlink(entry.repo)} />
       </div>
 
       {#if entry.globs.length === 0}

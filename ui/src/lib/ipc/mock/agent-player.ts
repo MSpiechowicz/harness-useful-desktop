@@ -5,6 +5,7 @@ import type { UiOutcome } from '../bindings/UiOutcome';
 import type { UiResponse } from '../bindings/UiResponse';
 import { IpcFailure, type EventSink } from '../transport';
 import { fixtures, type StreamName } from './fixtures';
+import { knowledgeDemo } from './knowledge-demo';
 import { SUBAGENT_STEP_MS, subagentDemo } from './subagent-demo';
 
 /** `ready`, `state` and `commandsUpdated` open every recorded stream; they belong to session start, not to a prompt. */
@@ -14,7 +15,10 @@ const DELTA_MS: readonly [number, number] = [15, 40];
 const STEP_MS = 90;
 
 /** Which recorded stream answers a prompt: keywords in the text pick the scenario. */
-export function pickStream(prompt: string): StreamName | 'subagents' {
+export function pickStream(prompt: string): StreamName | 'subagents' | 'family' {
+  if (/\bproject cards\b/i.test(prompt)) {
+    return 'family';
+  }
   if (/\bsubagents?\b/i.test(prompt)) {
     return 'subagents';
   }
@@ -76,6 +80,15 @@ function retagMessage(message: Extract<AgentEvent, { type: 'messageEnd' }>['mess
     toolCallId: message.toolCallId === null ? null : prefix + message.toolCallId,
     blocks: message.blocks.map((block) => (block.type === 'toolCall' ? { ...block, id: prefix + block.id } : block)),
   };
+}
+
+/** The events that answer a prompt: one of the scripted demos, else the recorded stream. */
+function demoEvents(name: ReturnType<typeof pickStream>, prompt: string, prefix: string, shown: string): AgentEvent[] {
+  if (name === 'subagents') {
+    return subagentDemo(prompt).map((event) => retag(event, prefix));
+  }
+
+  return name === 'family' ? knowledgeDemo(prompt).map((event) => retag(event, prefix)) : promptEvents(name, prompt, prefix, shown);
 }
 
 /** The recorded events of a scenario for one prompt, without the session-start events. */
@@ -196,7 +209,7 @@ export class MockAgentStream {
 
     const name = pickStream(prompt);
     const prefix = `p${run}-`;
-    let events = name === 'subagents' ? subagentDemo(prompt).map((event) => retag(event, prefix)) : promptEvents(name, prompt, prefix, shown);
+    let events = demoEvents(name, prompt, prefix, shown);
     const denied = name === 'approval' ? promptEvents('approvalDenied', prompt, prefix, shown) : null;
 
     for (let index = 0; index < events.length; index += 1) {

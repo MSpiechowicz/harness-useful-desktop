@@ -1,17 +1,14 @@
 import type { JsonValue } from '$lib/ipc/bindings/serde_json/JsonValue';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
 
+import { harnessToolName, MAX_CARD_ROWS, parseMarkedReply, textArg } from './harness-tools';
 import { isJsonObject } from './tools';
 
-/**
- * The harness-memory tool a call name is, whatever the harness calls it: Claude Code and Codex `mcp__harness-memory__note_search`,
- * OpenCode `harness-memory_note_search`, OMP `mcp__harness_memory_note_search`, a Claude plugin install
- * `mcp__plugin_<plugin>_harness-memory__note_search`. The server segment is anchored: after an optional `mcp__` and an optional
- * `plugin_<plugin>_` (a kebab-case plugin name) it is exactly `harness-memory` (or `harness_memory`), then the tool. Another server's `memory_search`, a bare
- * legacy `memory_save` and a look-alike server such as `mcp__evil_harness_memory__note_search` are not one. Null for those.
- */
+export { textArg };
+
+/** The harness-memory tool a call name is (`note_search` for `mcp__harness-memory__note_search`, whatever the harness calls it), else null: see `harnessToolName`. */
 export function memoryToolName(name: string): string | null {
-  return /^(?:mcp__)?(?:plugin_[A-Za-z0-9-]+_)?harness[-_]memory(?:__|_)([a-z][a-z0-9_]*)$/.exec(name)?.[1] ?? null;
+  return harnessToolName('memory', name);
 }
 
 const NOTE_KINDS: readonly string[] = ['outcome', 'problem', 'fix', 'optimisation', 'location', 'decision', 'note'];
@@ -159,31 +156,15 @@ export interface UnknownNote {
   id: number;
 }
 
-const MARKED = /^marked (?:no notes|(\d+) notes?) useful(?:: (#\d+(?:, #\d+)*))?$/;
 const NOTE_HEADER = /^#(\d+) \[/;
 
-/**
- * The note ids a `note_feedback` reply says it marked useful: `marked 2 notes useful: #12, #40`, `marked 1 note useful: #12` or
- * `marked no notes useful`, then optional `not found: …` and `not checked: …` lines for ids that do not count. Null when the reply
- * is not that (an old server, an error, text cut short), so a caller falls back to what the call asked for.
- */
+/** The note ids a `note_feedback` reply says it marked useful (`marked 2 notes useful: #12, #40`), else null: see `parseMarkedReply`. */
 export function parseMarked(text: string | null): number[] | null {
-  const first = (text ?? '').split('\n', 1)[0].trim();
-  const match = MARKED.exec(first);
-  if (!match) {
-    return null;
-  }
+  return parseMarkedReply(text, 'note', '#\\d+', (token) => {
+    const id = Number(token.slice(1));
 
-  if (match[2] === undefined) {
-    return match[1] === undefined ? [] : null;
-  }
-
-  const ids = [...match[2].matchAll(/#(\d+)/g)].map((id) => Number(id[1]));
-  if (match[1] === undefined || Number(match[1]) !== ids.length || !ids.every(Number.isSafeInteger)) {
-    return null;
-  }
-
-  return [...new Set(ids)];
+    return Number.isSafeInteger(id) ? id : null;
+  });
 }
 
 /**
@@ -197,17 +178,17 @@ export function parseOpened(text: string | null): number[] | null {
     return Number.isSafeInteger(id) ? [id] : [];
   });
 
-  return ids.length > 0 ? [...new Set(ids)] : null;
+  return ids.length > 0 ? [...new Set(ids)].slice(0, MAX_CARD_ROWS) : null;
 }
 
 /** The notes a `note_feedback` call rated: the ones its reply confirms, else the ones it asked for. */
 export function ratedNotes(args: JsonValue | null, resultText: string | null): number[] {
-  return parseMarked(resultText) ?? [...new Set(idsOf(args))];
+  return parseMarked(resultText) ?? [...new Set(idsOf(args))].slice(0, MAX_CARD_ROWS);
 }
 
 /** The notes a `note_get` call read: the ones its reply shows, else the ones it asked for. */
 export function readNotes(args: JsonValue | null, resultText: string | null): number[] {
-  return parseOpened(resultText) ?? [...new Set(idsOf(args))];
+  return parseOpened(resultText) ?? [...new Set(idsOf(args))].slice(0, MAX_CARD_ROWS);
 }
 
 /** The ids a call names in `ids` (numbers, or digits as text) and the scalar `id`. */
@@ -223,11 +204,4 @@ export function idsOf(args: JsonValue | null): number[] {
 
     return typeof id === 'number' && Number.isSafeInteger(id) ? [id] : [];
   });
-}
-
-/** A text argument of a call, trimmed; null when it is missing or blank. */
-export function textArg(args: JsonValue | null, name: string): string | null {
-  const value = isJsonObject(args) ? args[name] : undefined;
-
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }

@@ -100,7 +100,7 @@ describe('the Kept in filter on a server that cannot fall back to this computer'
       ...routedRemote('remoteLocal', 'remoteLocal'),
       knowledge_status: () => ({
         availability: { type: 'available' },
-        features: { docs: true, import: true, embedder: true, search: true, recall: true, held: true, mcp: true, routing: true, docMatches: true, offlineFallback: false },
+        features: { docs: true, import: true, embedder: true, search: true, recall: true, held: true, mcp: true, routing: true, docMatches: true, offlineFallback: false, docsUseful: true, docsSimilar: true, docsAuthors: true },
       }),
     });
     await show();

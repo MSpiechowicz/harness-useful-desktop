@@ -25,9 +25,11 @@
     description: string;
     /** What the action applies to, e.g. a session: shown under the text so it is clear what goes. */
     subject?: ConfirmSubject;
-    /** The destructive action's verb: "Stop chat". */
+    /** The action's verb: "Stop chat". */
     confirmLabel: string;
     cancelLabel?: string;
+    /** `danger` (the default) for an action that destroys something, `primary` for one that changes it without loss of what the user keeps. */
+    tone?: 'danger' | 'primary';
     /**
      * Runs the action. One that returns a promise keeps the dialog open while it runs, with the buttons waiting, and
      * closes it once it is done. If it throws, the dialog stays and says why, so the user can try again or leave.
@@ -35,7 +37,7 @@
     onconfirm: () => unknown;
   }
 
-  let { open = $bindable(false), title, description, subject, confirmLabel, cancelLabel, onconfirm }: Props = $props();
+  let { open = $bindable(false), title, description, subject, confirmLabel, cancelLabel, tone = 'danger', onconfirm }: Props = $props();
 
   let busy = $state(false);
   let failure = $state<string | null>(null);
@@ -70,7 +72,7 @@
   });
 </script>
 
-<!-- Destructive actions are confirmed in the danger tone; the safe choice comes first and holds the focus. -->
+<!-- Destructive actions are confirmed in the danger tone, the others in the primary one. The safe choice comes first and holds the focus. -->
 {#snippet row(item: ConfirmSubject)}
   <div class="flex items-start gap-3">
     <item.icon size={ICON.sm} class="mt-[3px] shrink-0 text-fg-3" aria-hidden="true" />
@@ -93,6 +95,6 @@
 <Dialog bind:open {title} {description} subject={subject ? named : undefined} dismissible={!busy} children={failure === null ? undefined : reason}>
   {#snippet footer()}
     <Button variant="ghost" disabled={busy} onclick={() => (open = false)}>{cancelLabel ?? t('components.confirm.keep')}</Button>
-    <Button variant="danger" loading={busy} onclick={() => void confirm()}>{confirmLabel}</Button>
+    <Button variant={tone} loading={busy} onclick={() => void confirm()}>{confirmLabel}</Button>
   {/snippet}
 </Dialog>

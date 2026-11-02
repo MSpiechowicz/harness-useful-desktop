@@ -11,6 +11,7 @@ import type { NotesImportResult } from '../bindings/NotesImportResult';
 import type { NotesImportRow } from '../bindings/NotesImportRow';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
+import { notesAuthorsListed, withoutAuthors } from './authors';
 import { deletion, requireServer } from './memory-delete-all';
 import { type Reach, reaches, reposPage } from './memory-reach';
 import { detailOf, noteSummaryOf, sampleNotes } from './memory-notes-fixtures';
@@ -214,6 +215,7 @@ export function memoryNotesHandlers(
   copyStores: CopyStores = {},
   langListed: () => boolean = notesLangListed,
   usefulListed: () => boolean = notesUsefulListed,
+  authorsListed: () => boolean = notesAuthorsListed,
 ): NoteHandlers {
   let notes: NoteContent[] | null = null;
   const current = (): NoteContent[] =>
@@ -263,14 +265,23 @@ export function memoryNotesHandlers(
       return {
         availability: state,
         ...page,
-        notes: page.notes.map((found) => ({
-          ...found,
-          ...(langListed() ? {} : { lang: null }),
-          ...(usefulListed() ? {} : { shown: null, useful: null, lastUsefulAt: null }),
-        })),
+        notes: page.notes.map((found) => {
+          const row = {
+            ...found,
+            ...(langListed() ? {} : { lang: null }),
+            ...(usefulListed() ? {} : { shown: null, useful: null, lastUsefulAt: null }),
+          };
+
+          // A server without `notes-authors` sends no author.
+          return authorsListed() ? row : withoutAuthors(row);
+        }),
       };
     },
-    memory_note_get: ({ id, hidden, ...reach }: CommandArgs<'memory_note_get'>): NoteDetail => detailOf(find(id, reach, hidden), visible(reach)),
+    memory_note_get: ({ id, hidden, ...reach }: CommandArgs<'memory_note_get'>): NoteDetail => {
+      const detail = detailOf(find(id, reach, hidden), visible(reach));
+
+      return authorsListed() ? detail : { ...detail, note: withoutAuthors(detail.note) };
+    },
     memory_note_delete: ({ id, ...reach }: CommandArgs<'memory_note_delete'>): null => {
       const found = find(id, reach);
       notes = current().filter((candidate) => candidate !== found);

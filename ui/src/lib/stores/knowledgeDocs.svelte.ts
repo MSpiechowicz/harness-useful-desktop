@@ -7,6 +7,7 @@ import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
 import type { KnowledgeReposPage } from '$lib/ipc/bindings/KnowledgeReposPage';
 import type { KnowledgeScope } from '$lib/ipc/bindings/KnowledgeScope';
 import type { KnowledgeSort } from '$lib/ipc/bindings/KnowledgeSort';
+import type { KnowledgeUsefulFilter } from '$lib/ipc/bindings/KnowledgeUsefulFilter';
 import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
 import { idFromKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
@@ -31,6 +32,8 @@ export interface DocsRequest {
   format: string | null;
   /** Narrows the table to the documents kept in one place, when both are in use. */
   place: KnowledgePlace | null;
+  /** Narrows the table by whether agents found the documents useful, from a server that counts it. */
+  useful?: KnowledgeUsefulFilter | null;
   sort: KnowledgeSort;
   order: SortOrder;
   page: number;
@@ -60,11 +63,11 @@ export class KnowledgeDocsStore {
 
   constructor(private readonly transport: Transport) {
     this.list = new ViewLoader((key) => {
-      const { query, scope, format, place, sort, order, page } = JSON.parse(key) as DocsRequest;
+      const { query, scope, format, place, useful, sort, order, page } = JSON.parse(key) as DocsRequest;
       const search = query.trim();
 
       return transport.invoke('knowledge_docs_list', {
-        filter: { scope: scopeOf(scope), format, place, sort, order },
+        filter: { scope: scopeOf(scope), format, place, sort, order, ...(useful ? { useful } : {}) },
         offset: page * KNOWLEDGE_PAGE_SIZE,
         limit: KNOWLEDGE_PAGE_SIZE,
         query: search === '' ? null : search,

@@ -11,7 +11,7 @@ import type { KnowledgePulse } from '../bindings/KnowledgePulse';
 import type { CommandArgs } from '../commands';
 import { idKey } from '../knowledge-id';
 import { IpcFailure } from '../transport';
-import { bulkDocuments, chunkText, DESKTOP_REPO, documentOf, outlineOf, sampleDocuments, sampleHeld } from './knowledge-fixtures';
+import { bulkDocuments, chunkText, DESKTOP_REPO, documentOf, outlineOf, sampleDocuments, sampleHeld, withoutQuality } from './knowledge-fixtures';
 import { sortDocuments, visibleDocuments } from './knowledge-list';
 import { numberOf, placed } from './knowledge-routing';
 import type { Handlers } from './types';
@@ -36,9 +36,10 @@ type KnowledgeCommands =
 
 /**
  * Browser-preview switch `?knowledge=`: `empty` starts without documents and proposals, `outdated` is a Harness Knowledge that predates
- * the features the app needs, `missing` is a database that lacks pgvector, and `bulk` adds 1500 documents for the scale of a long list. Anything else shows the sample documents.
+ * the features the app needs, `older` one that lacks `docs-useful`, `docs-similar` and `docs-authors` (no counts, no authors, no comparison), `missing` is a database that
+ * lacks pgvector, `readonly` a team database the user may not change, and `bulk` adds 1500 documents for the scale of a long list. Anything else shows the sample documents.
  */
-export const KNOWLEDGE_SCENARIOS = ['ok', 'empty', 'outdated', 'bulk', 'missing'] as const;
+export const KNOWLEDGE_SCENARIOS = ['ok', 'empty', 'outdated', 'older', 'bulk', 'missing', 'readonly'] as const;
 export type KnowledgeScenario = (typeof KNOWLEDGE_SCENARIOS)[number];
 
 export function knowledgeScenarioFromLocation(search: string = globalThis.location?.search ?? ''): KnowledgeScenario {
@@ -177,12 +178,16 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
     }
   };
   const available = () => availability().type === 'available';
+  // A Harness Knowledge without `docs-useful`, `docs-similar` and `docs-authors`: the app asks it for none of them, and its rows carry none.
+  const older = () => scenario() === 'older';
 
   return {
     knowledge_status: () => {
       const on = available();
 
-      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on, offlineFallback: on } };
+      const newer = on && !older();
+
+      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on, offlineFallback: on, docsUseful: newer, docsSimilar: newer, docsAuthors: newer } };
     },
 
     knowledge_docs_list: ({ filter, offset, limit, query }) => {
@@ -190,14 +195,17 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
         return { availability: availability(), items: [], total: 0, offline: false };
       }
 
-      const matching = sortDocuments(visibleDocuments(store.reachable(), filter, query), filter);
+      // The app drops the filter and the two sorts a server without `docs-useful` would refuse, and reads the default order instead.
+      const asked = older() && filter ? { ...filter, useful: null, sort: filter.sort === 'useful' || filter.sort === 'lastUseful' ? null : filter.sort } : filter;
+      const matching = sortDocuments(visibleDocuments(store.reachable(), asked, query), asked);
       const size = limit ?? DEFAULT_LIMIT;
+      const items = matching.slice(offset ?? 0, (offset ?? 0) + size);
 
-      return { availability: availability(), items: matching.slice(offset ?? 0, (offset ?? 0) + size), total: matching.length, offline: store.offline };
+      return { availability: availability(), items: older() ? items.map(withoutQuality) : items, total: matching.length, offline: store.offline };
     },
 
     knowledge_doc_get: ({ id, chunkId }) => {
-      const document = store.find(id);
+      const document = older() ? withoutQuality(store.find(id)) : store.find(id);
       const sections = outlineOf(document);
       const section = sections.find((candidate) => chunkId !== null && idKey(candidate.chunkId) === idKey(chunkId));
 
@@ -272,6 +280,8 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
         schema: 1,
         model: chunks > 0 ? 'multilingual-e5-small' : null,
         offline: store.offline,
+        // The remote place's answer: unknown while it cannot be reached, absent from a server that does not say.
+        ...(older() ? {} : { remoteWritable: store.offline ? null : scenario() !== 'readonly' }),
         ...(store.split ? { places: { remote: placeStats(store.documents, 'remote', store.offline, store.generation), local: placeStats(store.documents, 'local', false, store.generation) } } : {}),
       };
     },

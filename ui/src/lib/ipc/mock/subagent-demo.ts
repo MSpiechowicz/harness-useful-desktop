@@ -9,7 +9,7 @@ export const SUBAGENT_STEP_MS = 650;
 
 const CALL_ID = 'call-task';
 
-function message(role: ChatMessage['role'], blocks: ChatMessage['blocks']): ChatMessage {
+export function message(role: ChatMessage['role'], blocks: ChatMessage['blocks']): ChatMessage {
   return {
     id: null, role, blocks, model: role === 'assistant' ? 'claude-sonnet-4-5' : null, provider: role === 'assistant' ? 'anthropic' : null,
     stopReason: null, errorMessage: null, usage: null, costUsd: role === 'assistant' ? 0.0041 : null, timestamp: Date.now(),

@@ -1,9 +1,11 @@
+import type { AuthorRef } from '../bindings/AuthorRef';
 import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeHeldItem } from '../bindings/KnowledgeHeldItem';
 import type { KnowledgeId } from '../bindings/KnowledgeId';
 import type { KnowledgeLink } from '../bindings/KnowledgeLink';
 import type { KnowledgeOrigin } from '../bindings/KnowledgeOrigin';
 import type { KnowledgeSection } from '../bindings/KnowledgeSection';
+import { ADA, GRACE, GRACE_AGENT } from './authors';
 import { fakeSha } from './fake-sha';
 import { numberOf } from './knowledge-routing';
 
@@ -17,6 +19,13 @@ function ago(hours: number): string {
   return new Date(Date.now() - hours * HOUR).toISOString();
 }
 
+/** How often agents were shown a document and found it useful (the last time, hours ago). */
+export interface Usage {
+  shown: number;
+  useful: number;
+  lastUseful?: number;
+}
+
 export interface Seed {
   id: KnowledgeId;
   title: string;
@@ -28,9 +37,15 @@ export interface Seed {
   links?: KnowledgeLink[];
   origin?: KnowledgeOrigin;
   warnings?: string[];
+  /** Who added and last changed it. Left out: nobody (no git name was known). */
+  addedBy?: AuthorRef;
+  updatedBy?: AuthorRef;
+  usage?: Usage;
 }
 
 export function documentOf(seed: Seed): KnowledgeDocument {
+  const { usage } = seed;
+
   return {
     id: seed.id,
     title: seed.title,
@@ -46,7 +61,19 @@ export function documentOf(seed: Seed): KnowledgeDocument {
     origin: seed.origin ?? 'user',
     warnings: seed.warnings ?? [],
     links: seed.links ?? [],
+    addedBy: seed.addedBy ?? null,
+    updatedBy: seed.updatedBy ?? seed.addedBy ?? null,
+    shown: usage?.shown ?? 0,
+    useful: usage?.useful ?? 0,
+    lastUsefulAt: usage?.lastUseful === undefined ? null : ago(usage.lastUseful),
   };
+}
+
+/** `doc` as a server without `docs-useful` and `docs-authors` sends it: no authors and no counts. */
+export function withoutQuality(doc: KnowledgeDocument): KnowledgeDocument {
+  const { addedBy: _added, updatedBy: _updated, shown: _shown, useful: _useful, lastUsefulAt: _last, ...rest } = doc;
+
+  return rest;
 }
 
 const DESKTOP: KnowledgeLink[] = [{ repo: DESKTOP_REPO, globs: [] }];
@@ -54,14 +81,14 @@ const DESKTOP: KnowledgeLink[] = [{ repo: DESKTOP_REPO, globs: [] }];
 /** The documents of the preview: every format, a meeting transcript, global ones and ones linked to a repository or to paths in it. */
 export function sampleDocuments(): KnowledgeDocument[] {
   return [
-    documentOf({ id: 1, title: 'Architecture overview', name: 'architecture.md', format: 'markdown', kb: 42, chunks: 18, age: 3, links: DESKTOP }),
-    documentOf({ id: 2, title: 'Billing API', name: 'billing-openapi.yaml', format: 'openapi', kb: 188, chunks: 64, age: 20, links: [{ repo: DESKTOP_REPO, globs: ['src/billing/**', 'src/invoices/**'] }] }),
-    documentOf({ id: 3, title: 'Standup 28 October (transcript)', name: 'standup-2026-10-28.vtt', format: 'transcript', kb: 31, chunks: 9, age: 30, warnings: ['No speaker names were found, so the lines are not attributed.'] }),
-    documentOf({ id: 4, title: 'Security review checklist', name: 'security-review.pdf', format: 'pdf', kb: 920, chunks: 77, age: 52 }),
-    documentOf({ id: 5, title: 'Release process', name: 'release-process.adoc', format: 'asciidoc', kb: 27, chunks: 12, age: 75, links: [{ repo: WEBSITE_REPO, globs: [] }, ...DESKTOP] }),
-    documentOf({ id: 6, title: 'Onboarding for new engineers', name: 'onboarding.html', format: 'html', kb: 64, chunks: 21, age: 96 }),
-    documentOf({ id: 7, title: 'Error codes', name: 'errors.rst', format: 'rst', kb: 18, chunks: 7, age: 130, links: DESKTOP }),
-    documentOf({ id: 8, title: 'Incident 2026-09 postmortem', name: 'postmortem-2026-09.md', format: 'markdown', kb: 12, chunks: 5, age: 200, origin: 'agentApproved', links: DESKTOP }),
+    documentOf({ id: 1, title: 'Architecture overview', name: 'architecture.md', format: 'markdown', kb: 42, chunks: 18, age: 3, links: DESKTOP, addedBy: ADA, updatedBy: GRACE, usage: { shown: 24, useful: 11, lastUseful: 5 } }),
+    documentOf({ id: 2, title: 'Billing API', name: 'billing-openapi.yaml', format: 'openapi', kb: 188, chunks: 64, age: 20, links: [{ repo: DESKTOP_REPO, globs: ['src/billing/**', 'src/invoices/**'] }], addedBy: GRACE, usage: { shown: 9, useful: 4, lastUseful: 30 } }),
+    documentOf({ id: 3, title: 'Standup 28 October (transcript)', name: 'standup-2026-10-28.vtt', format: 'transcript', kb: 31, chunks: 9, age: 30, warnings: ['No speaker names were found, so the lines are not attributed.'], addedBy: ADA, usage: { shown: 7, useful: 0 } }),
+    documentOf({ id: 4, title: 'Security review checklist', name: 'security-review.pdf', format: 'pdf', kb: 920, chunks: 77, age: 52, usage: { shown: 3, useful: 0 } }),
+    documentOf({ id: 5, title: 'Release process', name: 'release-process.adoc', format: 'asciidoc', kb: 27, chunks: 12, age: 75, links: [{ repo: WEBSITE_REPO, globs: [] }, ...DESKTOP], addedBy: GRACE, usage: { shown: 14, useful: 6, lastUseful: 80 } }),
+    documentOf({ id: 6, title: 'Onboarding for new engineers', name: 'onboarding.html', format: 'html', kb: 64, chunks: 21, age: 96, addedBy: ADA, usage: { shown: 2, useful: 0 } }),
+    documentOf({ id: 7, title: 'Error codes', name: 'errors.rst', format: 'rst', kb: 18, chunks: 7, age: 130, links: DESKTOP, addedBy: ADA, updatedBy: GRACE, usage: { shown: 5, useful: 1, lastUseful: 140 } }),
+    documentOf({ id: 8, title: 'Incident 2026-09 postmortem', name: 'postmortem-2026-09.md', format: 'markdown', kb: 12, chunks: 5, age: 200, origin: 'agentApproved', links: DESKTOP, addedBy: GRACE_AGENT, usage: { shown: 4, useful: 3, lastUseful: 210 } }),
     documentOf({ id: 9, title: 'Design tokens', name: 'tokens.md', format: 'markdown', kb: 9, chunks: 4, age: 260, links: [{ repo: DESKTOP_REPO, globs: ['ui/src/lib/design/**'] }] }),
     documentOf({ id: 10, title: 'Glossary', name: 'glossary.txt', format: 'text', kb: 6, chunks: 3, age: 300 }),
   ];
@@ -74,7 +101,7 @@ export function bulkDocuments(count: number): KnowledgeDocument[] {
   return Array.from({ length: count }, (_, index) => {
     const id = 11 + index;
 
-    return documentOf({ id, title: `Runbook ${id}`, name: `runbook-${id}.md`, format: formats[index % formats.length], kb: 4 + (index % 40), chunks: 2 + (index % 15), age: 320 + index });
+    return documentOf({ id, title: `Runbook ${id}`, name: `runbook-${id}.md`, format: formats[index % formats.length], kb: 4 + (index % 40), chunks: 2 + (index % 15), age: 320 + index, addedBy: index % 4 === 0 ? undefined : index % 2 === 0 ? ADA : GRACE, usage: index % 5 === 0 ? undefined : { shown: index % 11, useful: index % 3 === 0 ? 0 : index % 4, lastUseful: index % 3 === 0 ? undefined : 400 + (index % 90) } });
   });
 }
 

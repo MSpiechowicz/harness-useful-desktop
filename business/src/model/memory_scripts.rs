@@ -9,6 +9,8 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use super::{AuthorRef, lenient_author};
+
 /// Whether the installed Harness Memory can list scripts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -102,6 +104,15 @@ pub struct ScriptSummary {
     /// Who saved it.
     #[ts(inline)]
     pub author: ScriptAuthor,
+    /// Who first saved it (the git name of the writer). `None` when no name was known, and from a
+    /// server without `notes-authors`.
+    #[serde(default, with = "lenient_author")]
+    #[ts(optional = nullable, as = "Option<AuthorRef>")]
+    pub added_by: Option<AuthorRef>,
+    /// Who last changed it. `None` as for `addedBy`.
+    #[serde(default, with = "lenient_author")]
+    #[ts(optional = nullable, as = "Option<AuthorRef>")]
+    pub updated_by: Option<AuthorRef>,
     /// RFC 3339.
     pub created_at: String,
     /// RFC 3339.

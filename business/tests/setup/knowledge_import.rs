@@ -44,6 +44,7 @@ fn manifest() -> ImportManifest {
                 globs: vec!["src/**".to_owned()],
             }],
             replaces: None,
+            replacing: Vec::new(),
             place: None,
         },
     )
@@ -339,6 +340,7 @@ fn a_manifest_refuses_links_the_server_would_refuse_and_replaces_without_exactly
             globs: Vec::new(),
         }],
         replaces: None,
+        replacing: Vec::new(),
         place: None,
     };
     let error = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], bad_link).expect_err("bad link");
@@ -347,6 +349,7 @@ fn a_manifest_refuses_links_the_server_would_refuse_and_replaces_without_exactly
     let replaces = KnowledgeImportOptions {
         links: vec![],
         replaces: Some(7.into()),
+        replacing: Vec::new(),
         place: None,
     };
     for (paths, folders) in [
@@ -373,6 +376,7 @@ fn a_place_and_a_local_replaces_id_are_written_into_the_manifest_as_given() {
     let options = KnowledgeImportOptions {
         links: vec![],
         replaces: Some(KnowledgeId::Local("local:12".to_owned())),
+        replacing: Vec::new(),
         place: Some(KnowledgePlace::Local),
     };
     let one = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], options).unwrap();
@@ -389,6 +393,7 @@ fn a_place_and_a_local_replaces_id_are_written_into_the_manifest_as_given() {
     let bad = KnowledgeImportOptions {
         links: vec![],
         replaces: Some(KnowledgeId::Local("local:x".to_owned())),
+        replacing: Vec::new(),
         place: None,
     };
     assert!(ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], bad).is_err());

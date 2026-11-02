@@ -6,9 +6,11 @@ import type { KnowledgeImportEvent } from '$lib/ipc/bindings/KnowledgeImportEven
 import type { KnowledgeIntake } from '$lib/ipc/bindings/KnowledgeIntake';
 import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
 import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
+import type { KnowledgeSimilar } from '$lib/ipc/bindings/KnowledgeSimilar';
 import { ipc } from '$lib/ipc/client';
 import type { Transport } from '$lib/ipc/transport';
 import { writeFailureText } from '$lib/utils/knowledge-failure';
+import { choiceKey, type Landing, type MatchChoices, type MatchRow, matchRows, replacementsOf } from '$lib/utils/knowledge-match';
 
 import { toasts } from './toasts.svelte';
 
@@ -96,6 +98,19 @@ export class KnowledgeImportStore {
   cancelling = $state(false);
   /** Chunks the last import left without a vector, which the notice offers to embed. */
   embeddingPending = $state(0);
+  /** The stored documents the staged files are probably versions of, once the comparison answered. Null while it runs, and for a server that cannot compare. */
+  similar = $state.raw<KnowledgeSimilar | null>(null);
+  /** The comparison of the staged files is running. */
+  scanning = $state(false);
+  /** What the user set per matched file, which updates its document or is added as new. A file not in it takes its default (see `updatesByDefault`). */
+  choices = $state.raw<MatchChoices>({});
+  /** Where the import files its documents, which the dialog keeps current from the routing. A match in another place is added as new unless the user sets it to update. */
+  landing = $state<Landing>('unknown');
+  /** The staged files with what each matches, once compared. */
+  readonly rows = $derived<MatchRow[] | null>(this.intake !== null && this.similar !== null ? matchRows(this.intake, this.similar) : null);
+
+  private scanned = '';
+  private scans = 0;
 
   constructor(
     private readonly transport: Transport,
@@ -129,6 +144,7 @@ export class KnowledgeImportStore {
     this.intake = null;
     this.run = emptyRun(0);
     this.cancelling = false;
+    this.forgetScan();
   }
 
   /** Lets the user choose files or a folder in the native dialog. A cancelled dialog changes nothing. */
@@ -177,6 +193,65 @@ export class KnowledgeImportStore {
 
     this.intake = intake;
     this.phase = intake.files.length + intake.folders.length > 0 ? 'staged' : 'idle';
+    this.forgetScan();
+  }
+
+  private forgetScan(): void {
+    this.scans += 1;
+    this.scanned = '';
+    this.similar = null;
+    this.scanning = false;
+    this.choices = {};
+  }
+
+  /**
+   * Compares the staged files with the stored documents, so each can update the document it is a version of. A title only matches inside the scope of the first
+   * link, so a change of it compares again. A comparison that fails leaves the plain list of files: the import then adds them as it always did.
+   */
+  async scan(): Promise<void> {
+    const intake = this.intake;
+
+    if (this.phase !== 'staged' || intake === null) {
+      return;
+    }
+
+    const key = `${intake.token}|${this.links[0]?.repo ?? ''}`;
+
+    if (key === this.scanned) {
+      return;
+    }
+
+    this.scanned = key;
+    this.scans += 1;
+    const mine = this.scans;
+    this.scanning = true;
+    this.similar = null;
+
+    try {
+      const answer = await this.transport.invoke('knowledge_similar', { token: intake.token, links: this.links });
+
+      if (mine === this.scans) {
+        this.similar = answer;
+      }
+    } catch {
+      // The files are listed without a match, and an import adds them.
+    } finally {
+      if (mine === this.scans) {
+        this.scanning = false;
+      }
+    }
+  }
+
+  /** Sets whether a file that matches a document updates it or is added as new. The choice is for that match only. */
+  setUpdate(path: string, update: boolean): void {
+    const row = this.rows?.find((candidate) => candidate.path === path);
+    const key = row === undefined ? null : choiceKey(row);
+
+    if (key === null) {
+      return;
+    }
+
+    this.choices = { ...this.choices, [key]: update };
   }
 
   /** Imports what is staged. The events fold into `run` as they arrive, and the answer settles what the events did not. */
@@ -187,6 +262,8 @@ export class KnowledgeImportStore {
       return;
     }
 
+    const replacing = replacementsOf(this.rows ?? [], this.choices, this.landing);
+
     this.phase = 'running';
     this.cancelling = false;
     this.run = emptyRun(this.now());
@@ -194,7 +271,7 @@ export class KnowledgeImportStore {
     try {
       const result = await this.transport.invoke('knowledge_import', {
         token: intake.token,
-        options: { links: this.links, replaces: null, ...(this.place === null ? {} : { place: this.place }) },
+        options: { links: this.links, replaces: null, ...(replacing.length === 0 ? {} : { replacing }), ...(this.place === null ? {} : { place: this.place }) },
         onEvent: (event) => {
           this.run = reduceImport(this.run, event);
         },
@@ -265,6 +342,7 @@ export class KnowledgeImportStore {
     this.clear();
     this.links = [];
     this.place = null;
+    this.landing = 'unknown';
     this.picking = false;
     this.embeddingPending = 0;
   }

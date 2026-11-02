@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-similar"
+description = "Enables the knowledge_similar command without any pre-configured scope."
+commands.allow = ["knowledge_similar"]
+
+[[permission]]
+identifier = "deny-knowledge-similar"
+description = "Denies the knowledge_similar command without any pre-configured scope."
+commands.deny = ["knowledge_similar"]

@@ -16,7 +16,8 @@
 //!   [`crate::memory_cli_notes`]), `--useful ever|never` keeps those used at least once or shown at least three
 //!   times and never used, and `--sort useful|lastUseful` orders by them (a note never used comes
 //!   last in `lastUseful`). Without it the notes carry none and the option and the sorts are usage
-//!   errors (`FAKE_MEMORY_FEATURES=notes-lang,...` is an older server).
+//!   errors (`FAKE_MEMORY_FEATURES=notes-lang,...` is an older server). With `notes-authors` listed
+//!   notes and scripts carry `addedBy` and `updatedBy` (see [`crate::memory_cli_notes::with_authors`]).
 //! - `notes get <id> --json [--project P]` prints `{"note", "links"}`; `notes delete <id>
 //!   [--project P]` prints `deleted note <id> <title>`. A note not visible from the arguments exits
 //!   1 with `harness-memory: note <id> not found`; id [`FAILING_ID`] exits 1 with a URL with a

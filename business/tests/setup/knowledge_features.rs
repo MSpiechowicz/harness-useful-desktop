@@ -25,6 +25,9 @@ const EVERY_FEATURE: Features = Features {
     routing: true,
     doc_matches: true,
     offline_fallback: true,
+    docs_useful: true,
+    docs_similar: true,
+    docs_authors: true,
 };
 
 #[test]

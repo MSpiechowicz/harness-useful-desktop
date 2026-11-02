@@ -10,6 +10,8 @@
     confirmLabel: string;
     /** The way out; "Keep it" when left out, which fits a deletion and nothing else. */
     cancelLabel?: string;
+    /** `primary` for an action that is not destructive. Danger when left out. */
+    tone?: 'danger' | 'primary';
   }
 </script>
 
@@ -44,4 +46,4 @@
   });
 </script>
 
-<ConfirmDialog bind:open title={request.title} description={request.description} subject={request.subject} confirmLabel={request.confirmLabel} cancelLabel={request.cancelLabel} onconfirm={() => answer(true)} />
+<ConfirmDialog bind:open title={request.title} description={request.description} subject={request.subject} confirmLabel={request.confirmLabel} cancelLabel={request.cancelLabel} tone={request.tone} onconfirm={() => answer(true)} />

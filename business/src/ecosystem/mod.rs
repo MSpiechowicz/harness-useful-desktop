@@ -105,6 +105,7 @@ pub mod knowledge_record;
 pub mod knowledge_register;
 pub mod knowledge_remote;
 pub mod knowledge_search;
+pub mod knowledge_similar;
 pub mod mcp_cli;
 pub mod mcp_client;
 pub mod mcp_merge;
@@ -212,6 +213,7 @@ pub use knowledge_remote::{
     read_check,
 };
 pub use knowledge_search::{MAX_HITS, search_knowledge, search_server};
+pub use knowledge_similar::{MAX_ENTRIES as MAX_SIMILAR_ENTRIES, similar_docs};
 pub use mcp_cli::{
     MCP_CLI_TIMEOUT, register_dashboard_mcp_cli, register_desktop_mcp_cli, register_sidecar_mcp_cli,
     unregister_sidecar_mcp_cli,

@@ -15,6 +15,9 @@ export interface Column {
   descFirst?: boolean;
 }
 
+/** The widths columns of the same kind share in every table (Notes, Scripts, Documents), so who added an entry and how useful it was read alike wherever they are. */
+export const COLUMN_WIDTH = { author: '12rem', useful: '13rem', lastUseful: '9rem' } as const;
+
 export interface Sort {
   key: string;
   desc: boolean;

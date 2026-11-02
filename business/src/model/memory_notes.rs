@@ -10,6 +10,7 @@ use ts_rs::TS;
 use super::memory_scripts::{
     MemoryPlaceCounts, MemoryScopeCounts, MemoryScriptsAvailability, ScriptAuthor, ScriptPlace, ScriptScope,
 };
+use super::{AuthorRef, lenient_author};
 
 /// What a note records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -130,8 +131,17 @@ pub struct NoteSummary {
     pub author: ScriptAuthor,
     /// RFC 3339.
     pub created_at: String,
+    /// Who first saved it (the git name of the writer). `None` when no name was known, and from a
+    /// server without `notes-authors`.
+    #[serde(default, with = "lenient_author")]
+    #[ts(optional = nullable, as = "Option<AuthorRef>")]
+    pub added_by: Option<AuthorRef>,
     /// RFC 3339.
     pub updated_at: String,
+    /// Who last changed it. `None` as for `addedBy`.
+    #[serde(default, with = "lenient_author")]
+    #[ts(optional = nullable, as = "Option<AuthorRef>")]
+    pub updated_by: Option<AuthorRef>,
     /// How often it was rewritten (1 for a new note).
     pub revision: u32,
     /// How often an agent recalled it.

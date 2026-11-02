@@ -128,6 +128,11 @@ notesLangSupported: boolean,
  */
 notesUsefulSupported: boolean, 
 /**
+ * True when the installed Harness Memory lists `notes-authors` in `harness-memory features`:
+ * notes and scripts carry `addedBy` and `updatedBy`.
+ */
+notesAuthorsSupported: boolean, 
+/**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */
 configPath: string, 

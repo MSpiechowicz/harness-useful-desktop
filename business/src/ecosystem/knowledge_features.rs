@@ -11,7 +11,11 @@
 //! - `mcp`: the MCP server the harnesses run;
 //! - `routing`: `[routing]` in the config, ids `local:N` and the `place` of documents;
 //! - `doc-matches`: `docs matches`;
-//! - `offline-fallback`: answers from this computer while the remote database cannot be reached.
+//! - `offline-fallback`: answers from this computer while the remote database cannot be reached;
+//! - `docs-useful`: `docs list|get` rows carry `shown`, `useful` and `lastUsefulAt`, and `--useful
+//!   any|ever|never` and `--sort useful|lastUseful` use them;
+//! - `docs-similar`: `docs similar`, the manifest's `replacing` and the check of `knowledge_add`;
+//! - `docs-authors`: `docs list|get` rows carry `addedBy` and `updatedBy`.
 //!
 //! An older server does not know the command and exits 2. [`KnowledgeFeatures::support`] asks once
 //! per binary through a [`LineProbe`] (cached per binary, an older server cached as one without
@@ -56,6 +60,15 @@ const DOC_MATCHES: &str = "doc-matches";
 
 /// The line for answering from this computer while the remote database cannot be reached.
 const OFFLINE_FALLBACK: &str = "offline-fallback";
+
+/// The line for the usefulness counts of a document, `--useful` and the sorts by them.
+const DOCS_USEFUL: &str = "docs-useful";
+
+/// The line for `docs similar` and replacing a document found by it.
+const DOCS_SIMILAR: &str = "docs-similar";
+
+/// The line for the authors of a document.
+const DOCS_AUTHORS: &str = "docs-authors";
 
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,6 +154,23 @@ impl KnowledgeSupport {
     pub fn offline_fallback(self) -> bool {
         self.features().offline_fallback
     }
+
+    /// Whether documents carry usefulness counts and `docs list` filters and sorts by them:
+    /// `docs-useful` is listed.
+    pub fn docs_useful(self) -> bool {
+        self.features().docs_useful
+    }
+
+    /// Whether the server has `docs similar` and the import's `replacing`: `docs-similar` is
+    /// listed.
+    pub fn docs_similar(self) -> bool {
+        self.features().docs_similar
+    }
+
+    /// Whether documents carry the authors who added and changed them: `docs-authors` is listed.
+    pub fn docs_authors(self) -> bool {
+        self.features().docs_authors
+    }
 }
 
 /// The probe of the installed server's features. See the module docs.
@@ -177,6 +207,9 @@ impl KnowledgeFeatures {
                 routing: answer.lists(ROUTING),
                 doc_matches: answer.lists(DOC_MATCHES),
                 offline_fallback: answer.lists(OFFLINE_FALLBACK),
+                docs_useful: answer.lists(DOCS_USEFUL),
+                docs_similar: answer.lists(DOCS_SIMILAR),
+                docs_authors: answer.lists(DOCS_AUTHORS),
             }),
             LineAnswer::Unsupported => KnowledgeSupport::Unsupported,
             LineAnswer::NotInstalled => KnowledgeSupport::NotInstalled,

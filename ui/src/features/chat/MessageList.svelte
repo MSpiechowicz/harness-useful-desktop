@@ -12,6 +12,7 @@
   import { cx } from '$lib/utils/cx';
   import { matchesShortcut } from '$lib/utils/shortcuts';
   import type { ChatSession } from '$lib/chat/session.svelte';
+  import { buildKnowledgeUse, type KnowledgeUseIndex } from '$lib/chat/knowledge-use';
   import { buildMemoryUse, type MemoryUseIndex } from '$lib/chat/memory-use';
   import { indexOfToolCall } from '$lib/chat/subagent-steps';
   import { provideToolContext } from '$lib/chat/tool-context';
@@ -91,10 +92,12 @@
     });
   }
 
-  // What each reply did with the notes its searches found, for the project-memory cards.
+  // What each reply did with the notes and documents its searches found, for the project-memory and project-documentation cards.
   // The last build is kept (not reactive) so the cards of searches that did not change keep their object between deltas.
   let lastUse: MemoryUseIndex | undefined;
   const memoryUse = $derived.by(() => (lastUse = buildMemoryUse(session.chat, lastUse)));
+  let lastKnowledgeUse: KnowledgeUseIndex | undefined;
+  const knowledgeUse = $derived.by(() => (lastKnowledgeUse = buildKnowledgeUse(session.chat, lastKnowledgeUse)));
 
   const noModels = $derived(session.chat.items.length === 0 && session.noModels && !session.ended);
 
@@ -192,7 +195,7 @@
             </Button>
           </div>
         {/if}
-        <MessageRow {item} chat={session.chat} sentImages={session.sentImages} {memoryUse} />
+        <MessageRow {item} chat={session.chat} sentImages={session.sentImages} {memoryUse} {knowledgeUse} />
         {#if working && index === session.chat.items.length - 1}
           <WorkingIndicator label={working} />
         {/if}

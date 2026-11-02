@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { KnowledgeUseIndex } from '$lib/chat/knowledge-use';
   import type { MemoryUseIndex } from '$lib/chat/memory-use';
   import type { ChatState, TranscriptItem } from '$lib/chat/types';
 
@@ -14,11 +15,12 @@
     chat: ChatState;
     /** Thumbnails of the images sent with each user message, by message key. */
     sentImages?: Record<string, string[]>;
-    /** What each reply did with the notes its searches found (see `buildMemoryUse`). */
+    /** What each reply did with the notes and documents its searches found (see `buildMemoryUse`, `buildKnowledgeUse`). */
     memoryUse?: MemoryUseIndex;
+    knowledgeUse?: KnowledgeUseIndex;
   }
 
-  let { item, chat, sentImages, memoryUse }: Props = $props();
+  let { item, chat, sentImages, memoryUse, knowledgeUse }: Props = $props();
 
   const active = $derived(chat.phase === 'streaming');
 </script>
@@ -27,14 +29,14 @@
   {#if item.role === 'user'}
     <UserMessage {item} images={sentImages?.[item.key]} />
   {:else if item.role === 'assistant'}
-    <AssistantMessage {item} toolCalls={chat.toolCalls} {active} subagents={chat.subagents} {memoryUse} />
+    <AssistantMessage {item} toolCalls={chat.toolCalls} {active} subagents={chat.subagents} {memoryUse} {knowledgeUse} />
   {:else}
     <SystemMessage {item} />
   {/if}
 {:else if item.kind === 'tool'}
   {@const call = chat.toolCalls[item.toolCallId]}
   {#if call}
-    <ChatToolCard {call} {active} subagents={chat.subagents} {memoryUse} />
+    <ChatToolCard {call} {active} subagents={chat.subagents} {memoryUse} {knowledgeUse} />
   {/if}
 {:else if item.kind === 'memory'}
   <MemoryChatRow agentKey={chat.key} />

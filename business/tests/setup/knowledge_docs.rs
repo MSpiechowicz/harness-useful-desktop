@@ -46,6 +46,7 @@ fn a_page_becomes_the_servers_page_number_with_the_sort_and_filters() {
         place: None,
         sort: Some(KnowledgeSort::Title),
         order: None,
+        useful: None,
     };
 
     let page = wait(list_docs(

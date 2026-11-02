@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{DashboardSetup, KnowledgeProblem, ManualRemoval, SortOrder};
+use super::{AuthorRef, DashboardSetup, KnowledgeProblem, ManualRemoval, lenient_author};
 
 /// An id of a document or chunk as the server gave it: a plain number (the remote database, or the
 /// only place in use) or a string `local:N` (this computer's store when both places are in use).
@@ -37,6 +37,16 @@ impl KnowledgeId {
                         (1..=18).contains(&part.len()) && part.bytes().all(|b| b.is_ascii_digit()) && *part != "0"
                     })
             }),
+        }
+    }
+}
+
+impl KnowledgeId {
+    /// True for the id of a document: a positive number or `local:N`, never a chunk's.
+    pub fn is_document(&self) -> bool {
+        match self {
+            Self::Remote(_) => self.is_valid(),
+            Self::Local(text) => self.is_valid() && text.matches(':').count() == 1,
         }
     }
 }
@@ -125,6 +135,13 @@ pub struct KnowledgeFeatures {
     /// `offline-fallback`: a remote database that cannot be reached is answered from this computer
     /// (`offline` on lists and counts, `--place` on `docs list`).
     pub offline_fallback: bool,
+    /// `docs-useful`: `shown`, `useful` and `lastUsefulAt` on documents, `--useful` and the two
+    /// sorts by them.
+    pub docs_useful: bool,
+    /// `docs-similar`: `docs similar` and the import's `replacing`.
+    pub docs_similar: bool,
+    /// `docs-authors`: `addedBy` and `updatedBy` on documents.
+    pub docs_authors: bool,
 }
 
 /// What `knowledge_status` says: whether the server is there and what it can do.
@@ -187,8 +204,17 @@ pub struct KnowledgeDocument {
     pub chunk_count: u32,
     /// When it was first imported (RFC 3339).
     pub created_at: String,
+    /// Who first imported it. `None` when no name was known, and from a server without
+    /// `docs-authors`.
+    #[serde(default, with = "lenient_author")]
+    #[ts(optional = nullable, as = "Option<AuthorRef>")]
+    pub added_by: Option<AuthorRef>,
     /// When it last changed (RFC 3339).
     pub updated_at: String,
+    /// Who last changed it. `None` as for `addedBy`.
+    #[serde(default, with = "lenient_author")]
+    #[ts(optional = nullable, as = "Option<AuthorRef>")]
+    pub updated_by: Option<AuthorRef>,
     /// Where it came from.
     pub origin: KnowledgeOrigin,
     /// What the extraction noticed (a page without text).
@@ -201,6 +227,20 @@ pub struct KnowledgeDocument {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub place: Option<KnowledgePlace>,
+    /// How often agents were shown the document. `None` from a server without `docs-useful`, and
+    /// from a read-only role on a database no writer extended yet.
+    #[serde(default)]
+    #[ts(optional, type = "number | null")]
+    pub shown: Option<i64>,
+    /// How often an agent found the document useful. `None` as for `shown`.
+    #[serde(default)]
+    #[ts(optional, type = "number | null")]
+    pub useful: Option<i64>,
+    /// RFC 3339: when an agent last found the document useful. `None` when none did yet, and as
+    /// `shown`.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub last_useful_at: Option<String>,
 }
 
 /// One entry of a document's outline.
@@ -258,59 +298,6 @@ pub struct KnowledgeDetail {
     pub sections: Vec<KnowledgeSection>,
     /// The chunk asked for with `chunkId`.
     pub chunk: Option<KnowledgeChunk>,
-}
-
-/// Which documents a list shows by their repository links.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-#[ts(export)]
-pub enum KnowledgeScope {
-    /// Every document.
-    All,
-    /// The documents linked to no repository.
-    Global,
-    /// The documents linked to the repository with this key.
-    Repo {
-        /// The repository key (see [`KnowledgeLink::repo`]).
-        key: String,
-    },
-}
-
-/// How a list is sorted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub enum KnowledgeSort {
-    /// By title, A to Z unless reversed.
-    Title,
-    /// By the last change, newest first unless reversed.
-    Updated,
-    /// By size, largest first unless reversed.
-    Size,
-    /// By format name, A to Z unless reversed.
-    Format,
-    /// By chunk count, most first unless reversed.
-    Chunks,
-    /// By the first linked repository, global documents first unless reversed.
-    Repos,
-}
-
-/// What a list of documents is asked with: the filters and the page (see
-/// [`SortOrder`] for the direction).
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct KnowledgeListFilter {
-    /// By repository (every document unless given).
-    pub scope: Option<KnowledgeScope>,
-    /// By format (`markdown`, `pdf`, ...).
-    pub format: Option<String>,
-    /// By the place the document is kept in, when both are in use (every place unless given).
-    pub place: Option<KnowledgePlace>,
-    /// The sort (`updated` unless given).
-    pub sort: Option<KnowledgeSort>,
-    /// The direction (the sort's own unless given).
-    pub order: Option<SortOrder>,
 }
 
 /// One page of documents.

@@ -45,4 +45,17 @@ docMatches: boolean,
  * `offline-fallback`: a remote database that cannot be reached is answered from this computer
  * (`offline` on lists and counts, `--place` on `docs list`).
  */
-offlineFallback: boolean, };
+offlineFallback: boolean, 
+/**
+ * `docs-useful`: `shown`, `useful` and `lastUsefulAt` on documents, `--useful` and the two
+ * sorts by them.
+ */
+docsUseful: boolean, 
+/**
+ * `docs-similar`: `docs similar` and the import's `replacing`.
+ */
+docsSimilar: boolean, 
+/**
+ * `docs-authors`: `addedBy` and `updatedBy` on documents.
+ */
+docsAuthors: boolean, };

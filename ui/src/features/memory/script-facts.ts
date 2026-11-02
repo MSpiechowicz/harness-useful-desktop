@@ -1,6 +1,7 @@
 import { type FactRow, momentFact } from '$lib/components/facts';
 import { t } from '$lib/i18n/i18n.svelte';
 import type { ScriptSummary } from '$lib/ipc/bindings/ScriptSummary';
+import { addedByFact, updatedByFact } from '$lib/utils/author-format';
 import { formatDateTime, relativeTime } from '$lib/utils/format';
 
 import { APPROVAL_LABELS, authorFacts, exitOutcome, languageLabel, needsReview, PLACE_LABELS, scopeText, shortSha } from './script-format';
@@ -32,6 +33,7 @@ export function scriptFacts(script: ScriptSummary, sha256: string): FactRow[] {
     { label: t('memory.detail.scope'), value: scopeText(script), title: script.repo ?? undefined },
     { label: t('memory.detail.place'), value: t(PLACE_LABELS[script.place]) },
     ...authorFacts(script),
+    ...addedByFact(script),
     { label: t('memory.scripts.detail.runs'), value: String(script.runCount) },
     { label: t('memory.scripts.detail.lastRun'), ...lastRun },
     lastExit(script),
@@ -39,5 +41,6 @@ export function scriptFacts(script: ScriptSummary, sha256: string): FactRow[] {
     { label: t('memory.scripts.detail.timeout'), value: t('memory.scripts.detail.seconds', { count: script.timeoutSecs }) },
     { label: t('memory.scripts.detail.trust'), value: t(APPROVAL_LABELS[script.approval]), ...(needsReview(script) ? { tone: 'warning' as const } : { on: true }) },
     momentFact(t('memory.detail.updated'), script.updatedAt),
+    ...updatedByFact(script),
   ];
 }

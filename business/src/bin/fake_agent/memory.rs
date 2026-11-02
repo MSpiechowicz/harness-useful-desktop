@@ -449,5 +449,5 @@ pub fn fixture(id: i64, name: &str, scope: &str, repo: Value, body: &str, approv
         fields.insert("approval".to_owned(), json!(approval));
     }
     fields.insert("body".to_owned(), json!(body));
-    Value::Object(fields)
+    crate::memory_cli_notes::with_authors(Value::Object(fields))
 }

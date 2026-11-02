@@ -3,6 +3,7 @@
   import ShieldCheck from '@lucide/svelte/icons/shield-check';
   import { untrack } from 'svelte';
 
+  import AuthorCell from '$lib/components/AuthorCell.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import { memoryScope } from '$lib/components/docs/doc-scope';
@@ -21,6 +22,7 @@
   import type { ScriptSummary } from '$lib/ipc/bindings/ScriptSummary';
   import { ALL_REPOS } from '$lib/stores/memory-reach';
   import { deleteScript, hideScript, type ReviewedScript, SCRIPTS_PAGE_SIZE, scriptDetail, scriptDetailKey, scriptList, trustScripts } from '$lib/stores/memoryScripts.svelte';
+  import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { toasts } from '$lib/stores/toasts.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -73,6 +75,8 @@
   // Remote scripts hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // Nothing saved yet: one page with the explanation, not an empty table beside a message.
+  // `notesAuthorsSupported` says whether the server tells who wrote a script: the "Added by" column exists only then, for every row alike.
+  const authorsListed = $derived(memoryRemote.value?.notesAuthorsSupported ?? rows.some((row) => row.addedBy != null));
   const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
   // Trusting several at once is for the scripts on screen: the ones of the page the user is looking at. Hidden scripts are not on screen for agents, so none.
   const toTrust = $derived(scriptsTeam.showHidden ? [] : rows.filter(needsReview));
@@ -344,7 +348,7 @@
   detailEmpty={t('memory.scripts.detail.empty')}
   tableLabel={t('memory.scripts.list.label')}
   tableId="memory-scripts"
-  columns={scriptColumns()}
+  columns={scriptColumns(authorsListed)}
   {rows}
   sort={viewState.scriptsSort}
   onsort={(next) => {
@@ -378,6 +382,8 @@
       {:else}
         <span class="text-fg-3">{t('memory.scripts.detail.neverRun')}</span>
       {/if}
+    {:else if column.key === 'addedBy'}
+      <AuthorCell author={script.addedBy} />
     {:else}
       <span class="tabular text-fg-3" title={formatDateTime(script.updatedAt)}>{relativeTime(script.updatedAt)}</span>
     {/if}

@@ -133,12 +133,12 @@ describe('tildePath', () => {
 describe('authorFacts', () => {
   it('splits who wrote it from the folder, which is cut at its start and keeps the whole path for the tooltip', () => {
     expect(authorFacts({ author: { source: 'omp-coding-agent', root: '/home/frogius/Projekty/harness-useful-logo' } })).toEqual([
-      { label: 'Written by', value: 'omp-coding-agent' },
+      { label: 'Saved from', value: 'omp-coding-agent' },
       { label: 'Folder', value: '~/Projekty/harness-useful-logo', title: '/home/frogius/Projekty/harness-useful-logo', cutStart: true },
     ]);
   });
 
   it('has no folder row when the folder is not known', () => {
-    expect(authorFacts({ author: { source: 'opencode', root: null } })).toEqual([{ label: 'Written by', value: 'opencode' }]);
+    expect(authorFacts({ author: { source: 'opencode', root: null } })).toEqual([{ label: 'Saved from', value: 'opencode' }]);
   });
 });

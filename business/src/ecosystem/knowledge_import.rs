@@ -3,8 +3,9 @@
 //!
 //! - One import runs at a time ([`KnowledgeImporter::begin`]): a second one is refused
 //!   (`invalidInput`) until the first one ended.
-//! - The manifest is `{"paths": [...], "folders": [...], "links": [...], "replaces": ID, "place": "remote"|"local"}`, all
-//!   optional, at most 4 MiB. It is written to the child's stdin, which is closed after it.
+//! - The manifest is `{"paths": [...], "folders": [...], "links": [...], "replaces": ID, "replacing":
+//!   {PATH: ID}, "place": "remote"|"local"}`, all optional (`replacing` only for a server that lists
+//!   `docs-similar`), at most 4 MiB. It is written to the child's stdin, which is closed after it.
 //! - Each stdout line is one event ([`parse_import_event`]); a line that is no event (a newer
 //!   event, a stray line) is skipped. Every event goes to the sink as it arrives. An import that
 //!   ends without its `done` event (a crash, a refused manifest) ends with a `failed` event that
@@ -15,6 +16,7 @@
 //!
 //! Paths and file names reach the sink and nothing else: they are never logged.
 
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -61,16 +63,35 @@ pub struct ImportManifest {
     /// The document the one file of this import replaces.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub replaces: Option<crate::model::KnowledgeId>,
+    /// The document each of several files replaces, by the file's path. Left out unless given.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub replacing: BTreeMap<String, crate::model::KnowledgeId>,
     /// Where the documents are kept (`remote` or `local`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub place: Option<crate::model::KnowledgePlace>,
 }
 
 impl ImportManifest {
-    /// The manifest of `paths` and `folders` with the options the user chose. `invalidInput` for
-    /// links the server would refuse (the same check as setting a document's links), and for
-    /// `replaces` unless the import is exactly one file.
+    /// The manifest of `paths` and `folders` for a server without `docs-similar`: [`with_features`]
+    /// with no `replacing`.
+    ///
+    /// [`with_features`]: Self::with_features
     pub fn new(paths: Vec<String>, folders: Vec<String>, options: KnowledgeImportOptions) -> Result<Self> {
+        Self::with_features(paths, folders, options, false)
+    }
+
+    /// The manifest of `paths` and `folders` with the options the user chose. `invalidInput` for
+    /// links the server would refuse (the same check as setting a document's links), for
+    /// `replaces` unless the import is exactly one file, and for `replacing` that is combined with
+    /// `replaces`, names a file that is not one of `paths`, a path twice, an id that is no
+    /// document's or an id twice. `unsupported` for `replacing` unless `docs_similar` (the server
+    /// lists `docs-similar`): an older server would import the file as a new document.
+    pub fn with_features(
+        paths: Vec<String>,
+        folders: Vec<String>,
+        options: KnowledgeImportOptions,
+        docs_similar: bool,
+    ) -> Result<Self> {
         check_links(&options.links)?;
 
         if options.replaces.as_ref().is_some_and(|id| !id.is_valid()) {
@@ -83,11 +104,14 @@ impl ImportManifest {
             ));
         }
 
+        let replacing = replacing_map(&paths, &options, docs_similar)?;
+
         Ok(Self {
             paths,
             folders,
             links: options.links,
             replaces: options.replaces,
+            replacing,
             place: options.place,
         })
     }
@@ -104,6 +128,55 @@ impl ImportManifest {
 
         Ok(bytes)
     }
+}
+
+/// The `replacing` of the manifest: each file of `options.replacing` with the document it replaces
+/// (see [`ImportManifest::with_features`] for what is refused).
+fn replacing_map(
+    paths: &[String],
+    options: &KnowledgeImportOptions,
+    docs_similar: bool,
+) -> Result<BTreeMap<String, KnowledgeId>> {
+    if options.replacing.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    if !docs_similar {
+        return Err(BusinessError::Unsupported(format!(
+            "this {} cannot replace documents found by name, so update {}",
+            KNOWLEDGE_SIDECAR.binary, KNOWLEDGE_SIDECAR.product
+        )));
+    }
+
+    if options.replaces.is_some() {
+        return Err(BusinessError::InvalidInput(
+            "replacing one document and several are not combined".to_owned(),
+        ));
+    }
+
+    let staged: HashSet<&str> = paths.iter().map(String::as_str).collect();
+    let mut ids = HashSet::new();
+    let mut map = BTreeMap::new();
+
+    for replacement in &options.replacing {
+        if !staged.contains(replacement.path.as_str()) {
+            return Err(BusinessError::InvalidInput(
+                "a document is replaced by a file of this import".to_owned(),
+            ));
+        }
+
+        if !replacement.id.is_document() {
+            return Err(BusinessError::InvalidInput("that is not a document id".to_owned()));
+        }
+
+        if !ids.insert(&replacement.id) || map.insert(replacement.path.clone(), replacement.id.clone()).is_some() {
+            return Err(BusinessError::InvalidInput(
+                "each document is replaced by one file at most".to_owned(),
+            ));
+        }
+    }
+
+    Ok(map)
 }
 
 /// The event on one line of the import's stdout; `None` for anything this app does not understand.

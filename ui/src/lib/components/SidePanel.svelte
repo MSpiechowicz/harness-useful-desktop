@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { expoOut } from 'svelte/easing';
+  import type { DragEventHandler } from 'svelte/elements';
   import { fly } from 'svelte/transition';
 
   import { scaled, travel } from '$lib/design/motion';
@@ -31,11 +32,20 @@
     top?: Snippet;
     /** Fixed under the scrolling body, edge to edge (a message box). */
     footer?: Snippet;
+    /** Drawn over the whole panel, above its scrolling body (a drop target that says what a drop does). */
+    overlay?: Snippet;
+    /** The drag events of the panel, for a panel that takes a file dropped on it. */
+    ondragenter?: DragEventHandler<HTMLElement>;
+    ondragover?: DragEventHandler<HTMLElement>;
+    ondragleave?: DragEventHandler<HTMLElement>;
+    ondrop?: DragEventHandler<HTMLElement>;
+    /** The panel's element while it is shown, for a panel that needs to know where it is on the page. */
+    element?: HTMLElement | null;
     onclose: () => void;
     children: Snippet;
   }
 
-  let { open, title, subtitle = '', mono = false, inline = false, flat = false, actions, titleField, top, footer, onclose, children }: Props = $props();
+  let { open, title, subtitle = '', mono = false, inline = false, flat = false, actions, titleField, top, footer, overlay, ondragenter, ondragover, ondragleave, ondrop, element = $bindable(null), onclose, children }: Props = $props();
 
   const SLIDE_PX = 560;
 </script>
@@ -55,6 +65,8 @@
   </div>
 
   {@render footer?.()}
+
+  {@render overlay?.()}
 {/snippet}
 
 <!-- Slides in over the right side of its (relatively positioned) parent. The rest of the parent stays usable: the panel
@@ -62,13 +74,18 @@
      Inline, it is a column of the view: it only fills its place, and what changes inside it is the view's business. -->
 {#if inline}
   {#if open}
-    <section aria-label={title} class="flex size-full min-h-0 flex-col overflow-hidden bg-surface-1">
+    <section bind:this={element} aria-label={title} {ondragenter} {ondragover} {ondragleave} {ondrop} class="relative flex size-full min-h-0 flex-col overflow-hidden bg-surface-1">
       {@render body()}
     </section>
   {/if}
 {:else if open}
   <section
+    bind:this={element}
     aria-label={title}
+    {ondragenter}
+    {ondragover}
+    {ondragleave}
+    {ondrop}
     in:fly={{ x: travel(SLIDE_PX), opacity: 0.2, duration: scaled(340), easing: expoOut }}
     out:fly={{ x: travel(SLIDE_PX), opacity: 0.2, duration: scaled(220), easing: expoOut }}
     style:width="min({SIDE_PANEL_WIDTH}, 100%)"

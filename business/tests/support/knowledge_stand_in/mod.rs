@@ -19,8 +19,7 @@ use crate::setup_support::play;
 use crate::team_support::{Cli, exits};
 
 /// What a current server lists.
-pub const ALL_FEATURES: &str =
-    "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\n";
+pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\n";
 
 /// A repository key the tests link documents to.
 pub const REPO: &str = "git:github.com/acme/widget";
@@ -42,6 +41,35 @@ pub fn document(id: i64, title: &str) -> Value {
         "origin": "user",
         "warnings": [],
         "links": [{ "repo": REPO, "globs": ["src/**"] }]
+    })
+}
+
+/// `document` as a server with `docs-authors` and `docs-useful` prints it: added by Ada through
+/// Claude Code, last changed by Grace, shown 6 times and found useful twice.
+pub fn document_with_quality(id: i64, title: &str) -> Value {
+    let mut document = document(id, title);
+
+    document["addedBy"] = json!({ "name": "Ada Lovelace", "via": "claude-code" });
+    document["updatedBy"] = json!({ "name": "Grace Hopper", "via": null });
+    document["shown"] = json!(6);
+    document["useful"] = json!(2);
+    document["lastUsefulAt"] = json!("2026-10-05T12:00:00Z");
+
+    document
+}
+
+/// The `match` of `docs similar` for stored document `id`, by `reason`.
+pub fn similar_match(id: Value, title: &str, reason: &str) -> Value {
+    json!({
+        "id": id,
+        "title": title,
+        "place": "local",
+        "reason": reason,
+        "sharedChunks": 3,
+        "chunks": 4,
+        "addedBy": { "name": "Ada Lovelace", "via": null },
+        "updatedBy": null,
+        "updatedAt": "2026-10-02T08:30:00Z"
     })
 }
 

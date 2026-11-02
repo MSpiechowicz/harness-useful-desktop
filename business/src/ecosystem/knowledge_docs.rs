@@ -23,8 +23,8 @@ use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches, KnowledgeDocument,
-    KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgePage, KnowledgePlace, KnowledgeRepoCount,
-    KnowledgeReposPage, KnowledgeScope, KnowledgeSort, KnowledgeStats,
+    KnowledgeFeatures as FeatureSet, KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgePage, KnowledgePlace,
+    KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope, KnowledgeSort, KnowledgeStats, KnowledgeUsefulFilter,
 };
 use crate::process::ProcessRunner;
 
@@ -46,8 +46,14 @@ const MAX_MATCHES: u32 = 50;
 /// The most ids one delete takes.
 const MAX_DELETE_IDS: usize = 1000;
 
-/// The sorts that go largest or newest first unless asked otherwise.
-const DESCENDING_SORTS: [KnowledgeSort; 3] = [KnowledgeSort::Updated, KnowledgeSort::Size, KnowledgeSort::Chunks];
+/// The sorts that go largest, most or newest first unless asked otherwise.
+const DESCENDING_SORTS: [KnowledgeSort; 5] = [
+    KnowledgeSort::Updated,
+    KnowledgeSort::Size,
+    KnowledgeSort::Chunks,
+    KnowledgeSort::Useful,
+    KnowledgeSort::LastUseful,
+];
 
 /// The installed server when it lists `docs`.
 pub async fn docs_server(env: &Env, runner: &dyn ProcessRunner, features: &KnowledgeFeatures) -> Result<PathBuf> {
@@ -66,15 +72,16 @@ pub async fn list_docs(
     window: &ListWindow,
 ) -> Result<KnowledgePage> {
     // A filter the server would refuse is the caller's mistake, whatever the server is.
-    list_args(filter, window, true)?;
+    list_args(filter, window, FeatureSet::default())?;
 
     let server = match docs_server(env, runner, features).await {
         Ok(server) => server,
         Err(error) => return Ok(KnowledgePage::unavailable(availability_of(error))),
     };
 
-    // A server that does not know `offline-fallback` has no `--place` on a list.
-    let args = list_args(filter, window, features.support(env, runner).await.offline_fallback())?;
+    // A server that does not know `offline-fallback` has no `--place` on a list, one without
+    // `docs-useful` no `--useful` and no sort by it.
+    let args = list_args(filter, window, features.support(env, runner).await.features())?;
 
     let page = match run_typed(env, runner, &server, call("docs list", args)).await {
         Ok(data) => read_page(&data).map_err(CliFailure::from),
@@ -111,12 +118,14 @@ fn is_offline(data: &Value) -> bool {
     data.get("offline").and_then(Value::as_bool).unwrap_or(false)
 }
 
-/// `docs list --json [--repo KEY | --global] [--format F] [--place P] [--query Q] --sort S [--desc] --page N
-/// --per-page N`.
+/// `docs list --json [--repo KEY | --global] [--format F] [--place P] [--useful U] [--query Q] --sort S
+/// [--desc] --page N --per-page N`: `--place` only of a server that lists `offline-fallback`,
+/// `--useful` and the sorts `useful` and `lastUseful` only of one that lists `docs-useful` (an
+/// older one refuses them as usage errors, so they fall back to the default order).
 fn list_args(
     filter: &KnowledgeListFilter,
     window: &ListWindow,
-    offline_fallback: bool,
+    features: FeatureSet,
 ) -> Result<Vec<std::ffi::OsString>> {
     let mut args = words(&["docs", "list", "--json"]);
 
@@ -134,9 +143,15 @@ fn list_args(
         args.extend(["--format".into(), format.into()]);
     }
 
-    match filter.place.filter(|_| offline_fallback) {
+    match filter.place.filter(|_| features.offline_fallback) {
         Some(KnowledgePlace::Remote) => args.extend(["--place".into(), "remote".into()]),
         Some(KnowledgePlace::Local) => args.extend(["--place".into(), "local".into()]),
+        None => {}
+    }
+
+    match filter.useful.filter(|_| features.docs_useful) {
+        Some(KnowledgeUsefulFilter::Ever) => args.extend(["--useful".into(), "ever".into()]),
+        Some(KnowledgeUsefulFilter::Never) => args.extend(["--useful".into(), "never".into()]),
         None => {}
     }
 
@@ -148,7 +163,10 @@ fn list_args(
         args.extend(["--query".into(), query.into()]);
     }
 
-    let sort = filter.sort.unwrap_or(KnowledgeSort::Updated);
+    let sort = filter
+        .sort
+        .filter(|sort| features.docs_useful || !sort.needs_useful())
+        .unwrap_or(KnowledgeSort::Updated);
     args.extend(["--sort".into(), sort_name(sort).into()]);
 
     if window.descending(DESCENDING_SORTS.contains(&sort)) {
@@ -171,6 +189,8 @@ fn sort_name(sort: KnowledgeSort) -> &'static str {
         KnowledgeSort::Format => "format",
         KnowledgeSort::Chunks => "chunks",
         KnowledgeSort::Repos => "repos",
+        KnowledgeSort::Useful => "useful",
+        KnowledgeSort::LastUseful => "lastUseful",
     }
 }
 

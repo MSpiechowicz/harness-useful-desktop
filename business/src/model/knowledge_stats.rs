@@ -40,6 +40,12 @@ pub struct KnowledgeStats {
     /// The remote database cannot be reached: the counts are this computer's.
     #[serde(default)]
     pub offline: bool,
+    /// Whether the user may change the remote place: `Some(false)` for a read-only role, `None`
+    /// while unknown (no remote, a remote that is down, a store that cannot tell, a server
+    /// that does not say). Actions stay enabled while unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub remote_writable: Option<bool>,
 }
 
 /// The counts of each place in use (`stats --json` `places`).

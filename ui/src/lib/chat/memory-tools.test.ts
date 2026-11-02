@@ -179,4 +179,12 @@ describe('what the server says it marked and showed', () => {
     expect(readNotes({ ids: [1, 2] }, '#2 [note, repo, revision 1] Two')).toEqual([2]);
     expect(readNotes({ ids: [1, 2] }, null)).toEqual([1, 2]);
   });
+
+  it('rates and reads at most the rows a card shows', () => {
+    const ids = Array.from({ length: 80 }, (_, at) => at + 1);
+
+    expect(ratedNotes({ ids }, 'recorded')).toEqual(ids.slice(0, 50));
+    expect(readNotes({ ids }, null)).toEqual(ids.slice(0, 50));
+    expect(ratedNotes({ ids }, `marked ${ids.length} notes useful: ${ids.map((id) => `#${id}`).join(', ')}`)).toEqual(ids.slice(0, 50));
+  });
 });

@@ -52,4 +52,10 @@ places?: KnowledgeStatsPlaces,
 /**
  * The remote database cannot be reached: the counts are this computer's.
  */
-offline: boolean, };
+offline: boolean, 
+/**
+ * Whether the user may change the remote place: `Some(false)` for a read-only role, `None`
+ * while unknown (no remote, a remote that is down, a store that cannot tell, a server
+ * that does not say). Actions stay enabled while unknown.
+ */
+remoteWritable?: boolean | null, };

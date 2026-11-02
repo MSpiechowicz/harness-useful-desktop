@@ -27,6 +27,7 @@
     "allow-knowledge-drop-intake",
     "allow-knowledge-import",
     "allow-knowledge-import-cancel",
+    "allow-knowledge-similar",
     "allow-knowledge-held-list",
     "allow-knowledge-held-get",
     "allow-knowledge-held-decide",

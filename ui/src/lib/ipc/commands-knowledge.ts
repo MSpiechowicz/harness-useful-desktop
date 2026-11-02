@@ -23,6 +23,7 @@ import type { KnowledgeReindexed } from './bindings/KnowledgeReindexed';
 import type { KnowledgeRemote } from './bindings/KnowledgeRemote';
 import type { KnowledgeReposPage } from './bindings/KnowledgeReposPage';
 import type { KnowledgeSearchScope } from './bindings/KnowledgeSearchScope';
+import type { KnowledgeSimilar } from './bindings/KnowledgeSimilar';
 import type { KnowledgeStats } from './bindings/KnowledgeStats';
 import type { KnowledgeStatus } from './bindings/KnowledgeStatus';
 import type { KnowledgeSwitchResult } from './bindings/KnowledgeSwitchResult';
@@ -110,17 +111,22 @@ export const knowledgeCommands = {
   knowledge_changes_listen: cmd<{ onEvent: EventSink<KnowledgePulse> }, null>(),
   /** Tells that the Knowledge view is open or closed: the counts are read every 4 s while it is, every 30 s otherwise. */
   knowledge_changes_watch: cmd<{ watching: boolean }, null>(),
-  /** Lets the user choose documents in a native dialog and checks them. Null when cancelled. */
-  knowledge_pick_files: cmd<undefined, KnowledgeIntake | null>(),
+  /** Lets the user choose documents in a native dialog and checks them. Null when cancelled. `multiple: false` lets the dialog take one file only. */
+  knowledge_pick_files: cmd<{ multiple?: boolean } | undefined, KnowledgeIntake | null>(),
   /** Lets the user choose a folder of documents in a native dialog and checks it. Null when cancelled. */
   knowledge_pick_folder: cmd<undefined, KnowledgeIntake | null>(),
   /** The files and folders of the last drop on the window, checked, once. Null when nothing was dropped since. */
   knowledge_drop_intake: cmd<undefined, KnowledgeIntake | null>(),
   /**
    * Imports the files and folders of the intake `token`, linking every document to `options.links` (none: global). Each event goes to `onEvent`
-   * as it happens. `invalidInput` while another import runs, `notFound` for a token that is gone, `unsupported` for a server without `import-ndjson`.
+   * as it happens, replacing the document of `options.replacing` for each of the files it names (needs `docsSimilar`). `invalidInput` while another import runs, `notFound` for a token that is gone, `unsupported` for a server without `import-ndjson`.
    */
   knowledge_import: cmd<{ token: string; options: KnowledgeImportOptions | null; onEvent: EventSink<KnowledgeImportEvent> }, KnowledgeImportResult>(),
   /** Asks the running import to stop between two documents. False when no import runs. */
   knowledge_import_cancel: cmd<undefined, boolean>(),
+  /**
+   * The stored documents the files of the intake `token` are probably versions of, one entry per file (a folder gives its files). A title only matches
+   * inside the scope of `links` (the first link's repository, else global). `notFound` for a token that is gone, `unsupported` for a server without `docs-similar`.
+   */
+  knowledge_similar: cmd<{ token: string; links: KnowledgeLink[] | null }, KnowledgeSimilar>(),
 };

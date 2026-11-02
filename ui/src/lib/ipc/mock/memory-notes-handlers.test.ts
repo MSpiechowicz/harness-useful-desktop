@@ -272,4 +272,19 @@ describe('mock notes on the team side', () => {
     expect(ignored.total).toBe(listed.memory_notes_list(asked).total);
     expect(ignored.notes.every((note) => note.shown === null && note.useful === null && note.lastUsefulAt === null)).toBe(true);
   });
+
+  it('says who added and changed a note, and nothing for a server without notes-authors', () => {
+    const listed = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const old = memoryNotesHandlers(AVAILABLE, () => 'ok', combinesFilters, undefined, undefined, undefined, undefined, () => false);
+    const asked = { project: '/work/app', offset: 0, limit: 200 };
+
+    const notes = listed.memory_notes_list(asked).notes;
+    expect(notes.some((note) => note.addedBy?.name === 'Ada Lovelace' && note.addedBy.via === 'claude-code')).toBe(true);
+    expect(notes.some((note) => note.updatedBy?.name === 'Grace Hopper' && note.updatedBy.via === null)).toBe(true);
+    expect(notes.some((note) => note.addedBy === null && note.updatedBy === null)).toBe(true);
+    expect(listed.memory_note_get({ id: notes[0].id, project: '/work/app' }).note.updatedBy).toEqual(notes[0].updatedBy);
+
+    expect(old.memory_notes_list(asked).notes.every((note) => !('addedBy' in note) && !('updatedBy' in note))).toBe(true);
+    expect('addedBy' in old.memory_note_get({ id: notes[0].id, project: '/work/app' }).note).toBe(false);
+  });
 });

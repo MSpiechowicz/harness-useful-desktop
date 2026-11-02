@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { KnowledgeImportEvent } from '$lib/ipc/bindings/KnowledgeImportEvent';
 import type { KnowledgeIntake } from '$lib/ipc/bindings/KnowledgeIntake';
+import type { KnowledgeMatch } from '$lib/ipc/bindings/KnowledgeMatch';
+import type { KnowledgeSimilar } from '$lib/ipc/bindings/KnowledgeSimilar';
 import { IpcFailure } from '$lib/ipc/transport';
+import { type Landing, replacementsOf } from '$lib/utils/knowledge-match';
 
 import { fakeTransport } from '../../../tests/helpers';
 import { emptyRun, etaSeconds, fractionOf, KnowledgeImportStore, reduceImport } from './knowledgeImport.svelte';
@@ -181,3 +184,162 @@ describe('the import of what was picked or dropped', () => {
     expect(store.embeddingPending).toBe(0);
   });
 });
+
+describe('comparing the staged files with the stored documents', () => {
+  const match = { id: 7, title: 'Guide', place: 'remote' as const, reason: 'sourceKey' as const, sharedChunks: 3, chunks: 3, updatedAt: '2026-10-01T00:00:00Z' };
+  const answer = (found: boolean): KnowledgeSimilar => ({ items: [{ path: '/docs/a.md', match: found ? match : null, error: null }], offline: false });
+
+  it('keeps the answer of the latest comparison when an older one comes back after it', async () => {
+    const waiting: ((value: KnowledgeSimilar) => void)[] = [];
+    const store = new KnowledgeImportStore(fakeTransport({ knowledge_pick_files: () => INTAKE, knowledge_similar: () => new Promise<KnowledgeSimilar>((resolve) => waiting.push(resolve)) }));
+    await store.pick('files');
+
+    const first = store.scan();
+    store.links = [{ repo: 'git:github.com/a/b', globs: [] }];
+    const second = store.scan();
+
+    waiting[1](answer(true));
+    await second;
+    waiting[0](answer(false));
+    await first;
+
+    expect(store.rows?.[0].match?.title).toBe('Guide');
+    expect(store.scanning).toBe(false);
+  });
+
+  it('compares once for the same files and the same first link', async () => {
+    let asked = 0;
+    const store = new KnowledgeImportStore(fakeTransport({ knowledge_pick_files: () => INTAKE, knowledge_similar: () => (asked += 1, answer(true)) }));
+    await store.pick('files');
+
+    await store.scan();
+    await store.scan();
+    store.links = [{ repo: 'git:github.com/a/b', globs: ['src/**'] }, ...store.links];
+    await store.scan();
+    await store.scan();
+
+    expect(asked).toBe(2);
+  });
+
+  /** A store with the file `/docs/a.md` matched by `found`, the import going to `landing`, and the options the import sends. */
+  async function staged(found: Partial<KnowledgeMatch>, landing: Landing) {
+    const sent: { options: unknown } = { options: null };
+    const store = new KnowledgeImportStore(
+      fakeTransport({
+        knowledge_pick_files: () => INTAKE,
+        knowledge_similar: () => ({ items: [{ path: '/docs/a.md', match: { ...match, ...found }, error: null }], offline: false }),
+        knowledge_import: (args: { options: unknown }) => ((sent.options = args.options), { counts: null, cancelled: false }),
+      }),
+    );
+    store.landing = landing;
+    await store.pick('files');
+    await store.scan();
+
+    return { store, sent };
+  }
+
+  it('updates a strong match in the place the import goes to, by default', async () => {
+    for (const reason of ['sourceKey', 'sameContent', 'sharedChunks'] as const) {
+      const { store, sent } = await staged({ reason, place: 'local', id: 'local:7' }, 'local');
+      await store.start();
+
+      expect(sent.options, reason).toMatchObject({ replacing: [{ path: '/docs/a.md', id: 'local:7' }] });
+    }
+  });
+
+  it('updates a strong match when only one place is in use', async () => {
+    const { store, sent } = await staged({}, 'one');
+    await store.start();
+
+    expect(sent.options).toMatchObject({ replacing: [{ path: '/docs/a.md', id: 7 }] });
+  });
+
+  it('adds a file as new by default when the match only has the same title', async () => {
+    const { store, sent } = await staged({ reason: 'title' }, 'remote');
+    await store.start();
+
+    expect(sent.options).not.toHaveProperty('replacing');
+  });
+
+  it('adds a file as new by default when the match lies in another place than the import goes to', async () => {
+    for (const landing of ['local', 'unknown'] as const) {
+      const { store, sent } = await staged({ reason: 'sourceKey', place: 'remote' }, landing);
+      await store.start();
+
+      expect(sent.options, landing).not.toHaveProperty('replacing');
+      expect(sent.options, landing).toMatchObject({ links: [] });
+    }
+  });
+
+  it('sends a replacement the user switched to, for any reason, in the place the import goes to', async () => {
+    const { store, sent } = await staged({ reason: 'title', place: 'local' }, 'local');
+    store.setUpdate('/docs/a.md', true);
+    await store.start();
+
+    expect(sent.options).toMatchObject({ replacing: [{ path: '/docs/a.md', id: 7 }] });
+  });
+
+  it('never replaces a match kept in another place, whatever the user chose', async () => {
+    const { store, sent } = await staged({ reason: 'sourceKey', place: 'local' }, 'remote');
+    store.setUpdate('/docs/a.md', true);
+
+    expect(replacementsOf(store.rows ?? [], store.choices, store.landing)).toEqual([]);
+
+    await store.start();
+
+    expect(sent.options).not.toHaveProperty('replacing');
+  });
+
+  it('sends nothing to replace for a file the user switched to be added', async () => {
+    const { store, sent } = await staged({}, 'remote');
+    store.setUpdate('/docs/a.md', false);
+    await store.start();
+
+    expect(sent.options).not.toHaveProperty('replacing');
+  });
+
+  it('sends a file set to update again after it was set to be added', async () => {
+    const { store, sent } = await staged({}, 'remote');
+    store.setUpdate('/docs/a.md', false);
+    store.setUpdate('/docs/a.md', true);
+    await store.start();
+
+    expect(sent.options).toMatchObject({ replacing: [{ path: '/docs/a.md', id: 7 }] });
+  });
+
+  it('does not carry a choice over to another match of the same file', async () => {
+    let found: KnowledgeMatch | null = match;
+    const sent: { options: unknown } = { options: null };
+    const store = new KnowledgeImportStore(
+      fakeTransport({
+        knowledge_pick_files: () => INTAKE,
+        knowledge_similar: () => ({ items: [{ path: '/docs/a.md', match: found, error: null }], offline: false }),
+        knowledge_import: (args: { options: unknown }) => ((sent.options = args.options), { counts: null, cancelled: false }),
+      }),
+    );
+    store.landing = 'remote';
+    await store.pick('files');
+    await store.scan();
+    store.setUpdate('/docs/a.md', false);
+
+    // Another link finds another document, which a strong match replaces by default.
+    found = { ...match, id: 8, title: 'Other guide' };
+    store.links = [{ repo: 'git:github.com/a/b', globs: [] }];
+    await store.scan();
+    await store.start();
+
+    expect(sent.options).toMatchObject({ replacing: [{ path: '/docs/a.md', id: 8 }] });
+  });
+
+  it('forgets a comparison when other files are staged', async () => {
+    const store = new KnowledgeImportStore(fakeTransport({ knowledge_pick_files: () => INTAKE, knowledge_similar: () => answer(true) }));
+    await store.pick('files');
+    await store.scan();
+    store.setUpdate('/docs/a.md', false);
+
+    await store.pick('files');
+
+    expect([store.similar, store.choices]).toEqual([null, {}]);
+  });
+});
+

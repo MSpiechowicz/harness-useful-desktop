@@ -146,7 +146,7 @@ describe('note panel', () => {
     expect(within(panel).getByText('linux')).toBeInTheDocument();
     expect(within(panel).getByText('WEBKIT_DISABLE_DMABUF_RENDERER')).toBeInTheDocument();
 
-    for (const [label, value] of [['Scope', 'github.com/useful/harness-desktop'], ['Kept in', 'This computer'], ['Written by', 'claude-code'], ['Folder', '~/projects/harness-desktop'], ['Revision', '1'], ['Recalled', '7 times']]) {
+    for (const [label, value] of [['Scope', 'github.com/useful/harness-desktop'], ['Kept in', 'This computer'], ['Saved from', 'claude-code'], ['Folder', '~/projects/harness-desktop'], ['Revision', '1'], ['Recalled', '7 times']]) {
       expect(within(panel).getByText(label).nextElementSibling).toHaveTextContent(value);
     }
     expect(within(panel).getByText('Created')).toBeInTheDocument();

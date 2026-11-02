@@ -109,6 +109,7 @@ pub fn run() -> ExitCode {
             commands::knowledge_import::knowledge_drop_intake,
             commands::knowledge_import::knowledge_import,
             commands::knowledge_import::knowledge_import_cancel,
+            commands::knowledge_import::knowledge_similar,
             commands::knowledge_held::knowledge_held_list,
             commands::knowledge_held::knowledge_held_get,
             commands::knowledge_held::knowledge_held_decide,

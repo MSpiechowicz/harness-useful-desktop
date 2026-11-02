@@ -3,6 +3,7 @@ import type { NoteDetail } from '../bindings/NoteDetail';
 import type { NoteKind } from '../bindings/NoteKind';
 import type { NoteLink } from '../bindings/NoteLink';
 import type { NoteSummary } from '../bindings/NoteSummary';
+import { authorsOf } from './authors';
 
 const HOUR = 3_600_000;
 const REPO = 'github.com/useful/harness-desktop';
@@ -63,6 +64,7 @@ function note(seed: Seed): NoteContent {
     shown: seed.shown ?? 0,
     useful: seed.useful ?? 0,
     lastUsefulAt: seed.lastUseful === undefined ? null : ago(seed.lastUseful),
+    ...authorsOf(seed.id),
   };
 }
 

@@ -30,4 +30,5 @@ export const KNOWLEDGE_ARGS: { [K in Extract<CommandName, `knowledge_${string}`>
   knowledge_drop_intake: undefined,
   knowledge_import: { token: 'intake-5-0', options: null, onEvent: () => {} },
   knowledge_import_cancel: undefined,
+  knowledge_similar: { token: 'intake-5-0', links: null },
 };

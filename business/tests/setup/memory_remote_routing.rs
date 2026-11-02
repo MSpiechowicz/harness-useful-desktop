@@ -97,6 +97,7 @@ fn a_server_without_every_feature_never_gets_remote_local_written() {
         settings: false,
         notes_lang: false,
         notes_useful: false,
+        notes_authors: false,
     };
 
     for (features, wording) in [
@@ -168,6 +169,7 @@ fn the_vector_search_lines_reach_the_page_as_their_own_flags() {
         settings,
         notes_lang,
         notes_useful: false,
+        notes_authors: false,
     };
     let flags = |features| {
         let remote = memory_remote_get(&home.env, support(features));
@@ -189,5 +191,36 @@ fn the_vector_search_lines_reach_the_page_as_their_own_flags() {
         FeaturesSupport::Unknown,
     ] {
         assert_eq!(flags(features), (false, false, false), "{features:?}");
+    }
+}
+
+#[test]
+fn the_notes_authors_line_reaches_the_page_as_its_own_flag() {
+    let home = Home::new();
+    let listing = |notes_authors| FeaturesSupport::Listed {
+        notes_remote_local: false,
+        notes_hide: false,
+        push_json: false,
+        scripts_remote_local: false,
+        scripts_hide: false,
+        scripts_push_json: false,
+        save_guards: false,
+        embedder: false,
+        settings: false,
+        notes_lang: false,
+        notes_useful: false,
+        notes_authors,
+    };
+    let flag = |features| memory_remote_get(&home.env, support(features)).notes_authors_supported;
+
+    assert!(flag(listing(true)));
+    assert!(!flag(listing(false)));
+
+    for features in [
+        FeaturesSupport::Unsupported,
+        FeaturesSupport::NotInstalled,
+        FeaturesSupport::Unknown,
+    ] {
+        assert!(!flag(features), "{features:?}");
     }
 }

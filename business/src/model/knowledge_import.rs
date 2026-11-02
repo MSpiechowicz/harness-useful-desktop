@@ -164,6 +164,17 @@ pub enum KnowledgeImportEvent {
     },
 }
 
+/// A file of the selection that replaces a stored document in place (`replacing`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KnowledgeReplacement {
+    /// The file's path, one of the selection's files as `knowledge_similar` listed it.
+    pub path: String,
+    /// The document it replaces, whose place decides the file's place.
+    pub id: KnowledgeId,
+}
+
 /// What `knowledge_import` asks for beyond the intake: the repositories every imported document
 /// links to, and the document the one file replaces.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -175,6 +186,10 @@ pub struct KnowledgeImportOptions {
     pub links: Vec<KnowledgeLink>,
     /// The document the one file of this import replaces in place, whatever its source.
     pub replaces: Option<KnowledgeId>,
+    /// The documents several files of this import replace in place, each file one document. Needs
+    /// `docs-similar`, and is not combined with `replaces`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replacing: Vec<KnowledgeReplacement>,
     /// Where the documents are kept when both places are in use (the routing's default for
     /// their kind when not given).
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -2,6 +2,7 @@
 import type { KnowledgeId } from "./KnowledgeId";
 import type { KnowledgeLink } from "./KnowledgeLink";
 import type { KnowledgePlace } from "./KnowledgePlace";
+import type { KnowledgeReplacement } from "./KnowledgeReplacement";
 
 /**
  * What `knowledge_import` asks for beyond the intake: the repositories every imported document
@@ -16,6 +17,11 @@ links: Array<KnowledgeLink>,
  * The document the one file of this import replaces in place, whatever its source.
  */
 replaces: KnowledgeId | null, 
+/**
+ * The documents several files of this import replace in place, each file one document. Needs
+ * `docs-similar`, and is not combined with `replaces`.
+ */
+replacing?: Array<KnowledgeReplacement>, 
 /**
  * Where the documents are kept when both places are in use (the routing's default for
  * their kind when not given).

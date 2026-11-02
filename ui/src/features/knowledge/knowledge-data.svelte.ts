@@ -4,6 +4,7 @@ import { idKey } from '$lib/ipc/knowledge-id';
 import { KNOWLEDGE_POLL_MS } from '$lib/stores/live';
 import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
 import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
+import { knowledgeStats } from '$lib/stores/knowledgeStats.svelte';
 import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
 import { type DocsRequest, docsKey, knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
 import { heldKey, type HeldRequest, knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
@@ -13,16 +14,17 @@ import { viewState } from '$lib/stores/view-state.svelte';
 import { autoRefresh } from '$lib/utils/auto-refresh';
 
 import { settled } from '../memory/memory-data.svelte';
-import { sortOf } from './knowledge-format';
+import { USEFUL_SORTS, sortOf } from './knowledge-format';
 
-/** The request the documents table makes under what the view state holds. */
-export function docsRequest(query: string): DocsRequest {
+/** The request the documents table makes under what the view state holds. `usefulKnown` is false for a server that does not count usefulness: it has no such filter or sort. */
+export function docsRequest(query: string, usefulKnown = true): DocsRequest {
   return {
     query,
     scope: viewState.knowledgeScope,
     format: viewState.knowledgeFormat,
     place: viewState.knowledgePlace,
-    sort: sortOf(viewState.knowledgeSort.key),
+    useful: usefulKnown ? viewState.knowledgeUseful : null,
+    sort: sortOf(viewState.knowledgeSort.key, usefulKnown),
     order: viewState.knowledgeSort.desc ? 'desc' : 'asc',
     page: viewState.knowledgePage,
   };
@@ -38,7 +40,24 @@ export function useKnowledgeData(): void {
   const heldQuery = settled(() => viewState.heldQuery);
   const active = $derived(project.active?.path ?? null);
 
-  const documents = $derived<DocsRequest>(docsRequest(docsQuery.value));
+  // A server that does not count how useful documents were has no such columns, filter or sort: a choice of them is dropped, back to the default sort.
+  const usefulUnsupported = $derived(knowledgeStatus.value?.features.docsUseful === false);
+
+  $effect(() => {
+    if (!usefulUnsupported) {
+      return;
+    }
+
+    if (viewState.knowledgeUseful) {
+      viewState.knowledgeUseful = null;
+    }
+
+    if (USEFUL_SORTS.some((sort) => sort === viewState.knowledgeSort.key)) {
+      viewState.knowledgeSort = { key: 'updated', desc: true };
+    }
+  });
+
+  const documents = $derived<DocsRequest>(docsRequest(docsQuery.value, !usefulUnsupported));
   const proposals = $derived<HeldRequest>({ query: heldQuery.value, page: viewState.heldPage, scope: viewState.heldScope, sort: viewState.heldSort });
 
   // Opening the view (or a change of the search, the filters, the sort or the page) reads again; a list already read is quietly refreshed.
@@ -72,7 +91,7 @@ export function useKnowledgeData(): void {
 
   // Where documents are kept, and whether the server can narrow a list to one place, decide whether the Kept in filter is offered.
   $effect(() => {
-    untrack(() => void Promise.all([knowledgeRemote.load(), knowledgeStatus.load()]));
+    untrack(() => void Promise.all([knowledgeRemote.load(), knowledgeStatus.load(), knowledgeStats.load()]));
   });
 
   // The repositories of the Scope filter and the editors are those of the open project and the recent ones.
@@ -101,7 +120,7 @@ export function useKnowledgeData(): void {
     if (state !== seen) {
       seen = state;
 
-      untrack(() => void Promise.all([knowledgeDocs.refresh(), knowledgeHeld.refresh()]));
+      untrack(() => void Promise.all([knowledgeDocs.refresh(), knowledgeHeld.refresh(), knowledgeStats.load()]));
     }
   });
 
