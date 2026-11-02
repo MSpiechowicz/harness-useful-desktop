@@ -1,3 +1,11 @@
+# [0.52.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.51.0...v0.52.0) (2026-11-02)
+
+
+### Features
+
+* **ecosystem:** the Harness family as a kernel with modules ([2f1eb74](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2f1eb7411edbb8fdc59e7de9658bcee7f145b112))
+* **knowledge:** usefulness, authors, replace and similar documents ([8f1d57b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8f1d57b3eb00f9e394fde21b17df876ed99e3347))
+
 # [0.51.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.50.1...v0.51.0) (2026-11-01)
 
 
