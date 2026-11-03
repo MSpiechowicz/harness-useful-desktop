@@ -398,13 +398,13 @@ flowchart LR
    `HooksEvent::Changed` to the Hooks view, which loads the list again.
 7. **Harness family hooks.** `hooks/family.rs` holds the catalog (`FAMILY`): `memory-search` (`sessionStart`
    `addContext`), `memory-save` (`turnEnd` `followUp`), `useful-skills` (`promptSubmit` `addContext`, asks the agent
-   to read the installed Useful Skills), `memory-first` (`promptSubmit` `addContext`, asks the agent to search Harness
+   to read the installed Useful Skills), `memory-first` (`sessionStart` `addContext`, asks the agent to search Harness
    Memory before it acts) and `branch-sync` (`sessionStart` `addContext`, asks the agent to fetch and
    compare its branch with the main branch) for Harness Memory, `dashboard-limits` (`sessionStart`
    `addContext`) for Harness Dashboard, `code-graph-first` (`promptSubmit` `addContext`, asks the agent to use the
    Harness Code tools before grep) for Harness Code (the `code_graph_available` capability, `requires` `harness-code`:
    installed, its setting on, `code-index` listed and the Code index switch on; a file from when the graph was part of
-   Harness Memory holds an earlier text, so the automatic update moves it), `knowledge-first` (`promptSubmit` `addContext`, asks the agent to search Harness
+   Harness Memory holds an earlier text, so the automatic update moves it), `knowledge-first` (`sessionStart` `addContext`, asks the agent to search Harness
    Knowledge before it reads code) and `knowledge-recall` (see below) for Harness Knowledge (the `knowledge_available`
    capability, `requires` `harness-knowledge`: installed, its switch on, `mcp` listed), each global, `requires` its member and written by the window (approved), marked
    by `seed`. Launch seeding (`hooks::spawn_on_launch`, and `seed_available` again when the memory switch is turned on)

@@ -34,7 +34,7 @@ mod hooks_family_knowledge {
         let hook = first.hook.as_ref().unwrap();
         assert_eq!(first.status, HookStatus::Active);
         assert_eq!(hook.name, "Check Knowledge first");
-        assert_eq!(hook.event, HookEvent::PromptSubmit);
+        assert_eq!(hook.event, HookEvent::SessionStart);
         assert_eq!(hook.requires, vec![HookRequirement::HarnessKnowledge]);
         assert_eq!(hook.action, family_hook(HookSeed::KnowledgeFirst).action());
 

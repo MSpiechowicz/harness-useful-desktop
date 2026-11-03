@@ -9,7 +9,7 @@
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "If Useful Skills are installed, read the ones that apply to this message before you act. When it starts a new task, even late in the session, load the workflow skill and decide the workflow first (plan, implement, review) before the first edit. Then read any other skill that fits and follow its limits (for example the 500-line file maximum). Do not skip a matching skill."
+    "text": "If Useful Skills are installed, you MUST read each one that applies to this message before you act, not after your first reads or edits. When it starts a new task, even late in the session, load the workflow skill and decide the workflow first (plan, implement, review) before the first edit. Then read any other skill that fits and follow its limits (for example the 500-line file maximum). Never skip a matching skill."
   },
   "enabled": true,
   "createdAt": "2026-10-17T10:00:00Z",

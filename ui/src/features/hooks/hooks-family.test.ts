@@ -70,8 +70,10 @@ describe('Harness family hooks', () => {
     expect(within(rowIn(dialog, 'Check Useful Skills first')).getByRole('button', { name: /^Install / })).toBeEnabled();
     expect(within(dialog).getByText('Harness Dashboard · Session start')).toBeInTheDocument();
     expect(within(rowIn(dialog, 'Use the code graph first')).getByRole('button', { name: 'Install Use the code graph first' })).toBeEnabled();
-    expect(within(dialog).getAllByText('Harness Memory · Prompt submit')).toHaveLength(3);
-    expect(within(dialog).getAllByText('Harness Knowledge · Prompt submit')).toHaveLength(2);
+    expect(within(dialog).getAllByText('Harness Memory · Prompt submit')).toHaveLength(2);
+    expect(within(dialog).getAllByText('Harness Memory · Session start')).toHaveLength(3);
+    expect(within(dialog).getAllByText('Harness Knowledge · Prompt submit')).toHaveLength(1);
+    expect(within(dialog).getAllByText('Harness Knowledge · Session start')).toHaveLength(1);
     // One action per row and a footer that only closes: nothing installs the rest in one go.
     expect(within(dialog).queryByRole('button', { name: /Add all/ })).not.toBeInTheDocument();
     expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(7);

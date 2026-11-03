@@ -158,12 +158,12 @@ pub enum HookSeed {
     UsefulSkills,
     /// Harness Memory: "Check the branch against main" (`sessionStart`).
     BranchSync,
-    /// Harness Memory: "Check Memory first" (`promptSubmit`).
+    /// Harness Memory: "Check Memory first" (`sessionStart`).
     MemoryFirst,
     /// Harness Code: "Use the code graph first" (`promptSubmit`). Offered only while the installed
     /// Harness Code lists `code-index` (and runs only while the Code index switch is on).
     CodeGraphFirst,
-    /// Harness Knowledge: "Check Knowledge first" (`promptSubmit`).
+    /// Harness Knowledge: "Check Knowledge first" (`sessionStart`).
     KnowledgeFirst,
     /// Harness Knowledge: "Recall from Harness Knowledge" (`promptSubmit`). The app itself runs
     /// `harness-knowledge recall --hook` for it at compose time, see `hooks::recall`.
