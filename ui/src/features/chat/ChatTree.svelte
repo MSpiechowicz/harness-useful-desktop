@@ -95,7 +95,7 @@
               type="button"
               aria-current={selected ? 'true' : undefined}
               aria-describedby={describedby}
-              class={cx('flex h-full w-full min-w-0 items-center gap-[8px] pl-[8px] text-left text-base', helpers > 0 ? 'pr-[48px]' : 'pr-[30px]')}
+              class={cx('flex h-full w-full min-w-0 items-center gap-[8px] pl-[8px] text-left text-base select-none', helpers > 0 ? 'pr-[48px]' : 'pr-[30px]')}
               onclick={() => show(session.key)}
               ondblclick={() => rename(session)}
               onkeydown={(event) => onKeydown(event, index)}
@@ -142,7 +142,7 @@
       <button
         type="button"
         aria-current={selected ? 'true' : undefined}
-        class={cx('relative flex h-[28px] w-full items-center gap-[8px] rounded-sm pr-[30px] pl-[8px] text-left text-base transition-colors', selected ? 'bg-[color-mix(in_oklab,var(--text)_11%,transparent)] text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}
+        class={cx('relative flex h-[28px] w-full items-center gap-[8px] rounded-sm pr-[30px] pl-[8px] text-left text-base select-none transition-colors', selected ? 'bg-[color-mix(in_oklab,var(--text)_11%,transparent)] text-fg' : 'text-fg-2 hover:bg-hover hover:text-fg')}
         onclick={() => show(chat.key)}
       >
         {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
