@@ -1,3 +1,10 @@
+# [0.53.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.52.2...v0.53.0) (2026-11-03)
+
+
+### Features
+
+* **hooks:** Harness family hooks run as numbered steps the agents follow ([#30](https://github.com/MSpiechowicz/harness-useful-desktop/issues/30)) ([37104ef](https://github.com/MSpiechowicz/harness-useful-desktop/commit/37104ef199f220ae13a2af1fedd424fc68e97c11))
+
 ## [0.52.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.52.1...v0.52.2) (2026-11-03)
 
 
