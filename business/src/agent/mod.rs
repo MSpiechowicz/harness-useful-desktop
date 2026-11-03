@@ -34,6 +34,7 @@ mod opencode_v2;
 mod process;
 mod session;
 mod session_history;
+mod session_subagents;
 mod sink;
 mod slots;
 mod startup;

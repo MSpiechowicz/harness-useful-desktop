@@ -1,4 +1,4 @@
-//! The Harness family hook "Save what you learned" stays quiet while the chat's memory guards say
+//! The Harness family hook "Harness Memory - save" stays quiet while the chat's memory guards say
 //! nothing may be saved: the chat paused, or notes and scripts both off. Other hooks still fire.
 //! While only one kind may be saved, its text starts with a sentence that says so. "Check again"
 //! sends that hook's text as the user keeps it, tailored the same way.
@@ -160,7 +160,7 @@ mod hooks_memory_gate {
         ] {
             let message = compose_follow_up(&[memory_save_part(&hooks, MemoryGuardState::OPEN)]).unwrap();
 
-            assert!(message.contains("Save what you learned"), "{message}");
+            assert!(message.contains("Harness Memory - save"), "{message}");
             assert!(
                 message.contains(SEED_MEMORY_SAVE_TEXT.split('"').next().unwrap()),
                 "{message}"

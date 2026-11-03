@@ -20,6 +20,7 @@ mod hooks_agent {
         dashboard_available: false,
         code_graph_available: false,
         knowledge_available: false,
+        skills_available: false,
     };
 
     struct Folder {

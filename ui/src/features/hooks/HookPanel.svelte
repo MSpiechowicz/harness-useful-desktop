@@ -24,14 +24,13 @@
 
   import HiddenText from '../memory/HiddenText.svelte';
   import ScriptCode from '../memory/ScriptCode.svelte';
-  import type { Companion } from '../onboarding/setup-model';
   import SettingRow from '../settings/SettingRow.svelte';
-  import FamilyInstall from './FamilyInstall.svelte';
   import { hookFacts } from './hook-facts';
-  import { actionText, EVENT_LABELS, EVENT_WHEN, hookDoc, hookTitle, MEMBER_LABELS, memberSwitches, switchSection, waitingFor } from './hook-format';
+  import { actionText, EVENT_LABELS, EVENT_WHEN, type HookMember, hookDoc, hookTitle, MEMBER_LABELS, memberSwitches, switchSection, waitingFor } from './hook-format';
   import { switchLock, teamSwitchedOn } from './hook-team';
   import HookActions from './HookActions.svelte';
   import HookReview from './HookReview.svelte';
+  import MemberInstall from './MemberInstall.svelte';
 
   interface Props {
     open: boolean;
@@ -107,7 +106,7 @@
     return team && (view.status === 'active' || view.status === 'off') ? `${text} ${t('hooks.panel.team.onlyHere')}` : text;
   });
 
-  function openSettings(member: Companion): void {
+  function openSettings(member: HookMember): void {
     viewState.settingsTarget = switchSection(member);
     nav.go('settings');
   }
@@ -168,7 +167,7 @@
           {#if waiting.off}
             <Button onclick={() => openSettings(waiting.member)}>{t('hooks.waiting.openSettings')}</Button>
           {:else}
-            <FamilyInstall member={waiting.member} />
+            <MemberInstall member={waiting.member} />
           {/if}
         </div>
       {/if}

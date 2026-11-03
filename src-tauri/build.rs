@@ -160,6 +160,7 @@ const COMMANDS: &[&str] = &[
     "hook_reject",
     "hooks_family",
     "hooks_family_apply",
+    "hooks_family_update_stale",
     "hooks_listen",
     "hooks_share",
     "hooks_team_remove",

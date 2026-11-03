@@ -133,12 +133,11 @@ export class HooksStore {
     this.updatingFamily = true;
 
     try {
-      const stale = (await ipc.invoke('hooks_family', undefined)).filter((row) => row.stale).map((row) => row.seed);
+      const changed = await ipc.invoke('hooks_family_update_stale', undefined);
 
-      if (stale.length > 0) {
-        await ipc.invoke('hooks_family_apply', { seeds: stale });
+      if (changed.length > 0) {
         await this.refresh();
-        toasts.push({ title: tn('hooks.toast.familyUpdated', stale.length), description: t('hooks.toast.familyUpdated.description'), tone: 'success' });
+        toasts.push({ title: tn('hooks.toast.familyUpdated', changed.length), description: t('hooks.toast.familyUpdated.description'), tone: 'success' });
       }
     } catch {
       // Left for the dialog, which still offers the update.

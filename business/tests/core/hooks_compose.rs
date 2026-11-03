@@ -1,5 +1,5 @@
 //! The text hooks add to prompts: the context block in front of the user's text, the follow-up
-//! prompt, escaping that keeps a hook's text from closing or forging an element, the 8 KiB cap,
+//! prompt, escaping that keeps a hook's text from closing or forging an element, the block cap,
 //! and stripping the block again for titles and previews.
 
 use crate::session_support;
@@ -123,8 +123,8 @@ mod hooks_compose {
     }
 
     #[test]
-    fn a_block_holds_at_most_8_kib_of_elements() {
-        let big = "b".repeat(5000);
+    fn a_block_holds_at_most_its_cap_of_elements() {
+        let big = "b".repeat(MAX_COMPOSED_BYTES / 2 + 500);
         let block = compose_context(&[
             part(1, "first", &big),
             part(2, "too big now", &big),

@@ -1,0 +1,14 @@
+// An abort while two subagents run and a third finished: each running one gets cancel_subagent in
+// id order, the first stop is answered, the second refused, and nothing is sent for the finished one.
+{"include":"omp_startup.jsonl"}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Scout","agent":"scout","status":"started"}}}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Mapper","agent":"explore","status":"started"}}}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Finished","agent":"explore","status":"started"}}}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Finished","agent":"explore","status":"completed"}}}
+{"expect":"abort","reply":{"success":true}}
+{"expect":"cancel_subagent","match":{"subagentId":"Mapper"},"reply":{"success":true,"data":{"cancelled":true}}}
+{"expect":"cancel_subagent","match":{"subagentId":"Scout"},"reply":{"success":false,"error":"Unknown command: cancel_subagent"}}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Mapper","agent":"explore","status":"aborted"}}}
+{"expect":"get_last_assistant_text","reply":{"success":true,"data":{"text":null}}}
+// A third stop would match this expect and fail it: the agent then exits 4 instead of 0.
+{"expect":"cancel_subagent","match":{"subagentId":"NEVER"}}

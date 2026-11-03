@@ -29,7 +29,8 @@
 //!   earlier events wait behind slow commands, however many messages and settles are in flight.
 //! - `sessionEnd` fires once, when the agent exits or the chat is stopped, with the paths the chat
 //!   changed (the latest 256, within 16 KiB).
-//! - A utility agent fires nothing.
+//! - A utility agent fires nothing. A hook that needs Useful Skills fires only in a chat whose
+//!   harness has them ([`ChatContext::useful_skills`]).
 //! - The Harness family hook "Save what you learned" does not fire while the chat's memory guards
 //!   skip it, and asks about one kind only while the other may not be saved ([`MemoryGuardState`],
 //!   set with [`HookSession::set_memory_guards`]).
@@ -136,6 +137,13 @@ impl HookSession {
     pub fn move_to(&mut self, folder: PathBuf, project: Option<String>) {
         self.chat.folder = folder;
         self.chat.project = project;
+    }
+
+    /// Whether the chat's own harness has Useful Skills now (the Harness Skills hook runs only
+    /// while it does). The shell sets it before each message, so an install or an uninstall applies
+    /// to a chat that is already open.
+    pub fn set_useful_skills(&mut self, installed: bool) {
+        self.chat.useful_skills = installed;
     }
 
     /// Call before `action` is prepared. Returns the context to add to it (empty for anything but
@@ -425,6 +433,7 @@ impl HookSession {
     fn firing(&mut self, hooks: &HookSet, event: HookEvent, tool: ToolEnv<'_>) -> Firing {
         let parts = hooks
             .of_event(event)
+            .filter(|entry| self.chat.useful_skills || !entry.needs_useful_skills())
             .map(|entry| planned_part(entry, &self.chat, event, tool))
             .collect();
 

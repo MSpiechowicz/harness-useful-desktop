@@ -115,7 +115,7 @@ describe('the mock save guards', () => {
     const hooks = new MockHooks(() => 'ok', () => true);
     const project = fixtures.recentProjects[0].path;
 
-    expect(hooks.memorySaveFollowUp(project)).toMatch(/^<harness-hook-followup name="Save what you learned">Most turns need no note/);
+    expect(hooks.memorySaveFollowUp(project)).toMatch(/^<harness-hook-followup name="Harness Memory - save">Most turns need no note/);
 
     const view = hooks.list(null).hooks.find((candidate) => candidate.hook?.seed === 'memory-save');
     const hook = view?.hook;
@@ -125,7 +125,7 @@ describe('the mock save guards', () => {
 
     hooks.save({ ...hook, id: hook.id, expectedSha256: view.sha256, action: { type: 'followUp', text: 'Save only the fixes.' } });
 
-    expect(hooks.memorySaveFollowUp(project)).toBe('<harness-hook-followup name="Save what you learned">Save only the fixes.</harness-hook-followup>');
+    expect(hooks.memorySaveFollowUp(project)).toBe('<harness-hook-followup name="Harness Memory - save">Save only the fixes.</harness-hook-followup>');
   });
 
   it('refuses Check again while the chat saves nothing', async () => {

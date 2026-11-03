@@ -210,7 +210,7 @@ fn check_text(field: &str, text: &str) -> Result<()> {
     Ok(())
 }
 
-fn check_subagent_id(id: &str) -> Result<()> {
+pub(crate) fn check_subagent_id(id: &str) -> Result<()> {
     if id.is_empty() || id.len() > MAX_SUBAGENT_ID_BYTES {
         return Err(BusinessError::InvalidInput(format!(
             "subagent id must be 1 to {MAX_SUBAGENT_ID_BYTES} bytes"

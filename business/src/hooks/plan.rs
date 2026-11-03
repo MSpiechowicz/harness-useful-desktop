@@ -7,9 +7,10 @@ use std::time::Duration;
 
 use super::compose::ResolvedPart;
 use super::engine::Announcement;
+use super::family::has_catalog_shape;
 use super::format::DEFAULT_TIMEOUT_SECS;
 use super::view::{RunOrder, order_key, team_order_key};
-use crate::model::{Hook, HookAction, HookEvent, HookScope, HookStatus, HookView};
+use crate::model::{Hook, HookAction, HookEvent, HookRequirement, HookScope, HookSeed, HookStatus, HookView};
 
 mod env_values;
 
@@ -32,6 +33,9 @@ pub struct ChatContext {
     pub fresh: bool,
     /// A utility agent (titles, reviews): no hook ever fires.
     pub utility: bool,
+    /// Useful Skills are installed for the chat's harness. Without them the hooks that require
+    /// them (the Harness Skills step) do not fire in this chat.
+    pub useful_skills: bool,
 }
 
 /// The hooks that run in one chat: active (valid, enabled, approved or trusted, requirements
@@ -107,6 +111,14 @@ impl HookSet {
     /// The hooks of `event`, in run order.
     pub(crate) fn of_event(&self, event: HookEvent) -> impl Iterator<Item = &SetHook> {
         self.hooks.iter().filter(move |entry| entry.hook.event == event)
+    }
+}
+
+impl SetHook {
+    /// True for the Harness Skills step, or any hook that requires Useful Skills: it fires only in
+    /// a chat whose harness has them. A file from before the requirement existed is the seed alone.
+    pub(crate) fn needs_useful_skills(&self) -> bool {
+        self.hook.seed == Some(HookSeed::UsefulSkills) || self.hook.requires.contains(&HookRequirement::UsefulSkills)
     }
 }
 
@@ -202,9 +214,9 @@ impl Firing {
 }
 
 /// What to do before a message goes out ([`super::HookSession::on_send`]): resolve the firings
-/// (`sessionStart`, then `promptSubmit`), put [`super::compose_prompt`] of the memory settings
-/// notice (when there is one) and all their parts in front of the message
-/// ([`SendPlan::context_parts`]) and report what it kept
+/// (`sessionStart`, then `promptSubmit`), put [`super::compose_prompt`] of their parts and the memory
+/// settings notice (when there is one) in front of the message ([`super::arrange`] puts them in
+/// order, with the numbered steps first) and report what it kept
 /// ([`super::HookSession::context_composed`]). Right
 /// before the message is delivered, pass it to [`super::HookSession::sending`], and to
 /// [`super::HookSession::send_failed`] when the message could not be delivered.
@@ -213,7 +225,8 @@ pub struct SendPlan {
     /// Firings whose parts become context, possibly empty.
     pub firings: Vec<Firing>,
     /// The chat's memory guards changed since the agent was told: this part, named
-    /// [`super::engine::MEMORY_NOTICE_NAME`], goes in front of the firings' parts.
+    /// [`super::engine::MEMORY_NOTICE_NAME`], goes after the numbered steps and in front of the
+    /// other parts.
     pub memory_notice: Option<ResolvedPart>,
     /// The state the notice tells, and the one told before.
     pub(crate) announcement: Option<Announcement>,
@@ -246,8 +259,9 @@ impl SendPlan {
         self.memory_notice.is_none() && self.firings.iter().all(Firing::is_empty)
     }
 
-    /// The parts to compose in front of the message: the memory settings notice, then `resolved`
-    /// (what the firings produced).
+    /// The parts to compose in front of the message without steps: the memory settings notice, then
+    /// `resolved` (what the firings produced). A prompt with the Harness family steps goes through
+    /// [`super::arrange`] instead.
     pub fn context_parts(&self, resolved: Vec<ResolvedPart>) -> Vec<ResolvedPart> {
         self.memory_notice.iter().cloned().chain(resolved).collect()
     }
@@ -295,6 +309,8 @@ pub(crate) fn planned_part(entry: &SetHook, chat: &ChatContext, event: HookEvent
             hook_name: hook.name.clone(),
             text: text.clone(),
             order,
+            seed: hook.seed,
+            plain: has_catalog_shape(hook),
         }),
         HookAction::Command { command, timeout_secs } => {
             let cwd = match (&hook.scope, &hook.project) {

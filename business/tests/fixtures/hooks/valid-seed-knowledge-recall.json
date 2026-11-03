@@ -2,7 +2,7 @@
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d70046",
   "name": "Recall from Harness Knowledge",
-  "description": "Seeded default. On every message the app looks up matching Harness Knowledge documents itself and adds up to three pointers. The message is sent to the local harness-knowledge for this.",
+  "description": "Retired: merged into Harness Knowledge.",
   "scope": "global",
   "project": null,
   "event": "promptSubmit",

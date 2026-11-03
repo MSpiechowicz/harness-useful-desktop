@@ -74,6 +74,7 @@ mod memory_notes;
 mod memory_notes_copy;
 mod memory_notes_hidden;
 mod memory_notes_useful;
+mod memory_recall;
 mod memory_record;
 mod memory_register;
 mod memory_remote;

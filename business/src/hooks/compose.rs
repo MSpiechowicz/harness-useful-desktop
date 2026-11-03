@@ -18,7 +18,7 @@
 //! later smaller ones may still fit. When the message with its context would exceed
 //! [`MAX_ACTION_TEXT_BYTES`], the last elements (lowest in run order) are dropped until it fits.
 
-use crate::model::MAX_ACTION_TEXT_BYTES;
+use crate::model::{HookSeed, MAX_ACTION_TEXT_BYTES};
 
 /// First line of a context block.
 pub const CONTEXT_OPEN: &str = "<harness-hook-context>";
@@ -28,7 +28,7 @@ pub const CONTEXT_CLOSE: &str = "</harness-hook-context>";
 
 /// Largest composed context block or follow-up prompt, counting its elements and the line breaks
 /// between them (the wrapper lines of a context block are not counted).
-pub const MAX_COMPOSED_BYTES: usize = 8 * 1024;
+pub const MAX_COMPOSED_BYTES: usize = 12 * 1024;
 
 const ELEMENT_OPEN: &str = "<hook name=\"";
 const ELEMENT_CLOSE: &str = "</hook>";
@@ -47,6 +47,11 @@ pub struct ResolvedPart {
     pub text: String,
     /// Run order of the hook.
     pub(crate) order: (u8, [u32; 7], String),
+    /// The family seed of the hook, when it has one (decides its step, see [`super::steps`]).
+    pub(crate) seed: Option<HookSeed>,
+    /// True when the hook has the shape the catalog writes (global, no project, no matcher): one
+    /// the user changed is never taken for an untouched catalog file.
+    pub(crate) plain: bool,
 }
 
 impl ResolvedPart {
@@ -59,6 +64,8 @@ impl ResolvedPart {
             hook_id,
             hook_name: hook_name.into(),
             text: text.into(),
+            seed: None,
+            plain: false,
         }
     }
 }
@@ -163,7 +170,7 @@ fn within_cap(elements: Vec<(&str, String)>, separator: usize) -> Vec<(&str, Str
         let cost = element.len() + if kept.is_empty() { 0 } else { separator };
 
         if used + cost > MAX_COMPOSED_BYTES {
-            tracing::warn!(hook = hook_id, "hook text left out: over the 8 KiB limit");
+            tracing::warn!(hook = hook_id, "hook text left out: over the 12 KiB limit");
             continue;
         }
 

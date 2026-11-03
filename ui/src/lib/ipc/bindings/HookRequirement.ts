@@ -3,4 +3,4 @@
 /**
  * Something a hook needs before it runs.
  */
-export type HookRequirement = "harness-memory" | "harness-dashboard" | "harness-knowledge" | "harness-code";
+export type HookRequirement = "harness-memory" | "harness-dashboard" | "harness-knowledge" | "harness-code" | "useful-skills";

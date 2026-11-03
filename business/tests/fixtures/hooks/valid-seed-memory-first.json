@@ -1,15 +1,15 @@
 {
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d70043",
-  "name": "Check Memory first",
-  "description": "Seeded default. Asks the agent, at the start of a chat, to search Harness Memory notes and scripts before it acts.",
+  "name": "Harness Memory",
+  "description": "Every message: the app lists the Harness Memory notes that match it, and the agent searches further when they fall short.",
   "scope": "global",
   "project": null,
-  "event": "sessionStart",
+  "event": "promptSubmit",
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "In this chat, and again at the start of every new task, your first tool calls, before any other work, MUST include note_search with a few English keywords from the task and script_list (Harness Memory), in the same batch as code_map and knowledge_search when those are required too. Search first, then act: do not run them afterwards or skip them because the task looks unrelated. Reuse what fits, and say so if a note is outdated. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository. If the memory settings say saving is off, still search; just do not save. These tools may be listed under a prefix (for example mcp__harness_memory_note_search), as a tool device or as deferred tools: look for them in your tool list, or load them first (for example with ToolSearch), before your first call. Only when they are not there after you looked, say so once and go on; never skip them silently."
+    "text": "Harness Memory notes that match this request are listed below, each with a short snippet only. Before you act, open every one that fits the request with note_get. When the request reaches an area they do not cover, search with note_search (English keywords, project_path = the repository root), and check script_list before you repeat a command. Notes may be outdated: check them in the code. After you used them, call note_feedback with the ids that helped (an empty list when none did). Status line: \"Notes: opened #12, #15\" or \"Notes: none fit\"."
   },
   "enabled": true,
   "createdAt": "2026-10-17T10:00:00Z",

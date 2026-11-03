@@ -19,7 +19,8 @@
 //! - `notes-useful`: `notes list --json` rows carry `shown`, `useful` and `lastUsefulAt`, and `--sort
 //!   useful|lastUseful` and `--useful ever|never` use them;
 //! - `notes-authors`: notes and scripts carry `addedBy` and `updatedBy` (the git name of who wrote
-//!   them).
+//!   them);
+//! - `recall`: `recall --hook`, the notes added to a prompt ([`MemoryFeatures::lists_recall`]).
 //!
 //! An older server does not know the command and exits non-zero. [`MemoryFeatures::support`] asks
 //! once per binary through a [`LineProbe`] (cached per binary, an older server cached as one
@@ -65,6 +66,9 @@ const NOTES_USEFUL: &str = "notes-useful";
 
 /// The line for the authors of notes and scripts.
 const NOTES_AUTHORS: &str = "notes-authors";
+
+/// The line for `recall --hook`, the notes added to a prompt.
+const RECALL: &str = "recall";
 
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -213,5 +217,11 @@ impl MemoryFeatures {
             LineAnswer::NotInstalled => FeaturesSupport::NotInstalled,
             LineAnswer::Unknown => FeaturesSupport::Unknown,
         }
+    }
+
+    /// Whether the installed server lists `recall` (`recall --hook`): false when it is not
+    /// installed, predates `features` or could not be asked.
+    pub(crate) async fn lists_recall(&self, env: &Env, runner: &dyn ProcessRunner) -> bool {
+        self.probe.ask(env, runner).await.lists(RECALL)
     }
 }

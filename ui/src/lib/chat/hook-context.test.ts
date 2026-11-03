@@ -54,7 +54,7 @@ describe('splitHookFollowUp', () => {
   const followUp = (name: string, text: string) => `<harness-hook-followup name="${name}">${text}</harness-hook-followup>`;
 
   it('reads a message that is all follow-up', () => {
-    expect(splitHookFollowUp(followUp('Save what you learned', 'Save notes.\nBriefly.'))).toEqual([{ name: 'Save what you learned', text: 'Save notes.\nBriefly.' }]);
+    expect(splitHookFollowUp(followUp('Harness Memory - save', 'Save notes.\nBriefly.'))).toEqual([{ name: 'Harness Memory - save', text: 'Save notes.\nBriefly.' }]);
   });
 
   it('reads several elements joined by a blank line', () => {

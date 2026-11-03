@@ -14,6 +14,7 @@
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { buildKnowledgeUse, type KnowledgeUseIndex } from '$lib/chat/knowledge-use';
   import { buildMemoryUse, type MemoryUseIndex } from '$lib/chat/memory-use';
+  import { pendingKey } from '$lib/chat/pending-send';
   import { indexOfToolCall } from '$lib/chat/subagent-steps';
   import { provideToolContext } from '$lib/chat/tool-context';
   import type { TranscriptItem } from '$lib/chat/types';
@@ -109,12 +110,19 @@
   const firstNew = untrack(() => session.chat.nextOrder);
   const played = new Set<string>();
 
+  /** A message the user sent keeps the key it had while waiting for its echo, so the echo takes the row over without a new entrance. */
+  function rowKey(item: TranscriptItem): string {
+    return item.kind === 'message' && item.send ? pendingKey(item.send.id) : item.key;
+  }
+
   function entrance(item: TranscriptItem): number {
-    if (played.has(item.key)) {
+    const key = rowKey(item);
+
+    if (played.has(key)) {
       return 0;
     }
 
-    played.add(item.key);
+    played.add(key);
 
     return item.order >= firstNew ? ENTRANCE_MS : 0;
   }
@@ -182,7 +190,7 @@
     stick
     estimate={ESTIMATED_ROW_PX}
     label={t('chat.list.label')}
-    key={(item) => item.key}
+    key={rowKey}
     class="size-full [scrollbar-gutter:stable_both-edges]"
   >
     {#snippet row(item, index)}
@@ -195,7 +203,7 @@
             </Button>
           </div>
         {/if}
-        <MessageRow {item} chat={session.chat} sentImages={session.sentImages} {memoryUse} {knowledgeUse} />
+        <MessageRow {item} chat={session.chat} sentImages={session.images.byKey} {memoryUse} {knowledgeUse} onUseAgain={(text) => session.useAgain(text)} />
         {#if working && index === session.chat.items.length - 1}
           <WorkingIndicator label={working} />
         {/if}

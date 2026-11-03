@@ -2,7 +2,7 @@
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d7000f",
   "name": "Search Harness Memory first",
-  "description": "Seeded default. Asks the agent to look up notes and scripts before it starts.",
+  "description": "Retired: merged into Harness Memory.",
   "scope": "global",
   "project": null,
   "event": "sessionStart",

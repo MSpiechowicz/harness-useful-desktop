@@ -5,7 +5,7 @@ import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { HookView } from '$lib/ipc/bindings/HookView';
 import { LOCAL_ORIGIN } from '$lib/ipc/mock/hooks-team-state';
 
-import { deletableCount, filterCounts, hookDoc, inSource, inStatus, inWhen, matchesQuery, MEMBER_LABELS, memberSwitches, pendingCount, switchSection, viewKey, waitingFor } from './hook-format';
+import { cadenceLabel, deletableCount, filterCounts, hookDoc, inSource, inStatus, inWhen, matchesQuery, MEMBER_LABELS, memberSwitches, pendingCount, switchSection, viewKey, waitingFor } from './hook-format';
 
 const LOCAL = { ...LOCAL_ORIGIN, shareBlock: null } as const;
 
@@ -159,6 +159,13 @@ describe('what a paused hook waits for', () => {
     expect(waitingFor(hook({ id: '1', name: 'A', requires: ['harness-code'] }), { ...on, memory: false })).toEqual({ member: 'code', off: false });
   });
 
+  it('is Harness Skills for the Harness Skills hook, never switched off, and there is no switch to turn on', () => {
+    const waits = waitingFor(hook({ id: '1', name: 'A', requires: ['useful-skills'] }), { memory: false, knowledge: false, code: false });
+
+    expect(waits).toEqual({ member: 'skills', off: false });
+    expect(MEMBER_LABELS.skills).toBe('hooks.member.skills');
+  });
+
   it('counts the code graph as off while either its registration or its index is off', () => {
     const prefs = { memoryEnabled: true, knowledgeEnabled: true, codeEnabled: true };
 
@@ -166,5 +173,17 @@ describe('what a paused hook waits for', () => {
     expect(memberSwitches({ ...prefs, codeEnabled: false }, true).code).toBe(false);
     expect(memberSwitches(prefs, false).code).toBe(false);
     expect(memberSwitches(null, true)).toEqual({ memory: true, knowledge: true, code: true });
+  });
+});
+
+describe('how often a Harness family hook runs', () => {
+  it('is once per chat at the start, every message at prompt submit and after each turn at turn end', () => {
+    expect(cadenceLabel('sessionStart')).toBe('hooks.family.cadence.once');
+    expect(cadenceLabel('promptSubmit')).toBe('hooks.family.cadence.every');
+    expect(cadenceLabel('turnEnd')).toBe('hooks.family.cadence.turnEnd');
+  });
+
+  it('names an event the catalog does not use as the event', () => {
+    expect(cadenceLabel('toolEnd')).toBe('hooks.event.toolEnd');
   });
 });

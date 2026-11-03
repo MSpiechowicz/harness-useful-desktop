@@ -23,7 +23,7 @@ pub struct HookCapabilities {
     pub dashboard_available: bool,
     /// Harness Code is installed, lists the `code-index` feature (so the code graph tools exist)
     /// and, where the hooks run, its code graph setting and the Code index switch are on too: with
-    /// the switch off the server hides the `code_*` tools, so the "Use the code graph first" hook
+    /// the switch off the server hides the `code_*` tools, so the "Harness Code" hook
     /// (`harness-code`) is not seeded and an existing one pauses instead of asking for tools that
     /// are not there. For the family dialog's `installed` only the feature counts, so the user may
     /// add the hook before the switch is on. Also what a hook with the old seed
@@ -32,9 +32,12 @@ pub struct HookCapabilities {
     pub code_graph_available: bool,
     /// Harness Knowledge is installed, its project knowledge setting is on and the server lists
     /// `mcp` (`harness-knowledge`). For the family dialog's `installed` the setting does not
-    /// count. The recall of its `knowledge-recall` hook also needs the server's `recall` feature,
+    /// count. The recall of its `knowledge-first` hook also needs the server's `recall` feature,
     /// which the app checks when it runs the recall.
     pub knowledge_available: bool,
+    /// Useful Skills are installed for at least one harness (`useful-skills`). A chat also needs
+    /// them for its own harness, see [`ChatContext::useful_skills`](super::ChatContext).
+    pub skills_available: bool,
 }
 
 impl HookCapabilities {
@@ -53,6 +56,7 @@ impl HookCapabilities {
             HookRequirement::HarnessDashboard => self.dashboard_available,
             HookRequirement::HarnessKnowledge => self.knowledge_available,
             HookRequirement::HarnessCode => self.code_graph_available,
+            HookRequirement::UsefulSkills => self.skills_available,
         }
     }
 }

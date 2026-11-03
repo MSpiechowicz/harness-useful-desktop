@@ -117,6 +117,10 @@ pub enum HookRequirement {
     /// the Code index switch is on.
     #[serde(rename = "harness-code")]
     HarnessCode,
+    /// Useful Skills are installed for at least one harness. In a chat the hook also needs them
+    /// for that chat's own harness.
+    #[serde(rename = "useful-skills")]
+    UsefulSkills,
 }
 
 impl HookRequirement {
@@ -127,6 +131,7 @@ impl HookRequirement {
             Self::HarnessDashboard => "harness-dashboard",
             Self::HarnessKnowledge => "harness-knowledge",
             Self::HarnessCode => "harness-code",
+            Self::UsefulSkills => "useful-skills",
         }
     }
 
@@ -137,6 +142,7 @@ impl HookRequirement {
             Self::HarnessDashboard,
             Self::HarnessKnowledge,
             Self::HarnessCode,
+            Self::UsefulSkills,
         ]
         .into_iter()
         .find(|requirement| requirement.as_str() == name)
@@ -148,25 +154,25 @@ impl HookRequirement {
 #[serde(rename_all = "kebab-case")]
 #[ts(export)]
 pub enum HookSeed {
-    /// Harness Memory: "Search Harness Memory first" (`sessionStart`).
+    /// Retired: "Search Harness Memory first" (`sessionStart`), merged into `MemoryFirst`.
     MemorySearch,
-    /// Harness Memory: "Save what you learned" (`turnEnd`).
+    /// Harness Memory: "Harness Memory - save" (`turnEnd`).
     MemorySave,
-    /// Harness Dashboard: "Check limits before long work" (`sessionStart`).
+    /// Harness Dashboard: "Harness Dashboard" (step 10, `promptSubmit`).
     DashboardLimits,
-    /// Harness Memory: "Check Useful Skills first" (`promptSubmit`).
+    /// Useful Skills: "Harness Skills" (step 30, `promptSubmit`).
     UsefulSkills,
-    /// Harness Memory: "Check the branch against main" (`sessionStart`).
+    /// Harness Memory: "Git branch" (step 20, `sessionStart`).
     BranchSync,
-    /// Harness Memory: "Check Memory first" (`sessionStart`).
+    /// Harness Memory: "Harness Memory" (step 40, `promptSubmit`).
     MemoryFirst,
-    /// Harness Code: "Use the code graph first" (`promptSubmit`). Offered only while the installed
+    /// Harness Code: "Harness Code" (step 60, `promptSubmit`). Offered only while the installed
     /// Harness Code lists `code-index` (and runs only while the Code index switch is on).
     CodeGraphFirst,
-    /// Harness Knowledge: "Check Knowledge first" (`sessionStart`).
-    KnowledgeFirst,
-    /// Harness Knowledge: "Recall from Harness Knowledge" (`promptSubmit`). The app itself runs
+    /// Harness Knowledge: "Harness Knowledge" (step 50, `promptSubmit`). The app itself runs
     /// `harness-knowledge recall --hook` for it at compose time, see `hooks::recall`.
+    KnowledgeFirst,
+    /// Retired: "Recall from Harness Knowledge" (`promptSubmit`), merged into `KnowledgeFirst`.
     KnowledgeRecall,
 }
 
@@ -206,10 +212,10 @@ impl HookSeed {
         self == Self::CodeGraphFirst
     }
 
-    /// True for the hook whose context the app produces itself at compose time (the Harness
-    /// Knowledge recall), so the text in its file is never what the agent reads.
+    /// True for the hook whose step carries what the app looks up itself at compose time (the
+    /// Harness Knowledge recall): the app runs the recall whenever this hook fires.
     pub fn is_app_run_recall(self) -> bool {
-        self == Self::KnowledgeRecall
+        self == Self::KnowledgeFirst
     }
 
     /// The seed named `name`.
@@ -253,6 +259,12 @@ pub struct HookFamilyEntry {
     /// An `outdated` file that still holds an earlier catalog version word for word (not an edit of
     /// the user's), so it may be updated without asking.
     pub stale: bool,
+    /// Its position in the numbered steps of a message (10, 20, ...), `None` for a hook that is
+    /// not a step.
+    pub step: Option<u8>,
+    /// The catalog dropped this hook. It is listed only while an untouched file of it is left,
+    /// `stale` then: applying it deletes the file.
+    pub retired: bool,
 }
 
 /// A valid hook file.

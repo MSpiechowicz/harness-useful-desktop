@@ -283,17 +283,11 @@ mod hooks_store_folder {
         let created = seed_defaults(&folder.store, MEMORY, at(0)).unwrap();
         assert_eq!(
             created,
-            vec![
-                HookSeed::MemorySearch,
-                HookSeed::MemorySave,
-                HookSeed::UsefulSkills,
-                HookSeed::BranchSync,
-                HookSeed::MemoryFirst
-            ]
+            vec![HookSeed::BranchSync, HookSeed::MemoryFirst, HookSeed::MemorySave]
         );
 
         let listed = folder.store.list(MEMORY);
-        assert_eq!(listed.hooks.len(), 5);
+        assert_eq!(listed.hooks.len(), 3);
 
         for view in &listed.hooks {
             let hook = view.hook.as_ref().unwrap();
@@ -311,7 +305,7 @@ mod hooks_store_folder {
             .iter()
             .find(|view| view.hook.as_ref().unwrap().seed == Some(HookSeed::MemorySave))
             .unwrap();
-        assert_eq!(save.name.as_deref(), Some("Save what you learned"));
+        assert_eq!(save.name.as_deref(), Some("Harness Memory - save"));
         assert_eq!(
             save.hook.as_ref().unwrap().action,
             HookAction::FollowUp {
@@ -320,7 +314,7 @@ mod hooks_store_folder {
         );
 
         assert_eq!(seed_defaults(&folder.store, MEMORY, at(1)).unwrap(), vec![]);
-        assert_eq!(folder.store.list(MEMORY).hooks.len(), 5);
+        assert_eq!(folder.store.list(MEMORY).hooks.len(), 3);
 
         for view in &listed.hooks {
             folder.store.delete(&view.id, DESKTOP, None).unwrap();
@@ -337,6 +331,6 @@ mod hooks_store_folder {
         std::fs::remove_file(folder.store.config_dir().join("hooks-state.json")).unwrap();
 
         assert_eq!(seed_defaults(&folder.store, MEMORY, at(1)).unwrap(), vec![]);
-        assert_eq!(folder.store.list(MEMORY).hooks.len(), 5);
+        assert_eq!(folder.store.list(MEMORY).hooks.len(), 3);
     }
 }

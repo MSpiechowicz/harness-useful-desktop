@@ -1,15 +1,15 @@
 {
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d70044",
-  "name": "Use the code graph first",
-  "description": "Seeded default. Asks the agent, on every message, to answer code-structure questions with the Harness Code tools before grep.",
+  "name": "Harness Code",
+  "description": "Every message: the agent answers code-structure questions with the Harness Code tools before grep.",
   "scope": "global",
   "project": null,
   "event": "promptSubmit",
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "Your first tool call MUST be code_map (the Harness Memory and Harness Knowledge searches other hooks require belong in that same first batch, never after it), before any grep, find, ls, glob or file read. Pass project_path (the repository root) and set focus to the path prefix the task names; leave focus out only when the task names no area. This applies to every message, in a small repository too, and also to design, UI or docs work. Then use code_symbol for where a name is defined and used, code_impact before changing a signature or behaviour, and code_path for how A reaches B; never reconstruct a flow by reading files one by one. Use grep and file reads only for literal text and for details the graph does not show. These tools are named code_map, code_symbol, code_impact and code_path (Harness Code). Your harness may list them under a prefix (for example mcp__harness_code_code_map), as a tool device or as deferred tools: look for them in your tool list, or load them first (for example with ToolSearch), before your first call. Only when they are not there after you looked, say so once in your first reply and go on with the usual tools; never skip them silently and never claim they are missing without looking."
+    "text": "For questions about code structure, call the Harness Code tools before grep or file reads, with project_path: code_map for an area (focus = the path the request names), code_symbol for a name, code_impact before changing a signature or behaviour, code_path for how A reaches B. Use grep and file reads for literal text and for details the graph does not show. Status line: \"Code: code_map ui/src/hooks\" or \"Code: no code question\"."
   },
   "enabled": true,
   "createdAt": "2026-10-29T10:00:00Z",

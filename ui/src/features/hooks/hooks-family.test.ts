@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
 
@@ -65,26 +66,79 @@ describe('Harness family hooks', () => {
     await showHooks();
     const dialog = await openFamily();
 
-    await waitFor(() => expect(within(rowIn(dialog, 'Search Harness Memory first')).getByText('Installed')).toBeInTheDocument());
-    expect(within(rowIn(dialog, 'Save what you learned')).getByText('Installed')).toBeInTheDocument();
-    expect(within(rowIn(dialog, 'Check Useful Skills first')).getByRole('button', { name: /^Install / })).toBeEnabled();
-    expect(within(dialog).getByText('Harness Dashboard · Session start')).toBeInTheDocument();
-    expect(within(rowIn(dialog, 'Use the code graph first')).getByRole('button', { name: 'Install Use the code graph first' })).toBeEnabled();
-    expect(within(dialog).getAllByText('Harness Memory · Prompt submit')).toHaveLength(2);
-    expect(within(dialog).getAllByText('Harness Memory · Session start')).toHaveLength(3);
-    expect(within(dialog).getAllByText('Harness Knowledge · Prompt submit')).toHaveLength(1);
-    expect(within(dialog).getAllByText('Harness Knowledge · Session start')).toHaveLength(1);
+    await waitFor(() => expect(within(rowIn(dialog, 'Harness Memory')).getByText('Installed')).toBeInTheDocument());
+    expect(within(rowIn(dialog, 'Harness Memory - save')).getByText('Installed')).toBeInTheDocument();
+    expect(within(rowIn(dialog, 'Harness Skills')).getByRole('button', { name: /^Install / })).toBeEnabled();
+    expect(within(rowIn(dialog, 'Harness Code')).getByRole('button', { name: 'Install Harness Code' })).toBeEnabled();
     // One action per row and a footer that only closes: nothing installs the rest in one go.
     expect(within(dialog).queryByRole('button', { name: /Add all/ })).not.toBeInTheDocument();
-    expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(7);
+    expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(5);
 
-    await fireEvent.click(within(rowIn(dialog, 'Check limits before long work')).getByRole('button', { name: /^Install / }));
+    await fireEvent.click(within(rowIn(dialog, 'Harness Dashboard')).getByRole('button', { name: /^Install / }));
 
-    await waitFor(() => expect(within(rowIn(dialog, 'Check limits before long work')).getByText('Installed')).toBeInTheDocument());
+    await waitFor(() => expect(within(rowIn(dialog, 'Harness Dashboard')).getByText('Installed')).toBeInTheDocument());
     expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['dashboard-limits'] }]);
-    expect(within(rowOf('Check limits before long work')).getByText('Active')).toBeInTheDocument();
+    expect(within(rowOf('Harness Dashboard')).getByText('Active')).toBeInTheDocument();
     expect(toasts.items.map((toast) => toast.title)).toContain('1 family hook ready');
-    await waitFor(() => expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(6));
+    await waitFor(() => expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(4));
+  });
+
+  it('numbers the steps in the order the agent works through them and says how often each hook runs', async () => {
+    fakeHooks();
+    await showHooks();
+    const dialog = await openFamily();
+
+    const steps = ['Harness Dashboard', 'Git branch', 'Harness Skills', 'Harness Memory', 'Harness Knowledge', 'Harness Code'];
+
+    for (const [index, name] of steps.entries()) {
+      expect(within(await waitFor(() => rowIn(dialog, name))).getByText(`Step ${index + 1}`)).toBeInTheDocument();
+    }
+
+    // The follow-up is not a step, and every row keeps the same shape.
+    expect(within(rowIn(dialog, 'Harness Memory - save')).queryByText(/^Step \d/)).not.toBeInTheDocument();
+    expect(within(dialog).getAllByText(/^Step \d/)).toHaveLength(steps.length);
+
+    expect(within(rowIn(dialog, 'Git branch')).getByText('Harness Memory · Once per chat')).toBeInTheDocument();
+    expect(within(rowIn(dialog, 'Harness Skills')).getByText('Harness Skills · Every message')).toBeInTheDocument();
+    expect(within(rowIn(dialog, 'Harness Knowledge')).getByText('Harness Knowledge · Every message')).toBeInTheDocument();
+    expect(within(rowIn(dialog, 'Harness Memory - save')).getByText('Harness Memory · After each turn')).toBeInTheDocument();
+    expect(within(dialog).getAllByText('Harness Memory · Every message')).toHaveLength(1);
+  });
+
+  it('leaves out a hook the catalog merged into another once no file of it is left', async () => {
+    fakeHooks();
+    await showHooks();
+    const dialog = await openFamily();
+
+    await waitFor(() => rowIn(dialog, 'Harness Memory'));
+
+    expect(within(dialog).queryByText('Search Harness Memory first')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/Merged, will be removed/)).not.toBeInTheDocument();
+  });
+
+  it('lists a merged hook while its untouched file is left, and removes the file on update', async () => {
+    const { invoke } = fakeHooks('merged');
+    await showHooks();
+    const dialog = await openFamily();
+
+    const merged = await waitFor(() => rowIn(dialog, 'Search Harness Memory first'));
+    expect(within(merged).getByText('Harness Memory · Merged, will be removed')).toBeInTheDocument();
+    expect(within(merged).queryByText(/^Step \d/)).not.toBeInTheDocument();
+
+    await fireEvent.click(within(merged).getByRole('button', { name: /^Update / }));
+
+    await waitFor(() => expect(within(dialog).queryByText('Search Harness Memory first')).not.toBeInTheDocument());
+    expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-search'] }]);
+  });
+
+  it('sends the user to the Ecosystem page when Harness Skills are not installed', async () => {
+    fakeHooks('noSkills');
+    await showHooks();
+    const dialog = await openFamily();
+
+    await fireEvent.click(await within(await waitFor(() => rowIn(dialog, 'Harness Skills'))).findByRole('button', { name: 'Open Ecosystem' }));
+
+    expect(nav.current).toBe('ecosystem');
   });
 
   it('updates a family hook whose text the catalog has since changed', async () => {
@@ -93,14 +147,14 @@ describe('Harness family hooks', () => {
     const dialog = await openFamily();
 
     const row = await waitFor(() => {
-      const found = rowIn(dialog, 'Save what you learned');
+      const found = rowIn(dialog, 'Harness Memory - save');
       expect(within(found).getByRole('button', { name: /^Update / })).toBeInTheDocument();
 
       return found;
     });
     await fireEvent.click(within(row).getByRole('button', { name: /^Update / }));
 
-    await waitFor(() => expect(within(rowIn(dialog, 'Save what you learned')).getByText('Installed')).toBeInTheDocument());
+    await waitFor(() => expect(within(rowIn(dialog, 'Harness Memory - save')).getByText('Installed')).toBeInTheDocument());
     expect(screen.queryByRole('dialog', { name: 'Replace your edited version?' })).not.toBeInTheDocument();
   });
 
@@ -109,7 +163,7 @@ describe('Harness family hooks', () => {
     await showHooks();
     const dialog = await openFamily();
 
-    const update = await waitFor(() => within(rowIn(dialog, 'Save what you learned')).getByRole('button', { name: /^Update / }));
+    const update = await waitFor(() => within(rowIn(dialog, 'Harness Memory - save')).getByRole('button', { name: /^Update / }));
     await fireEvent.click(update);
 
     const confirm = await screen.findByRole('dialog', { name: 'Replace your edited version?' });
@@ -118,10 +172,10 @@ describe('Harness family hooks', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Replace your edited version?' })).not.toBeInTheDocument());
     expect(calls(invoke, 'hooks_family_apply')).toEqual([]);
 
-    await fireEvent.click(within(rowIn(dialog, 'Save what you learned')).getByRole('button', { name: /^Update / }));
+    await fireEvent.click(within(rowIn(dialog, 'Harness Memory - save')).getByRole('button', { name: /^Update / }));
     await fireEvent.click(within(await screen.findByRole('dialog', { name: 'Replace your edited version?' })).getByRole('button', { name: 'Update hook' }));
 
-    await waitFor(() => expect(within(rowIn(dialog, 'Save what you learned')).getByText('Installed')).toBeInTheDocument());
+    await waitFor(() => expect(within(rowIn(dialog, 'Harness Memory - save')).getByText('Installed')).toBeInTheDocument());
     expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-save'] }]);
   });
 
@@ -131,7 +185,8 @@ describe('Harness family hooks', () => {
 
     await hooks.updateStaleFamily();
 
-    expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-save'] }]);
+    expect(calls(invoke, 'hooks_family_update_stale')).toHaveLength(1);
+    expect(((await invoke('hooks_family', undefined)) as Array<{ seed: string }>).find((row) => row.seed === 'memory-save')).toMatchObject({ status: 'installed', stale: false });
     expect(toasts.items.map((toast) => [toast.title, toast.description])).toContainEqual(['1 family hook updated', 'Automatic updates brought it to the latest Harness family version.']);
   });
 
@@ -141,6 +196,7 @@ describe('Harness family hooks', () => {
 
     await hooks.updateStaleFamily();
 
+    expect(calls(invoke, 'hooks_family_update_stale')).toEqual([]);
     expect(calls(invoke, 'hooks_family_apply')).toEqual([]);
   });
 
@@ -152,12 +208,12 @@ describe('Harness family hooks', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Harness family hooks' }));
     const dialog = await screen.findByRole('dialog', { name: 'Harness family hooks' });
 
-    await fireEvent.click(within(await waitFor(() => rowIn(dialog, 'Save what you learned'))).getByRole('button', { name: /^Install / }));
+    await fireEvent.click(within(await waitFor(() => rowIn(dialog, 'Harness Memory - save'))).getByRole('button', { name: /^Install / }));
 
     await waitFor(() => expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['memory-save'] }]));
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByText('No hooks yet')).not.toBeInTheDocument());
-    expect(within(rowOf('Save what you learned')).getByText('Active')).toBeInTheDocument();
+    expect(within(rowOf('Harness Memory - save')).getByText('Active')).toBeInTheDocument();
   });
 
   it('installs the recall of Harness Knowledge and says it sends the message to that tool', async () => {
@@ -165,14 +221,13 @@ describe('Harness family hooks', () => {
     await showHooks();
     const dialog = await openFamily();
 
-    const recall = await waitFor(() => rowIn(dialog, 'Recall from Harness Knowledge'));
+    const recall = await waitFor(() => rowIn(dialog, 'Harness Knowledge'));
     expect(within(dialog).getByText(/^Recall sends each message you write to Harness Knowledge on this computer/)).toBeInTheDocument();
 
     await fireEvent.click(within(recall).getByRole('button', { name: /^Install / }));
 
-    await waitFor(() => expect(within(rowIn(dialog, 'Recall from Harness Knowledge')).getByText('Installed')).toBeInTheDocument());
-    expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['knowledge-recall'] }]);
-    await waitFor(() => expect(within(rowIn(dialog, 'Check Knowledge first')).getByRole('button', { name: /^Install / })).toBeEnabled());
+    await waitFor(() => expect(within(rowIn(dialog, 'Harness Knowledge')).getByText('Installed')).toBeInTheDocument());
+    expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['knowledge-first'] }]);
   });
 
   it('installs a member that is missing, right in the row, after the user confirms', async () => {
@@ -186,7 +241,7 @@ describe('Harness family hooks', () => {
     const confirm = await screen.findByRole('dialog', { name: 'Install Harness Dashboard?' });
     await fireEvent.click(within(confirm).getByRole('button', { name: 'Install Harness Dashboard' }));
 
-    await waitFor(() => expect(within(rowIn(dialog, 'Check limits before long work')).getByText('Installed')).toBeInTheDocument(), { timeout: 5000 });
-    expect(within(rowOf('Check limits before long work')).getByText('Active')).toBeInTheDocument();
+    await waitFor(() => expect(within(rowIn(dialog, 'Harness Dashboard')).getByText('Installed')).toBeInTheDocument(), { timeout: 5000 });
+    expect(within(rowOf('Harness Dashboard')).getByText('Active')).toBeInTheDocument();
   });
 });

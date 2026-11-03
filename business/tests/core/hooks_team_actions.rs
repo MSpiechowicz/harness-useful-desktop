@@ -103,7 +103,7 @@ fn a_global_hook_is_shared_byte_for_byte() {
 fn family_pending_and_changed_hooks_are_not_shared() {
     let team = team();
 
-    apply_family(&team.store, &[HookSeed::MemorySearch], NONE, UNIX_EPOCH).unwrap();
+    apply_family(&team.store, &[HookSeed::MemoryFirst], NONE, UNIX_EPOCH).unwrap();
     let seeded = team.store.list(NONE).hooks.remove(0);
     let family = share_request(&team.store, &team.folder, &seeded.id, &seeded.sha256);
     assert!(matches!(family, Err(BusinessError::Forbidden(_))), "{family:?}");

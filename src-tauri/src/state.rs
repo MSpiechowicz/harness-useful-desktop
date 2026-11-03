@@ -150,7 +150,7 @@ pub struct AppState {
     /// The projects whose code index is being prepared (`code_prepare`).
     pub code_prepares: CodePrepares,
     /// The locks that let one git write (fetch, push, rebase, switch...) run at a time per project.
-    pub git_writes: GitWriteLocks,
+    pub git_writes: Arc<GitWriteLocks>,
 }
 
 impl AppState {
@@ -235,7 +235,7 @@ impl AppState {
             routines: Arc::new(routines),
             project_keys: ProjectKeys::default(),
             code_prepares: CodePrepares::default(),
-            git_writes: GitWriteLocks::default(),
+            git_writes: Arc::default(),
         }
     }
 

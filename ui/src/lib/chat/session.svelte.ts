@@ -15,17 +15,20 @@ import { IpcFailure, type Transport } from '$lib/ipc/transport';
 import { harness } from '$lib/stores/harness.svelte';
 import type { ToastsStore } from '$lib/stores/toasts.svelte';
 import { Flight } from '$lib/utils/flight';
+import { uid } from '$lib/utils/ids';
 
 import { pendingApproval, pendingDialog, type ApprovalPrompt } from './approval';
 import { toImages, withFileNote } from './attachments';
 import { ComposerAttachments, type Attached } from './composer-attachments.svelte';
 import { finishBash, startBash } from './bash';
 import { messageAction, type SendMode } from './composer';
+import { dropSend, startSend } from './pending-send';
 import { labelFromPrompt, type ChatLabel } from './naming';
 import { firstUserPrompt } from './first-prompt';
 import { prependHistory } from './messages';
 import { applyEvent, clearTranscript, dropRequest, reduceEnvelope } from './reducer';
 import { mergeCatalog } from './slash';
+import { SentImages } from './sent-images.svelte';
 import { initialChatState } from './state';
 import { addSentMessage } from './subagent-steps';
 import { messageRequest } from './subagents';
@@ -46,8 +49,8 @@ export class ChatSession {
   draft = $state('');
   /** Images and files waiting in the composer for the next message. */
   readonly attached: ComposerAttachments;
-  /** Thumbnails of the images this window sent, by message key; the transcript itself keeps no image data. */
-  sentImages = $state.raw<Record<string, string[]>>({});
+  /** Thumbnails of the images this window sent; the transcript itself keeps no image data. */
+  readonly images = new SentImages();
   models = $state.raw<ModelOption[] | null>(null);
   thinkingLevels = $state.raw<string[] | null>(null);
   agents = $state.raw<AgentOption[] | null>(null);
@@ -87,8 +90,6 @@ export class ChatSession {
   private readonly rechecking = new Flight();
   private recheckCount = 0;
   private flushScheduled = false;
-  /** Thumbnails of sent messages not yet matched to their transcript item, oldest first. */
-  private unmatchedImages: string[][] = [];
   private historyLoaded = false;
 
   /** The session's launch info; `project` changes when the chat moves to another project. */
@@ -142,33 +143,12 @@ export class ChatSession {
     }
 
     this.chat = next;
-    this.matchSentImages(next);
+    this.images.prune(next);
+    this.images.match(next);
     if (toolRuns > 0) {
       this.toolRuns += toolRuns;
     }
     this.afterChange(before, next);
-  }
-
-  /** Gives each new user message that carries images the thumbnails of the oldest send still waiting. History items (order -1) are older than any send and never match. */
-  private matchSentImages(after: ChatState): void {
-    if (this.unmatchedImages.length === 0) {
-      return;
-    }
-
-    const matched: Record<string, string[]> = {};
-
-    for (const item of after.items) {
-      const hasImages = item.kind === 'message' && item.role === 'user' && item.order >= 0 && item.blocks.some((block) => block.type === 'image');
-      if (!hasImages || item.key in this.sentImages || this.unmatchedImages.length === 0) {
-        continue;
-      }
-
-      matched[item.key] = this.unmatchedImages.shift() ?? [];
-    }
-
-    if (Object.keys(matched).length > 0) {
-      this.sentImages = { ...this.sentImages, ...matched };
-    }
   }
 
   /** Reacts to what a batch changed: ask for fresh facts once the agent is ready or settled. */
@@ -193,11 +173,17 @@ export class ChatSession {
     this.aiLabel = null;
     this.userNamed = false;
     this.firstPromptSeen = false;
+    this.images.prune(this.chat);
   }
 
   /** Applies a change the UI already knows about (an answered request, a reply that carries state). */
   apply(update: (state: ChatState) => ChatState): void {
     this.chat = update(this.chat);
+  }
+
+  /** Puts words in the composer and focuses it, the way the agent asks with `editorText`. Nothing is sent. */
+  useAgain(text: string): void {
+    this.apply((state) => applyEvent(state, { type: 'editorText', text }));
   }
 
   /** Sends an action; failures become a toast and `null`. A `quiet` send (a background look) fails silently, also with `null`. */
@@ -260,18 +246,42 @@ export class ChatSession {
       return false;
     }
 
-    // Queued before the send: the message event may land before the reply does.
     const thumbnails = attached.images.map((image) => image.url);
-    if (thumbnails.length > 0) {
-      this.unmatchedImages.push(thumbnails);
+    this.images.expect(thumbnails);
+
+    const waiting = this.showSending(message, mode, attached);
+    const accepted = (await this.send(messageAction(message, mode, toImages(attached.images)))) !== null;
+
+    if (!accepted && waiting !== null) {
+      // The composer takes the draft back and the toast says why: a message that did not go out is not left in the transcript.
+      this.apply((state) => dropSend(state, waiting));
+      this.images.prune(this.chat);
     }
 
-    const accepted = (await this.send(messageAction(message, mode, toImages(attached.images)))) !== null;
-    if (!accepted && thumbnails.length > 0) {
-      this.unmatchedImages = this.unmatchedImages.filter((queued) => queued !== thumbnails);
+    if (!accepted) {
+      this.images.forget(thumbnails);
     }
 
     return accepted;
+  }
+
+  /**
+   * Shows a prompt in the transcript before the harness echoes it, which can take seconds. Only a prompt that starts a turn is
+   * shown: steering and follow-ups wait in the queue above the composer, and a `/command` may be run by the harness without
+   * ever becoming a message. Returns the id of the waiting message, or null when nothing was shown.
+   */
+  private showSending(message: string, mode: SendMode, attached: Attached): string | null {
+    if (mode !== 'send' || this.streaming || this.ended || message.startsWith('/')) {
+      return null;
+    }
+
+    const id = uid('send');
+    const types = attached.images.map((image) => image.mimeType);
+
+    this.images.showWhileSending(id, attached.images.map((image) => image.url));
+    this.apply((state) => startSend(state, id, message, types));
+
+    return id;
   }
 
   async abort(): Promise<void> {
@@ -480,6 +490,7 @@ export class ChatSession {
   async reloadHistory(): Promise<void> {
     this.historyLoaded = false;
     this.apply((state) => ({ ...state, items: [], toolCalls: {}, subagents: {}, subagentSteps: {}, subagentClock: {}, nextOrder: 0, lastUserText: null, historyCursor: null, historyTotal: null }));
+    this.images.prune(this.chat);
     await this.loadHistory();
   }
 

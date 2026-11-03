@@ -84,7 +84,7 @@ not guaranteed, it says so under [Limits](#limits).
 | A tampered or downgraded update | Signature check against the built-in key, signed version, HTTPS only, newer versions only |
 | A shared setup (pasted string or file) tries to run a command, install something unexpected or leak a secret | Every field validated in Rust; the webview sends only a plan id and item ids; only add actions exist, plus the replace of an MCP server you tick; review and explicit confirmation first; env and header values, `auth` and `oauth` never exported, secrets in free-form text caught by heuristics; see [Shared setups](#shared-setups) |
 | An agent stores a secret in project memory, or a note written in one session misleads a later one | `redact_text` on every stored string, per-call size limits, notes are data the server only returns; see [Project memory](#project-memory) and [Limits](#limits) |
-| An agent writes a hook that runs a command or steers later prompts | A hook an agent writes is pending and never runs until you approve that exact version (SHA-256 of the file bytes in `hook-approvals.json`, written only by the window), the Hooks view shows the text or command and the change, an agent removes only hooks it created, and its edits and removals need the hash it read. Context and follow-ups are capped at 8 KiB and cannot forge their markers; see [Hooks](#hooks) and [Limits](#limits) |
+| An agent writes a hook that runs a command or steers later prompts | A hook an agent writes is pending and never runs until you approve that exact version (SHA-256 of the file bytes in `hook-approvals.json`, written only by the window), the Hooks view shows the text or command and the change, an agent removes only hooks it created, and its edits and removals need the hash it read. Context and follow-ups are capped at 12 KiB and cannot forge their markers; see [Hooks](#hooks) and [Limits](#limits) |
 | A file planted in, or a link placed into, the hooks folder | Only regular files named `<id>.json` are read, symbolic links are skipped and never written through, and the folder is ignored while group or others can write to it; a planted file stays pending without an approval for its hash; see [Hooks](#hooks) |
 | A teammate (or anyone who can write the team database) shares a hook that runs a command here | Team hooks run only while "Share hooks with the team" is on, and only with "Trust team hooks" on or after you approved their exact bytes on this machine; a local hook with the same id wins; turning sharing off deletes the copies at once. Agents cannot share or see team hooks; see [Hooks](#hooks) |
 | Credentials leak into logs, prefs or fixtures | Payload-free logging; `prefs.json` holds only the fields of `AppPrefs`; canary tests; fixtures checked for secrets |
@@ -1339,7 +1339,7 @@ over adding one, to forget outdated notes, and never to store secrets or persona
 is up to the agent.
 
 **Older versions.** Earlier app versions could put a `<harness-memory-recall>` block of found notes in front of the first
-message of a new chat. The app no longer runs the server for that, adds nothing to messages and has no setting for it.
+message of a new chat. The app now looks notes up again inside the Harness Memory step of a message (see [Hooks](#hooks)), and has no setting for the old leading block.
 Transcripts that hold such a block still show it as a collapsed chip (`splitRecall`), and titles, labels and session previews
 leave it out (`strip_recall`, `business/src/pi_family/sessions/recall_block.rs`); the harness keeps the block in its session
 file as it did. The Harness family hooks now ask agents to search and save notes (see [Hooks](#hooks)).
@@ -1506,7 +1506,7 @@ every chat, the Ask default new chats start with, and the repositories where age
   `harness-memory notes save|update`, `scripts save` and `held save|skip`, commands of the server's command line that are
   not MCP tools, so an agent using MCP cannot reach them. They run with client name `harness-desktop`, a draft on stdin,
   no shell.
-- **The memory-save hook.** The Harness family hook "Save what you learned" is skipped while the chat is paused or notes
+- **The memory-save hook.** The Harness family hook "Harness Memory - save" is skipped while the chat is paused or notes
   and scripts are both off for the chat, its repository or everywhere, so the agent is not asked to save what it may not.
   **Check again** in the popover sends the hook's text at once, and is disabled in those states.
 - **Not a sandbox.** The guards stop an agent that uses the Harness Memory MCP tools. An agent with a shell can still
@@ -1594,7 +1594,7 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
   only when no `<id>.json` entry is left in the folder or among the team copies. When a scope holds more than 64 hooks, approved ones are used
   first, so planted or pending files cannot push your hooks out, and the window counts only approved hooks against
   the limit. The Harness family hooks (below) are written by the
-  window with texts fixed in `business/src/hooks/family.rs` and approved at once. Only an approved file counts as a
+  window with texts fixed in `business/src/hooks/family/` and `family_text.rs` and approved at once. Only an approved file counts as a
   family hook: a pending file carrying a family `seed` is replaced by the catalog version when the window adds that
   hook.
 - **What an agent can do through the MCP mode.** List and read hooks, add one, change one (`hook_update`) and remove one.
@@ -1643,7 +1643,7 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
   of a prompt: the harness sends them to your model provider and writes them to its own session file, which is the
   harness's, not the app's. Harness terminal UIs and HTML exports show them as written. The chat shows a card for each,
   and a follow-up a hook sent is labelled as sent by a hook; titles, labels and session previews leave the context block
-  out (`strip_hook_context`, `splitHooks`). A composed block or follow-up holds at most 8 KiB of elements, and a text
+  out (`strip_hook_context`, `splitHooks`). A composed block or follow-up holds at most 12 KiB of elements, and a text
   cannot close or forge them (`&`, `<`, `>`, `"` in a name and a `<` that begins a hook marker in a text are escaped).
   Hook texts and commands are not scanned for secrets on the way into a prompt (only command output is redacted there);
   when the MCP tools show them to an agent they are redacted. A text or command an agent writes can hold anything it was
@@ -1664,23 +1664,46 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
 - **The approvals file is the trust anchor.** A process running as you that can write the app's config folder can approve
   a hook for itself, as it could change `prefs.json`. The privacy of that folder is the boundary. Hook files alone are not
   enough: a planted file is pending until its hash is approved.
-- **Harness family hooks.** The app can write nine hooks that tell agents to use the other Harness tools: five for Harness
-  Memory (`memory-search`, `branch-sync` and `memory-first` at `sessionStart`, `useful-skills` at `promptSubmit`, `memory-save` at `turnEnd`) one for Harness Dashboard (`dashboard-limits`
-  at `sessionStart`), one for Harness Code (`code-graph-first` at `promptSubmit`) and two for Harness Knowledge (`knowledge-first` at `sessionStart`, `knowledge-recall` at `promptSubmit`), each global and `requires` its member. `branch-sync` only asks the agent to run `git fetch` and merge the main branch into its branch; the app runs no git command for it, and the agent's own permission prompts apply. Launch seeding creates them once for a member that is
+- **Harness family hooks.** The app can write seven hooks that tell agents to use the other Harness tools, as numbered
+  steps in front of each message: Harness Dashboard (`dashboard-limits`), Git branch (`branch-sync`, once per chat),
+  Harness Skills (`useful-skills`), Harness Memory (`memory-first`), Harness Knowledge (`knowledge-first`) and Harness
+  Code (`code-graph-first`), plus Harness Memory - save (`memory-save`, at `turnEnd`). The retired `memory-search` and
+  `knowledge-recall` are never written again, and an untouched file is deleted by the family update. The automatic family update switches every family hook it migrates on, also one you had switched off: after the update, Harness Knowledge sends each message to the local Harness Knowledge for its lookup even if you had switched the old `Recall from Harness Knowledge` hook off. Switch Harness Knowledge or Harness Memory off again in the Hooks view to stop it. Each is global and
+  `requires` its member. Launch seeding creates them once for a member that is
   available (Harness Memory: installed and its switch on) and records the seed in `hooks-state.json`, so a deleted one is
-  not created at launch again; the dialog adds or updates them on your request, and an install of the member through the
-  app adds its missing ones again. Nothing overwrites a hook you edited unless you ask for the update, and uninstalling
+  not created at launch again, the dialog adds or updates them on your request, and an install of the member through the
+  app adds its missing ones again. A hook whose text, name, event, scope, project or matcher you changed is never rewritten or deleted automatically (the dialog shows it as outdated and updates it only when you ask), and uninstalling
   a member deletes nothing.
-- **Knowledge recall sends your message to a local process.** While the `knowledge-recall` hook is active (Harness
-  Knowledge installed, its switch on, the hook not turned off) the app starts the installed `harness-knowledge recall
-  --hook` for every eligible message of a desktop chat, with no shell, writes the message (at most 64 KiB) to its
-  stdin and the chat's project root on its command line. That process runs on this computer, but it may query the
-  team database you configured for Harness Knowledge with the words of the message, so those words reach that database
-  (and its operator) the way a Knowledge search from the Knowledge view does. Nothing else gets the message: command
-  hooks and team hooks never see it, and neither the message nor the answer is logged. The answer (at most 2 KiB, killed
-  after 3 s) is redacted for secrets and added to the prompt as an untrusted `<hook name="Knowledge">` element, or
-  nothing when the recall fails. A hook you do not want turns this off: switch the hook off in the Hooks view, or turn
-  off project knowledge in Settings.
+- **The app runs git for the Git branch step.** When a new desktop chat (not a resumed one) opens in a project whose Git
+  branch step is active, the app starts a background `git fetch` (at most 5 s) at once, whether or not a message is ever
+  sent, and the first message uses its result (or runs the lookup itself when the result is older than 5 minutes or the
+  chat moved to another folder). The fetch has the same hardening as the branch popover's background fetch (hooks off,
+  only the safe transports, no prompts, skipped when the repository's own config names a program) and is followed by a
+  read-only `git log --oneline -n 5 HEAD..<ref>` (hardened, shell-free, no lazy fetch). The fetch talks to the
+  repository's remotes. The app never merges, pulls or switches: only the agent may merge, under its own permission
+  prompts. Commit subjects are cut, stripped of control and format characters, redacted and labelled as repository data
+  before they reach the prompt, and a failure adds nothing.
+- **Recall sends your message to local processes.** On every eligible message of a desktop chat the app starts the
+  installed `harness-memory recall --hook` (Harness Memory step, while the hook is active and the installed server lists
+  `recall`) and `harness-knowledge recall --hook` (Harness Knowledge step, while the hook is active, Harness Knowledge is
+  installed and its switch is on), with no shell. Each gets the message (at most 64 KiB) on stdin and the chat's project
+  root on its command line. They run on this computer, but each may query the team database you configured for it with
+  the words of the message, so those words reach that database (and its operator) the way a search from the Memory or
+  Knowledge view does. Nothing else gets the message: command hooks and team hooks never see it, and neither the message
+  nor the answer is logged. The answer (capped, killed after 3 s) is redacted for secrets and added to the prompt as
+  untrusted text inside its step, or nothing when the recall fails. Harness Memory counts each note it returns as shown, in the store it read (the team database when your routing reads it), as a search from an agent does. Switch the Harness Memory or Harness Knowledge hook
+  off in the Hooks view to stop it, or turn off the setting of that member.
+- **Limits lookups.** The app reads the Harness Dashboard data (usage and budgets, locally, from its database through
+  the read-only dashboard queries) into one app-wide cache, shared by all chats. A chat warms it when it starts and a
+  reading older than 60 s is refreshed in the background. A message reuses a reading up to 5 minutes old and waits at
+  most 6 s, only when there is no usable reading. The prompt gets it only at 80 percent or more of a window or budget,
+  and the budgets are filtered to the chat's project: a budget of no project or of this chat's project can appear, a
+  budget of another project never reaches the prompt. While an agent starts a subagent the app checks the cache again
+  (at most once per 60 s per chat) and may send one follow-up per threshold level. Nothing leaves this computer for it.
+- **Aborting an OMP turn also stops its subagents.** OMP runs `task` subagents in the background, so after the abort of
+  the turn is answered the app sends `cancel_subagent` for each subagent it last saw pending or running (at most 512
+  tracked, forgotten when the chat starts a new session). The stops go out together and are bounded to 5 s in total.
+  A refused or late stop is only logged, and the abort itself never fails because of it.
 - **Registration.** `harness-desktop` is an MCP server entry in the user `mcp.json` of OMP and PI (OpenCode's `mcp`
   object). See [Process spawning](#process-spawning).
 - **Team hooks are remote code.** With a team database set and "Share hooks with the team" on, teammates' hooks reach

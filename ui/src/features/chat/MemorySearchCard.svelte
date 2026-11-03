@@ -1,5 +1,5 @@
 <script lang="ts">
-  import BookOpen from '@lucide/svelte/icons/book-open';
+  import Brain from '@lucide/svelte/icons/brain';
   import type { ComponentProps } from 'svelte';
 
   import { type FoundRow, parseSearch, textArg } from '$lib/chat/memory-tools';
@@ -55,7 +55,7 @@
 <FamilySearchCard
   {call}
   {active}
-  icon={BookOpen}
+  icon={Brain}
   heading={t('chat.memory.search.title')}
   headingRunning={t('chat.memory.search.titleRunning')}
   hint={searchHint(call.args)}

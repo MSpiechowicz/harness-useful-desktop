@@ -1,8 +1,8 @@
 {
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d70010",
-  "name": "Save what you learned",
-  "description": "Seeded default. Asks the agent to keep lessons and repeatable commands after a turn.",
+  "name": "Harness Memory - save",
+  "description": "After every turn: the agent keeps lessons and repeatable commands.",
   "scope": "global",
   "project": null,
   "event": "turnEnd",

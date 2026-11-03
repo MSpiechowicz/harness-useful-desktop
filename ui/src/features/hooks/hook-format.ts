@@ -212,18 +212,28 @@ export function length(text: string): number {
   return [...text].length;
 }
 
-/** The Harness family member each requirement stands for. */
-const MEMBER_OF: Record<HookRequirement, Companion> = { 'harness-memory': 'memory', 'harness-dashboard': 'dashboard', 'harness-knowledge': 'knowledge', 'harness-code': 'code' };
+/** What a hook can need: a companion with its own installer, or Harness Skills, which are installed per harness from the Ecosystem page. */
+export type HookMember = Companion | 'skills';
 
-export function memberOf(requirement: HookRequirement): Companion {
+/** The Harness family member each requirement stands for. */
+const MEMBER_OF: Record<HookRequirement, HookMember> = { 'harness-memory': 'memory', 'harness-dashboard': 'dashboard', 'harness-knowledge': 'knowledge', 'harness-code': 'code', 'useful-skills': 'skills' };
+
+export function memberOf(requirement: HookRequirement): HookMember {
   return MEMBER_OF[requirement];
 }
 
-export const MEMBER_LABELS: Record<Companion, MessageKey> = { memory: 'hooks.member.memory', dashboard: 'hooks.member.dashboard', knowledge: 'hooks.member.knowledge', code: 'hooks.member.code' };
+export const MEMBER_LABELS: Record<HookMember, MessageKey> = { memory: 'hooks.member.memory', dashboard: 'hooks.member.dashboard', knowledge: 'hooks.member.knowledge', code: 'hooks.member.code', skills: 'hooks.member.skills' };
+
+/** How often a Harness family hook runs, by the event it fires on. An event the catalog does not use is named as its event. */
+export const CADENCE_LABELS: Partial<Record<HookEvent, MessageKey>> = { sessionStart: 'hooks.family.cadence.once', promptSubmit: 'hooks.family.cadence.every', turnEnd: 'hooks.family.cadence.turnEnd' };
+
+export function cadenceLabel(event: HookEvent): MessageKey {
+  return CADENCE_LABELS[event] ?? EVENT_LABELS[event];
+}
 
 /** The Harness family member a paused hook waits for, and whether it is installed but switched off (Harness Memory, Harness Knowledge and Harness Code have such a switch). */
 export interface WaitingFor {
-  member: Companion;
+  member: HookMember;
   off: boolean;
 }
 
@@ -252,14 +262,15 @@ export function waitingFor(hook: Hook, switches: MemberSwitches): WaitingFor | n
   return { member, off: (member === 'memory' && !switches.memory) || (member === 'knowledge' && !switches.knowledge) || (member === 'code' && !switches.code) };
 }
 
-/** The Settings section whose switch turns `member` on again. */
-export function switchSection(member: Companion): 'memory' | 'knowledge' | 'code' {
+/** The Settings section whose switch turns `member` on again. Harness Skills have no switch (they are never "off"), so they point at the memory section like the dashboard does. */
+export function switchSection(member: HookMember): 'memory' | 'knowledge' | 'code' {
   switch (member) {
     case 'knowledge':
     case 'code':
       return member;
     case 'memory':
     case 'dashboard':
+    case 'skills':
       return 'memory';
   }
 }

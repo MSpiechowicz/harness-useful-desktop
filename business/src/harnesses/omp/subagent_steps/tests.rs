@@ -89,7 +89,7 @@ fn a_rising_tool_count_yields_one_step_per_new_call_and_the_running_one_is_repla
 }
 
 #[test]
-fn the_task_is_sent_once_and_the_snapshot_cannot_stop_or_reach_the_subagent_directly() {
+fn the_task_is_sent_once_and_the_snapshot_can_be_stopped_but_not_messaged_directly() {
     let mut steps = SubagentSteps::default();
 
     let first = observe(&mut steps, &frame(0, vec![], None, &[]));
@@ -97,7 +97,7 @@ fn the_task_is_sent_once_and_the_snapshot_cannot_stop_or_reach_the_subagent_dire
 
     assert_eq!(snapshot(&first).task.as_deref(), Some("Map it"));
     assert_eq!(snapshot(&second).task, None);
-    assert_eq!(snapshot(&second).can_stop, Some(false));
+    assert_eq!(snapshot(&second).can_stop, Some(true));
     assert_eq!(
         snapshot(&second).message_route,
         Some(crate::model::SubagentRoute::Orchestrator)

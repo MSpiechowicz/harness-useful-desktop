@@ -156,6 +156,7 @@
     "allow-hook-reject",
     "allow-hooks-family",
     "allow-hooks-family-apply",
+    "allow-hooks-family-update-stale",
     "allow-hooks-listen",
     "allow-hooks-share",
     "allow-hooks-team-remove",

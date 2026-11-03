@@ -8,6 +8,9 @@ const FOLLOW_UP_CLOSE = '</harness-hook-followup>';
 /** The name the app gives its own part (the chat's Memory settings told to the agent), as `MEMORY_NOTICE_NAME` in the hooks engine writes it. */
 export const MEMORY_SETTINGS_PART = 'Memory settings';
 
+/** The name of the intro that opens the numbered steps, as `STEPS_INTRO_NAME` in the hooks engine writes it. It tells the agent how to read the steps and is not a hook. */
+export const STEPS_PART = 'Harness steps';
+
 /** What one hook put in a prompt: its name and its text, unescaped. */
 export interface HookText {
   name: string;

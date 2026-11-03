@@ -58,6 +58,7 @@ mod ui_request;
 mod update;
 
 pub use agent::{AgentSessionInfo, AgentStartRequest, ApprovalMode, BashOutput, SessionRef};
+pub(crate) use agent_action::check_subagent_id;
 pub use agent_action::{
     AgentAction, AgentReply, IMAGE_MIME_TYPES, ImageAttachment, MAX_ACTION_IMAGE_BYTES, MAX_ACTION_IMAGES,
     MAX_ACTION_TEXT_BYTES, MAX_AGENT_ID_BYTES, MAX_HISTORY_PAGE, MAX_SUBAGENT_ID_BYTES, StreamingBehavior,

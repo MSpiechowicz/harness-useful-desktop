@@ -6,6 +6,7 @@ import type { UiRequest } from '$lib/ipc/bindings/UiRequest';
 
 import { asApproval } from './approval';
 import { messageDelta, messageEnd, messageStart } from './messages';
+import { markTurnStarted, settleSends } from './pending-send';
 import { appendItem, findLastIndex, updateItem } from './state';
 import { applySubagentStep } from './subagent-steps';
 import { applySubagent } from './subagents';
@@ -78,7 +79,7 @@ function compactionText(event: Extract<AgentEvent, { type: 'compaction' }>): str
 
 function promptResult(state: ChatState, event: Extract<AgentEvent, { type: 'promptResult' }>): ChatState {
   if (event.status === 'error') {
-    return { ...state, promptError: { message: event.error ?? t('chat.promptError.fallback'), retryable: event.retryable } };
+    return { ...settleSends(state), promptError: { message: event.error ?? t('chat.promptError.fallback'), retryable: event.retryable } };
   }
 
   return { ...state, promptError: null };
@@ -98,13 +99,13 @@ export function applyEvent(state: ChatState, event: AgentEvent, now = Date.now()
       return { ...state, session: event.state, phase: event.state.isStreaming && state.phase !== 'exited' ? 'streaming' : state.phase };
 
     case 'agentStart':
-      return { ...state, phase: state.phase === 'exited' ? state.phase : 'streaming', promptError: null };
+      return { ...markTurnStarted(state), phase: state.phase === 'exited' ? state.phase : 'streaming', promptError: null };
 
     case 'agentEnd':
       return { ...finishTurn(state), phase: state.phase === 'exited' ? state.phase : 'idle' };
 
     case 'settled':
-      return { ...finishTurn(state), phase: state.phase === 'exited' ? state.phase : 'idle', settledCount: state.settledCount + 1 };
+      return { ...finishTurn(settleSends(state, 'started')), phase: state.phase === 'exited' ? state.phase : 'idle', settledCount: state.settledCount + 1 };
 
     case 'turnStart':
     case 'turnEnd':
@@ -205,7 +206,7 @@ export function applyEvent(state: ChatState, event: AgentEvent, now = Date.now()
       return stderrLine(state, event.line);
 
     case 'exited':
-      return { ...finishTurn(state), phase: 'exited', openRequests: [], crash: { code: event.code, signal: event.signal, stderr: state.stderrTail } };
+      return { ...finishTurn(settleSends(state)), phase: 'exited', openRequests: [], crash: { code: event.code, signal: event.signal, stderr: state.stderrTail } };
   }
 }
 

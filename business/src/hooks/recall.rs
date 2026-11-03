@@ -1,88 +1,122 @@
-//! The Harness Knowledge recall of desktop chats: the context element of the `knowledge-recall`
-//! family hook ([`HookSeed::KnowledgeRecall`]), produced by the app when it composes a prompt.
+//! What the app looks up itself for the steps of a prompt: the Harness Memory notes
+//! ([`HookSeed::MemoryFirst`]) and the Harness Knowledge pointers ([`HookSeed::KnowledgeFirst`]).
 //!
-//! The engine plans the hook like any `addContext` hook, with the placeholder text of its file.
-//! [`run_with_recall`] carries out the firings, and in place of that text puts the pointers of the
-//! app's own `harness-knowledge recall --hook --project <the chat's project>` run
-//! ([`knowledge_recall`]): the message on its stdin, no shell, at most 3 s, nothing when it fails.
-//! The element is `<hook name="Knowledge">` like every other, so [`super::compose_prompt`] keeps it
-//! within the 8 KiB limit. The message reaches nothing else: command hooks never see it.
-//! The recall runs next to the commands of the firings, so it adds no time to a slow command.
+//! The engine plans a step's hook like any `addContext` hook. [`run_with_recall`] carries out the
+//! firings, and for each of these two hooks among them runs the app's own `harness-memory recall
+//! --hook` or `harness-knowledge recall --hook` with `--project <the chat's project>`
+//! ([`memory_recall`], [`knowledge_recall`]): the message on its stdin, no shell, at most 3 s. What
+//! they find comes back apart from the firings' parts, as a [`Lookup`] for
+//! [`super::steps::arrange`], which puts it in the step. The message reaches nothing else: command
+//! hooks never see it. The recalls run next to the commands of the firings and each other, so they
+//! add no time to a slow command. The same hook whether its file still fires at `sessionStart` (a
+//! file not updated yet) or at `promptSubmit`: a recall runs when its step does. The retired
+//! `knowledge-recall` hook triggers nothing.
+//!
+//! [`seed_planned`] tells the same for the lookups the shell runs itself (the branch and the
+//! limits).
 
 use std::collections::HashSet;
 
 use super::command::{FiringResult, run_firings};
-use super::compose::ResolvedPart;
 use super::engine::{HookSet, SendPlan};
 use super::plan::Firing;
-use crate::ecosystem::{KnowledgeFeatures, knowledge_recall};
+use super::steps::Lookup;
+use crate::ecosystem::{KnowledgeFeatures, MemoryFeatures, knowledge_recall, memory_recall};
 use crate::env::Env;
 use crate::model::{HookEvent, HookSeed};
 use crate::process::ProcessRunner;
 
-/// The name of the recall's `<hook>` element.
-pub const KNOWLEDGE_ELEMENT_NAME: &str = "Knowledge";
+/// The feature probes the two recalls are gated on.
+#[derive(Clone, Copy)]
+pub struct RecallFeatures<'a> {
+    /// Harness Knowledge: `recall`.
+    pub knowledge: &'a KnowledgeFeatures,
+    /// Harness Memory: `recall`.
+    pub memory: &'a MemoryFeatures,
+}
 
-/// The ids of the recall hooks in `hooks`.
+/// The ids of the hooks in `hooks` that trigger the Harness Knowledge recall, on any event.
 pub fn recall_hook_ids(hooks: &HookSet) -> HashSet<String> {
+    seed_hook_ids(hooks, HookSeed::KnowledgeFirst)
+}
+
+/// The ids of the hooks in `hooks` whose file has `seed`, on any event.
+fn seed_hook_ids(hooks: &HookSet, seed: HookSeed) -> HashSet<String> {
     hooks
-        .of_event(HookEvent::PromptSubmit)
-        .filter(|entry| entry.hook.seed.is_some_and(HookSeed::is_app_run_recall))
+        .hooks
+        .iter()
+        .filter(|entry| entry.hook.seed == Some(seed))
         .map(|entry| entry.hook.id.clone())
         .collect()
 }
 
-/// Carries out the firings of `plan` ([`run_firings`]) and the recall of the hooks of `hooks` among
-/// them, for the user message `prompt` in `project`. A recall hook's part is the recalled block, or
-/// no part when there is none.
+/// True when `hooks` holds an active hook whose file has `seed`.
+pub fn has_seed_hook(hooks: &HookSet, seed: HookSeed) -> bool {
+    hooks.hooks.iter().any(|entry| entry.hook.seed == Some(seed))
+}
+
+/// True when a firing of `plan` (only one of `event` when given) holds the part of a hook of
+/// `hooks` that has `seed`: the step is in this message, so its lookup is wanted.
+pub fn seed_planned(hooks: &HookSet, plan: &SendPlan, seed: HookSeed, event: Option<HookEvent>) -> bool {
+    let ids = seed_hook_ids(hooks, seed);
+
+    plan.firings
+        .iter()
+        .filter(|firing| event.is_none_or(|wanted| firing.event == wanted))
+        .any(|firing| holds(firing, &ids))
+}
+
+/// What the firings and the recalls produced.
+#[derive(Debug)]
+pub struct Recalled {
+    /// The firings' parts and failures. A recall hook's part keeps its own text.
+    pub firing: FiringResult,
+    /// The notes for the Harness Memory step: not run when its hook is not planned.
+    pub memory: Lookup,
+    /// The pointers for the Harness Knowledge step: not run when its hook is not planned.
+    pub knowledge: Lookup,
+}
+
+/// Carries out the firings of `plan` ([`run_firings`]) and the recalls of the hooks of `hooks` among
+/// them, for the user message `prompt` in `project`.
 pub async fn run_with_recall(
     runner: &dyn ProcessRunner,
     env: &Env,
-    features: &KnowledgeFeatures,
+    features: RecallFeatures<'_>,
     hooks: &HookSet,
     plan: &SendPlan,
     prompt: &str,
     project: Option<&str>,
-) -> FiringResult {
-    let recall = recall_hook_ids(hooks);
-    let wanted = recall_planned(&plan.firings, &recall);
+) -> Recalled {
+    let wants_memory = seed_planned(hooks, plan, HookSeed::MemoryFirst, None);
+    let wants_knowledge = seed_planned(hooks, plan, HookSeed::KnowledgeFirst, None);
 
-    let (mut result, recalled) = tokio::join!(run_firings(runner, env, &plan.firings), async {
-        if wanted {
-            knowledge_recall(env, runner, features, prompt, project).await
-        } else {
-            None
-        }
-    });
-
-    result.parts = place_recall(result.parts, &recall, recalled);
-    result
-}
-
-/// True when a firing holds the part of a recall hook.
-fn recall_planned(firings: &[Firing], recall: &HashSet<String>) -> bool {
-    firings
-        .iter()
-        .flat_map(|firing| firing.parts.iter())
-        .any(|part| recall.contains(part.hook_id()))
-}
-
-/// `parts` with each recall hook's placeholder replaced by `recalled`, or dropped without it.
-fn place_recall(parts: Vec<ResolvedPart>, recall: &HashSet<String>, recalled: Option<String>) -> Vec<ResolvedPart> {
-    parts
-        .into_iter()
-        .filter_map(|part| {
-            if !recall.contains(&part.hook_id) {
-                return Some(part);
+    let (firing, memory, knowledge) = tokio::join!(
+        run_firings(runner, env, &plan.firings),
+        async {
+            if wants_memory {
+                memory_recall(env, runner, features.memory, prompt, project).await
+            } else {
+                Lookup::NotRun
             }
+        },
+        async {
+            if wants_knowledge {
+                knowledge_recall(env, runner, features.knowledge, prompt, project).await
+            } else {
+                Lookup::NotRun
+            }
+        },
+    );
 
-            let text = recalled.clone()?;
+    Recalled {
+        firing,
+        memory,
+        knowledge,
+    }
+}
 
-            Some(ResolvedPart {
-                hook_name: KNOWLEDGE_ELEMENT_NAME.to_owned(),
-                text,
-                ..part
-            })
-        })
-        .collect()
+/// True when `firing` holds the part of one of the hooks `ids`.
+fn holds(firing: &Firing, ids: &HashSet<String>) -> bool {
+    firing.parts.iter().any(|part| ids.contains(part.hook_id()))
 }

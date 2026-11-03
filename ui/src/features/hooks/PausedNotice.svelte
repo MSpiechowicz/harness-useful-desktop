@@ -7,12 +7,11 @@
   import { nav } from '$lib/stores/nav.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
 
-  import type { Companion } from '../onboarding/setup-model';
-  import FamilyInstall from './FamilyInstall.svelte';
-  import { MEMBER_LABELS, switchSection } from './hook-format';
+  import { type HookMember, MEMBER_LABELS, switchSection } from './hook-format';
+  import MemberInstall from './MemberInstall.svelte';
 
   interface Props {
-    member: Companion;
+    member: HookMember;
     /** Installed but switched off, which Settings fixes. Otherwise it is not installed. */
     off: boolean;
     /** How many hooks wait for it. */
@@ -35,7 +34,7 @@
     {#if off}
       <Button onclick={openSettings}>{t('hooks.waiting.openSettings')}</Button>
     {:else}
-      <FamilyInstall {member} />
+      <MemberInstall {member} />
     {/if}
   {/snippet}
 </DocNoticeStrip>

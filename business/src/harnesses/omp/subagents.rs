@@ -90,7 +90,7 @@ fn base(payload: &Value, id: &Value, status: SubagentStatus) -> Option<Subagent>
 
     Some(Subagent {
         message_route: Some(SubagentRoute::Orchestrator),
-        can_stop: Some(false),
+        can_stop: Some(matches!(status, SubagentStatus::Pending | SubagentStatus::Running)),
         parent_tool_call_id: payload
             .get("parentToolCallId")
             .and_then(Value::as_str)

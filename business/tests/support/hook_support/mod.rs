@@ -109,6 +109,7 @@ pub fn chat(fresh: bool, utility: bool) -> HookSession {
         project: Some(PROJECT.to_owned()),
         fresh,
         utility,
+        useful_skills: true,
     })
 }
 

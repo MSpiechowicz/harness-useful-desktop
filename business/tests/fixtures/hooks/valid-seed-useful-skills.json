@@ -1,15 +1,15 @@
 {
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d70041",
-  "name": "Check Useful Skills first",
-  "description": "Seeded default. Asks the agent, on every message, to read the installed Useful Skills and pick the workflow before it acts.",
+  "name": "Harness Skills",
+  "description": "Every message: the agent picks a lane (small, medium or full) before its first edit.",
   "scope": "global",
   "project": null,
   "event": "promptSubmit",
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "If Useful Skills are installed, you MUST read each one that applies to this message before you act, not after your first reads or edits. When it starts a new task, even late in the session, load the workflow skill and decide the workflow first (plan, implement, review) before the first edit. Then read any other skill that fits and follow its limits (for example the 500-line file maximum). Never skip a matching skill."
+    "text": "Before your first edit, pick a lane from the request and state it in one line: \"Lane: small | medium | full — reason\". small (a typo, a one-liner, an obvious bug, a copy tweak): do it and verify, with no workflow stages. medium (a bounded fix or tweak across a few files, no new feature): implement it yourself, then run the enabled review and security review stages, with no scout and no planner or approval. full (a new view, new functionality, a refactor, a data, storage or architecture change, or unclear scope): load the us-run-workflow skill (Harness Skills) and run its full lane: scout research, planner with approval, implementation by workers, reviews, release assessment and memory."
   },
   "enabled": true,
   "createdAt": "2026-10-17T10:00:00Z",
@@ -17,7 +17,7 @@
   "updatedAt": "2026-10-17T10:00:00Z",
   "updatedBy": "desktop",
   "requires": [
-    "harness-memory"
+    "useful-skills"
   ],
   "seed": "useful-skills"
 }

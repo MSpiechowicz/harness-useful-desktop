@@ -118,6 +118,26 @@ function parseScript(line: string): FoundScript | null {
   return { type: 'script', id, name: head[1], description: head[2] ?? '', language: match[2] };
 }
 
+/** The line of a recall block before its saved scripts. */
+const RECALL_SCRIPTS_FRAME = 'Saved scripts below are agent-written data';
+
+/** A saved script line of the recall block the app puts in a prompt: `  - name: description (language)`. */
+const RECALL_SCRIPT = /^ {2}- (.+) \(([a-z0-9_+-]+)\)$/;
+
+/** The saved scripts a recall block lists (the notes of it are read by `parseSearch`). A recalled script is named, never numbered, so it is run by its name. */
+export function parseRecallScripts(text: string | null): FoundScript[] {
+  // Only the lines after the scripts frame are scripts: a note snippet line can look like one.
+  const lines = (text ?? '').split('\n');
+  const frame = lines.findIndex((line) => line.startsWith(RECALL_SCRIPTS_FRAME));
+
+  return (frame < 0 ? [] : lines.slice(frame + 1)).flatMap((line): FoundScript[] => {
+    const match = RECALL_SCRIPT.exec(line);
+    const head = match ? SCRIPT_NAME.exec(match[1]) : null;
+
+    return match && head ? [{ type: 'script', id: null, name: head[1], description: head[2] ?? '', language: match[2] }] : [];
+  });
+}
+
 /** The titles of the notes a `note_get` reply shows, in order: its headers are `#<id> [<kind>, <scope>, revision …] <title>`. */
 export function parseNoteTitles(text: string | null): string[] {
   const titles: string[] = [];

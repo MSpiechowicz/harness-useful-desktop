@@ -15,6 +15,7 @@ pub const MEMORY: HookCapabilities = HookCapabilities {
     dashboard_available: false,
     code_graph_available: false,
     knowledge_available: false,
+    skills_available: false,
 };
 /// Harness Memory is available, and Harness Code lists `code-index` with its Code index switch on.
 pub const CODE_GRAPH: HookCapabilities = HookCapabilities {
@@ -22,6 +23,7 @@ pub const CODE_GRAPH: HookCapabilities = HookCapabilities {
     dashboard_available: false,
     code_graph_available: true,
     knowledge_available: false,
+    skills_available: false,
 };
 /// Only Harness Code is there: it lists `code-index` and its switch is on.
 pub const CODE_ONLY: HookCapabilities = HookCapabilities {
@@ -29,6 +31,7 @@ pub const CODE_ONLY: HookCapabilities = HookCapabilities {
     dashboard_available: false,
     code_graph_available: true,
     knowledge_available: false,
+    skills_available: false,
 };
 /// Harness Knowledge is installed, on and lists `mcp`.
 pub const KNOWLEDGE: HookCapabilities = HookCapabilities {
@@ -36,12 +39,14 @@ pub const KNOWLEDGE: HookCapabilities = HookCapabilities {
     dashboard_available: false,
     code_graph_available: false,
     knowledge_available: true,
+    skills_available: false,
 };
 pub const NO_MEMORY: HookCapabilities = HookCapabilities {
     memory_available: false,
     dashboard_available: false,
     code_graph_available: false,
     knowledge_available: false,
+    skills_available: false,
 };
 pub const DESKTOP: HookAuthor = HookAuthor::Desktop;
 

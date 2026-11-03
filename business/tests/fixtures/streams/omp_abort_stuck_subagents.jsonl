@@ -1,0 +1,11 @@
+// An abort while three subagents run and none answers its stop: the stops are sent together, so the abort
+// returns after one time limit, not three.
+{"include":"omp_startup.jsonl"}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Alpha","agent":"scout","status":"started"}}}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Beta","agent":"scout","status":"started"}}}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Gamma","agent":"scout","status":"started"}}}
+{"expect":"abort","reply":{"success":true}}
+{"expect":"cancel_subagent","match":{"subagentId":"Alpha"},"hold":true}
+{"expect":"cancel_subagent","match":{"subagentId":"Beta"},"hold":true}
+{"expect":"cancel_subagent","match":{"subagentId":"Gamma"},"hold":true}
+{"expect":"get_last_assistant_text","reply":{"success":true,"data":{"text":null}}}

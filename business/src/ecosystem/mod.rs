@@ -34,6 +34,8 @@
 //!   in), [`code_features`] (`harness-code features`), [`code`] (the code graph switch the hooks
 //!   follow), [`code_prepare`] (building a project's index when it opens) and [`code_builds`] (the
 //!   builds announced in a toast), all on top of the `sidecar_*` modules and [`code_cli`].
+//! - [`useful_skills`]: whether the Useful Skills are installed for a harness (the Harness Skills
+//!   hook step needs them).
 //! - [`memory_binary`]: the installed `harness-memory` server and its version.
 //! - [`memory_register`]: that server in a harness's user MCP file, [`memory_record`]: the files
 //!   the app registered it in, and [`memory_migrate`]: the old copy of the bundled server retired.
@@ -86,6 +88,7 @@ pub mod code_prepare;
 pub mod code_record;
 pub mod code_register;
 pub mod dashboard;
+pub mod dashboard_limits;
 pub mod desktop_record;
 pub mod desktop_register;
 pub mod detect;
@@ -130,6 +133,7 @@ pub mod memory_notes_copy;
 pub mod memory_notes_import;
 pub mod memory_notes_save;
 mod memory_notes_titles;
+pub mod memory_recall;
 pub mod memory_record;
 pub mod memory_register;
 pub mod memory_remote;
@@ -142,6 +146,7 @@ pub mod memory_scripts_save;
 pub mod memory_team_docs;
 pub mod memory_trust;
 pub mod memory_user_save;
+mod recall_lookup;
 pub mod releases;
 pub mod setup;
 pub mod sidecar;
@@ -159,6 +164,7 @@ pub mod sidecar_remote_url;
 pub mod skills_migration;
 pub mod skills_paths;
 pub mod skills_record;
+pub mod useful_skills;
 
 pub use catalog::{ECOSYSTEM, catalog_item, supported_on};
 pub use code::{
@@ -173,6 +179,10 @@ pub use code_register::{
     CodeRegistration, register_code_mcp, register_code_mcp_cli, unregister_code_mcp, unregister_code_mcp_cli,
 };
 pub use dashboard::{Dashboard, DashboardOptions, resolve_dashboard};
+pub use dashboard_limits::{
+    CLOSE_PERCENT, DashboardReading, Gauge, LIMITS_TIMEOUT, LimitLevels, MAX_LIMIT_LINES, NEAR_PERCENT, close_gauges,
+    close_limits, limit_providers, limit_steer, read_limits,
+};
 pub use desktop_record::{DESKTOP_RECORD_FILE, DesktopRecord, DesktopRecordEntry};
 pub use desktop_register::{
     DESKTOP_MCP_SERVER, DesktopRegistration, app_command, current_app_command, desktop_mcp_state, register_desktop_mcp,
@@ -202,7 +212,7 @@ pub use knowledge_import::{
 pub use knowledge_intake::{
     Checked, IMPORT_EXTENSIONS, IntakePaths, KnowledgeIntakes, MAX_DROPPED_PATHS, MAX_INTAKE_FILES, check_paths,
 };
-pub use knowledge_recall::{MAX_RECALL_OUTPUT_BYTES, MAX_RECALL_PROMPT_BYTES, RECALL_TIMEOUT, knowledge_recall};
+pub use knowledge_recall::{MAX_RECALL_OUTPUT_BYTES, knowledge_recall};
 pub use knowledge_record::{KNOWLEDGE_RECORD_FILE, KnowledgeRecord};
 pub use knowledge_register::{
     KnowledgeRegistration, register_knowledge_mcp, register_knowledge_mcp_cli, unregister_knowledge_mcp,
@@ -249,6 +259,7 @@ pub use memory_notes_import::{
     apply_notes_import, import_template, read_notes_file,
 };
 pub use memory_notes_save::save_note;
+pub use memory_recall::{MAX_MEMORY_RECALL_OUTPUT_BYTES, memory_recall};
 pub use memory_record::{MEMORY_RECORD_FILE, MemoryRecord, RecordedFile};
 pub use memory_register::{
     MemoryRegistration, names_command, register_memory_mcp, register_memory_mcp_cli, repoint_memory_mcp,
@@ -264,6 +275,7 @@ pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};
 pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::{script_sha256, trust_scripts};
 pub use memory_user_save::SaveRoute;
+pub use recall_lookup::{MAX_RECALL_PROMPT_BYTES, RECALL_TIMEOUT};
 pub use releases::{CompanionReleases, release_endpoint};
 pub use setup::{
     LegacySkillsStep, McpFile, code_server_setup, knowledge_server_setup, legacy_skills_step, mcp_target,
@@ -278,3 +290,4 @@ pub use skills_paths::skills_data_path;
 pub use skills_record::{
     SkillsRecord, legacy_skills_record, skills_install, skills_installed, skills_record, skills_version,
 };
+pub use useful_skills::{useful_skills_installed, useful_skills_installed_anywhere, useful_skills_installed_for};

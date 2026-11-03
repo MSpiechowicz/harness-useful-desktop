@@ -103,6 +103,8 @@ pub async fn run_firing(runner: &dyn ProcessRunner, env: &Env, firing: &Firing) 
                 hook_name: request.hook_name.clone(),
                 text,
                 order: request.order.clone(),
+                seed: None,
+                plain: false,
             }),
             Ok(None) => {}
             Err(kind) => result.failures.push(CommandFailure {

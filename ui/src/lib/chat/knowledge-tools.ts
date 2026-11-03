@@ -87,6 +87,26 @@ export function parseDocs(text: string | null): FoundDoc[] {
   return headers(text);
 }
 
+/** The opening tag of a pointer in the recall block the app puts in a prompt: its excerpt follows on the same line, so the tag does not stand alone. */
+const POINTER = /<knowledge-doc((?: [a-z]+="[^"]*")+)>/g;
+
+/** The documents a recall block points to, in order, each once (a document can have several chunks), at most `MAX_CARD_ROWS`. A pointer that is not read in full is left out. */
+export function parseRecallDocs(text: string | null): FoundDoc[] {
+  const docs = new Map<string, FoundDoc>();
+
+  for (const [, attributes] of (text ?? '').matchAll(POINTER)) {
+    const values = new Map([...attributes.matchAll(ATTRIBUTE)].map((match) => [match[1], unescapeValue(match[2])] as const));
+    const id = docRef(values.get('id') ?? '');
+    const title = values.get('title');
+
+    if (id !== null && title !== undefined && !docs.has(id) && docs.size < MAX_CARD_ROWS) {
+      docs.set(id, { id, title: displayText(title, MAX_TITLE_CHARS), section: displayText(values.get('section') ?? '', MAX_SECTION_CHARS) || null, format: null });
+    }
+  }
+
+  return [...docs.values()];
+}
+
 /** The documents a `knowledge_get` reply shows: the block of the document or chunk read. */
 export function parseOpenedDocs(text: string | null): FoundDoc[] {
   return headers(text);

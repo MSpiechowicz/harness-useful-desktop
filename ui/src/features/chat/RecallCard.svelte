@@ -1,5 +1,5 @@
 <script lang="ts">
-  import BookOpen from '@lucide/svelte/icons/book-open';
+  import Brain from '@lucide/svelte/icons/brain';
 
   import type { MemoryRecall } from '$lib/chat/memory-recall';
   import { t, tn } from '$lib/i18n/i18n.svelte';
@@ -39,7 +39,7 @@
 
 <!-- The notes and saved scripts the app added to this message, in the same row shape as the agent's tool calls. -->
 <ChatRow {open} ontoggle={() => (open = !open)} tone="info">
-  {#snippet icon()}<BookOpen size={16} aria-hidden="true" />{/snippet}
+  {#snippet icon()}<Brain size={16} aria-hidden="true" />{/snippet}
 
   {#snippet title()}
     <span class="font-medium text-fg">{t('chat.user.recallTitle')}</span>

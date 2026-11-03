@@ -46,7 +46,7 @@ describe('The Scope filter of the hooks', () => {
     expect(viewState.hooksScope).toBe('all');
     expect(within(localRowOf('Notes for research')).getByText('research')).toBeInTheDocument();
     expect(within(localRowOf('Run lint after edits')).getByText('demo')).toBeInTheDocument();
-    expect(within(localRowOf('Search Harness Memory first')).getByText('Global')).toBeInTheDocument();
+    expect(within(localRowOf('Harness Memory')).getByText('Global')).toBeInTheDocument();
     expect(within(teamRowOf('Lint the stylesheets')).getByText('acme/website')).toBeInTheDocument();
     expect(within(teamRowOf('Lint the stylesheets')).getByText('Remote')).toBeInTheDocument();
   });
@@ -72,7 +72,7 @@ describe('The Scope filter of the hooks', () => {
     expect(screen.getByRole('button', { name: 'Scope: demo' })).toBeInTheDocument();
     expect(listed(grid())).toEqual(expect.arrayContaining(['Run lint after edits', 'Remind about tests', 'Run the type checker']));
     expect(listed(grid())).not.toContain('Notes for research');
-    expect(listed(grid())).not.toContain('Search Harness Memory first');
+    expect(listed(grid())).not.toContain('Harness Memory');
     expect(listed(grid())).not.toContain('Lint the stylesheets');
   });
 
@@ -86,7 +86,7 @@ describe('The Scope filter of the hooks', () => {
     expect(screen.getByText('1 hook')).toBeInTheDocument();
 
     await pick('Scope: acme/website', /^Global/);
-    expect(listed(grid())).toContain('Search Harness Memory first');
+    expect(listed(grid())).toContain('Harness Memory');
     expect(listed(grid())).not.toContain('Lint the stylesheets');
     expect(listed(grid())).not.toContain('Run lint after edits');
   });
@@ -100,7 +100,7 @@ describe('The Scope filter of the hooks', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Clear the Scope filter' }));
     expect(viewState.hooksScope).toBe('all');
-    expect(rowOf('Search Harness Memory first')).toBeInTheDocument();
+    expect(rowOf('Harness Memory')).toBeInTheDocument();
   });
 
   it('keeps the choice when the view is left and shown again', async () => {

@@ -1,0 +1,11 @@
+// A subagent runs, then the chat starts a new session: the abort that follows stops nothing, because that subagent belonged to the old session.
+{"include":"omp_startup.jsonl"}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Scout","agent":"scout","status":"started"}}}
+{"expect":"new_session","reply":{"success":true,"data":{"cancelled":false}}}
+{"expect":"get_state","reply":{"success":true,"data":{"isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","interruptMode":"immediate","autoCompactionEnabled":true,"messageCount":0,"queuedMessageCount":0}}}
+// The manager reads the state again to bind the new session id.
+{"expect":"get_state","reply":{"success":true,"data":{"isStreaming":false,"isCompacting":false,"steeringMode":"one-at-a-time","followUpMode":"one-at-a-time","interruptMode":"immediate","autoCompactionEnabled":true,"messageCount":0,"queuedMessageCount":0}}}
+{"expect":"abort","reply":{"success":true}}
+{"expect":"get_last_assistant_text","reply":{"success":true,"data":{"text":null}}}
+// A stop for the old session's subagent would match this expect and fail it: the agent then exits 4 instead of 0.
+{"expect":"cancel_subagent","match":{"subagentId":"NEVER"}}

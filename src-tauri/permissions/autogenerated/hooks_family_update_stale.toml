@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hooks-family-update-stale"
+description = "Enables the hooks_family_update_stale command without any pre-configured scope."
+commands.allow = ["hooks_family_update_stale"]
+
+[[permission]]
+identifier = "deny-hooks-family-update-stale"
+description = "Denies the hooks_family_update_stale command without any pre-configured scope."
+commands.deny = ["hooks_family_update_stale"]

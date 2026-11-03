@@ -6,7 +6,7 @@ import { calls, fakeHooks, registerHooksHooks, rowOf, showHooks } from './hooks-
 
 registerHooksHooks();
 
-const SAVE = 'Save what you learned';
+const SAVE = 'Harness Memory - save';
 const NOTICE = 'A newer version of this Harness family hook is available.';
 
 describe('the family catalog in the hooks store', () => {
@@ -58,7 +58,7 @@ describe('a family hook with an update waiting in the list', () => {
 
     await waitFor(() => expect(within(rowOf(SAVE)).getByText('Update available')).toBeInTheDocument());
     expect(within(rowOf(SAVE)).getByText('Active')).toBeInTheDocument();
-    expect(within(rowOf('Search Harness Memory first')).queryByText('Update available')).not.toBeInTheDocument();
+    expect(within(rowOf('Harness Memory')).queryByText('Update available')).not.toBeInTheDocument();
     expect(screen.getAllByText('Update available')).toHaveLength(1);
   });
 
@@ -109,8 +109,8 @@ describe('the panel of a family hook with an update waiting', () => {
     await showHooks();
     await waitFor(() => expect(hooks.updates).toBe(1));
 
-    await fireEvent.click(rowOf('Search Harness Memory first'));
-    const panel = await screen.findByRole('region', { name: 'Search Harness Memory first' });
+    await fireEvent.click(rowOf('Harness Memory'));
+    const panel = await screen.findByRole('region', { name: 'Harness Memory' });
 
     expect(within(panel).queryByText(NOTICE)).not.toBeInTheDocument();
   });

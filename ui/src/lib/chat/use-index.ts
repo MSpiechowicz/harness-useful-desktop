@@ -1,5 +1,6 @@
 import { reasonArg } from './harness-tools';
-import type { ChatState, ToolCallState } from './types';
+import { isSteer, recallCallId } from './recall-rows';
+import type { ChatState, MessageItem, ToolCallState } from './types';
 
 /** How the rest of the reply used a row a search found. `useful` is the agent's own word, `opened` and `ran` are what it did. */
 export type RowUse = { kind: 'useful'; reason: string | null } | { kind: 'opened' } | { kind: 'ran' };
@@ -34,7 +35,11 @@ export interface UseAdapter<K, Hit extends { id: K }, Use extends BaseUse<K>> {
   tool(name: string): string | null;
   /** The names of the three tools the index reads: the search, the open of one row and the rating. */
   names: { search: string; get: string; feedback: string };
+  /** The family, as it names the search the app makes for a message (`recall:<message>:<family>`). */
+  family: 'memory' | 'knowledge';
   blank(): Use;
+  /** The rows the app found for a message of the user (the recall block of its hook context), as a search at the start of the reply; null when it found none. */
+  recalled?(message: MessageItem): Hit[] | null;
   /** The rows a search reply lists, and the ones an open reply shows. */
   searched(text: string | null): Hit[];
   opened(text: string | null): Hit[];
@@ -56,6 +61,8 @@ type Built<K, Hit, Use extends BaseUse<K>> = Map<string, Use> & { rated: Map<str
 interface Reply<K, Hit, Use> {
   searches: Use[];
   known: Map<K, Hit>;
+  /** The reply started with the app's own search (a recall block in the prompt). */
+  recalled?: boolean;
 }
 
 /** The part of a chat the index reads. */
@@ -86,7 +93,8 @@ export function buildUseIndex<K, Hit extends { id: K }, Use extends BaseUse<K>>(
   const rated = new Map<string, Map<K, Hit>>();
   const index = Object.assign(new Map<string, Use>(), { rated });
 
-  if (!Object.values(chat.toolCalls).some((call) => [adapter.names.search, adapter.names.feedback].includes(adapter.tool(call.name) ?? ''))) {
+  // A reply with no call of the family (a run of a script included) has nothing to say about the rows of a search, the app's own included.
+  if (!Object.values(chat.toolCalls).some((call) => adapter.tool(call.name) !== null)) {
     return index;
   }
 
@@ -94,12 +102,19 @@ export function buildUseIndex<K, Hit extends { id: K }, Use extends BaseUse<K>>(
 
   for (const item of chat.items) {
     if (item.kind === 'message' && item.role === 'user') {
+      // A steer the agent took mid-reply carries no hook context (the app adds it to prompts only, and a hook follow-up is
+      // told apart): the reply the app's own search started goes on, so its rows keep their marks.
+      if (reply.recalled && isSteer(item)) {
+        continue;
+      }
+
       // The reply before this message is over, whatever the chat does now.
       for (const search of reply.searches) {
         search.ended = true;
       }
 
       reply = { searches: [], known: new Map() };
+      startWithRecall(adapter, item, reply, index);
       continue;
     }
 
@@ -119,6 +134,25 @@ export function buildUseIndex<K, Hit extends { id: K }, Use extends BaseUse<K>>(
   }
 
   return previous ? reuse(adapter, index, previous) : index;
+}
+
+/** The app looks up notes and documents itself for a message: that is a search at the start of its reply, which the calls after it are held against like any other. */
+function startWithRecall<K, Hit extends { id: K }, Use extends BaseUse<K>>(
+  adapter: UseAdapter<K, Hit, Use>,
+  message: MessageItem,
+  reply: Reply<K, Hit, Use>,
+  index: Map<string, Use>,
+): void {
+  const hits = adapter.recalled?.(message);
+  if (!hits) {
+    return;
+  }
+
+  const use = adapter.blank();
+  index.set(recallCallId(message.key, adapter.family), use);
+  reply.searches.push(use);
+  reply.recalled = true;
+  hits.forEach((hit) => reply.known.set(hit.id, hit));
 }
 
 /** `next` with the object of `previous` for every search and rating whose use is the same; `previous` itself when all of them are. */

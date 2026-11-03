@@ -75,11 +75,11 @@ describe('The remote hooks', () => {
 
     await pick('Source: All', /^Remote/);
     expect(screen.getByRole('button', { name: 'Source: Remote' })).toBeInTheDocument();
-    expect(screen.queryByText('Search Harness Memory first')).not.toBeInTheDocument();
+    expect(screen.queryByText('Harness Memory')).not.toBeInTheDocument();
     expect(teamRowOf(COMMITS)).toBeInTheDocument();
 
     await pick('Source: Remote', /^Mine/);
-    expect(screen.getByText('Search Harness Memory first')).toBeInTheDocument();
+    expect(screen.getByText('Harness Memory')).toBeInTheDocument();
     expect(document.querySelector('[data-row^="team:"]')).toBeNull();
   });
 
@@ -140,7 +140,7 @@ describe('Sharing a local hook', () => {
     const { invoke } = fakeHooks('team');
     await showHooks();
 
-    expect(within(await open(rowOf('Search Harness Memory first'), 'Search Harness Memory first')).getByRole('button', { name: 'Share with team' })).toBeDisabled();
+    expect(within(await open(rowOf('Harness Memory'), 'Harness Memory')).getByRole('button', { name: 'Share with team' })).toBeDisabled();
     expect(within(await open(rowOf('Run lint after edits'), 'Run lint after edits')).getByRole('button', { name: 'Share with team' })).toBeDisabled();
     expect(calls(invoke, 'hooks_share')).toEqual([]);
   });

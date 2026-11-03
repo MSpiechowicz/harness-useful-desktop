@@ -67,6 +67,7 @@ mod hooks_command {
             project: Some("/work/app".to_owned()),
             fresh: true,
             utility: false,
+            useful_skills: true,
         });
         let prompt = AgentAction::Prompt {
             message: "hi".to_owned(),

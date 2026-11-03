@@ -1,4 +1,4 @@
-//! The "Use the code graph first" hook follows the Code index switch file on every prompt, even
+//! The "Harness Code" hook follows the Code index switch file on every prompt, even
 //! while the cached members still say the switch is on (it was turned off outside the app).
 
 use std::path::{Path, PathBuf};
@@ -13,8 +13,8 @@ use super::tests::prompt;
 use crate::state::AppState;
 use crate::test_support::{TempDir, home_state};
 
-const CODE_GRAPH_HOOK: &str = "Use the code graph first";
-const SKILLS_HOOK: &str = "Check Useful Skills first";
+const CODE_GRAPH_HOOK: &str = "Harness Code";
+const SKILLS_HOOK: &str = "Harness Skills";
 
 /// An app state with the family hooks of every member seeded, and cached members that say the
 /// code graph is on.
@@ -33,6 +33,7 @@ fn seeded() -> Seeded {
         dashboard_available: true,
         code_graph_available: true,
         knowledge_available: false,
+        skills_available: true,
     };
     let store = state.hooks.store().expect("a hooks folder");
     seed_defaults(&store, available, SystemTime::now()).expect("the family hooks are seeded");
@@ -48,6 +49,7 @@ fn seeded() -> Seeded {
             dashboard_installed: true,
             code_enabled: true,
             code_graph: CodeGraphSupport { listed: true, on: true },
+            skills_installed: true,
             ..Members::default()
         },
     ));
@@ -74,6 +76,7 @@ pub(super) fn planned_names(folder: &Path, state: &AppState) -> Vec<String> {
         project: None,
         fresh: false,
         utility: false,
+        useful_skills: true,
     };
 
     let plan = HookSession::new(chat).on_send(&hooks, &prompt("hello"), SendOrigin::User);

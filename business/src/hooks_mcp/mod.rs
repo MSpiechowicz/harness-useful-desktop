@@ -34,9 +34,10 @@ use serde_json::{Value, json};
 use crate::app_dirs::config_dir;
 use crate::ecosystem::{
     CodeFeatures, CodeGraphSupport, KnowledgeFeatures, code_graph_support, installed_knowledge, installed_memory,
-    resolve_dashboard,
+    resolve_dashboard, useful_skills_installed_anywhere,
 };
 use crate::env::Env;
+use crate::harness::HarnessRegistry;
 use crate::hooks::{HookCapabilities, HookStore};
 use crate::pi_family::rpc::MAX_FRAME_BYTES;
 use crate::prefs::PREFS_FILE;
@@ -224,7 +225,8 @@ pub fn run_stdio() -> ExitCode {
 /// when it is installed and reports its version (`runner` asks it) and its memory setting is on
 /// (the prefs file read without changing it), Harness Dashboard when it is installed, and the code
 /// graph when Harness Code's `codeEnabled` pref is on, it lists `code-index` and the Code index
-/// switch is on, Harness Knowledge like [`knowledge_available`].
+/// switch is on, Harness Knowledge like [`knowledge_available`], and Useful Skills when they are
+/// installed for any harness.
 pub async fn machine_capabilities(env: &Env, runner: &dyn ProcessRunner) -> HookCapabilities {
     let memory_on = pref_on(&config_dir(env), "memoryEnabled");
     let memory_available = memory_on && installed_memory(env, runner).await.is_some();
@@ -240,6 +242,7 @@ pub async fn machine_capabilities(env: &Env, runner: &dyn ProcessRunner) -> Hook
         dashboard_available: resolve_dashboard(env).is_some(),
         code_graph_available: code_graph.listed && code_graph.on,
         knowledge_available: knowledge_available(env, runner).await,
+        skills_available: useful_skills_installed_anywhere(env, &HarnessRegistry::with_defaults()),
     }
 }
 

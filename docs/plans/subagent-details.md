@@ -14,7 +14,7 @@ Nothing here was run against a real CLI yet, only fixtures and fakes.
 - **Messages.** Direct for OpenCode 1 and 2 (the child session, with the child's own agent and model). Elsewhere an
   orchestrator steer: a prompt with `streamingBehavior` `steer` and the fixed English note `Message for subagent
   "<label>" ("<id>"): <text>`, shown in the transcript as a normal user message. Codex: hidden.
-- **Stop.** Per subagent only (Claude `stop_task`, OpenCode 1 abort of the child, OpenCode 2 interrupt of the child).
+- **Stop.** Per subagent only (Claude `stop_task`, OpenCode 1 abort of the child, OpenCode 2 interrupt of the child, OMP `cancel_subagent`). Aborting the main turn of an OMP chat also stops its pending and running subagents, which OMP runs in the background.
   The panel never stops the whole chat. Hidden elsewhere.
 - **Hooks.** Direct messages skip prompt hooks and memory recall. Orchestrator messages get them.
 - **Persistence.** None. Details live in memory and are lost on reload.

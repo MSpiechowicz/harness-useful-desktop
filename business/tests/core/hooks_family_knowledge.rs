@@ -1,6 +1,6 @@
-//! The Harness Knowledge family hooks ("Check Knowledge first" and "Recall from Harness
-//! Knowledge"): both need the member (installed, its setting on, `mcp` listed), are seeded and
-//! restored with it, pause without it, and the dialog offers them only with it.
+//! The Harness Knowledge family hook (step 50): it needs the member (installed, its setting on, `mcp`
+//! listed), is seeded and restored with it, pauses without it, and the dialog offers it only with
+//! it. The retired "Recall from Harness Knowledge" hook is never seeded.
 
 mod hooks_family_knowledge {
     use harness_business::hooks::{apply_family, family_hook, family_status, restore_member, seed_defaults};
@@ -9,7 +9,7 @@ mod hooks_family_knowledge {
 
     use crate::hook_store_support::{DESKTOP, KNOWLEDGE, MEMORY, at, folder};
 
-    const BOTH: [HookSeed; 2] = [HookSeed::KnowledgeFirst, HookSeed::KnowledgeRecall];
+    const BOTH: [HookSeed; 1] = [HookSeed::KnowledgeFirst];
 
     fn seeded(views: Vec<HookView>, seed: HookSeed) -> HookView {
         views
@@ -33,17 +33,19 @@ mod hooks_family_knowledge {
         let first = seeded(store.list(KNOWLEDGE).hooks, HookSeed::KnowledgeFirst);
         let hook = first.hook.as_ref().unwrap();
         assert_eq!(first.status, HookStatus::Active);
-        assert_eq!(hook.name, "Check Knowledge first");
-        assert_eq!(hook.event, HookEvent::SessionStart);
-        assert_eq!(hook.requires, vec![HookRequirement::HarnessKnowledge]);
-        assert_eq!(hook.action, family_hook(HookSeed::KnowledgeFirst).action());
-
-        let recall = seeded(store.list(KNOWLEDGE).hooks, HookSeed::KnowledgeRecall);
-        let hook = recall.hook.as_ref().unwrap();
-        assert_eq!(recall.status, HookStatus::Active);
-        assert!(hook.enabled);
+        assert_eq!(hook.name, "Harness Knowledge");
         assert_eq!(hook.event, HookEvent::PromptSubmit);
         assert_eq!(hook.requires, vec![HookRequirement::HarnessKnowledge]);
+        assert_eq!(hook.action, family_hook(HookSeed::KnowledgeFirst).action());
+        assert!(hook.enabled);
+
+        let listed = store.list(KNOWLEDGE).hooks;
+        assert!(
+            listed
+                .iter()
+                .all(|view| view.hook.as_ref().and_then(|hook| hook.seed) != Some(HookSeed::KnowledgeRecall)),
+            "the retired recall hook is not seeded"
+        );
     }
 
     #[test]
@@ -72,11 +74,11 @@ mod hooks_family_knowledge {
                 .collect()
         };
 
-        assert_eq!(statuses(MEMORY), vec![HookFamilyStatus::NeedsMember; 2]);
-        assert_eq!(statuses(KNOWLEDGE), vec![HookFamilyStatus::Missing; 2]);
+        assert_eq!(statuses(MEMORY), vec![HookFamilyStatus::NeedsMember; 1]);
+        assert_eq!(statuses(KNOWLEDGE), vec![HookFamilyStatus::Missing; 1]);
 
         assert_eq!(apply_family(store, &BOTH, KNOWLEDGE, at(1)).unwrap(), BOTH.to_vec());
-        assert_eq!(statuses(KNOWLEDGE), vec![HookFamilyStatus::Installed; 2]);
+        assert_eq!(statuses(KNOWLEDGE), vec![HookFamilyStatus::Installed; 1]);
     }
 
     #[test]
@@ -88,12 +90,12 @@ mod hooks_family_knowledge {
         let member = HookRequirement::HarnessKnowledge;
         assert_eq!(restore_member(store, member, KNOWLEDGE, at(1)).unwrap(), vec![]);
 
-        let recall = seeded(store.list(KNOWLEDGE).hooks, HookSeed::KnowledgeRecall);
-        store.delete(&recall.id, DESKTOP, Some(&recall.sha256)).unwrap();
+        let first = seeded(store.list(KNOWLEDGE).hooks, HookSeed::KnowledgeFirst);
+        store.delete(&first.id, DESKTOP, Some(&first.sha256)).unwrap();
 
         assert_eq!(
             restore_member(store, member, KNOWLEDGE, at(3)).unwrap(),
-            vec![HookSeed::KnowledgeRecall]
+            vec![HookSeed::KnowledgeFirst]
         );
     }
 }

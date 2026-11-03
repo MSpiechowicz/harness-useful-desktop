@@ -9,13 +9,15 @@ import type { HookStatus } from '../bindings/HookStatus';
 import type { HookView } from '../bindings/HookView';
 import type { ShareBlock } from '../bindings/ShareBlock';
 import { IpcFailure } from '../transport';
-import { CATALOG, type CatalogEntry, fakeSha, familyHook, hookId, HOOKS_PROJECT, lintApproved, lintChanged, EDITED_SAVE_TEXT, OLD_SAVE_TEXT, testsReminder } from './hooks-fixtures';
+import { CATALOG, type CatalogEntry, catalogEntry, RETIRED, fakeSha, familyHook, hookId, HOOKS_PROJECT, lintApproved, lintChanged, EDITED_SAVE_TEXT, OLD_SAVE_TEXT, testsReminder } from './hooks-fixtures';
+import { MockFamily } from './hooks-family-state';
+import { composeContext, escapeName, escapeText } from './hooks-compose';
 import { LOCAL_ORIGIN, MockTeam, sharedSamples } from './hooks-team-state';
 import { localPlace } from './project-scopes';
 import { teamModeOf } from './team-preview';
 
 /** Browser-preview switch `?hooks=`: what the Hooks view finds. Anything else shows the sample hooks. */
-export const HOOK_SCENARIOS = ['ok', 'empty', 'outdated', 'outdatedEdited', 'noDashboard', 'invalid', 'problem', 'failing', 'team', 'teamTrusted', 'teamNoOrigin', 'teamProblem'] as const;
+export const HOOK_SCENARIOS = ['ok', 'empty', 'outdated', 'outdatedEdited', 'merged', 'noDashboard', 'noSkills', 'invalid', 'problem', 'failing', 'team', 'teamTrusted', 'teamNoOrigin', 'teamProblem'] as const;
 export type HookScenario = (typeof HOOK_SCENARIOS)[number];
 
 export function hookScenarioFromLocation(search: string = globalThis.location?.search ?? ''): HookScenario {
@@ -43,7 +45,7 @@ export class MockHooks {
   private files = new Map<string, Stored>();
   private invalid = new Map<string, string>();
   private listener: (() => void) | null = null;
-  private installed: Record<HookRequirement, boolean> = { 'harness-memory': true, 'harness-dashboard': true, 'harness-knowledge': true, 'harness-code': true };
+  private installed: Record<HookRequirement, boolean> = { 'harness-memory': true, 'harness-dashboard': true, 'harness-knowledge': true, 'harness-code': true, 'useful-skills': true };
   private readonly team: MockTeam;
 
   constructor(
@@ -62,12 +64,19 @@ export class MockHooks {
       return;
     }
 
-    const [search, save] = CATALOG;
+    const memory = catalogEntry('memory-first');
+    const save = catalogEntry('memory-save');
     const lint = lintApproved(hookId());
 
-    this.put(familyHook(search));
+    this.put(familyHook(memory));
     this.put(familyHook(save, SAVE_TEXTS[scenario] ?? save.text));
     this.files.set(lint.id, { hook: lintChanged(lint), approved: lint, changed: true });
+
+    // The catalog merged this hook into another, and its file from before is still there untouched.
+    if (scenario === 'merged') {
+      this.put(familyHook(RETIRED[0]));
+    }
+
     const reminder = this.put(testsReminder()).hook;
 
     // A team preview has hooks the user shared before: one changed since, one as it went, and one not shared yet.
@@ -81,6 +90,10 @@ export class MockHooks {
 
     if (scenario === 'noDashboard') {
       this.installed['harness-dashboard'] = false;
+    }
+
+    if (scenario === 'noSkills') {
+      this.installed['useful-skills'] = false;
     }
 
     if (scenario === 'invalid') {
@@ -136,6 +149,7 @@ export class MockHooks {
         return this.installed[requirement] && this.knowledgeOn();
       case 'harness-dashboard':
       case 'harness-code':
+      case 'useful-skills':
         return this.installed[requirement];
     }
   }
@@ -348,37 +362,28 @@ export class MockHooks {
     return view;
   }
 
-  private entryStatus(entry: CatalogEntry): HookFamilyEntry['status'] {
-    const found = [...this.files.values()].find(({ hook }) => hook.seed === entry.seed);
-
-    if (!this.installed[entry.member]) {
-      return 'needsMember';
-    }
-
-    if (!found) {
-      return 'missing';
-    }
-
-    return found.hook.action.type !== 'command' && found.hook.action.text === entry.text ? 'installed' : 'outdated';
+  private get catalog(): MockFamily {
+    return new MockFamily(
+      (seed) => [...this.files.values()].find(({ hook }) => hook.seed === seed)?.hook,
+      (requirement) => this.installed[requirement],
+    );
   }
 
   family(): HookFamilyEntry[] {
-    return CATALOG.map((entry) => ({
-      seed: entry.seed,
-      member: entry.member,
-      name: entry.name,
-      event: entry.event,
-      status: this.entryStatus(entry),
-      hookId: [...this.files.values()].find(({ hook }) => hook.seed === entry.seed)?.hook.id ?? null,
-      stale: this.isStale(entry),
-    }));
+    return this.catalog.entries();
   }
 
-  /** An outdated family hook that still holds the earlier catalog text, word for word. */
-  private isStale(entry: CatalogEntry): boolean {
-    const found = [...this.files.values()].find(({ hook }) => hook.seed === entry.seed);
+  /** Brings every stale family hook up to date (and removes stale merged ones), like the backend: the seeds it changed. */
+  updateStaleFamily(): HookSeed[] {
+    const stale = this.family()
+      .filter((row) => row.stale)
+      .map((row) => row.seed);
 
-    return this.entryStatus(entry) === 'outdated' && found?.hook.action.type !== 'command' && found?.hook.action.text === OLD_SAVE_TEXT;
+    if (stale.length > 0) {
+      this.applyFamily(stale);
+    }
+
+    return stale;
   }
 
   /** Adds the missing and updates the outdated family hooks asked for, approved. */
@@ -393,6 +398,15 @@ export class MockHooks {
       }
     }
 
+    // Updating a merged hook removes its file.
+    for (const entry of RETIRED.filter((candidate) => seeds.includes(candidate.seed))) {
+      const file = [...this.files.values()].find(({ hook }) => hook.seed === entry.seed);
+
+      if (file) {
+        this.files.delete(file.hook.id);
+      }
+    }
+
     this.notify();
 
     return this.list(null);
@@ -401,7 +415,7 @@ export class MockHooks {
   /** A member was installed: its missing family hooks come back, none is overwritten. */
   memberInstalled(requirement: HookRequirement): void {
     this.installed[requirement] = true;
-    this.applyFamily(CATALOG.filter((entry) => entry.member === requirement && this.entryStatus(entry) === 'missing').map((entry) => entry.seed));
+    this.applyFamily(CATALOG.filter((entry) => entry.member === requirement && this.catalog.status(entry) === 'missing').map((entry) => entry.seed));
   }
 
   /** An agent writes a new hook through the Harness Desktop MCP: the file is there, and nobody approved it. */
@@ -454,46 +468,32 @@ export class MockHooks {
   }
 
   /**
-   * What the desktop puts in front of the first message of a chat in this project: the approved, enabled `sessionStart`
-   * context hooks whose requirements are met, as the format composes them. Empty when there are none.
+   * What the desktop puts in front of the first message of a chat in this project, as the format composes it: an intro and
+   * the active Harness family steps numbered in catalog order (the Harness Memory step carries the notes the app found), then the
+   * other approved, enabled `sessionStart` context hooks whose requirements are met. Empty when there are none.
    */
   sessionContext(project: string | null): string {
-    const elements = [...this.files.values()]
+    return composeContext(this.activeHooks(project).filter((hook) => hook.action.type === 'addContext'));
+  }
+
+  private activeHooks(project: string | null): Hook[] {
+    return [...this.files.values()]
       .filter((stored) => this.statusOf(stored) === 'active')
       .map(({ hook }) => hook)
-      .filter((hook) => hook.event === 'sessionStart' && hook.action.type === 'addContext' && (hook.scope === 'global' || hook.project === project));
-
-    if (elements.length === 0) {
-      return '';
-    }
-
-    const lines = elements.map((hook) => `<hook name="${escapeName(hook.name)}">${hook.action.type === 'command' ? '' : escapeText(hook.action.text)}</hook>`);
-
-    return `<harness-hook-context>\n${lines.join('\n')}\n</harness-hook-context>\n\n`;
+      .filter((hook) => hook.scope === 'global' || hook.project === project);
   }
 
   /**
-   * What "Check again" sends a chat in this project: the active "Save what you learned" follow-up as the user keeps it (name and text), else
+   * What "Check again" sends a chat in this project: the active "Harness Memory - save" follow-up as the user keeps it (name and text), else
    * the catalog's version, as the format composes a follow-up.
    */
   memorySaveFollowUp(project: string | null): string {
-    const configured = [...this.files.values()]
-      .filter((stored) => this.statusOf(stored) === 'active')
-      .map(({ hook }) => hook)
-      .find((hook) => hook.seed === 'memory-save' && hook.action.type === 'followUp' && (hook.scope === 'global' || hook.project === project));
-    const catalog = CATALOG.find((entry) => entry.seed === 'memory-save');
+    const configured = this.activeHooks(project).find((hook) => hook.seed === 'memory-save' && hook.action.type === 'followUp');
+    const catalog = catalogEntry('memory-save');
 
     const name = configured?.name ?? catalog?.name ?? '';
     const text = configured?.action.type === 'followUp' ? configured.action.text : (catalog?.text ?? '');
 
     return `<harness-hook-followup name="${escapeName(name)}">${escapeText(text)}</harness-hook-followup>`;
   }
-}
-
-function escapeName(name: string): string {
-  return name.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
-}
-
-function escapeText(text: string): string {
-  return text.replace(/<(?=\/?(?:hook|harness-hook))/gi, '&lt;');
 }

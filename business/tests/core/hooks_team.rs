@@ -190,6 +190,7 @@ fn fired(set: &HookSet, folder: &str) -> Vec<String> {
         project: Some(folder.to_owned()),
         fresh: false,
         utility: false,
+        useful_skills: true,
     });
     let prompt = AgentAction::Prompt {
         message: "Hello".to_owned(),

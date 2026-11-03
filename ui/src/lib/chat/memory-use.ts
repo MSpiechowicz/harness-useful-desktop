@@ -1,5 +1,6 @@
 import type { FoundNote, FoundScript } from './memory-tools';
 import { idsOf, memoryToolName, parseOpenedNotes, parseSearch, ratedNotes, readNotes, textArg } from './memory-tools';
+import { messageRecall } from './recall-rows';
 import { isJsonObject } from './tools';
 import type { ToolCallState } from './types';
 import { type BaseUse, buildUseIndex, rowUse, type RowUse, sameSet, type UseAdapter, type UseChat, type UseIndex } from './use-index';
@@ -19,6 +20,8 @@ export type MemoryUseIndex = UseIndex<number, FoundNote, SearchUse>;
 const adapter: UseAdapter<number, FoundNote, SearchUse> = {
   tool: memoryToolName,
   names: { search: 'note_search', get: 'note_get', feedback: 'note_feedback' },
+  family: 'memory',
+  recalled: (message) => messageRecall(message).memory?.notes ?? null,
   blank: () => ({ ended: false, rated: new Map(), read: new Set(), ranNames: new Set(), ranIds: new Set() }),
   searched: (text) => parseSearch(text).notes,
   opened: parseOpenedNotes,

@@ -186,7 +186,15 @@ impl RpcSession {
             return self.history(cursor.as_deref(), *limit).await;
         }
 
+        if let AgentAction::StopSubagent { id } = &action {
+            return self.stop_subagent(id).await;
+        }
+
         let reply = self.call(&action, timeout_for(&action)).await?;
+
+        if matches!(action, AgentAction::Abort) {
+            self.stop_live_subagents().await;
+        }
 
         match (&action, &reply) {
             (AgentAction::RefreshCommands, AgentReply::Commands { commands }) => {
@@ -201,6 +209,8 @@ impl RpcSession {
                 | AgentAction::Clone,
                 _,
             ) => {
+                self.shared.forget_subagents();
+
                 if let Ok(state) = self.state().await {
                     self.shared.emit(AgentEvent::State { state });
                 }
@@ -211,7 +221,7 @@ impl RpcSession {
         Ok(reply)
     }
 
-    fn sessions_dir(&self) -> PathBuf {
+    pub(super) fn sessions_dir(&self) -> PathBuf {
         self.sessions_dir.lock().unwrap_or_else(PoisonError::into_inner).clone()
     }
 

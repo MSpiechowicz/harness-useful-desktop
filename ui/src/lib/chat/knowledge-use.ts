@@ -1,4 +1,5 @@
 import { type FoundDoc, knowledgeToolName, parseDocs, parseOpenedDocs, ratedDocs, readDocs } from './knowledge-tools';
+import { messageRecall } from './recall-rows';
 import { type BaseUse, buildUseIndex, rowUse, type RowUse, type UseAdapter, type UseChat, type UseIndex } from './use-index';
 
 /** What the later calls of the same reply say about the documents of one `knowledge_search` call: the ones it rated or opened. */
@@ -10,6 +11,8 @@ export type KnowledgeUseIndex = UseIndex<string, FoundDoc, DocUse>;
 const adapter: UseAdapter<string, FoundDoc, DocUse> = {
   tool: knowledgeToolName,
   names: { search: 'knowledge_search', get: 'knowledge_get', feedback: 'knowledge_feedback' },
+  family: 'knowledge',
+  recalled: (message) => messageRecall(message).knowledge?.docs ?? null,
   blank: () => ({ ended: false, rated: new Map(), read: new Set() }),
   searched: parseDocs,
   opened: parseOpenedDocs,

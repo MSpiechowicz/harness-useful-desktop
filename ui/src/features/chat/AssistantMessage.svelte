@@ -60,8 +60,9 @@
   {/if}
 
   {#if item.meta?.errorMessage}
-    <p class="chat-radius flex items-start gap-2 border border-danger/30 bg-danger-wash px-3 py-2 text-sm text-fg" role="alert">
-      <CircleAlert size={16} class="mt-0.5 shrink-0 text-danger" aria-hidden="true" />
+    <!-- Laid out like the card rows above it (same height, icon column and padding), so the turn reads as one list. -->
+    <p class="chat-radius grid min-h-11 grid-cols-[28px_minmax(0,1fr)] items-center gap-x-3 border border-danger/30 bg-danger-wash py-2 pr-3.5 pl-[18px] text-sm text-fg" role="alert">
+      <span class="flex justify-center"><CircleAlert size={16} class="text-danger" aria-hidden="true" /></span>
       <span class="break-words">{item.meta.errorMessage}</span>
     </p>
   {/if}

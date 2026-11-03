@@ -27,6 +27,7 @@ use harness_business::ecosystem::{
     read_stats, run_import, search_knowledge,
 };
 use harness_business::env::Env;
+use harness_business::hooks::Lookup;
 use harness_business::model::{
     KnowledgeApproval, KnowledgeAvailability, KnowledgeDecided, KnowledgeDecision, KnowledgeEmbedding,
     KnowledgeFileStatus, KnowledgeImportEvent, KnowledgeImportOptions, KnowledgeListFilter, KnowledgeOrigin,
@@ -410,7 +411,10 @@ fn a_real_server_recalls_pointers_for_a_prompt_and_nothing_for_an_unrelated_one(
 
     // An empty database recalls nothing, and the read does not create it.
     let prompt = "How does the gateway route every request to the service that owns the path?";
-    assert_eq!(wait(knowledge_recall(&env, &runner, &probe, prompt, None)), None);
+    assert_eq!(
+        wait(knowledge_recall(&env, &runner, &probe, prompt, None)),
+        Lookup::Empty
+    );
 
     // Without an embedder the recall reads the keyword list above a floor that a tiny corpus never
     // reaches, so the handbook sits among 60 documents about other things.
@@ -432,12 +436,17 @@ fn a_real_server_recalls_pointers_for_a_prompt_and_nothing_for_an_unrelated_one(
     drop(run);
     assert_eq!(imported.counts.expect("the import ended").added, 62);
 
-    let block = wait(knowledge_recall(&env, &runner, &probe, prompt, None)).expect("pointers for the gateway");
+    let Lookup::Found(block) = wait(knowledge_recall(&env, &runner, &probe, prompt, None)) else {
+        panic!("pointers for the gateway");
+    };
     assert!(block.starts_with("<harness-knowledge-recall>") && block.ends_with("</harness-knowledge-recall>"));
     assert!(block.contains("Gateway") && block.len() <= 1024, "{block}");
 
     let unrelated = "What should we order for the team lunch on Friday afternoon?";
-    assert_eq!(wait(knowledge_recall(&env, &runner, &probe, unrelated, None)), None);
+    assert_eq!(
+        wait(knowledge_recall(&env, &runner, &probe, unrelated, None)),
+        Lookup::Empty
+    );
 }
 
 #[test]

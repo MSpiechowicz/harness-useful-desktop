@@ -151,7 +151,7 @@ The agent learns where saving stands from three places, so it does not try saves
   - `saving notes is off for this chat. Scripts are saved.` (one sentence per kind otherwise)
   - Reasons: `is paused everywhere`, `is off for this project`, `is paused for this chat`, `is off for this chat`,
     `is off, the memory settings cannot be read`. With Ask on: `notes you save wait for the user's review.`
-- **Save follow-up prefix (desktop).** While only one kind may be saved, "Save what you learned" starts with one
+- **Save follow-up prefix (desktop).** While only one kind may be saved, "Harness Memory - save" starts with one
   sentence, then a blank line and the user's hook text. "Check again" sends the same text.
   - Notes off: `Saving notes <reason>: only consider scripts (script_save), save no notes.`
   - Scripts off: `Saving scripts <reason>: only consider notes (note_save, note_update), do not call script_save.`

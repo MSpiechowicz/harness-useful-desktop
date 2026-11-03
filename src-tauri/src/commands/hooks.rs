@@ -1,6 +1,6 @@
 //! The Hooks view: list the hook files with their status (`hooks_list`), create, edit, delete,
-//! approve and reject them, the Harness family hooks (`hooks_family`, `hooks_family_apply`), and
-//! the changes of the folder (`hooks_listen`). The team hooks shared through Harness Memory are in
+//! approve and reject them, the Harness family hooks (`hooks_family`, `hooks_family_apply`,
+//! `hooks_family_update_stale`), and the changes of the folder (`hooks_listen`). The team hooks shared through Harness Memory are in
 //! [`team`]. See `crate::hooks`.
 //!
 //! Every write is the app window's: what it saves is approved at once. A project is the active or
@@ -14,7 +14,7 @@ use harness_business::ecosystem::memory_team_docs::{TeamDocsConfig, project_key}
 use harness_business::hooks::team::{
     ProjectKey, TeamFolder, app_listing, app_listing_all, approve_team_hook, team_view,
 };
-use harness_business::hooks::{apply_family, family_status, project_identity};
+use harness_business::hooks::{apply_family, family_status, project_identity, update_stale_family};
 use harness_business::model::{
     HookAuthor, HookDraft, HookFamilyEntry, HookListing, HookScope, HookSeed, HookView, HooksDeleted, HooksEvent,
 };
@@ -87,6 +87,15 @@ pub async fn hooks_family(state: State<'_, AppState>) -> CommandResult<Vec<HookF
 #[tauri::command]
 pub async fn hooks_family_apply(state: State<'_, AppState>, seeds: Vec<HookSeed>) -> CommandResult<HookListing> {
     family_apply(&state, seeds).await
+}
+
+/// Updates the stale family hooks (still an earlier catalog version, untouched) and deletes the
+/// untouched files of retired ones. What is stale is worked out under the write lock, from the files
+/// as they are now, so an edit made since the dialog last looked is left alone. Returns the seeds
+/// changed.
+#[tauri::command]
+pub async fn hooks_family_update_stale(state: State<'_, AppState>) -> CommandResult<Vec<HookSeed>> {
+    family_update_stale(&state).await
 }
 
 /// Sends `changed` to `on_event` whenever the hooks folder or the approvals change, replacing the
@@ -312,6 +321,20 @@ async fn family(state: &AppState) -> CommandResult<Vec<HookFamilyEntry>> {
         .hooks
         .read(move |store| Ok(family_status(&store.list(capabilities), installed)))
         .await?)
+}
+
+async fn family_update_stale(state: &AppState) -> CommandResult<Vec<HookSeed>> {
+    let capabilities = state.hooks.capabilities().await;
+    let installed = state.hooks.installed().await;
+
+    let changed = state
+        .hooks
+        .write(move |store| update_stale_family(store, capabilities, installed, SystemTime::now()))
+        .await?;
+
+    tracing::info!(changed = changed.len(), "stale harness family hooks updated");
+
+    Ok(changed)
 }
 
 async fn family_apply(state: &AppState, seeds: Vec<HookSeed>) -> CommandResult<HookListing> {

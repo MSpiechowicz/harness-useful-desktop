@@ -238,6 +238,7 @@ pub fn run() -> ExitCode {
             commands::hooks::hook_reject,
             commands::hooks::hooks_family,
             commands::hooks::hooks_family_apply,
+            commands::hooks::hooks_family_update_stale,
             commands::hooks::hooks_listen,
             commands::hooks::team::hooks_share,
             commands::hooks::team::hooks_team_remove,

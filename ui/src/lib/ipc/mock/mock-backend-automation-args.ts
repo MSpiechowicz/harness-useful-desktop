@@ -9,6 +9,7 @@ export const AUTOMATION_ARGS: { [K in Extract<CommandName, `hook${string}` | `ro
   hook_approve: { id: '0'.repeat(32), sha256: '' },
   hook_reject: { id: '0'.repeat(32), sha256: '' },
   hooks_family: undefined,
+  hooks_family_update_stale: undefined,
   hooks_family_apply: { seeds: ['dashboard-limits'] },
   hooks_delete_all: {},
   hooks_listen: { onEvent: () => {} },

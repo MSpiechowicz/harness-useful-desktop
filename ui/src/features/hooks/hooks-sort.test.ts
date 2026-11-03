@@ -27,17 +27,17 @@ describe('sorting the hooks table', () => {
     fakeHooks();
     await showHooks();
 
-    expect(listed(grid())).toEqual(['Search Harness Memory first', 'Save what you learned', 'Run lint after edits', 'Remind about tests']);
+    expect(listed(grid())).toEqual(['Harness Memory', 'Harness Memory - save', 'Run lint after edits', 'Remind about tests']);
 
     await sortBy('Hook');
 
     expect(header('Hook')).toHaveAttribute('aria-sort', 'ascending');
-    expect(listed(grid())).toEqual(['Remind about tests', 'Run lint after edits', 'Save what you learned', 'Search Harness Memory first']);
+    expect(listed(grid())).toEqual(['Harness Memory', 'Harness Memory - save', 'Remind about tests', 'Run lint after edits']);
 
     await sortBy('Hook');
 
     expect(header('Hook')).toHaveAttribute('aria-sort', 'descending');
-    expect(listed(grid())).toEqual(['Search Harness Memory first', 'Save what you learned', 'Run lint after edits', 'Remind about tests']);
+    expect(listed(grid())).toEqual(['Run lint after edits', 'Remind about tests', 'Harness Memory - save', 'Harness Memory']);
     expect(viewState.hooksSort).toEqual({ key: 'hook', desc: true });
   });
 
@@ -47,11 +47,11 @@ describe('sorting the hooks table', () => {
 
     await sortBy('Scope');
     expect(header('Scope')).toHaveAttribute('aria-sort', 'ascending');
-    expect(listed(grid())).toEqual(['Search Harness Memory first', 'Save what you learned', 'Run lint after edits', 'Remind about tests']);
+    expect(listed(grid())).toEqual(['Harness Memory', 'Harness Memory - save', 'Run lint after edits', 'Remind about tests']);
 
     await sortBy('Scope');
     expect(header('Scope')).toHaveAttribute('aria-sort', 'descending');
-    expect(listed(grid())).toEqual(['Run lint after edits', 'Remind about tests', 'Search Harness Memory first', 'Save what you learned']);
+    expect(listed(grid())).toEqual(['Run lint after edits', 'Remind about tests', 'Harness Memory', 'Harness Memory - save']);
   });
 
   it('sorts by the status as the reader sees it, and by On with the switched-on hooks first, keeping the run order among equals', async () => {
@@ -60,16 +60,16 @@ describe('sorting the hooks table', () => {
 
     await sortBy('Status');
     expect(header('Status')).toHaveAttribute('aria-sort', 'ascending');
-    expect(listed(grid())).toEqual(['Search Harness Memory first', 'Save what you learned', 'Remind about tests', 'Run lint after edits']);
+    expect(listed(grid())).toEqual(['Harness Memory', 'Harness Memory - save', 'Remind about tests', 'Run lint after edits']);
 
     await sortBy('On');
     expect(header('On')).toHaveAttribute('aria-sort', 'descending');
     expect(header('Status')).toHaveAttribute('aria-sort', 'none');
-    expect(listed(grid())).toEqual(['Search Harness Memory first', 'Save what you learned', 'Run lint after edits', 'Remind about tests']);
+    expect(listed(grid())).toEqual(['Harness Memory', 'Harness Memory - save', 'Run lint after edits', 'Remind about tests']);
 
     await sortBy('On');
     expect(header('On')).toHaveAttribute('aria-sort', 'ascending');
-    expect(listed(grid())).toEqual(['Run lint after edits', 'Remind about tests', 'Search Harness Memory first', 'Save what you learned']);
+    expect(listed(grid())).toEqual(['Run lint after edits', 'Remind about tests', 'Harness Memory', 'Harness Memory - save']);
   });
 
   it('starts again from the first page when the sort changes', async () => {

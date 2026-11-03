@@ -49,7 +49,7 @@ fn omp_subagent_progress_decodes_to_a_snapshot_and_steps_with_the_task_sent_once
     };
     assert_eq!(subagent.task.as_deref(), Some("Map the parser"));
     assert_eq!(subagent.message_route, Some(SubagentRoute::Orchestrator));
-    assert_eq!(subagent.can_stop, Some(false));
+    assert_eq!(subagent.can_stop, Some(true));
     assert_eq!(subagent_id, "Scout");
     assert_eq!(
         (done.id.as_str(), done.status, done.detail.as_str()),
@@ -65,4 +65,33 @@ fn omp_subagent_progress_decodes_to_a_snapshot_and_steps_with_the_task_sent_once
         panic!("a repeated frame is only the snapshot: {again:?}");
     };
     assert_eq!(subagent.task, None);
+}
+
+#[test]
+fn omp_offers_stop_only_while_the_subagent_is_pending_or_running() {
+    let omp = Omp.dialect();
+    let mut state = DecodeState::new("/nonexistent");
+
+    let can_stop = |status: &str, state: &mut DecodeState| {
+        let frame =
+            json!({ "type": "subagent_lifecycle", "payload": { "id": "Scout", "agent": "scout", "status": status } });
+
+        match omp.decode(frame, state).as_slice() {
+            [Inbound::Event(AgentEvent::Subagent { subagent })] => subagent.can_stop,
+            other => panic!("expected one snapshot, got {other:?}"),
+        }
+    };
+
+    assert_eq!(can_stop("completed", &mut state), Some(false));
+    assert_eq!(can_stop("failed", &mut state), Some(false));
+    assert_eq!(can_stop("aborted", &mut state), Some(false));
+
+    let pending = json!({ "type": "subagent_progress", "payload": { "progress": { "id": "Scout", "agent": "scout", "status": "pending" } } });
+    let Some(Inbound::Event(AgentEvent::Subagent { subagent })) = omp.decode(pending, &mut state).into_iter().next()
+    else {
+        panic!("a pending snapshot");
+    };
+    assert_eq!(subagent.can_stop, Some(true));
+
+    assert_eq!(can_stop("started", &mut state), Some(true));
 }

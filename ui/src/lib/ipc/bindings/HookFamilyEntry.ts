@@ -36,4 +36,14 @@ hookId: string | null,
  * An `outdated` file that still holds an earlier catalog version word for word (not an edit of
  * the user's), so it may be updated without asking.
  */
-stale: boolean, };
+stale: boolean, 
+/**
+ * Its position in the numbered steps of a message (10, 20, ...), `None` for a hook that is
+ * not a step.
+ */
+step: number | null, 
+/**
+ * The catalog dropped this hook. It is listed only while an untouched file of it is left,
+ * `stale` then: applying it deletes the file.
+ */
+retired: boolean, };

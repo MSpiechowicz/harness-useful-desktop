@@ -1,0 +1,6 @@
+// An abort with no subagent running sends no cancel_subagent.
+{"include":"omp_startup.jsonl"}
+{"emit":{"type":"subagent_lifecycle","payload":{"id":"Scout","agent":"scout","status":"completed"}}}
+{"expect":"abort","reply":{"success":true}}
+{"expect":"get_last_assistant_text","reply":{"success":true,"data":{"text":null}}}
+{"expect":"cancel_subagent","match":{"subagentId":"NEVER"}}

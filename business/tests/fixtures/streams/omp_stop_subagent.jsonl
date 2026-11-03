@@ -1,0 +1,6 @@
+// The panel's Stop: OMP answers cancelled true, cancelled false for a subagent that is gone, and an
+// error from an OMP without the command.
+{"include":"omp_startup.jsonl"}
+{"expect":"cancel_subagent","match":{"subagentId":"Scout"},"reply":{"success":true,"data":{"cancelled":true}}}
+{"expect":"cancel_subagent","match":{"subagentId":"Gone"},"reply":{"success":true,"data":{"cancelled":false}}}
+{"expect":"cancel_subagent","match":{"subagentId":"Old"},"reply":{"success":false,"error":"Unknown command: cancel_subagent"}}

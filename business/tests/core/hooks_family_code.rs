@@ -1,4 +1,4 @@
-//! The "Use the code graph first" family hook: it is Harness Code's. It needs the code graph (the
+//! The "Harness Code" family hook (step 60): it is Harness Code's. It needs the code graph (the
 //! server lists `code-index`, the code graph setting and its Code index switch are on), not Harness
 //! Memory. It is seeded and restored only with it, pauses without it, and the dialog offers it only
 //! when the server has the feature. A file written while the graph was part of Harness Memory is an
@@ -33,7 +33,7 @@ mod hooks_family_code {
 
         let created = seed_defaults(store, MEMORY, at(0)).unwrap();
         assert!(!created.contains(&HookSeed::CodeGraphFirst));
-        assert_eq!(store.list(CODE_GRAPH).hooks.len(), 5);
+        assert_eq!(store.list(CODE_GRAPH).hooks.len(), 3);
 
         // Not recorded as seeded: it comes once the code graph is there, and only once.
         assert_eq!(
@@ -45,7 +45,7 @@ mod hooks_family_code {
         let view = code_hook(store, CODE_GRAPH);
         let hook = view.hook.as_ref().unwrap();
         assert_eq!(view.status, HookStatus::Active);
-        assert_eq!(hook.name, "Use the code graph first");
+        assert_eq!(hook.name, "Harness Code");
         assert_eq!(hook.event, HookEvent::PromptSubmit);
         assert_eq!(hook.requires, vec![HookRequirement::HarnessCode]);
         assert_eq!(hook.action, family_hook(HookSeed::CodeGraphFirst).action());
@@ -85,7 +85,7 @@ mod hooks_family_code {
                 .iter()
                 .filter(|view| view.status == HookStatus::Active)
                 .count(),
-            5
+            3
         );
     }
 
@@ -137,15 +137,15 @@ mod hooks_family_code {
         seed_defaults(store, CODE_GRAPH, at(0)).unwrap();
 
         let entry = family_hook(HookSeed::CodeGraphFirst);
-        let before_move = entry.earlier[0];
-        assert!(
-            before_move.contains("Harness Memory code tool"),
-            "the text the graph had in memory"
-        );
+        let before_move = entry
+            .earlier
+            .iter()
+            .find(|text| text.contains("Harness Memory code tool"))
+            .expect("the text the graph had in memory");
 
         let mut draft = edit_of(&code_hook(store, CODE_GRAPH));
         draft.action = HookAction::AddContext {
-            text: before_move.to_owned(),
+            text: (*before_move).to_owned(),
         };
         store.save(&draft, DESKTOP, CODE_GRAPH, at(1)).unwrap();
 

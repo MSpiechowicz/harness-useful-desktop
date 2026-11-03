@@ -3,7 +3,7 @@
 //! The other tasks (stdin writer, stderr reader, exit waiter) belong to the shared process
 //! lifecycle in `process.rs`.
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
@@ -13,7 +13,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::process::Stdout;
 use super::sink::{EmitMsg, PromptTaken};
-use crate::model::{AgentEvent, AgentReply};
+use crate::model::{AgentEvent, AgentReply, SubagentStatus, check_subagent_id};
 use crate::pi_family::rpc::{
     DecodeState, Frame, FrameReader, Inbound, PendingRequests, RequestKind, RpcDialect, encode_frame,
 };
@@ -21,6 +21,9 @@ use crate::security::mask_secret;
 
 /// Stderr lines kept for startup error messages.
 const STDERR_TAIL: usize = 5;
+
+/// The most live subagents a session tracks for the stops an abort sends.
+const MAX_LIVE_SUBAGENTS: usize = 512;
 
 /// Messages to the stdin writer.
 pub(crate) enum WriterMsg {
@@ -36,6 +39,8 @@ pub(crate) struct Shared {
     pub pending: PendingRequests,
     pub events: mpsc::UnboundedSender<EmitMsg>,
     dialogs: Mutex<HashSet<String>>,
+    /// The subagents the agent last reported as pending or running.
+    live_subagents: Mutex<BTreeSet<String>>,
     stderr_tail: Mutex<VecDeque<String>>,
     /// A project the session moved to, applied by the reader before it decodes the next frame.
     project_change: Mutex<Option<PathBuf>>,
@@ -61,6 +66,7 @@ impl Shared {
             pending: PendingRequests::default(),
             events,
             dialogs: Mutex::new(HashSet::new()),
+            live_subagents: Mutex::new(BTreeSet::new()),
             stderr_tail: Mutex::new(VecDeque::new()),
             project_change: Mutex::new(None),
             prompt_taken: Mutex::new(None),
@@ -139,6 +145,33 @@ impl Shared {
         }
 
         serde_json::from_str(&mask_secret(&json, secret, false)).ok()
+    }
+
+    /// Follows a subagent snapshot: a pending or running one is live, any other status ends it. An id the
+    /// harness could not be asked to stop (over the id byte cap) and ids beyond [`MAX_LIVE_SUBAGENTS`] are not tracked.
+    pub fn note_subagent(&self, id: &str, status: SubagentStatus) {
+        let mut live = lock(&self.live_subagents);
+
+        match status {
+            SubagentStatus::Pending | SubagentStatus::Running => {
+                if check_subagent_id(id).is_ok() && (live.len() < MAX_LIVE_SUBAGENTS || live.contains(id)) {
+                    live.insert(id.to_owned());
+                }
+            }
+            _ => {
+                live.remove(id);
+            }
+        }
+    }
+
+    /// The subagents still pending or running, by id.
+    pub fn live_subagents(&self) -> Vec<String> {
+        lock(&self.live_subagents).iter().cloned().collect()
+    }
+
+    /// Forgets every tracked subagent: the session changed, so the ones of the old session are not this chat's to stop.
+    pub fn forget_subagents(&self) {
+        lock(&self.live_subagents).clear();
     }
 
     pub fn has_open_dialog(&self) -> bool {
@@ -240,6 +273,10 @@ async fn route(
         Inbound::Event(event) => {
             if let AgentEvent::UiCancel { request_id } = &event {
                 shared.close_dialog(request_id);
+            }
+
+            if let AgentEvent::Subagent { subagent } = &event {
+                shared.note_subagent(&subagent.id, subagent.status);
             }
 
             shared.emit(event);

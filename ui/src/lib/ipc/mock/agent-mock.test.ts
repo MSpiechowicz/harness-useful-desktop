@@ -41,7 +41,7 @@ describe('mock agent', () => {
     const block = user?.type === 'messageEnd' ? user.message.blocks[0] : null;
     const shown = block?.type === 'text' ? splitHookContext(block.text) : null;
     expect(shown?.text).toBe('hello there');
-    expect(shown?.hooks.map((hook) => hook.name)).toEqual(['Search Harness Memory first']);
+    expect(shown?.hooks.map((hook) => hook.name)).toEqual(['Harness steps', 'Harness Memory']);
     expect(types()).toContain('toolEnd');
   });
 

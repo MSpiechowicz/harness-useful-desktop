@@ -273,7 +273,7 @@ async fn binary_setup(env: &Env, runner: &dyn ProcessRunner, companion: Companio
     }
 }
 
-fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
+pub(super) fn skills_setup(env: &Env, harness: &dyn Harness) -> SkillsSetup {
     match harness.companion_setup().skills {
         SkillsStrategy::Marketplace { source, plugin, legacy } => {
             marketplace_skills(env, harness, source, plugin, legacy)

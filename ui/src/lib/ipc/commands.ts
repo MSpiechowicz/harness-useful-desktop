@@ -209,6 +209,7 @@ export const commands = {
   hooks_family: cmd<undefined, HookFamilyEntry[]>(),
   /** Adds the missing and updates the outdated family hooks named in `seeds` (approved, as the desktop wrote them), then lists the hooks (global ones: ask `hooks_list` again for a project). */
   hooks_family_apply: cmd<{ seeds: HookSeed[] }, HookListing>(),
+  hooks_family_update_stale: cmd<undefined, HookSeed[]>(),
   /**
    * Deletes every hook of the global scope and of `project` (the global ones only without it), with their approvals, and answers how many
    * went. The Harness family hooks can be added back afterwards.

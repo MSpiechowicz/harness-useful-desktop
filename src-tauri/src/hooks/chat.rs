@@ -6,6 +6,13 @@
 //!   later message (or a hook follow-up) never overtakes it and other chats never wait. A message
 //!   refused before it reached the agent is undone in the engine (`sessionStart` fires on the next
 //!   prompt again).
+//! - A new chat whose project has the Git branch step starts its lookup at once, so the first
+//!   message finds it ready (see [`branch_prefetch`]).
+//! - The context of a prompt carries what the app looked up for its steps (see [`context`]): the
+//!   memory notes and knowledge pointers, the branch against main and the limits that are close.
+//!   They run next to the firings' commands and never hold the message back.
+//! - A subagent the agent starts makes the app check the limits again and steer the running turn
+//!   when one newly crossed a level (see [`limits`]).
 //! - A new session arms `sessionStart` again, a switch, fork or clone disarms it, once the agent
 //!   did it.
 //! - Events are handled one after another by the chat's task: `toolEnd` commands run without the
@@ -29,16 +36,14 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use harness_business::agent::EventSink;
 use harness_business::env::Env;
 use harness_business::hooks::{
-    ChatContext, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet, ResolvedPart, SendOrigin, SendPlan,
-    compose_follow_up, compose_prompt, handled_without_run, project_identity, run_firing, run_with_recall,
+    ChatContext, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet, ResolvedPart, SendOrigin, compose_follow_up,
+    handled_without_run, project_identity, run_firing,
 };
-use harness_business::model::{AgentAction, AgentEnvelope, AgentEvent, AgentReply, AgentSessionInfo};
+use harness_business::model::{AgentAction, AgentEvent, AgentReply, AgentSessionInfo, HarnessId};
 use harness_business::process::TokioRunner;
 use harness_business::{BusinessError, Result};
-use serde_json::Value;
 use tokio::sync::mpsc;
 
 use self::counts::Counts;
@@ -46,104 +51,77 @@ use super::HookRuntime;
 use crate::agents::Agents;
 use crate::state::AppState;
 
+mod branch_prefetch;
+mod context;
 mod counts;
+mod limits;
+mod limits_cache;
+mod lookups;
 mod memory;
 mod report;
+mod sink;
+#[cfg(test)]
+mod tests_lookups;
+#[cfg(test)]
+mod tests_prefetch;
 
 pub use memory::check_again;
+pub use sink::{HookEvents, HookSink, ModelProvider};
 
+use branch_prefetch::{BranchPrefetch, wanted_at_start};
+use context::with_context;
+use limits::{LimitsWatch, Watch};
+use lookups::BranchLookup;
 use report::report;
-
-/// Forwards a chat's events to its sink (the webview, or a routine run's relay) first, then hands
-/// the ones the hooks react to (tool ends, prompt results, settles, the exit) to the chat's hook
-/// task without waiting. Counts the settles before the sink sees them.
-pub struct HookSink {
-    inner: Arc<dyn EventSink>,
-    events: mpsc::UnboundedSender<AgentEvent>,
-    counts: Arc<Counts>,
-}
-
-/// The events a [`HookSink`] passed on, and its counts, for [`track`].
-pub struct HookEvents {
-    received: mpsc::UnboundedReceiver<AgentEvent>,
-    counts: Arc<Counts>,
-}
-
-impl HookSink {
-    /// A sink around `inner`, and the events it passes on.
-    pub fn new(inner: Arc<dyn EventSink>) -> (Self, HookEvents) {
-        let (events, received) = mpsc::unbounded_channel();
-        let counts = Arc::new(Counts::default());
-
-        let sink = Self {
-            inner,
-            events,
-            counts: counts.clone(),
-        };
-
-        (sink, HookEvents { received, counts })
-    }
-}
-
-impl EventSink for HookSink {
-    fn emit(&self, envelope: AgentEnvelope) {
-        let relevant = hook_relevant(&envelope.event);
-
-        // Counted before anyone can react to it, so a message sent after it starts the next run.
-        let settled = matches!(envelope.event, AgentEvent::Settled { .. });
-        self.counts.arrived(settled, relevant.is_some());
-
-        self.inner.emit(envelope);
-
-        // A closed receiver means the chat is not tracked: nothing will handle it.
-        if let Some(event) = relevant
-            && self.events.send(event).is_err()
-        {
-            self.counts.handled();
-        }
-    }
-}
-
-/// The part of `event` the engine reads, when it reads it (a tool's result is left out).
-fn hook_relevant(event: &AgentEvent) -> Option<AgentEvent> {
-    match event {
-        AgentEvent::ToolEnd {
-            tool_call_id,
-            name,
-            is_error,
-            touched_paths,
-            ..
-        } => Some(AgentEvent::ToolEnd {
-            tool_call_id: tool_call_id.clone(),
-            name: name.clone(),
-            is_error: *is_error,
-            result: Value::Null,
-            touched_paths: touched_paths.clone(),
-        }),
-        AgentEvent::PromptResult { .. } | AgentEvent::Settled { .. } | AgentEvent::Exited { .. } => Some(event.clone()),
-        _ => None,
-    }
-}
 
 /// The hook state of one tracked chat.
 pub struct ChatHooks {
     key: String,
+    harness: HarnessId,
     /// The chat's Harness Memory key (`HARNESS_MEMORY_SESSION`), when it has one.
     memory_key: Option<String>,
     project: Mutex<Option<String>>,
     counts: Arc<Counts>,
+    /// What the chat was told about its plan limits.
+    limits: LimitsWatch,
+    /// The provider of the chat's current model (from its sink).
+    provider: ModelProvider,
+    /// The branch lookup started with the chat, for its first message.
+    branch: BranchPrefetch,
     session: tokio::sync::Mutex<HookSession>,
 }
 
 impl ChatHooks {
-    fn new(chat: ChatContext, memory_key: Option<String>, counts: Arc<Counts>) -> Self {
+    fn new(
+        chat: ChatContext,
+        harness: HarnessId,
+        memory_key: Option<String>,
+        counts: Arc<Counts>,
+        provider: ModelProvider,
+    ) -> Self {
         Self {
             key: chat.session_id.clone(),
+            harness,
             memory_key,
             project: Mutex::new(chat.project.clone()),
             counts,
+            limits: LimitsWatch::default(),
+            provider,
+            branch: BranchPrefetch::default(),
             session: tokio::sync::Mutex::new(HookSession::new(chat)),
         }
+    }
+
+    /// The harness the chat runs on.
+    pub fn harness(&self) -> HarnessId {
+        self.harness
+    }
+
+    /// The dashboard providers whose limits the chat sees: its current model's, else its harness's.
+    pub fn limit_providers(&self) -> Vec<String> {
+        let provider = self.provider.lock().unwrap_or_else(PoisonError::into_inner).clone();
+
+        harness_business::ecosystem::limit_providers(self.harness, provider.as_deref())
     }
 
     /// The chat's session key.
@@ -186,6 +164,7 @@ pub async fn track(
 ) {
     let folder = PathBuf::from(&info.project);
     let project = project_root(&folder).await;
+    let useful_skills = state.hooks.useful_skills_for(info.harness).await;
 
     let chat = Arc::new(ChatHooks::new(
         ChatContext {
@@ -194,14 +173,31 @@ pub async fn track(
             project,
             fresh,
             utility: false,
+            useful_skills,
         },
+        info.harness,
         memory_key,
         events.counts.clone(),
+        events.provider.clone(),
     ));
 
     if !register(state, &chat) {
         return;
     }
+
+    limits_cache::warm(&state.dashboard, &state.env);
+    prefetch_branch(state, &chat, fresh).await;
+
+    let watch = Watch {
+        runtime: state.hooks.clone(),
+        agents: state.agents.clone(),
+        env: state.env.clone(),
+        dashboard: state.dashboard.clone(),
+        chat: chat.clone(),
+    };
+
+    // Ends with the sink, which is gone once the chat's agent is.
+    drop(tauri::async_runtime::spawn(watch.run(events.started)));
 
     let task = ChatTask {
         runtime: state.hooks.clone(),
@@ -210,7 +206,28 @@ pub async fn track(
         chat,
     };
 
-    state.hooks.keep_task(tauri::async_runtime::spawn(task.run(events)));
+    state
+        .hooks
+        .keep_task(tauri::async_runtime::spawn(task.run(events.received)));
+}
+
+/// Starts the Git branch lookup of a chat that starts (`fresh`) when its project has the step, so
+/// the first message finds the note ready (see [`branch_prefetch`]).
+async fn prefetch_branch(state: &AppState, chat: &ChatHooks, fresh: bool) {
+    if !fresh {
+        return;
+    }
+
+    let hooks = state.hooks.hook_set(chat.project().as_deref()).await;
+
+    if !wanted_at_start(fresh, &hooks) {
+        return;
+    }
+
+    let folder = chat.session.lock().await.chat().folder.clone();
+    let lookup = BranchLookup::of(state).note(folder.clone());
+
+    chat.branch.start(&folder, lookup);
 }
 
 /// Chat `key` moved to `folder` (`agent_move_project`): its hooks run there and are those of its
@@ -284,25 +301,33 @@ pub async fn send(state: &AppState, key: &str, action: AgentAction) -> Result<Ag
         return Ok(reply);
     }
 
+    let started = std::time::Instant::now();
     let hooks = state.hooks.hook_set(chat.project().as_deref()).await;
+    let hook_set_ms = started.elapsed().as_millis();
     session.set_memory_guards(chat.memory_guards(&state.env).await);
+    let guards_ms = started.elapsed().as_millis() - hook_set_ms;
+
+    // Looked up for each message (cached): Harness Skills installed or removed since the chat
+    // started apply on its next message.
+    session.set_useful_skills(state.hooks.useful_skills_for(chat.harness()).await);
+    let skills_ms = started.elapsed().as_millis() - hook_set_ms - guards_ms;
 
     let mut plan = session.on_send(&hooks, &action, SendOrigin::User);
 
     let action = if plan.is_empty() {
         action
     } else {
-        with_context(
-            state,
-            key,
-            action,
-            &plan,
-            &hooks,
-            chat.project().as_deref(),
-            &mut session,
-        )
-        .await
+        with_context(state, &chat, action, &plan, &hooks, &mut session).await
     };
+
+    tracing::debug!(
+        session = %key,
+        total_ms = started.elapsed().as_millis(),
+        hook_set_ms,
+        guards_ms,
+        skills_ms,
+        "message prepared before sending"
+    );
 
     // Read after the context commands ran: a settle that arrived meanwhile ends the run before
     // this message.
@@ -328,46 +353,6 @@ fn changes_session(action: &AgentAction) -> bool {
     )
 }
 
-/// `action` (an eligible prompt) with the memory settings notice and the context of `plan` in
-/// front of its text. A `sessionStart` context or a notice that did not fit comes again on the
-/// next prompt. The message goes to the Harness Knowledge recall of the chat's `project` while a
-/// recall hook of `hooks` is in the plan (see `harness_business::hooks::recall`), and to no other
-/// hook.
-async fn with_context(
-    state: &AppState,
-    key: &str,
-    action: AgentAction,
-    plan: &SendPlan,
-    hooks: &HookSet,
-    project: Option<&str>,
-    session: &mut HookSession,
-) -> AgentAction {
-    let AgentAction::Prompt {
-        message,
-        images,
-        streaming_behavior,
-    } = action
-    else {
-        return action;
-    };
-
-    let features = state.hooks.knowledge_features();
-    let result = run_with_recall(&TokioRunner, &state.env, features, hooks, plan, &message, project).await;
-    report(&state.agents, key, &result.failures);
-
-    let parts = plan.context_parts(result.parts);
-    let (message, delivered) = compose_prompt(&message, &parts);
-    session.context_composed(plan, &parts, &delivered);
-
-    tracing::debug!(session = %key, parts = delivered.len(), "hook context added");
-
-    AgentAction::Prompt {
-        message,
-        images,
-        streaming_behavior,
-    }
-}
-
 /// True for a send error raised before the message was written to the agent: the action failed
 /// validation, or the chat is gone. Any later error may follow a delivered message.
 fn never_delivered(error: &BusinessError) -> bool {
@@ -390,8 +375,8 @@ struct ChatTask {
 
 impl ChatTask {
     /// Handles the chat's events in order until its agent exited.
-    async fn run(self, mut events: HookEvents) {
-        while let Some(event) = events.received.recv().await {
+    async fn run(self, mut events: mpsc::UnboundedReceiver<AgentEvent>) {
+        while let Some(event) = events.recv().await {
             let hooks = self.runtime.hook_set(self.chat.project().as_deref()).await;
 
             // The guards as they are when the run settles decide its memory-save hook.

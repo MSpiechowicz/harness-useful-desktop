@@ -7,6 +7,8 @@
 //!   `prompt_result` follows, so it completes the prompt as `handled`.
 //! - History: `get_messages_page` (oldest first, at most 256 per page); the session pages through
 //!   it and serves the newest page first.
+//! - `cancel_subagent` hard-kills one running subagent (`StopSubagent`); OMP then reports it as
+//!   `aborted` in a lifecycle frame. `false` answers an unknown or finished one.
 //! - `clone` does not exist in OMP.
 
 use serde_json::json;
@@ -72,6 +74,11 @@ impl RpcDialect for OmpDialect {
                 ],
             )),
             AgentAction::GetHistory { cursor, .. } => Ok(self.history_request(cursor.as_deref(), id)),
+            AgentAction::StopSubagent { id: subagent } => Ok(command_frame(
+                "cancel_subagent",
+                id,
+                [("subagentId", Value::from(subagent.as_str()))],
+            )),
             _ => encode_shared(HarnessId::Omp, action, id, context)?
                 .ok_or_else(|| BusinessError::Internal("action without an OMP command".to_owned())),
         }

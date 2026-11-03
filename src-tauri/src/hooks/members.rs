@@ -15,6 +15,8 @@ pub(super) struct Members {
     pub(super) knowledge_enabled: bool,
     /// The installed Harness Knowledge lists `mcp`.
     pub(super) knowledge_mcp: bool,
+    /// Useful Skills are installed for at least one harness.
+    pub(super) skills_installed: bool,
 }
 
 impl Members {
@@ -25,6 +27,7 @@ impl Members {
             dashboard_available: self.dashboard_installed,
             code_graph_available: self.code_enabled && self.code_graph.listed && self.code_graph.on,
             knowledge_available: self.knowledge_installed && self.knowledge_enabled && self.knowledge_mcp,
+            skills_available: self.skills_installed,
         }
     }
 
@@ -36,6 +39,7 @@ impl Members {
             dashboard_available: self.dashboard_installed,
             code_graph_available: self.code_graph.listed,
             knowledge_available: self.knowledge_installed && self.knowledge_mcp,
+            skills_available: self.skills_installed,
         }
     }
 }

@@ -30,6 +30,19 @@ export interface MessageMeta {
   timestamp: number | null;
 }
 
+/**
+ * Marks a user message the app showed before its harness echoed it. `sending` until the echo arrives, then `sent`: the echo
+ * took its place and keeps `id` as the list's row key, so the row does not remount.
+ */
+export interface SendTrace {
+  id: string;
+  status: 'sending' | 'sent';
+  /** The user's own words (no hook context, notes or file list), which the echo is matched by. */
+  words: string;
+  /** A turn started after the message was sent, so a settle that follows is this message's own (not a late one). */
+  turnStarted?: boolean;
+}
+
 export interface MessageItem {
   kind: 'message';
   key: string;
@@ -41,6 +54,8 @@ export interface MessageItem {
   /** While streaming: content index of a delta block to its position in `blocks`. */
   slots: Record<number, number>;
   meta: MessageMeta | null;
+  /** Present on a user message sent from this window. */
+  send?: SendTrace;
 }
 
 export interface NoticeItem {

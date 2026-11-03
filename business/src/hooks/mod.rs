@@ -17,8 +17,10 @@
 //! - [`engine`]: a pure state machine per chat that decides which hooks fire for each action and
 //!   event, including the follow-up loop rule. It never runs anything itself.
 //! - [`command`]: runs the command hooks of one firing (sequential, a shared 30 s budget).
-//! - [`recall`]: the Harness Knowledge recall the app runs itself for the `knowledge-recall` family
-//!   hook (the prompt on stdin, no shell, 3 s).
+//! - [`recall`]: the Harness Memory and Harness Knowledge recalls the app runs itself for the
+//!   `memory-first` and `knowledge-first` family hooks (the prompt on stdin, no shell, 3 s).
+//! - [`steps`]: the numbered steps of a prompt, the Harness family hooks in a fixed order with what
+//!   the app looked up for the message.
 //! - [`compose`]: the `<harness-hook-context>` block and the follow-up prompt, and
 //!   [`strip_hook_context`] for titles and previews.
 //! - [`team`]: the team hooks shared through Harness Memory, kept as copies in `<root>/team` that
@@ -44,6 +46,7 @@ mod plan;
 pub mod recall;
 mod run;
 mod state;
+pub mod steps;
 pub mod store;
 pub mod team;
 mod view;
@@ -63,7 +66,10 @@ pub use engine::{
     MEMORY_NOTICE_NAME, MemoryGuardState, MemorySaveGate, PlannedPart, SaveRule, SendOrigin, SendPlan,
     memory_save_part,
 };
-pub use family::{FAMILY, FamilyHook, apply_family, family_hook, family_status, restore_member, seed_defaults};
+pub use family::{
+    FAMILY, FamilyHook, FamilyStep, StepKind, apply_family, family_hook, family_status, restore_member, seed_defaults,
+    update_stale_family,
+};
 pub use family_text::{
     SEED_BRANCH_SYNC_TEXT, SEED_CODE_GRAPH_FIRST_TEXT, SEED_DASHBOARD_LIMITS_TEXT, SEED_KNOWLEDGE_FIRST_TEXT,
     SEED_KNOWLEDGE_RECALL_TEXT, SEED_MEMORY_FIRST_TEXT, SEED_MEMORY_SAVE_TEXT, SEED_MEMORY_SEARCH_TEXT,
@@ -72,8 +78,9 @@ pub use family_text::{
 pub use format::{MAX_HOOK_FILE_BYTES, is_hook_id, parse_hook_file};
 pub use memory_guards::read_memory_guards;
 pub use plan::MAX_TOUCHED_BYTES;
-pub use recall::{KNOWLEDGE_ELEMENT_NAME, recall_hook_ids, run_with_recall};
+pub use recall::{RecallFeatures, Recalled, has_seed_hook, recall_hook_ids, run_with_recall, seed_planned};
 pub use run::handled_without_run;
+pub use steps::{Lookup, Lookups, STEPS_INTRO_ID, STEPS_INTRO_NAME, arrange};
 pub use store::{HookCapabilities, HookStore, MAX_HOOKS_PER_SCOPE};
 
 pub use crate::signed_docs::{project_identity, sha256_hex};

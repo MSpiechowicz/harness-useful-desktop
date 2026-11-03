@@ -78,6 +78,7 @@ mod fake_opencode2;
 mod mcp_client;
 mod mcp_client_cancel;
 mod omp_subagent_steps;
+mod omp_subagent_stop;
 mod opencode2_engine;
 mod opencode2_engine_asks;
 mod opencode2_engine_catch_up;

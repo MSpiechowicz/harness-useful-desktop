@@ -1,15 +1,15 @@
 {
   "version": 1,
   "id": "1a2b3c4d5e6f70818293a4b5c6d70040",
-  "name": "Check limits before long work",
-  "description": "Seeded default. Asks the agent to check plan limits and budgets before a long task.",
+  "name": "Harness Dashboard",
+  "description": "Every message: the app checks plan limits and budgets and shows them only when one is close.",
   "scope": "global",
   "project": null,
-  "event": "sessionStart",
+  "event": "promptSubmit",
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "Before a long or expensive task, check the plan limits and budgets with Harness Dashboard (limits, budget_status). Say so if a limit is close."
+    "text": "Plan the work to fit these limits, and ask the user before you start something that may not fit, such as a full workflow lane with several agents. Status line: \"Limits: Claude weekly window 87% used\" or \"Limits: none close\"."
   },
   "enabled": true,
   "createdAt": "2026-10-17T10:00:00Z",

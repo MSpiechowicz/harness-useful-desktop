@@ -15,8 +15,10 @@
 //! - Capabilities: `harness-memory` is met while Harness Memory is installed and the
 //!   `memoryEnabled` pref is on, `harness-dashboard` while Harness Dashboard is installed,
 //!   `harness-knowledge` while Harness Knowledge is installed, lists `mcp` and the `knowledgeEnabled`
-//!   pref is on. `harness-code` (the "Use the code graph first" hook) is met while Harness Code is
+//!   pref is on. `harness-code` (the "Harness Code" hook) is met while Harness Code is
 //!   installed, lists `code-index`, the `codeEnabled` pref is on and its Code index switch is on.
+//!   `useful-skills` (the "Harness Skills" hook) is met while Useful Skills are installed for any
+//!   harness, and a chat runs it only when its own harness has them ([`HookRuntime::useful_skills_for`]).
 //!   Looked up at most every [`MEMBERS_TTL`], and again after an install or a member's switch. The
 //!   switch file (`code.toml`) is read again on every use, so a switch turned off outside the app
 //!   stops that hook on the next prompt.
@@ -34,6 +36,7 @@
 pub mod chat;
 mod members;
 mod seeding;
+mod skills;
 pub mod team;
 #[cfg(test)]
 mod team_tests;
@@ -53,6 +56,8 @@ mod tests_knowledge;
 mod tests_opencode;
 #[cfg(test)]
 mod tests_opencode2;
+#[cfg(test)]
+mod tests_skills;
 pub mod watch;
 
 pub use seeding::{after_member_install, seed_available, spawn_on_launch};
@@ -63,12 +68,13 @@ use std::time::{Duration, Instant};
 
 use harness_business::ecosystem::{
     CodeFeatures, KnowledgeFeatures, code_graph_support, code_switch_is_on, installed_knowledge, installed_memory,
-    resolve_dashboard,
+    resolve_dashboard, useful_skills_installed_anywhere,
 };
 use harness_business::env::Env;
+use harness_business::harness::HarnessRegistry;
 use harness_business::hooks::team::{TeamFolder, TeamViews, team_views};
 use harness_business::hooks::{HookCapabilities, HookKind, HookSet, HookStore};
-use harness_business::model::{HookView, HooksEvent, TeamHooks};
+use harness_business::model::{HarnessId, HookView, HooksEvent, TeamHooks};
 use harness_business::process::TokioRunner;
 use harness_business::{BusinessError, Result};
 use tauri::async_runtime::JoinHandle;
@@ -112,6 +118,11 @@ pub struct HookRuntime {
 #[derive(Default)]
 struct Cache {
     members: Option<(Instant, Members)>,
+    /// Whether Useful Skills are installed for a harness, as of the lookup.
+    skills: HashMap<HarnessId, (Instant, bool)>,
+    /// Whether a lookup that found Useful Skills already seeded the family hooks since launch (see
+    /// [`HookRuntime::useful_skills_for`]).
+    skills_seeded: bool,
     views: Option<(HookCapabilities, Arc<RunViews>)>,
     /// Bumped by every invalidation, so a read that started before one does not store its result.
     generation: u64,
@@ -188,6 +199,7 @@ impl HookRuntime {
     pub fn refresh_members(&self) {
         let mut cache = self.lock_cache();
         cache.members = None;
+        cache.skills.clear();
         cache.views = None;
         cache.generation += 1;
     }
@@ -223,10 +235,12 @@ impl HookRuntime {
                 prefs.knowledge_enabled,
                 prefs.code_enabled,
                 resolve_dashboard(&env).is_some(),
+                useful_skills_installed_anywhere(&env, &HarnessRegistry::with_defaults()),
             )
         })
         .await;
-        let (memory_enabled, knowledge_enabled, code_enabled, dashboard_installed) = local.unwrap_or_default();
+        let (memory_enabled, knowledge_enabled, code_enabled, dashboard_installed, skills_installed) =
+            local.unwrap_or_default();
         let memory_installed = installed_memory(&self.env, &TokioRunner).await.is_some();
 
         // The code graph: the server's `code-index` feature, and its switch when listed.
@@ -251,6 +265,7 @@ impl HookRuntime {
             knowledge_installed,
             knowledge_enabled,
             knowledge_mcp,
+            skills_installed,
         };
 
         let mut cache = self.lock_cache();

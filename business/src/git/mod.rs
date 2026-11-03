@@ -26,6 +26,7 @@ mod cli;
 mod diff_parse;
 mod discard;
 mod file_lines;
+mod log_range;
 mod main_branch;
 mod repo_state;
 mod stash;
@@ -38,6 +39,7 @@ pub use branches::parse_branches;
 pub use cli::{GIT_OUTPUT_CAP, GIT_TIMEOUT, GitCli, NETWORK_TIMEOUT, RunOpts, WRITE_CONFIG};
 pub use diff_parse::{DiffBudget, parse_diff, unquote};
 pub use file_lines::git_file_lines;
+pub use log_range::{Behind, MAX_LOG_COMMITS, NOTE_COMMITS, behind, behind_note};
 pub use status::{MAX_LISTED_ENTRIES, not_a_repo, parse_status};
 
 use std::path::{Component, Path};
@@ -105,6 +107,19 @@ pub async fn git_fetch(
     background: bool,
 ) -> Result<BranchSync> {
     sync::git_fetch(&GitCli::new(env, runner, project)?, picked_main, background).await
+}
+
+/// The commits of `reference` that `HEAD` of the canonical project directory `project` lacks
+/// (`git log HEAD..<reference>`), newest first, at most `limit` (1 to [`MAX_LOG_COMMITS`]) as
+/// `<sha7> <subject>`. Read-only; `InvalidInput` for a `reference` that is no safe ref name.
+pub async fn commits_between(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    project: &Path,
+    reference: &str,
+    limit: usize,
+) -> Result<Vec<String>> {
+    log_range::commits_between(&GitCli::new(env, runner, project)?, reference, limit).await
 }
 
 /// The directory all work trees of the repository around `project` share (`git rev-parse

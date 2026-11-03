@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 
+import { catalogEntry } from '$lib/ipc/mock/hooks-fixtures';
 import { nav } from '$lib/stores/nav.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { toasts } from '$lib/stores/toasts.svelte';
@@ -22,12 +23,12 @@ describe('Hooks view', () => {
     expect(within(grid).queryByRole('columnheader', { name: 'This project' })).not.toBeInTheDocument();
     expect(within(grid).queryByText('2 of 64')).not.toBeInTheDocument();
     expect(within(grid).getAllByRole('columnheader').map((cell) => cell.textContent?.trim())).toEqual(['Hook', 'Scope', 'When', 'Does', 'Status', 'On']);
-    expect(within(rowOf('Search Harness Memory first')).getByText('Global')).toBeInTheDocument();
+    expect(within(rowOf('Harness Memory')).getByText('Global')).toBeInTheDocument();
     expect(within(rowOf(LINT)).getByText('demo')).toBeInTheDocument();
     expect(within(rowOf('Remind about tests')).getByText('demo')).toBeInTheDocument();
 
-    expect(within(rowOf('Search Harness Memory first')).getByText('Active')).toBeInTheDocument();
-    expect(within(rowOf('Search Harness Memory first')).getByText('Session start')).toBeInTheDocument();
+    expect(within(rowOf('Harness Memory')).getByText('Active')).toBeInTheDocument();
+    expect(within(rowOf('Harness Memory')).getByText('Prompt submit')).toBeInTheDocument();
     expect(within(rowOf(LINT)).getByText('Pending approval')).toBeInTheDocument();
     expect(within(rowOf(LINT)).getByText('edit|write')).toBeInTheDocument();
     expect(within(rowOf('Remind about tests')).getByText('Off')).toBeInTheDocument();
@@ -58,7 +59,7 @@ describe('Hooks view', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'When: All' }));
     const when = await screen.findByRole('menu', { name: 'When' });
-    expect(within(when).getAllByRole('menuitemradio').map((item) => item.textContent?.trim())).toEqual(['All 4', 'Session start 1', 'Prompt submit 1', 'After tool call 1', 'Turn end 1', 'Session end 0']);
+    expect(within(when).getAllByRole('menuitemradio').map((item) => item.textContent?.trim())).toEqual(['All 4', 'Session start 0', 'Prompt submit 2', 'After tool call 1', 'Turn end 1', 'Session end 0']);
     expect(within(when).getByRole('menuitemradio', { name: /^All/ })).toHaveAttribute('aria-checked', 'true');
     await fireEvent.keyDown(when, { key: 'Escape' });
 
@@ -74,7 +75,7 @@ describe('Hooks view', () => {
     await pick('Status: All', /^Pending approval/);
     expect(screen.getByRole('button', { name: 'Status: Pending approval' })).toBeInTheDocument();
     expect(screen.getByText(LINT)).toBeInTheDocument();
-    expect(screen.queryByText('Search Harness Memory first')).not.toBeInTheDocument();
+    expect(screen.queryByText('Harness Memory')).not.toBeInTheDocument();
     expect(viewState.hooksStatus).toBe('pending');
 
     await pick('When: All', /^Session end/);
@@ -86,7 +87,7 @@ describe('Hooks view', () => {
 
     await pick('Status: Pending approval', /^All/);
     expect(screen.getByText(LINT)).toBeInTheDocument();
-    expect(screen.queryByText('Search Harness Memory first')).not.toBeInTheDocument();
+    expect(screen.queryByText('Harness Memory')).not.toBeInTheDocument();
 
     await fireEvent.input(screen.getByRole('searchbox', { name: 'Search hooks' }), { target: { value: 'tests' } });
     expect(await screen.findByText('No hook matches your search.')).toBeInTheDocument();
@@ -115,7 +116,7 @@ describe('Hooks view', () => {
 
     await fireEvent.click(screen.getByRole('button', { name: 'Clear the When filter' }));
     expect(screen.getByText(LINT)).toBeInTheDocument();
-    expect(screen.getByText('Search Harness Memory first')).toBeInTheDocument();
+    expect(screen.getByText('Harness Memory')).toBeInTheDocument();
   });
 
   it('remembers the filters when the view is left and shown again', async () => {
@@ -133,10 +134,10 @@ describe('Hooks view', () => {
     fakeHooks();
     await showHooks();
 
-    await fireEvent.click(rowOf('Search Harness Memory first'));
+    await fireEvent.click(rowOf('Harness Memory'));
 
-    const panel = await screen.findByRole('region', { name: 'Search Harness Memory first' });
-    expect(within(panel).getByText('Before you start, search Harness Memory for notes about this task with a few English keywords (note_search) and check the saved scripts (script_list). Reuse what fits. Pass project_path on every Harness Memory call: the absolute path of the repository you are working in (its git root), so nothing is read from or saved to another repository.')).toBeInTheDocument();
+    const panel = await screen.findByRole('region', { name: 'Harness Memory' });
+    expect(within(panel).getByText(catalogEntry('memory-first').text)).toBeInTheDocument();
     expect(within(panel).getByText('Harness family')).toBeInTheDocument();
     expect(viewState.hookId).not.toBeNull();
   });
@@ -145,14 +146,14 @@ describe('Hooks view', () => {
     const { invoke } = fakeHooks();
     await showHooks();
 
-    await fireEvent.click(within(rowOf('Search Harness Memory first')).getByRole('switch', { name: 'Turn off Search Harness Memory first' }));
+    await fireEvent.click(within(rowOf('Harness Memory')).getByRole('switch', { name: 'Turn off Harness Memory' }));
 
-    await waitFor(() => expect(within(rowOf('Search Harness Memory first')).getByText('Off')).toBeInTheDocument());
+    await waitFor(() => expect(within(rowOf('Harness Memory')).getByText('Off')).toBeInTheDocument());
     expect(calls(invoke, 'hook_save')).toHaveLength(1);
-    expect(screen.queryByRole('region', { name: 'Search Harness Memory first' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Harness Memory' })).not.toBeInTheDocument();
 
-    await fireEvent.click(within(rowOf('Search Harness Memory first')).getByRole('switch', { name: 'Turn on Search Harness Memory first' }));
-    await waitFor(() => expect(within(rowOf('Search Harness Memory first')).getByText('Active')).toBeInTheDocument());
+    await fireEvent.click(within(rowOf('Harness Memory')).getByRole('switch', { name: 'Turn on Harness Memory' }));
+    await waitFor(() => expect(within(rowOf('Harness Memory')).getByText('Active')).toBeInTheDocument());
   });
 
   it('keeps the switch of a hook that waits for approval off, since a save would approve it unseen', async () => {
@@ -187,7 +188,7 @@ describe('Hook details', () => {
   it('credits the Harness family only while the version on disk is one the user approved', async () => {
     const { state } = fakeHooks();
     await showHooks();
-    const seeded = 'Search Harness Memory first';
+    const seeded = 'Harness Memory';
 
     await fireEvent.click(rowOf(seeded));
     expect(within(await screen.findByRole('region', { name: seeded })).getByText('Harness family')).toBeInTheDocument();
@@ -317,7 +318,7 @@ describe('Hooks that wait for Harness Memory', () => {
     const notice = screen.getByText('Harness Memory is off').closest<HTMLElement>('[role="status"]') as HTMLElement;
     expect(within(notice).getByText('Harness Memory is off')).toBeInTheDocument();
     expect(within(notice).getByText('2 hooks use Harness Memory and wait until it is back on.')).toBeInTheDocument();
-    expect(within(rowOf('Save what you learned')).getByText('Paused')).toBeInTheDocument();
+    expect(within(rowOf('Harness Memory - save')).getByText('Paused')).toBeInTheDocument();
 
     await fireEvent.click(within(notice).getByRole('button', { name: 'Open Settings' }));
 
@@ -337,13 +338,13 @@ describe('Hooks that wait for Harness Memory', () => {
 describe('Hooks that wait for Harness Knowledge', () => {
   it('say so above the list while its switch is off, and the way to its Settings', async () => {
     const { state } = fakeHooks('ok', { on: true }, false, { on: false });
-    state.applyFamily(['knowledge-first', 'knowledge-recall']);
+    state.applyFamily(['knowledge-first']);
     prefs.value = { ...(prefs.value as NonNullable<typeof prefs.value>), knowledgeEnabled: false };
     await showHooks();
 
     const notice = screen.getByText('Harness Knowledge is off').closest<HTMLElement>('[role="status"]') as HTMLElement;
-    expect(within(notice).getByText('2 hooks use Harness Knowledge and wait until it is back on.')).toBeInTheDocument();
-    expect(within(rowOf('Recall from Harness Knowledge')).getByText('Paused')).toBeInTheDocument();
+    expect(within(notice).getByText('1 hook uses Harness Knowledge and waits until it is back on.')).toBeInTheDocument();
+    expect(within(rowOf('Harness Knowledge')).getByText('Paused')).toBeInTheDocument();
     expect(screen.queryByText('Harness Memory is off')).not.toBeInTheDocument();
 
     await fireEvent.click(within(notice).getByRole('button', { name: 'Open Settings' }));
@@ -355,10 +356,10 @@ describe('Hooks that wait for Harness Knowledge', () => {
 
   it('are quiet while it is on', async () => {
     const { state } = fakeHooks();
-    state.applyFamily(['knowledge-first', 'knowledge-recall']);
+    state.applyFamily(['knowledge-first']);
     await showHooks();
 
-    expect(within(rowOf('Recall from Harness Knowledge')).getByText('Active')).toBeInTheDocument();
+    expect(within(rowOf('Harness Knowledge')).getByText('Active')).toBeInTheDocument();
     expect(screen.queryByText('Harness Knowledge is off')).not.toBeInTheDocument();
   });
 });

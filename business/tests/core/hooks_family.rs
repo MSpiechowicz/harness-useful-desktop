@@ -20,18 +20,21 @@ mod hooks_family {
         dashboard_available: false,
         code_graph_available: false,
         knowledge_available: false,
+        skills_available: false,
     };
     const MEMORY: HookCapabilities = HookCapabilities {
         memory_available: true,
         dashboard_available: false,
         code_graph_available: false,
         knowledge_available: false,
+        skills_available: false,
     };
     const BOTH: HookCapabilities = HookCapabilities {
         memory_available: true,
         dashboard_available: true,
         code_graph_available: false,
         knowledge_available: false,
+        skills_available: false,
     };
 
     fn store() -> (TempDir, HookStore) {
@@ -120,13 +123,7 @@ mod hooks_family {
         assert_eq!(seed_defaults(&store, NOTHING, at(0)).unwrap(), vec![]);
         assert_eq!(
             seed_defaults(&store, MEMORY, at(0)).unwrap(),
-            vec![
-                HookSeed::MemorySearch,
-                HookSeed::MemorySave,
-                HookSeed::UsefulSkills,
-                HookSeed::BranchSync,
-                HookSeed::MemoryFirst
-            ]
+            vec![HookSeed::BranchSync, HookSeed::MemoryFirst, HookSeed::MemorySave]
         );
         assert_eq!(
             seed_defaults(&store, BOTH, at(1)).unwrap(),
@@ -137,7 +134,8 @@ mod hooks_family {
         let hook = limits.hook.as_ref().unwrap();
         assert_eq!(limits.status, HookStatus::Active);
         assert_eq!(hook.requires, vec![HookRequirement::HarnessDashboard]);
-        assert_eq!(hook.name, "Check limits before long work");
+        assert_eq!(hook.name, "Harness Dashboard");
+        assert_eq!(hook.event, HookEvent::PromptSubmit);
 
         assert_eq!(
             store
@@ -154,81 +152,88 @@ mod hooks_family {
     fn the_status_compares_the_folder_with_the_catalog() {
         let (_temp, store) = store();
 
+        // The retired hooks are not listed without a file, the rest in step order.
         assert_eq!(
             statuses(&store, MEMORY),
             vec![
-                (HookSeed::MemorySearch, HookFamilyStatus::Missing),
-                (HookSeed::MemorySave, HookFamilyStatus::Missing),
                 (HookSeed::DashboardLimits, HookFamilyStatus::NeedsMember),
-                (HookSeed::UsefulSkills, HookFamilyStatus::Missing),
                 (HookSeed::BranchSync, HookFamilyStatus::Missing),
+                (HookSeed::UsefulSkills, HookFamilyStatus::NeedsMember),
                 (HookSeed::MemoryFirst, HookFamilyStatus::Missing),
-                (HookSeed::CodeGraphFirst, HookFamilyStatus::NeedsMember),
                 (HookSeed::KnowledgeFirst, HookFamilyStatus::NeedsMember),
-                (HookSeed::KnowledgeRecall, HookFamilyStatus::NeedsMember),
+                (HookSeed::CodeGraphFirst, HookFamilyStatus::NeedsMember),
+                (HookSeed::MemorySave, HookFamilyStatus::Missing),
             ]
         );
 
         seed_defaults(&store, MEMORY, at(0)).unwrap();
-        user_edit(&store, HookSeed::MemorySearch);
+        user_edit(&store, HookSeed::MemoryFirst);
 
         assert_eq!(
             statuses(&store, MEMORY),
             vec![
-                (HookSeed::MemorySearch, HookFamilyStatus::Outdated),
-                (HookSeed::MemorySave, HookFamilyStatus::Installed),
                 (HookSeed::DashboardLimits, HookFamilyStatus::NeedsMember),
-                (HookSeed::UsefulSkills, HookFamilyStatus::Installed),
                 (HookSeed::BranchSync, HookFamilyStatus::Installed),
-                (HookSeed::MemoryFirst, HookFamilyStatus::Installed),
-                (HookSeed::CodeGraphFirst, HookFamilyStatus::NeedsMember),
+                (HookSeed::UsefulSkills, HookFamilyStatus::NeedsMember),
+                (HookSeed::MemoryFirst, HookFamilyStatus::Outdated),
                 (HookSeed::KnowledgeFirst, HookFamilyStatus::NeedsMember),
-                (HookSeed::KnowledgeRecall, HookFamilyStatus::NeedsMember),
+                (HookSeed::CodeGraphFirst, HookFamilyStatus::NeedsMember),
+                (HookSeed::MemorySave, HookFamilyStatus::Installed),
             ]
+        );
+
+        let steps: Vec<Option<u8>> = family_status(&store.list(MEMORY), MEMORY)
+            .iter()
+            .map(|entry| entry.step)
+            .collect();
+        assert_eq!(
+            steps,
+            vec![Some(10), Some(20), Some(30), Some(40), Some(50), Some(60), None]
         );
 
         // A pending edit is not the user's hook yet: the seed counts as missing.
         agent_edit(&store, HookSeed::MemorySave);
 
         let entries = family_status(&store.list(MEMORY), MEMORY);
-        assert_eq!(entries[1].status, HookFamilyStatus::Missing);
-        assert_eq!(entries[1].hook_id, None);
+        assert_eq!(entries[6].status, HookFamilyStatus::Missing);
+        assert_eq!(entries[6].hook_id, None);
         assert_eq!(
-            entries[0].hook_id,
-            seeded(&store, HookSeed::MemorySearch).map(|view| view.id)
+            entries[3].hook_id,
+            seeded(&store, HookSeed::MemoryFirst).map(|view| view.id)
         );
-        assert_eq!(entries[2].hook_id, None);
+        assert_eq!(entries[0].hook_id, None);
     }
 
     #[test]
     fn only_an_earlier_catalog_version_word_for_word_is_stale() {
         let (_temp, store) = store();
         seed_defaults(&store, MEMORY, at(0)).unwrap();
-        let earlier = family_hook(HookSeed::MemorySearch).earlier[0];
-        edit_text(&store, HookSeed::MemorySearch, HookAuthor::Desktop, earlier);
+        let earlier = family_hook(HookSeed::MemoryFirst).earlier[0];
+        edit_text(&store, HookSeed::MemoryFirst, HookAuthor::Desktop, earlier);
         user_edit(&store, HookSeed::MemorySave);
 
         let entries = family_status(&store.list(MEMORY), MEMORY);
+        let found = |seed| entries.iter().find(|entry| entry.seed == seed).unwrap();
 
         assert_eq!(
-            (entries[0].status, entries[0].stale),
+            (found(HookSeed::MemoryFirst).status, found(HookSeed::MemoryFirst).stale),
             (HookFamilyStatus::Outdated, true)
         );
         assert_eq!(
-            (entries[1].status, entries[1].stale),
+            (found(HookSeed::MemorySave).status, found(HookSeed::MemorySave).stale),
             (HookFamilyStatus::Outdated, false)
         );
-        assert!(!entries[2].stale);
+        assert!(!found(HookSeed::BranchSync).stale);
     }
 
     #[test]
-    fn the_session_start_useful_skills_hook_is_stale_and_updates_to_prompt_submit() {
+    fn the_session_start_memory_hook_is_stale_and_updates_to_prompt_submit() {
         let (_temp, store) = store();
         seed_defaults(&store, MEMORY, at(0)).unwrap();
-        let entry = family_hook(HookSeed::UsefulSkills);
+        let entry = family_hook(HookSeed::MemoryFirst);
         rewrite(
             &store,
-            HookSeed::UsefulSkills,
+            HookSeed::MemoryFirst,
             HookAuthor::Desktop,
             Some(HookEvent::SessionStart),
             entry.earlier[0],
@@ -237,14 +242,14 @@ mod hooks_family {
         let found = |store: &HookStore| {
             family_status(&store.list(MEMORY), MEMORY)
                 .into_iter()
-                .find(|found| found.seed == HookSeed::UsefulSkills)
+                .find(|found| found.seed == HookSeed::MemoryFirst)
                 .unwrap()
         };
         let before = found(&store);
         assert_eq!((before.status, before.stale), (HookFamilyStatus::Outdated, true));
 
-        apply_family(&store, &[HookSeed::UsefulSkills], MEMORY, at(10)).unwrap();
-        let updated = seeded(&store, HookSeed::UsefulSkills).unwrap().hook.unwrap();
+        apply_family(&store, &[HookSeed::MemoryFirst], MEMORY, at(10)).unwrap();
+        let updated = seeded(&store, HookSeed::MemoryFirst).unwrap().hook.unwrap();
 
         assert_eq!(found(&store).status, HookFamilyStatus::Installed);
         assert_eq!(updated.event, HookEvent::PromptSubmit);
@@ -261,7 +266,7 @@ mod hooks_family {
             "the seeded texts are the current ones"
         );
 
-        for seed in [HookSeed::MemorySave, HookSeed::MemorySearch] {
+        for seed in [HookSeed::MemorySave, HookSeed::MemoryFirst] {
             let entry = family_hook(seed);
             assert_ne!(
                 entry.earlier[0], entry.text,
@@ -284,50 +289,41 @@ mod hooks_family {
     fn a_pending_file_with_a_seed_is_replaced_by_the_approved_catalog_version() {
         let (_temp, store) = store();
         seed_defaults(&store, MEMORY, at(0)).unwrap();
-        let pending = agent_edit(&store, HookSeed::MemorySearch);
+        let pending = agent_edit(&store, HookSeed::MemoryFirst);
         assert_eq!(pending.status, HookStatus::Pending);
 
         assert_eq!(
             restore_member(&store, HookRequirement::HarnessMemory, MEMORY, at(2)).unwrap(),
-            vec![HookSeed::MemorySearch]
+            vec![HookSeed::MemoryFirst]
         );
 
-        let search = seeded(&store, HookSeed::MemorySearch).unwrap();
+        let search = seeded(&store, HookSeed::MemoryFirst).unwrap();
         assert_eq!(search.id, pending.id);
         assert_eq!(
             (search.status, search.approval),
             (HookStatus::Active, HookApproval::Approved)
         );
-        assert_eq!(
-            search.hook.unwrap().action,
-            family_hook(HookSeed::MemorySearch).action()
-        );
-        assert_eq!(store.list(MEMORY).hooks.len(), 5, "replaced, not duplicated");
+        assert_eq!(search.hook.unwrap().action, family_hook(HookSeed::MemoryFirst).action());
+        assert_eq!(store.list(MEMORY).hooks.len(), 3, "replaced, not duplicated");
     }
 
     #[test]
     fn applying_adds_missing_and_updates_outdated_hooks_as_approved_desktop_writes() {
         let (_temp, store) = store();
         seed_defaults(&store, MEMORY, at(0)).unwrap();
-        let before = user_edit(&store, HookSeed::MemorySearch);
+        let before = user_edit(&store, HookSeed::MemoryFirst);
 
-        let changed = apply_family(
-            &store,
-            &[HookSeed::MemorySearch, HookSeed::DashboardLimits],
-            BOTH,
-            at(9),
-        )
-        .unwrap();
-        assert_eq!(changed, vec![HookSeed::MemorySearch, HookSeed::DashboardLimits]);
+        let changed = apply_family(&store, &[HookSeed::MemoryFirst, HookSeed::DashboardLimits], BOTH, at(9)).unwrap();
+        assert_eq!(changed, vec![HookSeed::DashboardLimits, HookSeed::MemoryFirst]);
 
-        let search = seeded(&store, HookSeed::MemorySearch).unwrap();
+        let search = seeded(&store, HookSeed::MemoryFirst).unwrap();
         let hook = search.hook.as_ref().unwrap();
         assert_eq!(
             (search.status, search.approval),
             (HookStatus::Active, HookApproval::Approved)
         );
         assert_eq!(search.id, before.id);
-        assert_eq!(hook.action, family_hook(HookSeed::MemorySearch).action());
+        assert_eq!(hook.action, family_hook(HookSeed::MemoryFirst).action());
         assert_eq!(hook.created_at, before.hook.as_ref().unwrap().created_at);
         assert_eq!(
             (hook.created_by, hook.updated_by),
@@ -338,20 +334,19 @@ mod hooks_family {
             seeded(&store, HookSeed::DashboardLimits).unwrap().status,
             HookStatus::Active
         );
-        // Everything but the code graph hook, which needs the code graph of Harness Memory, and the
-        // Harness Knowledge hooks.
+        // Everything but the hooks of Harness Code, Harness Knowledge and Useful Skills.
         assert!(
             statuses(&store, BOTH)
                 .iter()
                 .filter(|(seed, _)| !matches!(
                     seed,
-                    HookSeed::CodeGraphFirst | HookSeed::KnowledgeFirst | HookSeed::KnowledgeRecall
+                    HookSeed::CodeGraphFirst | HookSeed::KnowledgeFirst | HookSeed::UsefulSkills
                 ))
                 .all(|(_, status)| *status == HookFamilyStatus::Installed)
         );
 
         assert_eq!(
-            apply_family(&store, &[HookSeed::MemorySearch], BOTH, at(10)).unwrap(),
+            apply_family(&store, &[HookSeed::MemoryFirst], BOTH, at(10)).unwrap(),
             vec![]
         );
     }
@@ -362,7 +357,7 @@ mod hooks_family {
         seed_defaults(&store, MEMORY, at(0)).unwrap();
 
         delete_seed(&store, HookSeed::MemorySave);
-        let edited = user_edit(&store, HookSeed::MemorySearch);
+        let edited = user_edit(&store, HookSeed::MemoryFirst);
 
         // Deleted hooks are not seeded again at launch.
         assert_eq!(seed_defaults(&store, MEMORY, at(1)).unwrap(), vec![]);
@@ -373,7 +368,7 @@ mod hooks_family {
             vec![HookSeed::MemorySave]
         );
         assert_eq!(seeded(&store, HookSeed::MemorySave).unwrap().status, HookStatus::Active);
-        assert_eq!(seeded(&store, HookSeed::MemorySearch).unwrap().sha256, edited.sha256);
+        assert_eq!(seeded(&store, HookSeed::MemoryFirst).unwrap().sha256, edited.sha256);
 
         assert_eq!(
             restore_member(&store, HookRequirement::HarnessDashboard, BOTH, at(3)).unwrap(),
@@ -415,7 +410,7 @@ mod hooks_family {
         let (_temp, store) = store();
         seed_defaults(&store, BOTH, at(0)).unwrap();
 
-        assert_eq!(store.delete_all(None).unwrap(), 6);
+        assert_eq!(store.delete_all(None).unwrap(), 4);
         assert_eq!(seed_defaults(&store, BOTH, at(1)).unwrap(), vec![]);
         assert!(store.list(BOTH).hooks.is_empty());
     }
