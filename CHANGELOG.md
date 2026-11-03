@@ -1,3 +1,10 @@
+## [0.52.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.52.0...v0.52.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **ui:** the rail menu scrolls, so the update notice and footer stay visible on short windows ([d7b726b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d7b726b596ee6e35514a1fe61a56802f09d69992))
+
 # [0.52.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.51.0...v0.52.0) (2026-11-02)
 
 
