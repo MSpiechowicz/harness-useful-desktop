@@ -14,7 +14,7 @@ use crate::state::AppState;
 use crate::test_support::{TempDir, home_state};
 
 const CODE_GRAPH_HOOK: &str = "Use the code graph first";
-const MEMORY_HOOK: &str = "Check Memory first";
+const SKILLS_HOOK: &str = "Check Useful Skills first";
 
 /// An app state with the family hooks of every member seeded, and cached members that say the
 /// code graph is on.
@@ -98,7 +98,7 @@ fn a_missing_switch_file_keeps_the_hook() {
 
     let names = injected(&setup);
     assert!(names.iter().any(|name| name == CODE_GRAPH_HOOK), "{names:?}");
-    assert!(names.iter().any(|name| name == MEMORY_HOOK), "{names:?}");
+    assert!(names.iter().any(|name| name == SKILLS_HOOK), "{names:?}");
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn a_switch_turned_off_outside_the_app_stops_the_hook_on_the_next_prompt() {
         others,
         "the other family hooks are unaffected"
     );
-    assert!(after.iter().any(|name| name == MEMORY_HOOK));
+    assert!(after.iter().any(|name| name == SKILLS_HOOK));
 
     // Turned on again: the hook is back without waiting for the members cache.
     std::fs::write(&setup.switch, "enabled = true\n").unwrap();
@@ -143,7 +143,7 @@ fn an_invalid_switch_file_stops_the_hook() {
 
         let names = injected(&setup);
         assert!(!names.iter().any(|name| name == CODE_GRAPH_HOOK), "{text:?}: {names:?}");
-        assert!(names.iter().any(|name| name == MEMORY_HOOK), "{text:?}: {names:?}");
+        assert!(names.iter().any(|name| name == SKILLS_HOOK), "{text:?}: {names:?}");
     }
 }
 

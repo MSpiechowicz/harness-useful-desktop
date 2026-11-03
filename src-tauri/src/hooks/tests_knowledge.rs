@@ -12,7 +12,6 @@ use super::tests_code::planned_names;
 use crate::state::AppState;
 use crate::test_support::{TempDir, home_state};
 
-const FIRST: &str = "Check Knowledge first";
 const RECALL: &str = "Recall from Harness Knowledge";
 
 /// An app state whose family hooks of Harness Knowledge are seeded and whose cached members are
@@ -45,7 +44,8 @@ fn the_hooks_run_while_knowledge_is_installed_listed_and_on() {
     let dir = TempDir::new("knowledge-hooks-on");
     let state = state_with(&dir, knowledge(true, true));
 
-    assert_eq!(planned_names(dir.path(), &state), [FIRST, RECALL]);
+    // "Check Knowledge first" fires at `sessionStart`: a prompt of a chat already started carries the recall alone.
+    assert_eq!(planned_names(dir.path(), &state), [RECALL]);
     assert!(block_on(state.hooks.capabilities()).knowledge_available);
 }
 
