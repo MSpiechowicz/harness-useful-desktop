@@ -1,3 +1,10 @@
+## [0.52.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.52.1...v0.52.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* **hooks:** stronger family hook wording, memory and knowledge hooks at session start ([b076ff5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b076ff5ae47f3769eefc5c5e5155a6b6e460ca22))
+
 ## [0.52.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.52.0...v0.52.1) (2026-11-03)
 
 
