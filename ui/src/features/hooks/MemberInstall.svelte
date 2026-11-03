@@ -7,12 +7,10 @@
   import { nav } from '$lib/stores/nav.svelte';
 
   import FamilyInstall from './FamilyInstall.svelte';
-  import type { HookMember } from './hook-format';
+  import type { HookMember, InstallEvents } from './hook-format';
 
-  interface Props {
+  interface Props extends InstallEvents {
     member: HookMember;
-    /** Runs once the installer finished well. */
-    onfinished?: () => void;
   }
 
   let { member, onfinished }: Props = $props();

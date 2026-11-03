@@ -6,11 +6,17 @@
 //! killed. A server that exits 0 prints one block or nothing. Neither the prompt nor the block is
 //! logged.
 
+use std::future::Future;
+use std::path::Path;
 use std::time::Duration;
 
-use super::sidecar_cli::CliAnswer;
+use super::knowledge_cli::words;
+use super::sidecar::Sidecar;
+use super::sidecar_cli::{CliAnswer, CliCall, project_args, run_sidecar_cli};
+use crate::env::Env;
 use crate::error::Result;
 use crate::hooks::Lookup;
+use crate::process::ProcessRunner;
 use crate::security::redact_text;
 
 /// How long a recall may take before it is killed.
@@ -18,6 +24,50 @@ pub const RECALL_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// The most prompt bytes sent to a server (the most it reads).
 pub const MAX_RECALL_PROMPT_BYTES: usize = 64 * 1024;
+
+/// `recall` held to [`RECALL_TIMEOUT`]: one that did not finish in time is [`Lookup::Failed`].
+pub(super) async fn within_timeout(recall: impl Future<Output = Lookup>) -> Lookup {
+    match tokio::time::timeout(RECALL_TIMEOUT, recall).await {
+        Ok(lookup) => lookup,
+        Err(_elapsed) => Lookup::Failed,
+    }
+}
+
+/// What one recall run needs besides the process plumbing: the server's `sidecar`, how much of its
+/// output is kept and what shape a block must have.
+pub(super) struct RecallRun<'a> {
+    pub sidecar: &'a Sidecar,
+    pub output_bytes: usize,
+    pub is_block: fn(&str) -> bool,
+}
+
+impl RecallRun<'_> {
+    /// Runs `recall --hook [--project P]` on `server` with `prompt` on stdin.
+    pub(super) async fn run(
+        &self,
+        env: &Env,
+        runner: &dyn ProcessRunner,
+        server: &Path,
+        prompt: &str,
+        project: Option<&str>,
+    ) -> Lookup {
+        let mut args = words(&["recall", "--hook"]);
+        args.extend(project_args(project.map(Path::new)));
+
+        let call = CliCall {
+            name: "recall",
+            args,
+            timeout: RECALL_TIMEOUT,
+            output_bytes: self.output_bytes,
+            stdin: Some(clip(prompt).as_bytes().to_vec()),
+        };
+
+        lookup_of(
+            run_sidecar_cli(self.sidecar, env, runner, server, call).await,
+            self.is_block,
+        )
+    }
+}
 
 /// `prompt` cut to [`MAX_RECALL_PROMPT_BYTES`] at a character.
 pub(super) fn clip(prompt: &str) -> &str {

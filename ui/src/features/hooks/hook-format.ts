@@ -215,6 +215,12 @@ export function length(text: string): number {
 /** What a hook can need: a companion with its own installer, or Harness Skills, which are installed per harness from the Ecosystem page. */
 export type HookMember = Companion | 'skills';
 
+/** What an installer button tells its parent. */
+export interface InstallEvents {
+  /** Runs once the installer finished well. */
+  onfinished?: () => void;
+}
+
 /** The Harness family member each requirement stands for. */
 const MEMBER_OF: Record<HookRequirement, HookMember> = { 'harness-memory': 'memory', 'harness-dashboard': 'dashboard', 'harness-knowledge': 'knowledge', 'harness-code': 'code', 'useful-skills': 'skills' };
 

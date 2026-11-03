@@ -6,13 +6,9 @@
 //! or nothing and exits 0 ([`Lookup::Found`], [`Lookup::Empty`]), anything else (a failure, a
 //! timeout, output that is not exactly one recall block) is [`Lookup::Failed`].
 
-use std::path::Path;
-
 use super::catalog::KNOWLEDGE_SIDECAR;
-use super::knowledge_cli::words;
 use super::knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
-use super::recall_lookup::{RECALL_TIMEOUT, clip, lookup_of};
-use super::sidecar_cli::{CliCall, project_args, run_sidecar_cli};
+use super::recall_lookup::{RecallRun, within_timeout};
 use crate::env::Env;
 use crate::hooks::Lookup;
 use crate::process::ProcessRunner;
@@ -25,7 +21,7 @@ const OPEN: &str = "<harness-knowledge-recall>";
 const CLOSE: &str = "</harness-knowledge-recall>";
 
 /// The pointers Harness Knowledge recalls for `prompt` in `project` (the chat's project root, none
-/// without one). The whole of it, the features probe included, gets [`RECALL_TIMEOUT`] (plus the
+/// without one). The whole of it, the features probe included, gets `RECALL_TIMEOUT` (plus the
 /// process kill that follows a timeout of the server itself), so a slow probe never holds a message
 /// back; a recall that did not finish in time is [`Lookup::Failed`].
 pub async fn knowledge_recall(
@@ -35,10 +31,7 @@ pub async fn knowledge_recall(
     prompt: &str,
     project: Option<&str>,
 ) -> Lookup {
-    match tokio::time::timeout(RECALL_TIMEOUT, recall(env, runner, features, prompt, project)).await {
-        Ok(lookup) => lookup,
-        Err(_elapsed) => Lookup::Failed,
-    }
+    within_timeout(recall(env, runner, features, prompt, project)).await
 }
 
 async fn recall(
@@ -55,21 +48,13 @@ async fn recall(
         return Lookup::NotRun;
     };
 
-    let mut args = words(&["recall", "--hook"]);
-    args.extend(project_args(project.map(Path::new)));
-
-    let call = CliCall {
-        name: "recall",
-        args,
-        timeout: RECALL_TIMEOUT,
+    let run = RecallRun {
+        sidecar: &KNOWLEDGE_SIDECAR,
         output_bytes: MAX_RECALL_OUTPUT_BYTES,
-        stdin: Some(clip(prompt).as_bytes().to_vec()),
+        is_block,
     };
 
-    lookup_of(
-        run_sidecar_cli(&KNOWLEDGE_SIDECAR, env, runner, &server, call).await,
-        is_block,
-    )
+    run.run(env, runner, &server, prompt, project).await
 }
 
 /// True when `text` is exactly one recall block, nothing around it, within the step's cap (judged

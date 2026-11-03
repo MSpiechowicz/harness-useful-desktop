@@ -12,13 +12,11 @@
   import { CompanionInstaller } from '../onboarding/companion-installer.svelte';
   import SetupConfirm from '../onboarding/SetupConfirm.svelte';
   import { type Companion, companionPlan, type Plan } from '../onboarding/setup-model';
-  import { MEMBER_LABELS } from './hook-format';
+  import { type InstallEvents, MEMBER_LABELS } from './hook-format';
   import { hooks } from './hooks-data.svelte';
 
-  interface Props {
+  interface Props extends InstallEvents {
     member: Companion;
-    /** Runs once the installer finished well. */
-    onfinished?: () => void;
   }
 
   let { member, onfinished }: Props = $props();

@@ -3,7 +3,8 @@ import { type FoundDoc, parseRecallDocs } from './knowledge-tools';
 import { splitRecall } from './memory-recall';
 import { type FoundNote, type FoundScript, parseRecallScripts, parseSearch } from './memory-tools';
 import { splitStepRecall } from './step-recall';
-import type { MessageItem } from './types';
+import { blankToolCall } from './tools';
+import type { MessageItem, ToolCallState } from './types';
 
 /** The notes and saved scripts the app found for a message (the Harness Memory step), and the block as the agent got it. */
 export interface MemoryRecallRows {
@@ -16,6 +17,17 @@ export interface MemoryRecallRows {
 export interface KnowledgeRecallRows {
   docs: FoundDoc[];
   text: string;
+}
+
+/** What a card of the app's own search is known by. */
+export interface RecallCardKey {
+  /** The id the use index knows the app's search of this message by. */
+  id: string;
+}
+
+/** The app's own search looks like one of the agent's: a call of `tool` that finished, with the block it found as its output. */
+export function recallToolCall(id: string, tool: string, text: string): ToolCallState {
+  return { ...blankToolCall(id, tool), status: 'ok', resultText: text };
 }
 
 /** What the app found for one message of the user. A family with nothing readable in its block is null: the hook card then shows the block as it is. */

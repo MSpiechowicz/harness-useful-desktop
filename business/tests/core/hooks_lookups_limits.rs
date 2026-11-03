@@ -2,7 +2,7 @@
 //! and the levels a chat is told once.
 
 use harness_business::ecosystem::{
-    DashboardReading, LimitLevels, close_gauges, close_limits, limit_providers, limit_steer,
+    DashboardReading, Gauge, LimitLevels, close_gauges, close_limits, limit_providers, limit_steer,
 };
 use harness_business::model::HarnessId;
 use jiff::Timestamp;
@@ -32,6 +32,15 @@ fn reading(windows: Vec<Value>, budgets: Vec<Value>) -> DashboardReading {
         limits: json!({ "windows": windows }),
         budgets: json!({ "budgets": budgets }),
     }
+}
+
+/// The gauges of a Claude 5 hour window used `percent`.
+fn claude_gauges_at(percent: f64) -> Vec<Gauge> {
+    close_gauges(
+        &reading(vec![window("claude", "5h", json!(percent))], Vec::new()),
+        &["claude".to_owned()],
+        None,
+    )
 }
 
 fn lines(reading: &DashboardReading, providers: &[String]) -> Vec<String> {
@@ -154,13 +163,7 @@ fn a_stale_window_or_one_that_reset_says_nothing_and_a_far_reset_names_its_day()
 #[test]
 fn a_level_is_told_once_at_80_and_once_at_95() {
     let mut levels = LimitLevels::default();
-    let at = |percent: f64| {
-        close_gauges(
-            &reading(vec![window("claude", "5h", json!(percent))], Vec::new()),
-            &["claude".to_owned()],
-            None,
-        )
-    };
+    let at = claude_gauges_at;
 
     assert_eq!(levels.crossed(&at(60.0)).len(), 0, "not close yet");
     assert_eq!(levels.crossed(&at(82.0)).len(), 1, "80 crossed");
@@ -177,13 +180,7 @@ fn a_level_is_told_once_at_80_and_once_at_95() {
 #[test]
 fn what_the_prompt_showed_is_not_news_until_the_next_level() {
     let mut levels = LimitLevels::default();
-    let at = |percent: f64| {
-        close_gauges(
-            &reading(vec![window("claude", "5h", json!(percent))], Vec::new()),
-            &["claude".to_owned()],
-            None,
-        )
-    };
+    let at = claude_gauges_at;
 
     levels.told(&at(86.0));
 

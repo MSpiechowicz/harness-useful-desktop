@@ -7,13 +7,9 @@
 //! [`crate::pi_family::sessions::recall_block`]: output of another shape (text around it, two
 //! blocks, a cut block, a section that is no note or script) is [`Lookup::Failed`].
 
-use std::path::Path;
-
 use super::catalog::MEMORY_SIDECAR;
-use super::knowledge_cli::words;
 use super::memory_features::MemoryFeatures;
-use super::recall_lookup::{RECALL_TIMEOUT, clip, lookup_of};
-use super::sidecar_cli::{CliCall, project_args, run_sidecar_cli};
+use super::recall_lookup::{RecallRun, within_timeout};
 use super::sidecar_embedder::sidecar_feature_server;
 use crate::env::Env;
 use crate::hooks::Lookup;
@@ -25,7 +21,7 @@ pub const MAX_MEMORY_RECALL_OUTPUT_BYTES: usize = 4 * 1024;
 
 /// The notes (and saved scripts) Harness Memory recalls for `prompt` in `project` (the chat's
 /// project root, none without one). The whole of it, the features probe included, gets
-/// [`RECALL_TIMEOUT`]; a recall that did not finish in time is [`Lookup::Failed`].
+/// `RECALL_TIMEOUT`; a recall that did not finish in time is [`Lookup::Failed`].
 pub async fn memory_recall(
     env: &Env,
     runner: &dyn ProcessRunner,
@@ -33,10 +29,7 @@ pub async fn memory_recall(
     prompt: &str,
     project: Option<&str>,
 ) -> Lookup {
-    match tokio::time::timeout(RECALL_TIMEOUT, recall(env, runner, features, prompt, project)).await {
-        Ok(lookup) => lookup,
-        Err(_elapsed) => Lookup::Failed,
-    }
+    within_timeout(recall(env, runner, features, prompt, project)).await
 }
 
 async fn recall(
@@ -52,21 +45,13 @@ async fn recall(
         return Lookup::NotRun;
     };
 
-    let mut args = words(&["recall", "--hook"]);
-    args.extend(project_args(project.map(Path::new)));
-
-    let call = CliCall {
-        name: "recall",
-        args,
-        timeout: RECALL_TIMEOUT,
+    let run = RecallRun {
+        sidecar: &MEMORY_SIDECAR,
         output_bytes: MAX_MEMORY_RECALL_OUTPUT_BYTES,
-        stdin: Some(clip(prompt).as_bytes().to_vec()),
+        is_block,
     };
 
-    lookup_of(
-        run_sidecar_cli(&MEMORY_SIDECAR, env, runner, &server, call).await,
-        is_block,
-    )
+    run.run(env, runner, &server, prompt, project).await
 }
 
 /// True when `text` is exactly one well-formed recall block within [`RECALL_BUDGET`] (so the step

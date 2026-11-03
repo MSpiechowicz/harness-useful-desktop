@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use crate::agent_support::{scenario, start_omp};
+use crate::agent_support::{Run, scenario, start_omp};
 use harness_business::harness::Harness;
 use harness_business::harnesses::{Omp, Pi};
 use harness_business::model::{AgentAction, AgentEvent, AgentReply, IpcErrorCode, SubagentStatus};
@@ -20,6 +20,28 @@ fn exit_code(events: &[AgentEvent]) -> Option<i32> {
         Some(AgentEvent::Exited { code, .. }) => *code,
         other => panic!("the agent did not exit: {other:?}"),
     }
+}
+
+/// The chat's `Abort` is answered with an ack.
+async fn abort_is_acked(run: &Run) {
+    assert_eq!(
+        run.manager.send(run.key(), AgentAction::Abort).await.unwrap(),
+        AgentReply::Ack
+    );
+}
+
+/// The agent's next expected request (the scenarios end on it) is answered.
+async fn ask_last_assistant_text(run: &Run) {
+    run.manager
+        .send(run.key(), AgentAction::GetLastAssistantText)
+        .await
+        .unwrap();
+}
+
+/// The session stops and the agent exits with code 0 (every expect of the scenario was met).
+async fn stop_and_expect_clean_exit(run: &Run) {
+    run.manager.stop(run.key()).await.unwrap();
+    assert_eq!(exit_code(&run.events()), Some(0));
 }
 
 #[tokio::test]
@@ -40,8 +62,7 @@ async fn stop_sends_cancel_subagent_and_a_gone_subagent_is_still_an_ack() {
     assert_eq!(refused.code(), IpcErrorCode::Protocol);
     assert!(refused.to_string().contains("cancel_subagent failed"), "{refused}");
 
-    run.manager.stop(run.key()).await.unwrap();
-    assert_eq!(exit_code(&run.events()), Some(0));
+    stop_and_expect_clean_exit(&run).await;
 }
 
 #[tokio::test]
@@ -62,24 +83,17 @@ async fn abort_stops_each_running_subagent_and_a_refused_stop_does_not_fail_it()
     .await;
 
     // The stop of Scout is refused, the abort is still answered.
-    assert_eq!(
-        run.manager.send(run.key(), AgentAction::Abort).await.unwrap(),
-        AgentReply::Ack
-    );
+    abort_is_acked(&run).await;
 
     // The agent reports the stopped one as aborted, and the chat goes on.
     run.wait("Mapper aborted", |event| {
         matches!(event, AgentEvent::Subagent { subagent } if subagent.id == "Mapper" && subagent.status == SubagentStatus::Aborted)
     })
     .await;
-    run.manager
-        .send(run.key(), AgentAction::GetLastAssistantText)
-        .await
-        .unwrap();
+    ask_last_assistant_text(&run).await;
 
     // A stop for the finished subagent would have failed the agent's last expect.
-    run.manager.stop(run.key()).await.unwrap();
-    assert_eq!(exit_code(&run.events()), Some(0));
+    stop_and_expect_clean_exit(&run).await;
 }
 
 #[tokio::test]
@@ -91,17 +105,10 @@ async fn abort_with_no_running_subagent_sends_no_stop() {
     )
     .await;
 
-    assert_eq!(
-        run.manager.send(run.key(), AgentAction::Abort).await.unwrap(),
-        AgentReply::Ack
-    );
-    run.manager
-        .send(run.key(), AgentAction::GetLastAssistantText)
-        .await
-        .unwrap();
+    abort_is_acked(&run).await;
+    ask_last_assistant_text(&run).await;
 
-    run.manager.stop(run.key()).await.unwrap();
-    assert_eq!(exit_code(&run.events()), Some(0));
+    stop_and_expect_clean_exit(&run).await;
 }
 
 /// A scenario file in `dir` that starts like `omp_startup.jsonl`, then plays `steps`.
@@ -150,17 +157,10 @@ async fn abort_stops_no_more_than_the_tracked_limit() {
     run.wait_until("every subagent running", |events| running_count(events) == TRACKED + 1)
         .await;
 
-    assert_eq!(
-        run.manager.send(run.key(), AgentAction::Abort).await.unwrap(),
-        AgentReply::Ack
-    );
-    run.manager
-        .send(run.key(), AgentAction::GetLastAssistantText)
-        .await
-        .unwrap();
+    abort_is_acked(&run).await;
+    ask_last_assistant_text(&run).await;
 
-    run.manager.stop(run.key()).await.unwrap();
-    assert_eq!(exit_code(&run.events()), Some(0));
+    stop_and_expect_clean_exit(&run).await;
 }
 
 #[tokio::test]
@@ -176,17 +176,10 @@ async fn abort_after_a_new_session_stops_no_subagent_of_the_old_one() {
         run.manager.send(run.key(), AgentAction::NewSession).await.unwrap(),
         AgentReply::Ack
     );
-    assert_eq!(
-        run.manager.send(run.key(), AgentAction::Abort).await.unwrap(),
-        AgentReply::Ack
-    );
-    run.manager
-        .send(run.key(), AgentAction::GetLastAssistantText)
-        .await
-        .unwrap();
+    abort_is_acked(&run).await;
+    ask_last_assistant_text(&run).await;
 
-    run.manager.stop(run.key()).await.unwrap();
-    assert_eq!(exit_code(&run.events()), Some(0));
+    stop_and_expect_clean_exit(&run).await;
 }
 
 #[tokio::test]
@@ -203,12 +196,8 @@ async fn abort_sends_its_stops_together_and_waits_one_time_limit_for_all_of_them
     // One stop that never answers holds the abort for the limit (5 s). Three in a row would take 15 s.
     assert!(elapsed < Duration::from_secs(9), "the abort took {elapsed:?}");
 
-    run.manager
-        .send(run.key(), AgentAction::GetLastAssistantText)
-        .await
-        .unwrap();
-    run.manager.stop(run.key()).await.unwrap();
-    assert_eq!(exit_code(&run.events()), Some(0));
+    ask_last_assistant_text(&run).await;
+    stop_and_expect_clean_exit(&run).await;
 }
 
 #[test]

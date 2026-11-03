@@ -2,17 +2,14 @@
   import BookOpenText from '@lucide/svelte/icons/book-open-text';
 
   import { docUse, type DocUse } from '$lib/chat/knowledge-use';
-  import type { KnowledgeRecallRows } from '$lib/chat/recall-rows';
-  import { blankToolCall } from '$lib/chat/tools';
+  import { type KnowledgeRecallRows, type RecallCardKey, recallToolCall } from '$lib/chat/recall-rows';
   import { t } from '$lib/i18n/i18n.svelte';
 
   import FamilySearchCard from './FamilySearchCard.svelte';
   import KnowledgeFoundRow from './KnowledgeFoundRow.svelte';
   import { knowledgeCounts } from './recall-counts';
 
-  interface Props {
-    /** The id the use index knows the app's search of this message by. */
-    id: string;
+  interface Props extends RecallCardKey {
     /** The documents the app found for the message. */
     recall: KnowledgeRecallRows;
     /** What the reply did with them (nothing is known of their use without it). */
@@ -21,8 +18,7 @@
 
   let { id, recall, use }: Props = $props();
 
-  // The app's own search looks like one of the agent's: a call that finished, with the block it found as its output.
-  const call = $derived({ ...blankToolCall(id, 'knowledge_search'), status: 'ok' as const, resultText: recall.text });
+  const call = $derived(recallToolCall(id, 'knowledge_search', recall.text));
 </script>
 
 <FamilySearchCard

@@ -10,8 +10,8 @@ mod hooks_memory_notice {
 
     use harness_business::ecosystem::{update_global, write_chat};
     use harness_business::hooks::{
-        HookSession, HookSet, MEMORY_NOTICE_NAME, MemoryGuardState, PlannedPart, SaveRule, SendOrigin, SendPlan,
-        compose_prompt, parse_hook_context, read_memory_guards,
+        HookSession, HookSet, MEMORY_NOTICE_NAME, MemoryGuardState, SaveRule, SendOrigin, SendPlan, compose_prompt,
+        parse_hook_context, read_memory_guards,
     };
     use harness_business::model::{
         AgentAction, HookEvent, KindGuard, MemoryChatGuards, MemoryGuardKind, MemoryGuardsPatch,
@@ -19,6 +19,7 @@ mod hooks_memory_notice {
     use pretty_assertions::assert_eq;
 
     use super::hook_support::{chat, context, prompt, set};
+    use crate::hooks_steps::hooks_steps::resolved;
 
     const KEY: &str = "3b2f6c1e-8a4d-4e5f-9a0b-1c2d3e4f5a6b";
 
@@ -36,17 +37,7 @@ mod hooks_memory_notice {
         };
 
         // The firings' texts, as the shell resolves them (no command hooks here).
-        let resolved = plan
-            .firings
-            .iter()
-            .flat_map(|firing| &firing.parts)
-            .filter_map(|part| match part {
-                PlannedPart::Text(text) => Some(text.clone()),
-                PlannedPart::Command(_) => None,
-            })
-            .collect();
-
-        let parts = plan.context_parts(resolved);
+        let parts = plan.context_parts(resolved(&plan));
         let (message, delivered) = compose_prompt(&message, &parts);
         session.context_composed(&plan, &parts, &delivered);
         session.sending(&mut plan);

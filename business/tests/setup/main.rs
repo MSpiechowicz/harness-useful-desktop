@@ -24,6 +24,8 @@ mod memory_notes_copy_support;
 mod memory_remote_support;
 #[path = "../support/memory_stand_in/mod.rs"]
 mod memory_stand_in;
+#[path = "../support/recall_support/mod.rs"]
+mod recall_support;
 #[path = "../support/recording_cli/mod.rs"]
 mod recording_cli;
 #[path = "../support/setup_support/mod.rs"]

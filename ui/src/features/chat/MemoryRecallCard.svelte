@@ -3,8 +3,7 @@
 
   import type { FoundRow } from '$lib/chat/memory-tools';
   import { noteUse, scriptUse, type SearchUse } from '$lib/chat/memory-use';
-  import type { MemoryRecallRows } from '$lib/chat/recall-rows';
-  import { blankToolCall } from '$lib/chat/tools';
+  import { type MemoryRecallRows, type RecallCardKey, recallToolCall } from '$lib/chat/recall-rows';
   import type { RowUse } from '$lib/chat/use-index';
   import { t } from '$lib/i18n/i18n.svelte';
 
@@ -12,9 +11,7 @@
   import MemoryFoundRow from './MemoryFoundRow.svelte';
   import { memoryCounts } from './recall-counts';
 
-  interface Props {
-    /** The id the use index knows the app's search of this message by. */
-    id: string;
+  interface Props extends RecallCardKey {
     /** The notes and scripts the app found for the message. */
     recall: MemoryRecallRows;
     /** What the reply did with them (nothing is known of their use without it). */
@@ -23,8 +20,7 @@
 
   let { id, recall, use }: Props = $props();
 
-  // The app's own search looks like one of the agent's: a call that finished, with the block it found as its output.
-  const call = $derived({ ...blankToolCall(id, 'note_search'), status: 'ok' as const, resultText: recall.text });
+  const call = $derived(recallToolCall(id, 'note_search', recall.text));
   const rows = $derived<FoundRow[]>([...recall.notes, ...recall.scripts]);
 
   function useOf(row: FoundRow): RowUse | null {
