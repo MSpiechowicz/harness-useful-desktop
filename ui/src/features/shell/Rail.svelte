@@ -49,11 +49,11 @@
 
   function placeIndicator(): void {
     const button = buttons[activeIndex];
-    if (!rail || !button) {
+    if (!list || !button) {
       return;
     }
 
-    const y = button.getBoundingClientRect().top - rail.getBoundingClientRect().top;
+    const y = button.getBoundingClientRect().top - list.getBoundingClientRect().top;
 
     if (placed) {
       moveSpring(indicatorY, y);
@@ -138,6 +138,10 @@
     <PaletteButton compact={!expanded} />
   </div>
 
+  <!-- The list scrolls when the window is too short, so the footer (update notice, status) always stays visible. The
+       indicator lives inside the scrolled content and scrolls with the rows. -->
+  <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+  <div bind:this={list} class="relative flex flex-col gap-[3px] px-[8px] py-[8px]">
   <!-- Active indicator: a tinted row that springs between destinations. Pixel insets (not rem) keep it centered on
        the fixed-width rail at any root font size. -->
   <span
@@ -148,7 +152,6 @@
   ></span>
 
   <!-- 3px between rows (as between the chats under Chat), so neighbouring highlights never touch. -->
-  <div bind:this={list} class="flex flex-col gap-[3px] px-[8px] py-[8px]">
     {#each VIEWS as view, index (view.id)}
       <!-- A group heading, or a hairline in its place while collapsed: one height for both, so rows never jump. -->
       {#if view.section}
@@ -192,6 +195,7 @@
     {#if ui.roomForLabels}
       <div class="flex">{@render action(expanded ? t('shell.rail.collapse') : t('shell.rail.expand'), expanded ? PanelLeftClose : PanelLeftOpen, 'mod+b', () => ui.toggleRail(), expanded)}</div>
     {/if}
+  </div>
   </div>
 
   <RailFooter {expanded} />
