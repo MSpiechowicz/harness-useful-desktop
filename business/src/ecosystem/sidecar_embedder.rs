@@ -201,7 +201,13 @@ impl EmbedderTracker {
                 self.show(EmbedderPhase::Downloading, fraction(received, total));
             }
             EmbedderEvent::Verifying => self.show(EmbedderPhase::Verifying, None),
-            EmbedderEvent::Loading => self.show(EmbedderPhase::Loading, None),
+            EmbedderEvent::Loading => {
+                // A model reloaded on demand after `idle` prints `loading` but no second `ready`:
+                // while `ready` is shown, the reload is not a state change.
+                if self.state.phase != EmbedderPhase::Ready {
+                    self.show(EmbedderPhase::Loading, None);
+                }
+            }
             EmbedderEvent::Ready { model } => {
                 self.serve(model);
             }
