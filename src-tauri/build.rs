@@ -95,6 +95,7 @@ const COMMANDS: &[&str] = &[
     "harness_clear_binary",
     "config_view",
     "omp_map_role",
+    "omp_set_role",
     "skills_set_role",
     "extensions_view",
     "commands_catalog",

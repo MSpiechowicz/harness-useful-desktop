@@ -6,11 +6,10 @@
   import Spinner from '$lib/components/Spinner.svelte';
   import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
-  import { ipc } from '$lib/ipc/client';
-  import { project } from '$lib/stores/project.svelte';
 
-  import type { HarnessModels, ModelScope } from '../routines/harness-models.svelte';
-  import type { SelectorRules } from './role-selectors';
+  import type { HarnessModels } from '../routines/harness-models.svelte';
+  import { RoleScope } from './role-scope.svelte';
+  import { joinSelector, modelToAsk, splitSelector, type SelectorRules } from './role-selectors';
 
   type Kind = 'map' | 'change';
 
@@ -23,7 +22,7 @@
     /** Where the models the harness offers are asked, once for every picker of the table. */
     catalog: HarnessModels;
     rules: SelectorRules;
-    /** The model the row has now, filled in for the person to edit. */
+    /** The row's model as written, with its thinking level. Its model is filled in for the person to edit. */
     current?: string;
     /** Models the file already uses, offered after the harness's own values and before every model it offers. */
     suggestions: string[];
@@ -44,25 +43,24 @@
 
   const words = $derived(WORDS[kind]);
   const typed = $derived(value.trim());
-  // The harness is asked in the open project: what it offers can depend on the project's settings. With no project open
-  // it is asked in the routines workspace, the folder agents run in when no project is theirs.
-  let workspace = $state<string | null>(null);
-  const folder = $derived(project.active?.path ?? workspace);
-  const scope = $derived<ModelScope | null>(folder ? { harness, project: folder } : null);
+  // The row's level stays with the new model, so the field holds only the model.
+  const parts = $derived(splitSelector(rules, current));
+  const where = new RoleScope(() => harness);
+  const scope = $derived(where.current);
   const offered = $derived(scope ? catalog.modelsOf(scope) : null);
   const loading = $derived(scope !== null && offered === null && !catalog.failed(scope));
   const failed = $derived(scope !== null && catalog.failed(scope));
   const available = $derived((offered ?? []).map((model) => rules.selectorOf(model)).filter((text) => rules.isValid(text)));
   const choices = $derived([...new Set([...rules.aliases, ...suggestions, ...available])]);
   // A model that is still the current one filters nothing: the person came to pick another.
-  const needle = $derived(typed === current ? '' : typed.toLowerCase());
+  const needle = $derived(typed === parts.model ? '' : typed.toLowerCase());
   const shown = $derived(choices.filter((text) => text.toLowerCase().includes(needle)));
   const invalid = $derived(typed !== '' && !rules.isValid(typed));
 
   // Each opening starts from the model the row has now.
   $effect(() => {
     if (open) {
-      value = untrack(() => current);
+      value = untrack(() => parts.model);
     }
   });
 
@@ -75,17 +73,55 @@
 
     if (scope) {
       void catalog.loadModels(scope);
-    } else if (!project.active && workspace === null) {
-      void findWorkspace();
+    } else {
+      void where.find();
     }
   });
 
-  async function findWorkspace(): Promise<void> {
-    try {
-      workspace = await ipc.invoke('routines_workspace', undefined);
-    } catch {
-      // No folder to ask in: the model is typed.
+  /** `selector` with the row's level when it names none and the new model offers that level. */
+  async function withKeptLevel(selector: string): Promise<string> {
+    const picked = splitSelector(rules, selector);
+
+    if (parts.level === null || picked.level !== null || rules.levelless.includes(picked.model)) {
+      return selector;
     }
+
+    // A quick pick can come before the folder or the harness's list is known: both are waited for.
+    const asked = await where.settled();
+
+    if (asked) {
+      await catalog.loadModels(asked);
+    }
+
+    // Read after the waits: the Thinking menu may have changed the level meanwhile.
+    const level = parts.level;
+
+    if (level === null) {
+      return selector;
+    }
+
+    const listed = asked ? catalog.modelsOf(asked) : null;
+    const model = modelToAsk(rules, picked.model, listed);
+
+    if (model === null) {
+      return rules.unlistedLevels.includes(level) ? joinSelector(rules, picked.model, level) : selector;
+    }
+
+    const option = listed?.find((candidate) => candidate.provider === model.provider && candidate.id === model.id);
+
+    // A model the harness does not reason with, or does not list at all, is not asked about: the level goes.
+    if (!asked || option?.reasoning === false || (listed !== null && option === undefined)) {
+      return selector;
+    }
+
+    await catalog.loadLevels(asked, model);
+
+    // The level may have been changed in the Thinking menu meanwhile: decide again for the new one.
+    if (parts.level !== level) {
+      return withKeptLevel(selector);
+    }
+
+    return catalog.levelsOf(asked, model)?.includes(level) ? joinSelector(rules, picked.model, level) : selector;
   }
 
   async function submit(selector: string): Promise<void> {
@@ -94,7 +130,7 @@
     }
 
     busy = true;
-    const done = await onpick(role, selector);
+    const done = await onpick(role, await withKeptLevel(selector));
     busy = false;
 
     if (done) {
@@ -113,10 +149,10 @@
   }
 </script>
 
-<Popover label={t('components.configView.roles.panel', { role })} kind="dialog" align="end" side="auto" matchTrigger={false} bind:open class="w-96">
+<Popover label={t('components.configView.roles.panel', { role })} kind="dialog" align="end" side="auto" matchTrigger={false} bind:open class="w-96" rootClass="w-full">
   {#snippet trigger({ props })}
-    <!-- Mapping is the one thing to do on a role that has no model, so it is the primary button. Changing one stays quiet. -->
-    <Button variant={kind === 'map' ? 'primary' : 'ghost'} {...props} aria-label={t(words.label, { role })}>{t(words.button)}</Button>
+    <!-- Map and Change are the same kind of button, as wide as the actions column, so they line up and none outshouts the rows. -->
+    <Button variant="secondary" class="w-full" {...props} aria-label={t(words.label, { role })}>{t(words.button)}</Button>
   {/snippet}
 
   <div class="flex flex-col gap-2">
@@ -137,7 +173,9 @@
     {#if invalid}
       <p class="px-1 text-xs text-fg-3" role="status">{t(rules.invalid)}</p>
     {:else}
-      <p class="px-1 text-xs text-fg-3">{t(words.hint)}</p>
+      <p class="px-1 text-xs text-fg-3">
+        {kind === 'change' && parts.level !== null ? t('components.configView.roles.changeHintKeeps', { level: parts.level }) : t(words.hint)}
+      </p>
     {/if}
 
     <!-- A list to pick from, not a choice that stays ticked, so the rows start at the field's edge with no check column. -->

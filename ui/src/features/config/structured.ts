@@ -28,7 +28,7 @@ export function groupOf(key: string): GroupId {
   return Object.hasOwn(KEY_GROUPS, key) ? KEY_GROUPS[key] : 'other';
 }
 
-const THINKING_LEVELS = ['off', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+const THINKING_LEVELS = ['off', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 
 /** Filled bars of the thinking meter; levels below "low" show an empty meter, and Claude Code's "max" fills it like "xhigh". */
 const METER_BARS: Readonly<Record<string, number>> = { low: 1, medium: 2, high: 3, xhigh: 4, max: 4 };

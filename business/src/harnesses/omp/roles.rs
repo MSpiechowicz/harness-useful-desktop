@@ -1,4 +1,5 @@
-//! The model roles Harness Skills uses with OMP and the one-click mapping of the missing ones.
+//! The model roles Harness Skills uses with OMP, the one-click mapping of the missing ones and
+//! changing the model of a role the settings map.
 //!
 //! Harness Skills writes `harness-useful-skills/roles.json` below the agent dir (`version` 1, the
 //! `roles`, the `agents` that use them and the roles in `inheritWhenAbsent` that follow the
@@ -13,7 +14,7 @@ use serde_json::Value;
 
 use super::config::user_settings;
 use super::paths::omp_paths;
-use super::roles_edit::{Edit, apply_edit};
+use super::roles_edit::{Edit, apply_edit, set_model};
 use crate::ecosystem::skills_paths::skills_data_path;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
@@ -27,6 +28,10 @@ const MAX_ROLES_BYTES: u64 = 16 * 1024;
 
 /// Most roles or agents one file may list.
 const MAX_ENTRIES: usize = 64;
+
+/// A key under `modelRoles` the settings may hold (OMP's own roles and any the user added).
+static ROLE_KEY: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$").expect("static regex is valid"));
 
 static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[a-z][a-z-]{0,39}$").expect("static regex is valid"));
 
@@ -201,11 +206,7 @@ pub fn map_role(env: &Env, role: &str, selector: &str) -> Result<()> {
 /// [`map_role`], running `before_write` after the edit is planned and before the file is
 /// replaced, where a change made meanwhile by another program is caught and refused.
 pub fn map_role_with(env: &Env, role: &str, selector: &str, before_write: impl FnOnce()) -> Result<()> {
-    if !SELECTOR.is_match(selector) || selector.ends_with(':') {
-        return Err(BusinessError::InvalidInput(
-            "the model must look like provider/model or provider/model:thinking".to_owned(),
-        ));
-    }
+    check_selector(selector)?;
 
     let paths = omp_paths(env, None);
     let skills = read_skills_roles(&paths)
@@ -232,4 +233,43 @@ pub fn map_role_with(env: &Env, role: &str, selector: &str, before_write: impl F
         |text| apply_edit(text, &edit),
         before_write,
     )
+}
+
+/// Sets the model of `role`, which `modelRoles` of the OMP settings maps already, to `selector`.
+/// Any role the file maps can change, not only a Harness Skills one. Only that value changes.
+/// `notFound` for a role the file does not map. See [`set_role_with`].
+pub fn set_role(env: &Env, role: &str, selector: &str) -> Result<()> {
+    set_role_with(env, role, selector, || {})
+}
+
+/// [`set_role`], running `before_write` after the edit is planned and before the file is
+/// replaced, where a change made meanwhile by another program is caught and refused.
+pub fn set_role_with(env: &Env, role: &str, selector: &str, before_write: impl FnOnce()) -> Result<()> {
+    if !ROLE_KEY.is_match(role) {
+        return Err(BusinessError::InvalidInput(format!("{role} is not a role name")));
+    }
+
+    check_selector(selector)?;
+
+    let (settings, _) = user_settings(&omp_paths(env, None));
+
+    edit_text_file(
+        &settings,
+        "the OMP settings",
+        SafeReader::DEFAULT_MAX_BYTES,
+        None,
+        |text| set_model(text, role, selector),
+        before_write,
+    )
+}
+
+/// Refuses a model that is not `provider/model[:thinking]`.
+fn check_selector(selector: &str) -> Result<()> {
+    if !SELECTOR.is_match(selector) || selector.ends_with(':') {
+        return Err(BusinessError::InvalidInput(
+            "the model must look like provider/model or provider/model:thinking".to_owned(),
+        ));
+    }
+
+    Ok(())
 }

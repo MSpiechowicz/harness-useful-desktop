@@ -53,6 +53,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   harness_clear_binary: { harness: 'omp' },
   config_view: { harness: 'omp', project: null },
   omp_map_role: { role: 'assess', selector: 'openai-codex/gpt-6.1-sol:high' },
+  omp_set_role: { role: 'research', selector: 'openai-codex/gpt-6.1-sol:high' },
   skills_set_role: { harness: 'claude', scope: 'user', project: null, role: 'frontend', selector: 'opus:high' },
   extensions_view: { harness: 'pi', project: null },
   commands_catalog: { harness: 'omp' },

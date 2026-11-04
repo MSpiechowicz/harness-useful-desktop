@@ -13,6 +13,8 @@ const SELECTOR = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:@+/-]*$/;
 /** The OMP model roles of the preview: Harness Skills roles that stay unmapped until `omp_map_role` maps them. */
 export class MockOmpRoles {
   private readonly mapped = new Map<string, string>();
+  /** Models set on the roles the preview's settings map already. */
+  private readonly changed = new Map<string, string>();
 
   map(role: string, selector: string): null {
     if (!SKILLS_ROLES.some((known) => known.role === role)) {
@@ -24,6 +26,20 @@ export class MockOmpRoles {
     }
 
     this.mapped.set(role, selector);
+
+    return null;
+  }
+
+  change(role: string, selector: string): null {
+    if (!SELECTOR.test(selector)) {
+      throw IpcFailure.from({ code: 'invalidInput', message: 'The model must look like provider/model or provider/model:thinking.' });
+    }
+
+    if (this.mapped.has(role)) {
+      this.mapped.set(role, selector);
+    } else {
+      this.changed.set(role, selector);
+    }
 
     return null;
   }
@@ -43,8 +59,13 @@ export class MockOmpRoles {
           }
 
           const added = [...this.mapped].map(([key, value]) => ({ key, value: { kind: 'text' as const, value } }));
+          const kept = field.value.value.map((entry) => {
+            const value = this.changed.get(entry.key);
 
-          return { ...field, value: { ...field.value, value: [...field.value.value, ...added] } };
+            return value === undefined ? entry : { ...entry, value: { kind: 'text' as const, value } };
+          });
+
+          return { ...field, value: { ...field.value, value: [...kept, ...added] } };
         }),
       };
     });

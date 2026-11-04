@@ -7,9 +7,10 @@ use std::path::{Path, PathBuf};
 
 use common::{env_at, write_file};
 use harness_business::BusinessError;
+use harness_business::env::Env;
 use harness_business::harness::Harness;
 use harness_business::harnesses::Omp;
-use harness_business::harnesses::omp::{map_role, map_role_with};
+use harness_business::harnesses::omp::{map_role, map_role_with, set_role_with};
 use harness_business::model::UnmappedRole;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
@@ -251,16 +252,35 @@ fn a_bad_role_or_model_is_refused() {
 
 #[test]
 fn a_file_changed_since_it_was_read_is_not_overwritten() {
-    let home = Home::new(SETTINGS, Some(ROLES));
-    let changed = format!("{SETTINGS}extra: true\n");
+    type EditWith = fn(&Env, &str, &str, Box<dyn FnOnce()>) -> Result<(), BusinessError>;
 
-    let result = map_role_with(&env_at(home.dir.path()), "assess", SELECTOR, || {
-        fs::write(home.settings(), &changed).unwrap();
-    });
+    // Mapping a missing role and changing the model of a mapped one.
+    let edits: [(&str, EditWith); 2] = [
+        ("assess", |env, role, selector, before| {
+            map_role_with(env, role, selector, before)
+        }),
+        ("research", |env, role, selector, before| {
+            set_role_with(env, role, selector, before)
+        }),
+    ];
 
-    assert!(matches!(result, Err(BusinessError::Conflict(_))));
-    assert_eq!(home.text(), changed);
-    assert_eq!(home.leftovers(), Vec::<String>::new());
+    for (role, edit) in edits {
+        let home = Home::new(SETTINGS, Some(ROLES));
+        let changed = format!("{SETTINGS}extra: true\n");
+        let settings = home.settings();
+        let write = changed.clone();
+
+        let result = edit(
+            &env_at(home.dir.path()),
+            role,
+            SELECTOR,
+            Box::new(move || fs::write(settings, write).unwrap()),
+        );
+
+        assert!(matches!(result, Err(BusinessError::Conflict(_))), "{role}");
+        assert_eq!(home.text(), changed);
+        assert_eq!(home.leftovers(), Vec::<String>::new());
+    }
 }
 
 #[test]

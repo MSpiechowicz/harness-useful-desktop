@@ -1,4 +1,5 @@
 import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+import type { ModelOption } from '$lib/ipc/bindings/ModelOption';
 import type { MessageKey } from '$lib/i18n/i18n.svelte';
 
 /** What a model role row of a harness accepts and how the picker words it. */
@@ -10,6 +11,51 @@ export interface SelectorRules {
   aliases: readonly string[];
   /** How a model the harness offers is written in a role row. */
   selectorOf: (model: { provider: string; id: string }) => string;
+  /** Every thinking level a row may end with (`model:level`); the ones a model takes are asked of the harness. */
+  levels: readonly string[];
+  /** The models that take no level at all, such as `inherit`. */
+  levelless: readonly string[];
+  /** Levels offered for a model the harness does not list (a Claude Code alias such as `opus`); empty when there are none to offer. */
+  unlistedLevels: readonly string[];
+  /** Whether the model part of a row names the provider (`provider/model`), so the model to ask about is read from the row itself. */
+  namesProvider: boolean;
+}
+
+/** A role row's model and thinking level. */
+export interface SelectorParts {
+  model: string;
+  level: string | null;
+}
+
+/** `text` split into its model and a trailing `:level` the harness knows. */
+export function splitSelector(rules: SelectorRules, text: string): SelectorParts {
+  const colon = text.lastIndexOf(':');
+  const suffix = colon > 0 ? text.slice(colon + 1) : '';
+
+  return rules.levels.includes(suffix) ? { model: text.slice(0, colon), level: suffix } : { model: text, level: null };
+}
+
+/** `model` with `level` appended, or bare when there is none or the model takes none. */
+export function joinSelector(rules: SelectorRules, model: string, level: string | null): string {
+  return level === null || rules.levelless.includes(model) ? model : `${model}:${level}`;
+}
+
+/** The model to ask the harness about for the levels of `model` (a row's model part), null when it is not one the harness lists. */
+export function modelToAsk(rules: SelectorRules, model: string, listed: readonly ModelOption[] | null): { provider: string; id: string } | null {
+  if (rules.levelless.includes(model)) {
+    return null;
+  }
+
+  if (rules.namesProvider) {
+    const slash = model.indexOf('/');
+
+    return slash > 0 ? { provider: model.slice(0, slash), id: model.slice(slash + 1) } : null;
+  }
+
+  // A bare-ID row may still name the provider (Claude Code takes `anthropic/claude-…`).
+  const option = listed?.find((candidate) => [rules.selectorOf(candidate), `${candidate.provider}/${rules.selectorOf(candidate)}`].includes(model));
+
+  return option ? { provider: option.provider, id: option.id } : null;
 }
 
 const withProvider = (model: { provider: string; id: string }): string => `${model.provider}/${model.id}`;
@@ -19,6 +65,8 @@ const CLAUDE_MODEL = /^(inherit|opus|sonnet|haiku|fable|claude-[a-z0-9][a-z0-9.-
 const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 const OPENCODE_VARIANTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 const CODEX_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+/** The thinking levels OMP reads after a role's model. */
+const OMP_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
 const PROVIDER = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const MODEL = /^[A-Za-z0-9](?:[A-Za-z0-9._:/@+-]{0,198}[A-Za-z0-9._@+-])?$/;
 const OMP = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:@+/-]*$/;
@@ -60,6 +108,10 @@ const RULES: Partial<Record<HarnessId, SelectorRules>> = {
     invalid: 'components.configView.roles.invalidOmp',
     aliases: [],
     selectorOf: withProvider,
+    levels: OMP_LEVELS,
+    levelless: [],
+    unlistedLevels: [],
+    namesProvider: true,
   },
   claude: {
     isValid: isClaude,
@@ -67,6 +119,10 @@ const RULES: Partial<Record<HarnessId, SelectorRules>> = {
     invalid: 'components.configView.roles.invalidClaude',
     aliases: ['opus', 'sonnet', 'haiku', 'fable', 'inherit'],
     selectorOf: bareId,
+    levels: CLAUDE_EFFORTS,
+    levelless: ['inherit'],
+    unlistedLevels: CLAUDE_EFFORTS,
+    namesProvider: false,
   },
   opencode: {
     isValid: isOpenCode,
@@ -74,6 +130,10 @@ const RULES: Partial<Record<HarnessId, SelectorRules>> = {
     invalid: 'components.configView.roles.invalidOpenCode',
     aliases: ['inherit'],
     selectorOf: withProvider,
+    levels: OPENCODE_VARIANTS,
+    levelless: ['inherit'],
+    unlistedLevels: [],
+    namesProvider: true,
   },
   codex: {
     isValid: isCodex,
@@ -81,6 +141,10 @@ const RULES: Partial<Record<HarnessId, SelectorRules>> = {
     invalid: 'components.configView.roles.invalidCodex',
     aliases: ['inherit'],
     selectorOf: bareId,
+    levels: CODEX_EFFORTS,
+    levelless: ['inherit'],
+    unlistedLevels: CODEX_EFFORTS,
+    namesProvider: false,
   },
 };
 

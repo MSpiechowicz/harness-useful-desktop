@@ -69,6 +69,7 @@ mod deny_claude;
 mod deny_codex;
 mod mock_fixtures;
 mod omp_roles;
+mod omp_set_role;
 mod omp_views;
 mod opencode2_asks_mapper;
 mod opencode2_mapper;

@@ -17,6 +17,7 @@ type HarnessCommands =
   | 'harness_clear_binary'
   | 'config_view'
   | 'omp_map_role'
+  | 'omp_set_role'
   | 'skills_set_role'
   | 'extensions_view'
   | 'commands_catalog';
@@ -110,6 +111,7 @@ export function harnessHandlers(state: MockState): Pick<Handlers, HarnessCommand
     },
 
     omp_map_role: ({ role, selector }) => ompRoles.map(role, selector),
+    omp_set_role: ({ role, selector }) => ompRoles.change(role, selector),
 
     skills_set_role: ({ harness, scope, role, selector }) => skillsRoles.change(harness, scope, role, selector, fixtures.config[harness]),
 

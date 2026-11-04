@@ -1,9 +1,11 @@
-//! A minimal, line-based edit of OMP's `config.yml` that maps one Harness Skills role.
+//! Minimal, line-based edits of OMP's `config.yml`: mapping one Harness Skills role, and
+//! changing the model of a role that is mapped.
 //!
-//! The file is never re-serialized: lines are inserted into the existing `modelRoles` and
-//! `task.agentModelOverrides` blocks (or the blocks are created at the end), so comments, order
-//! and formatting stay byte-for-byte. The result must parse and must equal the old document plus
-//! exactly the added keys, otherwise the edit is refused.
+//! The file is never re-serialized. A mapping inserts lines into the existing `modelRoles` and
+//! `task.agentModelOverrides` blocks (or creates the blocks at the end), a change replaces only
+//! the value on the role's line, so comments, order and formatting stay byte-for-byte. The result
+//! must parse and must equal the old document plus exactly the intended change, otherwise the
+//! edit is refused.
 
 use serde_json::{Map, Value};
 
@@ -51,6 +53,80 @@ pub fn apply_edit(text: &str, edit: &Edit<'_>) -> Result<String> {
     }
 
     Ok(edited)
+}
+
+/// The text of `config.yml` with the model of `role`, which `modelRoles` maps already, set to
+/// `selector`. Only that value changes: its quotes, a trailing comment and every other byte stay.
+pub fn set_model(text: &str, role: &str, selector: &str) -> Result<String> {
+    let old = parse(text)?;
+
+    match old.get(MODEL_ROLES).and_then(|roles| roles.get(role)) {
+        Some(Value::String(_)) => {}
+        Some(_) => return Err(unsupported()),
+        None => return Err(BusinessError::NotFound(format!("the {role} role of the OMP settings"))),
+    }
+
+    let mut lines = Lines::new(text);
+    let root = Span {
+        from: 0,
+        to: lines.lines.len(),
+        indent: 0,
+        after: None,
+    };
+    let block = lines.find_key(&root, MODEL_ROLES)?.ok_or_else(unsupported)?;
+    let block = lines.block_of(block);
+    let line = lines.find_entry(&block, role)?.ok_or_else(unsupported)?;
+
+    let current = content(&lines.lines[line]).to_owned();
+    let (head, tail) = split_value(&current, role).ok_or_else(unsupported)?;
+    lines.set_content(line, &format!("{head}{selector}{tail}"));
+
+    let edited = lines.text();
+    let mut expected = old;
+    object_at(&mut expected, &[MODEL_ROLES]).insert(role.to_owned(), Value::String(selector.to_owned()));
+
+    // Whatever the line search did not see (a duplicate key, an escape in the quotes) shows up here.
+    if parse(&edited).ok() != Some(expected) {
+        return Err(unsupported());
+    }
+
+    Ok(edited)
+}
+
+/// The line of a `key: value` entry before its value and after it (closing quote, spaces and
+/// comment); `None` for a value that is not one plain or simply quoted scalar.
+fn split_value<'a>(line: &'a str, key: &str) -> Option<(&'a str, &'a str)> {
+    let indent = line.len() - line.trim_start().len();
+    let after_key = indent + key.len();
+    let rest = line.get(after_key..)?.strip_prefix(':')?;
+    let start = after_key + 1 + (rest.len() - rest.trim_start_matches([' ', '\t']).len());
+    let value = &line[start..];
+
+    let end = match value.chars().next()? {
+        quote @ ('"' | '\'') => {
+            let close = value[1..].find(quote)? + 1;
+
+            // An escape or a doubled quote would make the replaced text mean something else.
+            if value[1..close].contains('\\') || value[close + 1..].starts_with(quote) {
+                return None;
+            }
+
+            start + 1..start + close
+        }
+        '#' | '|' | '>' | '&' | '*' | '!' | '[' | '{' => return None,
+        _ => {
+            // A comment starts at a `#` after a space or a tab.
+            let comment = value
+                .char_indices()
+                .find(|&(at, ch)| ch == '#' && value[..at].ends_with([' ', '\t']))
+                .map(|(at, _)| at);
+            let stripped = comment.map_or(value, |at| &value[..at]);
+
+            start..start + stripped.trim_end().len()
+        }
+    };
+
+    (!end.is_empty()).then(|| (&line[..end.start], &line[end.end..]))
 }
 
 fn parse(text: &str) -> Result<Value> {
@@ -189,6 +265,29 @@ impl Lines {
             }
 
             return Ok(Some(index));
+        }
+
+        Ok(None)
+    }
+
+    /// The line of the `key: value` entry at the level of `span`, if there is one.
+    fn find_entry(&self, span: &Span, key: &str) -> Result<Option<usize>> {
+        for index in span.from..span.to {
+            let line = content(&self.lines[index]);
+
+            if is_skipped(line) || indent_of(line)? != span.indent {
+                continue;
+            }
+
+            let is_entry = line
+                .trim_start()
+                .strip_prefix(key)
+                .and_then(|rest| rest.strip_prefix(':'))
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with([' ', '\t']));
+
+            if is_entry {
+                return Ok(Some(index));
+            }
         }
 
         Ok(None)

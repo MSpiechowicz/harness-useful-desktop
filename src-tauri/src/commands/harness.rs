@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use harness_business::BusinessError;
 use harness_business::env::Env;
 use harness_business::harness::{Harness, HarnessRegistry};
-use harness_business::harnesses::omp::map_role;
+use harness_business::harnesses::omp::{map_role, set_role};
 use harness_business::harnesses::set_skills_role;
 use harness_business::model::{
     BinaryOverride, CommandSpec, ConfigLayer, ConfigView, ExtensionsView, HarnessId, HarnessSummary,
@@ -107,6 +107,16 @@ pub async fn omp_map_role(state: State<'_, AppState>, role: String, selector: St
     let env = state.env.clone();
 
     blocking(move || Ok(map_role(&env, &role, &selector)?)).await
+}
+
+/// Changes the model of a role that `modelRoles` of OMP's settings maps: only the value on that
+/// role's line changes. `invalidInput` for a model that is not `provider/model[:thinking]`,
+/// `notFound` for a role the file does not map, `conflict` when the file changed meanwhile.
+#[tauri::command]
+pub async fn omp_set_role(state: State<'_, AppState>, role: String, selector: String) -> CommandResult<()> {
+    let env = state.env.clone();
+
+    blocking(move || Ok(set_role(&env, &role, &selector)?)).await
 }
 
 /// Changes the model of one Harness Skills role in `harness-useful-skills/models.yml` of Claude

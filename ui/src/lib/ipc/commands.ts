@@ -101,6 +101,7 @@ export const commands = {
   harness_clear_binary: cmd<{ harness: HarnessId }, HarnessSummary>(),
   config_view: cmd<{ harness: HarnessId; project: string | null }, ConfigView>(),
   omp_map_role: cmd<{ role: string; selector: string }, null>(),
+  omp_set_role: cmd<{ role: string; selector: string }, null>(),
   skills_set_role: cmd<{ harness: HarnessId; scope: ConfigLayer; project: string | null; role: string; selector: string }, null>(),
   extensions_view: cmd<{ harness: HarnessId; project: string | null }, ExtensionsView>(),
   commands_catalog: cmd<{ harness: HarnessId }, CatalogCommand[]>(),

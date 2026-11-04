@@ -173,6 +173,7 @@ pub fn run() -> ExitCode {
             commands::harness::harness_clear_binary,
             commands::harness::config_view,
             commands::harness::omp_map_role,
+            commands::harness::omp_set_role,
             commands::harness::skills_set_role,
             commands::harness::extensions_view,
             commands::harness::commands_catalog,

@@ -7,8 +7,11 @@
 
   import { HarnessModels } from '../routines/harness-models.svelte';
   import RolePicker from './RolePicker.svelte';
+  import RoleThinking from './RoleThinking.svelte';
   import type { RoleEditing } from './role-edit';
-  import { meterBars, METER_SIZE, type RoleRow } from './structured';
+  import { splitSelector } from './role-selectors';
+  import type { RoleRow } from './structured';
+  import ThinkingLevel from './ThinkingLevel.svelte';
 
   interface Props {
     rows: RoleRow[];
@@ -24,9 +27,19 @@
 
   // The models the harness offers, asked once while the table is shown and shared by every row's picker.
   const catalog = new HarnessModels(ipc);
-  const BAR_HEIGHTS = ['h-[4px]', 'h-[7px]', 'h-[10px]', 'h-[12px]'];
-  // The models the roles already use, offered when mapping or changing one.
-  const inUse = $derived([...new Set(rows.map((row) => row.text))]);
+  // The models the roles already use, offered when mapping or changing one. The level stays with the row, so they are offered without it.
+  const inUse = $derived([...new Set(rows.map((row) => (editing ? splitSelector(editing.rules, row.text).model : row.text)))]);
+  // A row's level opens a menu when its model can change and takes levels at all.
+  // A level the harness's rules do not know (OMP `:none`) is left as written: editing would put a second level after it.
+  const levelEditable = (row: RoleRow): boolean => {
+    if (!editing?.change) {
+      return false;
+    }
+
+    const parts = splitSelector(editing.rules, row.text);
+
+    return !editing.rules.levelless.includes(parts.model) && parts.level === row.ref.level;
+  };
   // Change and Map share one right-aligned actions column.
   const actions = $derived(Boolean(editing?.change || editing?.map));
   // One height for every row, a mapped one, one with a Change button and one with a Map button, so none of them moves the table.
@@ -44,7 +57,7 @@
       <th scope="col" class={HEAD_CLASS}>{t('components.configView.roles.model')}</th>
       <th scope="col" class={cx(HEAD_CLASS, 'w-[120px]')}>{t('components.configView.roles.thinking')}</th>
       {#if actions}
-        <th scope="col" class={cx(HEAD_CLASS, 'w-[88px]')}><span class="sr-only">{t('components.configView.roles.actions')}</span></th>
+        <th scope="col" class={cx(HEAD_CLASS, 'w-[104px]')}><span class="sr-only">{t('components.configView.roles.actions')}</span></th>
       {/if}
     </tr>
   </thead>
@@ -61,17 +74,12 @@
           >
         </td>
         <td>
-          {#if row.ref.level === null}
+          {#if editing?.change && levelEditable(row)}
+            <RoleThinking role={row.role} harness={editing.harness} {catalog} rules={editing.rules} current={row.text} {needle} onpick={editing.change} />
+          {:else if row.ref.level === null}
             <span class="text-fg-3">—</span>
           {:else}
-            <span class="inline-flex items-center gap-2 text-xs text-fg-2">
-              <span class="inline-flex h-[12px] items-end gap-[2px]" aria-hidden="true">
-                {#each { length: METER_SIZE } as _, bar (bar)}
-                  <i class={cx('w-[3px] rounded-[1px]', BAR_HEIGHTS[bar], bar < meterBars(row.ref.level) ? 'bg-accent' : 'bg-surface-4')}></i>
-                {/each}
-              </span>
-              <HighlightedText text={row.ref.level} indices={matchIndices(row.ref.level, needle)} />
-            </span>
+            <ThinkingLevel level={row.ref.level} {needle} />
           {/if}
         </td>
         {#if actions}

@@ -38,7 +38,7 @@ export function unmappedIn(view: ConfigView, sectionId: string): UnmappedRole[] 
   return view.harness === 'omp' && SETTINGS_SECTIONS.includes(sectionId) ? (view.unmappedRoles ?? []) : [];
 }
 
-/** What the Model roles card of `section` can do: map the missing roles of OMP, change the rows of a Harness Skills models file. */
+/** What the Model roles card of `section` can do: map the missing roles of OMP, change the rows of OMP's settings and of a Harness Skills models file. */
 export function roleEditingIn(view: ConfigView, section: ConfigSection): RoleEditing | undefined {
   const rules = selectorRules(view.harness);
 
@@ -47,7 +47,10 @@ export function roleEditingIn(view: ConfigView, section: ConfigSection): RoleEdi
   }
 
   if (view.harness === 'omp') {
-    return { harness: view.harness, rules, unmapped: unmappedIn(view, section.id), map: mapRole };
+    // The settings file is the one OMP's edits write. A project's settings stay read-only.
+    const settings = SETTINGS_SECTIONS.includes(section.id) && section.error === null;
+
+    return { harness: view.harness, rules, unmapped: unmappedIn(view, section.id), map: mapRole, change: settings ? changeOmpRole : undefined };
   }
 
   const editable = SKILLS_HARNESSES.includes(view.harness) && SKILLS_MODELS_SECTIONS.includes(section.id) && section.error === null;
@@ -71,6 +74,19 @@ async function mapRole(role: string, selector: string): Promise<boolean> {
     await ipc.invoke('omp_map_role', { role, selector });
   } catch (error) {
     return fail(t('components.configView.roles.mapFailed', { role }), error);
+  }
+
+  await configView.refresh({ quiet: true });
+
+  return true;
+}
+
+/** Changes the model of a role row in OMP's settings. The view re-reads, so the row shows it. Says why when it fails. */
+async function changeOmpRole(role: string, selector: string): Promise<boolean> {
+  try {
+    await ipc.invoke('omp_set_role', { role, selector });
+  } catch (error) {
+    return fail(t('components.configView.roles.changeFailed', { role }), error);
   }
 
   await configView.refresh({ quiet: true });

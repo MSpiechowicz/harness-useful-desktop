@@ -100,7 +100,8 @@ describe('Mapping a Harness Skills role in OMP', () => {
     await waitFor(() => expect(within(rowOf(table, 'assess')).getByText('gpt-6.1-sol')).toBeInTheDocument());
     expect(invoke).toHaveBeenCalledWith('omp_map_role', { role: 'assess', selector: 'openai-codex/gpt-6.1-sol:high' });
     expect(within(rowOf(table, 'assess')).getByText('high')).toBeInTheDocument();
-    expect(within(rowOf(table, 'assess')).queryByRole('button')).toBeNull();
+    expect(within(rowOf(table, 'assess')).queryByRole('button', { name: 'Map assess to a model' })).toBeNull();
+    expect(within(rowOf(table, 'assess')).getByRole('button', { name: 'Change the model of assess' })).toBeInTheDocument();
     expect(within(rowOf(table, 'review')).getByText('Not mapped · uses default')).toBeInTheDocument();
   });
 
@@ -160,5 +161,153 @@ describe('Mapping a Harness Skills role in OMP', () => {
     expect(unmappedIn(view, 'user.mcp')).toEqual([]);
     expect(unmappedIn({ ...view, harness: 'claude' }, 'user.settings')).toEqual([]);
     expect(unmappedIn({ harness: 'omp', sections: [], notices: [] }, 'user.settings')).toEqual([]);
+  });
+});
+
+describe('Changing the model of a role in OMP', () => {
+  it('offers Change on every mapped row of the settings', async () => {
+    const table = await openTable();
+
+    for (const role of ['default', 'smol']) {
+      expect(within(rowOf(table, role)).getAllByRole('button')).toHaveLength(2);
+      expect(within(rowOf(table, role)).getByRole('button', { name: `Thinking level of ${role}: Default` })).toBeInTheDocument();
+      expect(within(rowOf(table, role)).getByRole('button', { name: `Change the model of ${role}` })).toHaveTextContent('Change');
+    }
+
+    // The earlier tests mapped review in the preview backend, so it has turned into a row that Change edits too.
+    expect(within(rowOf(table, 'review')).getByRole('button', { name: 'Change the model of review' })).toBeInTheDocument();
+  });
+
+  it('starts from the model the row has, saves the one chosen and shows it in the row', async () => {
+    const invoke = vi.spyOn(ipc, 'invoke');
+    const table = await openTable();
+
+    await fireEvent.click(within(rowOf(table, 'smol')).getByRole('button', { name: 'Change the model of smol' }));
+    const field = (await screen.findByRole('textbox', { name: 'Model for smol' })) as HTMLInputElement;
+    expect(field.value).toBe('anthropic/claude-haiku-4-5');
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'openai/gpt-5' }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('omp_set_role', { role: 'smol', selector: 'openai/gpt-5' }));
+    await waitFor(() => expect(within(rowOf(table, 'smol')).getByText('gpt-5')).toBeInTheDocument());
+    expect(within(rowOf(table, 'smol')).getByText('openai/')).toBeInTheDocument();
+  });
+
+  it('says why a model could not be changed', async () => {
+    vi.spyOn(ipc, 'invoke').mockRejectedValue({ code: 'conflict', message: 'The OMP settings changed' });
+    renderCard();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Change the model of default' }));
+    const field = await screen.findByRole('textbox', { name: 'Model for default' });
+    await fireEvent.input(field, { target: { value: 'openai-codex/gpt-6.1-sol:high' } });
+    await fireEvent.keyDown(field, { key: 'Enter' });
+
+    await waitFor(() => expect(toasts.items).toHaveLength(1));
+    expect(toasts.items[0]).toMatchObject({ title: 'Could not change default', description: 'The OMP settings changed', tone: 'danger' });
+  });
+
+  it('keeps the roles of a project or of a broken file read-only', () => {
+    const view: ConfigView = { harness: 'omp', sections: [], notices: [] };
+    const section: ConfigSection = {
+      id: 'user.settings',
+      title: 'Settings',
+      description: null,
+      source: { path: '/cfg/config.yml', layer: 'user', profile: null, format: 'yaml', exists: true },
+      entries: [],
+      error: null,
+    };
+
+    expect(roleEditingIn(view, section)?.change).toBeTypeOf('function');
+    expect(roleEditingIn(view, { ...section, id: 'profile.settings' })?.change).toBeTypeOf('function');
+    expect(roleEditingIn(view, { ...section, id: 'project.settings', source: { ...section.source, layer: 'project' } })?.change).toBeUndefined();
+    expect(roleEditingIn(view, { ...section, error: 'bad yaml' })?.change).toBeUndefined();
+  });
+});
+
+describe('The thinking level of a role in OMP', () => {
+  it('leaves a level OMP does not take as written, so no second level is put after it', () => {
+    const roles: ConfigField = {
+      key: 'modelRoles',
+      value: {
+        kind: 'map',
+        value: [
+          { key: 'default', value: { kind: 'text', value: 'openai/gpt-5:none' } },
+          { key: 'smol', value: { kind: 'text', value: 'openai/gpt-5:low' } },
+        ],
+      },
+    };
+    const view: ConfigView = { harness: 'omp', sections: [], notices: [] };
+    const section: ConfigSection = {
+      id: 'user.settings',
+      title: 'Settings',
+      description: null,
+      source: { path: '/cfg/config.yml', layer: 'user', profile: null, format: 'yaml', exists: true },
+      entries: [roles],
+      error: null,
+    };
+
+    render(StructuredView, { props: { fields: [roles], query: '', label: 'Settings', format: 'yaml', roleEditing: roleEditingIn(view, section) } });
+    const table = screen.getByRole('table', { name: 'Model roles' });
+
+    expect(within(rowOf(table, 'default')).queryByRole('button', { name: /^Thinking level of / })).toBeNull();
+    expect(within(rowOf(table, 'default')).getByText('none')).toBeInTheDocument();
+    expect(within(rowOf(table, 'smol')).getByRole('button', { name: 'Thinking level of smol: low' })).toBeInTheDocument();
+  });
+
+  it('lists the levels the model offers and saves the one chosen after the model', async () => {
+    const invoke = vi.spyOn(ipc, 'invoke');
+    const table = await openTable();
+
+    await fireEvent.click(within(rowOf(table, 'default')).getByRole('button', { name: 'Thinking level of default: Default' }));
+    const menu = await screen.findByRole('menu', { name: 'Thinking level of default' });
+    await waitFor(() => expect(within(menu).getByRole('menuitemradio', { name: 'high' })).toBeInTheDocument());
+
+    expect(within(menu).getAllByRole('menuitemradio').map((item) => item.textContent?.trim())).toEqual(['Default', 'off', 'minimal', 'low', 'medium', 'high']);
+    expect(within(menu).getByRole('menuitemradio', { name: 'Default' })).toHaveAttribute('aria-checked', 'true');
+
+    await fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'high' }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('omp_set_role', { role: 'default', selector: 'anthropic/claude-sonnet-4-5:high' }));
+    await waitFor(() => expect(within(rowOf(table, 'default')).getByRole('button', { name: 'Thinking level of default: high' })).toBeInTheDocument());
+  });
+
+  it('keeps the level when the new model offers it, and starts the field from the model alone', async () => {
+    const invoke = vi.spyOn(ipc, 'invoke');
+    const table = await openTable();
+
+    await fireEvent.click(within(rowOf(table, 'default')).getByRole('button', { name: 'Change the model of default' }));
+    const field = (await screen.findByRole('textbox', { name: 'Model for default' })) as HTMLInputElement;
+    expect(field.value).toBe('anthropic/claude-sonnet-4-5');
+    expect(screen.getByText('Pick a model below, or type one and press Enter. It keeps high when the model offers it.')).toBeInTheDocument();
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'openai/gpt-5' }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('omp_set_role', { role: 'default', selector: 'openai/gpt-5:high' }));
+  });
+
+  it('takes a level typed with the model over the row\'s', async () => {
+    const invoke = vi.spyOn(ipc, 'invoke');
+    const table = await openTable();
+
+    await fireEvent.click(within(rowOf(table, 'default')).getByRole('button', { name: 'Change the model of default' }));
+    const field = await screen.findByRole('textbox', { name: 'Model for default' });
+    await fireEvent.input(field, { target: { value: 'openai/gpt-5:low' } });
+    await fireEvent.keyDown(field, { key: 'Enter' });
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('omp_set_role', { role: 'default', selector: 'openai/gpt-5:low' }));
+  });
+
+  it('drops the level for a model that does not reason and says it has none', async () => {
+    const invoke = vi.spyOn(ipc, 'invoke');
+    const table = await openTable();
+
+    await fireEvent.click(within(rowOf(table, 'default')).getByRole('button', { name: 'Change the model of default' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'ollama/qwen3-coder:30b' }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('omp_set_role', { role: 'default', selector: 'ollama/qwen3-coder:30b' }));
+
+    await waitFor(() => expect(within(rowOf(table, 'default')).getByRole('button', { name: 'Thinking level of default: Default' })).toBeInTheDocument());
+    await fireEvent.click(within(rowOf(table, 'default')).getByRole('button', { name: 'Thinking level of default: Default' }));
+    expect(await screen.findByText('This model has no thinking levels.')).toBeInTheDocument();
+    expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent?.trim())).toEqual(['Default']);
   });
 });
