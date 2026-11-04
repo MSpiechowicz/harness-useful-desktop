@@ -1,3 +1,10 @@
+# [0.54.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.53.0...v0.54.0) (2026-11-04)
+
+
+### Features
+
+* **ui:** confirm chat close, title and description on every toast, model roles picker lists harness models ([f8a157b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f8a157b13ac600b5743bd800bf51b25db2f31614))
+
 # [0.53.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.52.2...v0.53.0) (2026-11-03)
 
 
