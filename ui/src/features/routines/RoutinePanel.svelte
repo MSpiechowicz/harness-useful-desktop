@@ -33,8 +33,6 @@
 
   interface Props {
     open: boolean;
-    /** Fills the column beside the list instead of sliding in over it. */
-    inline: boolean;
     view: RoutineView | null;
     /** The projects on this computer, which the routine's scope is named by. */
     projects: ProjectScope[];
@@ -51,7 +49,7 @@
     handlers: RoutineHandlers;
   }
 
-  let { open, inline, view, projects, running, busy, sharing, canUpdate, projectKnown, handlers }: Props = $props();
+  let { open, view, projects, running, busy, sharing, canUpdate, projectKnown, handlers }: Props = $props();
 
   const routine = $derived(view?.routine ?? null);
   const team = $derived(view?.origin === 'team');
@@ -98,7 +96,6 @@
 
 <SidePanel
   {open}
-  {inline}
   title={view ? routineTitle(view) : ''}
   subtitle={routine ? `${whenText(routine.when)} · ${scope}${team ? ` · ${t('routines.source.team')}` : ''}` : (view?.id ?? '')}
   onclose={handlers.close}

@@ -81,27 +81,27 @@ export function sortOf(key: string, usefulKnown = true): KnowledgeSort {
  */
 export function docColumns(usefulness = false, authors = false): Column[] {
   const useful: Column[] = [
-    { key: 'useful', label: t('knowledge.column.useful'), width: COLUMN_WIDTH.useful, from: 'xl', sortable: true, descFirst: true },
-    { key: 'lastUseful', label: t('knowledge.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, from: 'xl', sortable: true, descFirst: true },
+    { key: 'useful', label: t('knowledge.column.useful'), width: COLUMN_WIDTH.useful, sortable: true, descFirst: true },
+    { key: 'lastUseful', label: t('knowledge.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, sortable: true, descFirst: true },
   ];
 
   return [
     { key: 'title', label: t('knowledge.column.title'), sortable: true },
-    { key: 'format', label: t('knowledge.column.format'), width: '8.5rem', sortable: true, from: 'sm' },
-    { key: 'repos', label: t('knowledge.column.repos'), width: '12rem', sortable: true, from: 'md' },
-    { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', sortable: true, descFirst: true, from: 'lg' },
+    { key: 'format', label: t('knowledge.column.format'), width: '8.5rem', sortable: true },
+    { key: 'repos', label: t('knowledge.column.repos'), width: '12rem', sortable: true },
+    { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', sortable: true, descFirst: true },
     ...(usefulness ? useful : []),
-    ...(authors ? [{ key: 'addedBy', label: t('knowledge.column.addedBy'), width: COLUMN_WIDTH.author, from: 'xl' } satisfies Column] : []),
-    { key: 'updated', label: t('knowledge.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },
+    ...(authors ? [{ key: 'addedBy', label: t('knowledge.column.addedBy'), width: COLUMN_WIDTH.author } satisfies Column] : []),
+    { key: 'updated', label: t('knowledge.column.updated'), width: '8rem', sortable: true, descFirst: true },
   ];
 }
 
 export function heldColumns(): Column[] {
   return [
     { key: 'title', label: t('knowledge.column.proposal'), sortable: true },
-    { key: 'client', label: t('knowledge.column.client'), width: '11rem', sortable: true, from: 'sm' },
-    { key: 'project', label: t('knowledge.column.project'), width: '13rem', sortable: true, from: 'md' },
-    { key: 'proposed', label: t('knowledge.column.proposed'), width: '10rem', sortable: true, descFirst: true, from: 'sm' },
+    { key: 'client', label: t('knowledge.column.client'), width: '11rem', sortable: true },
+    { key: 'project', label: t('knowledge.column.project'), width: '13rem', sortable: true },
+    { key: 'proposed', label: t('knowledge.column.proposed'), width: '10rem', sortable: true, descFirst: true },
   ];
 }
 

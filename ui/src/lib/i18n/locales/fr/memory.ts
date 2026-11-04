@@ -193,8 +193,6 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.notes.body.hidden.other': 'Cette note contient {count} caractères invisibles, affichés en rouge ci-dessous.',
   'memory.notes.count.one': '{count} note',
   'memory.notes.count.other': '{count} notes',
-  'memory.notes.detail.empty': 'Choisissez une note pour la lire',
-  'memory.scripts.detail.empty': 'Choisissez un script pour voir son code',
   'memory.menu.label': 'Autres actions',
   'memory.deleteAll.notes.action': 'Supprimer toutes les notes…',
   'memory.deleteAll.scripts.action': 'Supprimer tous les scripts…',

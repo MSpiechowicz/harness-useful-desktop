@@ -33,8 +33,6 @@
 
   interface Props {
     open: boolean;
-    /** The panel is a column of a wide view (not a slide-over). */
-    inline: boolean;
     /** The document as the list or its own read gave it. Null while one that is not on this page is being read. */
     doc: KnowledgeDocument | null;
     /** The document with its outline; null until it was read. */
@@ -59,7 +57,7 @@
     query: string;
   }
 
-  let { open, inline, doc, detail, status, error, options, query, onretry, onrename, onlinks, ondelete, onreplace, onreplacedrop, readOnly, onclose }: Props = $props();
+  let { open, doc, detail, status, error, options, query, onretry, onrename, onlinks, ondelete, onreplace, onreplacedrop, readOnly, onclose }: Props = $props();
 
   const readOnlyId = uid('knowledge-read-only');
 
@@ -179,7 +177,6 @@
 
 <SidePanel
   {open}
-  {inline}
   title={doc?.title ?? ''}
   subtitle={doc ? docSubtitle(doc) : ''}
   actions={doc ? rename : undefined}

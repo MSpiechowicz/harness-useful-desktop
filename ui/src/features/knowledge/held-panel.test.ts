@@ -27,7 +27,7 @@ function show(props: { detail: KnowledgeHeldItem | null; status?: 'ready' | 'err
   const onapprove = vi.fn();
   const onreject = vi.fn();
 
-  render(HeldPanel, { open: true, inline: true, item: props.item ?? BASE, detail: props.detail, status: props.status ?? 'ready', error: null, busy: false, onretry: () => {}, onapprove, onreject, onclose: () => {} });
+  render(HeldPanel, { open: true, item: props.item ?? BASE, detail: props.detail, status: props.status ?? 'ready', error: null, busy: false, onretry: () => {}, onapprove, onreject, onclose: () => {} });
 
   return { onapprove, onreject };
 }
@@ -60,7 +60,7 @@ describe('deciding on a proposal', () => {
 
   it('warns about hidden characters only from the whole text, not from the preview', () => {
     const hidden = `Retry‮ three times.`;
-    const { unmount } = render(HeldPanel, { open: true, inline: true, item: { ...BASE, text: hidden }, detail: null, status: 'loading', error: null, busy: false, onretry: () => {}, onapprove: () => {}, onreject: () => {}, onclose: () => {} });
+    const { unmount } = render(HeldPanel, { open: true, item: { ...BASE, text: hidden }, detail: null, status: 'loading', error: null, busy: false, onretry: () => {}, onapprove: () => {}, onreject: () => {}, onclose: () => {} });
 
     expect(screen.queryByRole('alert')).toBeNull();
     unmount();

@@ -21,8 +21,6 @@
 
   interface Props {
     open: boolean;
-    /** In a column of its own beside the table, not sliding in over it. */
-    inline: boolean;
     script: ScriptSummary | null;
     /** The script with its body; null until it was read. */
     detail: ScriptDetail | null;
@@ -40,7 +38,7 @@
     onclose: () => void;
   }
 
-  let { open, inline, script, detail, status, error, onretry, ontrust, trusting, onedit, onhide, ondelete, onclose }: Props = $props();
+  let { open, script, detail, status, error, onretry, ontrust, trusting, onedit, onhide, ondelete, onclose }: Props = $props();
 
   const look = NOTICE_LOOKS.warning;
   // The body read from the server is what an agent would run, so its hash wins over the list's once loaded.
@@ -55,7 +53,7 @@
   const reviewable = $derived(script !== null && !isHidden && needsReview(script));
 </script>
 
-<SidePanel {open} {inline} title={script?.name ?? ''} subtitle={script ? `${languageLabel(script.language)} · ${scopeText(script)}` : ''} mono {onclose}>
+<SidePanel {open} title={script?.name ?? ''} subtitle={script ? `${languageLabel(script.language)} · ${scopeText(script)}` : ''} mono {onclose}>
   {#if script}
     <SectionCard flat heading={t('memory.scripts.detail.description')}>
       <p class="text-sm leading-relaxed break-words text-fg-2">{script.description}</p>

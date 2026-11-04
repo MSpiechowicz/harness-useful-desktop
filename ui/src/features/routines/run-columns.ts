@@ -7,8 +7,8 @@ export function runColumns(): Column[] {
     { key: 'time', label: t('routines.runs.column.time'), width: '9rem' },
     { key: 'routine', label: t('routines.runs.column.routine') },
     { key: 'status', label: t('routines.runs.column.status'), width: '10.5rem' },
-    { key: 'duration', label: t('routines.runs.column.duration'), width: '7rem', align: 'end', from: 'sm' },
-    { key: 'trigger', label: t('routines.runs.column.trigger'), width: '9rem', from: 'md' },
-    { key: 'result', label: t('routines.runs.column.result'), width: '18rem', from: 'lg' },
+    { key: 'duration', label: t('routines.runs.column.duration'), width: '7rem', align: 'end' },
+    { key: 'trigger', label: t('routines.runs.column.trigger'), width: '9rem' },
+    { key: 'result', label: t('routines.runs.column.result'), width: '18rem' },
   ];
 }

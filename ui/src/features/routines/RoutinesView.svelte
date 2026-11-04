@@ -394,7 +394,7 @@
           </EmptyState>
         </div>
       {:else}
-        <DocSplit {openId} emptyIcon={CalendarClock} emptyMessage={t('routines.detail.empty')} onclose={() => void close()}>
+        <DocSplit {openId} onclose={() => void close()}>
           {#snippet body()}
             <FilterRow count={tn('routines.count', shown.length)}>
               <ScopeFilter options={scopeOptions} value={scope} onchange={(next) => (viewState.routinesScope = next)} />
@@ -428,10 +428,9 @@
             {/if}
           {/snippet}
 
-          {#snippet panel(inline)}
+          {#snippet panel()}
             <RoutinePanel
               open={openId !== null}
-              {inline}
               view={shownView}
               {projects}
               {running}

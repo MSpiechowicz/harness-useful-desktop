@@ -44,8 +44,6 @@
     filters: Snippet;
     /** Something quiet at the far end of that row, e.g. the hint to update Harness Memory. */
     hint?: Snippet;
-    /** What the empty detail column of a wide view says until a row is chosen. */
-    detailEmpty: string;
     tableLabel: string;
     /** Names the table for the widths the user gives its columns. */
     tableId: string;
@@ -64,8 +62,8 @@
     /** Opens the panel of a row, or closes it with null. */
     onopen: (id: T['id'] | null) => void;
     cell: Snippet<[T, Column]>;
-    /** The panel of the open row. It is given the way to close itself, which also puts the focus back on the row, and whether it fills a column (a wide view) or slides over the view's edge. */
-    panel: Snippet<[{ close: () => void; inline: boolean }]>;
+    /** The panel of the open row. It is given the way to close itself, which also puts the focus back on the row. It slides over the view's right edge. */
+    panel: Snippet<[{ close: () => void }]>;
   }
 
   let {
@@ -83,7 +81,6 @@
     count,
     filters,
     hint,
-    detailEmpty,
     tableLabel,
     tableId,
     columns,
@@ -128,8 +125,8 @@
   }
 </script>
 
-{#snippet column(inline: boolean)}
-  {@render panel({ close: () => void close(), inline })}
+{#snippet column()}
+  {@render panel({ close: () => void close() })}
 {/snippet}
 
 <DocStage>
@@ -154,7 +151,7 @@
       <EmptyState icon={EmptyIcon} title={emptyTitle} body={emptyBody} action={emptyAction} />
     </div>
   {:else}
-    <DocSplit openId={openId === null ? null : String(openId)} emptyIcon={EmptyIcon} emptyMessage={detailEmpty} onclose={() => void close()} panel={column}>
+    <DocSplit openId={openId === null ? null : String(openId)} onclose={() => void close()} panel={column}>
       {#snippet body()}
         <FilterRow {count} trailing={hint}>{@render filters()}</FilterRow>
 

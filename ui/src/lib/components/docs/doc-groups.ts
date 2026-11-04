@@ -44,15 +44,15 @@ export function sortDocs<V>(views: V[], sort: Sort | null, values: Record<string
   });
 }
 
-/** A column of a documents table: the classes of its `<col>` (width, when it shows) and of its header cell. */
+/** A column of a documents table. */
 export interface DocColumn {
   /** Names the column to `onsort`; a column with a key sorts. */
   key?: string;
   label: string;
   /** A column of switches or counts starts with the biggest, the others with the first in the alphabet. */
   descFirst?: boolean;
-  col?: string;
-  head?: string;
+  /** A CSS width such as `8rem`; the column without one takes what the others leave, and is never narrower than `MIN_FLEX_PX`. */
+  width?: string;
   /** The header's text lines up on the right, over a column of switches. */
   right?: boolean;
 }

@@ -328,7 +328,6 @@
   count={tn('memory.notes.count', total)}
   {filters}
   hint={combined ? undefined : hint}
-  detailEmpty={t('memory.notes.detail.empty')}
   tableLabel={t('memory.notes.table.label')}
   tableId="memory-notes"
   columns={noteColumns(usefulListed, authorsListed)}
@@ -376,10 +375,9 @@
     {/if}
   {/snippet}
 
-  {#snippet panel({ close, inline })}
+  {#snippet panel({ close })}
     <NotePanel
       open={openId !== null}
-      {inline}
       note={shown.note}
       detail={shown.detail}
       status={noteDetail.status}

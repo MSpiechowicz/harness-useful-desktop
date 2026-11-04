@@ -17,8 +17,6 @@
 
   interface Props {
     open: boolean;
-    /** Fills a column of the view, instead of sliding in over its edge. */
-    inline: boolean;
     /** The note, as the list or the read of it gave it; null while a note that is not on this page is still being read. */
     note: NoteSummary | null;
     /** The note with its body and links; null until it was read. */
@@ -36,7 +34,7 @@
     onclose: () => void;
   }
 
-  let { open, inline, note, detail, status, error, onretry, onopennote, onedit, ondelete, onhide, onclose }: Props = $props();
+  let { open, note, detail, status, error, onretry, onopennote, onedit, ondelete, onhide, onclose }: Props = $props();
 
   // A hidden note is a team note that only Unhide acts on. A team note of a scope that saves here is read-only: it can only be hidden. A team note
   // of a scope on the team database can be edited and deleted, and hidden as well. A note of this computer cannot be hidden.
@@ -56,7 +54,7 @@
   );
 </script>
 
-<SidePanel {open} {inline} title={note ? spelledOut(note.title) : ''} {subtitle} {onclose}>
+<SidePanel {open} title={note ? spelledOut(note.title) : ''} {subtitle} {onclose}>
   {#if note}
     <SectionCard flat heading={t('memory.notes.detail.content')}>
       <BodyState loaded={detail !== null} {status} {error} failed={t('memory.notes.body.failed')} loading={t('memory.notes.body.loading')} {onretry}>

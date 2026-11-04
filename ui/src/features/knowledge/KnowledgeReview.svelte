@@ -109,7 +109,6 @@
     failedTitle={t('knowledge.review.failed')}
     loadingLabel={t('knowledge.review.loading')}
     {noMatch}
-    detailEmpty={t('knowledge.review.detail.empty')}
     tableLabel={t('knowledge.review.table.label')}
     tableId="knowledge-review"
     columns={heldColumns()}
@@ -152,10 +151,9 @@
       {/if}
     {/snippet}
 
-    {#snippet panel({ close, inline })}
+    {#snippet panel({ close })}
       <HeldPanel
         open={openId !== null}
-        {inline}
         item={shown}
         {detail}
         status={knowledgeHeld.detail.status}

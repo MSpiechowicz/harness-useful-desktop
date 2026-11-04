@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { type Column, nextSort, readColumnWidths, saveColumnWidths, widthsForNewColumns } from './table';
+import { type Column, minTableWidth, nextSort, readColumnWidths, saveColumnWidths, widthsForNewColumns } from './table';
 
 const name: Column = { key: 'name', label: 'Name', sortable: true };
 const updated: Column = { key: 'updated', label: 'Updated', sortable: true, descFirst: true };
@@ -14,6 +14,12 @@ describe('nextSort', () => {
   it('flips the direction of the column that is sorted already', () => {
     expect(nextSort({ key: 'name', desc: false }, name)).toEqual({ key: 'name', desc: true });
     expect(nextSort({ key: 'updated', desc: true }, updated)).toEqual({ key: 'updated', desc: false });
+  });
+});
+
+describe('minTableWidth', () => {
+  it('adds up the widths of the columns, and counts the one without a width as the least it is squeezed to', () => {
+    expect(minTableWidth(['8rem', undefined, '120px'])).toBe('calc(8rem + 160px + 120px)');
   });
 });
 

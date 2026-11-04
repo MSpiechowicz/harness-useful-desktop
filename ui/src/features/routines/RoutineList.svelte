@@ -44,11 +44,11 @@
 
   const COLUMNS = $derived([
     { key: 'routine', label: t('routines.list.column.routine') },
-    { key: 'scope', label: t('routines.list.column.scope'), col: 'w-[13rem]' },
-    { key: 'when', label: t('routines.list.column.when'), col: 'w-[13rem]' },
-    { key: 'next', label: t('routines.list.column.next'), col: 'hidden w-[8.5rem] @min-[960px]:table-column', head: 'hidden @min-[960px]:table-cell' },
-    { key: 'status', label: t('routines.list.column.status'), col: 'w-[10.5rem]' },
-    { key: 'on', label: t('routines.list.column.on'), col: 'w-[5.5rem]', right: true, descFirst: true },
+    { key: 'scope', label: t('routines.list.column.scope'), width: '13rem' },
+    { key: 'when', label: t('routines.list.column.when'), width: '13rem' },
+    { key: 'next', label: t('routines.list.column.next'), width: '8.5rem' },
+    { key: 'status', label: t('routines.list.column.status'), width: '10.5rem' },
+    { key: 'on', label: t('routines.list.column.on'), width: '5.5rem', right: true, descFirst: true },
   ]);
 
   /** Why a row's switch is locked, or null while it works. Turning on a routine that waits for approval would approve it unseen, so a click never does. */
@@ -88,7 +88,7 @@
     {/if}
   </td>
 
-  <td role="gridcell" class="hidden border-b border-line/60 px-3 text-fg-2 @min-[960px]:table-cell">
+  <td role="gridcell" class="border-b border-line/60 px-3 text-fg-2">
     <div class="truncate">{#if view.nextRun}{untilTime(view.nextRun)}{:else}–{/if}</div>
   </td>
 

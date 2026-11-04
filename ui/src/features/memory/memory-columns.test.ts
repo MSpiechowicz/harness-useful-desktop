@@ -62,7 +62,7 @@ describe('resizing a column', () => {
     expect(header('Updated')).toHaveAttribute('aria-sort', 'descending');
   });
 
-  it('never goes below the narrowest width, nor takes more than the flexible column can spare', async () => {
+  it('never goes below the narrowest width, and a column wider than the room scrolls the table sideways instead of squeezing the title', async () => {
     fakeMemory();
     await showNotes();
     const edge = handle('Scope');
@@ -72,8 +72,8 @@ describe('resizing a column', () => {
     expect(widthOf('Scope')).toBe('64px');
 
     await fireEvent.pointerMove(edge, { clientX: -1000, pointerId: 1 });
-    // 200px of its own and 40px that the title can spare above its own least width.
-    expect(widthOf('Scope')).toBe('240px');
+    expect(widthOf('Scope')).toBe('1300px');
+    expect(screen.getByRole('grid').style.minWidth).toContain('1300px');
     await fireEvent.pointerUp(edge, { pointerId: 1 });
   });
 

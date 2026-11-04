@@ -190,8 +190,6 @@ export const memory = {
   'memory.notes.body.hidden.other': 'This note contains {count} invisible characters, shown below in red.',
   'memory.notes.count.one': '{count} note',
   'memory.notes.count.other': '{count} notes',
-  'memory.notes.detail.empty': 'Select a note to read it',
-  'memory.scripts.detail.empty': 'Select a script to see its code',
   'memory.menu.label': 'More actions',
   'memory.deleteAll.notes.action': 'Delete all notes…',
   'memory.deleteAll.scripts.action': 'Delete all scripts…',

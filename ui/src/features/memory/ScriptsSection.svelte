@@ -345,7 +345,6 @@
   count={tn('memory.scripts.count', total)}
   {filters}
   hint={combined ? undefined : hint}
-  detailEmpty={t('memory.scripts.detail.empty')}
   tableLabel={t('memory.scripts.list.label')}
   tableId="memory-scripts"
   columns={scriptColumns(authorsListed)}
@@ -389,10 +388,9 @@
     {/if}
   {/snippet}
 
-  {#snippet panel({ close, inline })}
+  {#snippet panel({ close })}
     <ScriptPanel
       open={openId !== null}
-      {inline}
       script={shown.script}
       detail={shown.body}
       status={scriptDetail.status}

@@ -37,11 +37,11 @@
 
   const COLUMNS = $derived([
     { key: 'hook', label: t('hooks.list.column.hook') },
-    { key: 'scope', label: t('components.scope.label'), col: 'w-[13rem]' },
-    { key: 'when', label: t('hooks.list.column.when'), col: 'w-[15rem]' },
-    { key: 'does', label: t('hooks.list.column.does'), col: 'hidden w-[8.5rem] @min-[1000px]:table-column', head: 'hidden @min-[1000px]:table-cell' },
-    { key: 'status', label: t('hooks.list.column.status'), col: 'w-[10.5rem]' },
-    { key: 'on', label: t('hooks.list.column.on'), col: 'w-[5.5rem]', right: true, descFirst: true },
+    { key: 'scope', label: t('components.scope.label'), width: '13rem' },
+    { key: 'when', label: t('hooks.list.column.when'), width: '15rem' },
+    { key: 'does', label: t('hooks.list.column.does'), width: '8.5rem' },
+    { key: 'status', label: t('hooks.list.column.status'), width: '10.5rem' },
+    { key: 'on', label: t('hooks.list.column.on'), width: '5.5rem', right: true, descFirst: true },
   ]);
 
   /** Why a row's switch is off, or null when it works: a hook that waits for approval or cannot run is never turned on by a click, as that would approve what the user has not seen. */
@@ -83,7 +83,7 @@
     {/if}
   </td>
 
-  <td role="gridcell" class="hidden border-b border-line/60 px-3 text-fg-2 @min-[1000px]:table-cell">
+  <td role="gridcell" class="border-b border-line/60 px-3 text-fg-2">
     <div class="truncate">{#if hook}{t(ACTION_LABELS[hook.action.type])}{:else}–{/if}</div>
   </td>
 

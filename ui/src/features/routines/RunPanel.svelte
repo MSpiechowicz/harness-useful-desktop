@@ -22,8 +22,6 @@
 
   interface Props {
     open: boolean;
-    /** Fills the column beside the table instead of sliding in over it. */
-    inline: boolean;
     run: RoutineRun | null;
     /** A change to this run is being written. */
     busy: boolean;
@@ -35,7 +33,7 @@
     onclose: () => void;
   }
 
-  let { open, inline, run, busy, onstop, onopenchat, onopensession, onroutine, onclose }: Props = $props();
+  let { open, run, busy, onstop, onopenchat, onopensession, onroutine, onclose }: Props = $props();
 
   const warning = NOTICE_LOOKS.warning;
 
@@ -60,7 +58,7 @@
   <pre class="chat-radius max-h-72 overflow-auto border border-line bg-canvas px-3.5 py-3 font-mono text-[13px] leading-5 break-words whitespace-pre-wrap text-fg"><code><HiddenText {text} /></code></pre>
 {/snippet}
 
-<SidePanel {open} {inline} title={run?.routineName ? spelledOut(run.routineName) : ''} subtitle={run ? `${t(RUN_STATUS_LABELS[run.status])} · ${formatDateTime(run.startedAt)}` : ''} {onclose}>
+<SidePanel {open} title={run?.routineName ? spelledOut(run.routineName) : ''} subtitle={run ? `${t(RUN_STATUS_LABELS[run.status])} · ${formatDateTime(run.startedAt)}` : ''} {onclose}>
   {#if run}
     <SectionCard flat heading={t('routines.panel.status')}>
       <div class="flex flex-col gap-3">

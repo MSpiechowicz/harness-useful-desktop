@@ -18,7 +18,6 @@
 
   interface Props {
     open: boolean;
-    inline: boolean;
     /** The proposal as the list gave it (its text cut short), or as the read of it did. Null while one that is not on this page is being read. */
     item: KnowledgeHeldItem | null;
     /** The proposal with all of its text; null until it was read. */
@@ -33,7 +32,7 @@
     onclose: () => void;
   }
 
-  let { open, inline, item, detail, status, error, busy, onretry, onapprove, onreject, onclose }: Props = $props();
+  let { open, item, detail, status, error, busy, onretry, onapprove, onreject, onclose }: Props = $props();
 
   // Whoever is decided on is the version that was shown: the read of it is newer than the row once it is in.
   const shown = $derived(detail ?? item);
@@ -42,7 +41,7 @@
   const hidden = $derived(revealHidden(detail?.text ?? '').count);
 </script>
 
-<SidePanel {open} {inline} title={item?.title ?? ''} subtitle={item ? `${formatLabel(item.format)} · ${linksText(item.links)}` : ''} {onclose}>
+<SidePanel {open} title={item?.title ?? ''} subtitle={item ? `${formatLabel(item.format)} · ${linksText(item.links)}` : ''} {onclose}>
   {#if item && shown}
     <SectionCard flat heading={t('knowledge.held.content')}>
       {#if hidden > 0}

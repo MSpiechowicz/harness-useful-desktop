@@ -7,7 +7,7 @@
   import { ICON } from '../icon';
   import Pagination from '../Pagination.svelte';
   import SortButton from '../SortButton.svelte';
-  import { ariaSort, nextSort, type Sort } from '../table';
+  import { ariaSort, minTableWidth, nextSort, type Sort } from '../table';
   import type { DocColumn } from './doc-groups';
 
   interface Props {
@@ -33,6 +33,9 @@
   }
 
   let { label, columns, sort = null, onsort, rows: shown, pagination, rowKey, openId, onopen, onmove, cells }: Props = $props();
+
+  /** The chevron column that ends every row. */
+  const CHEVRON_WIDTH = '2.5rem';
 
   let body: HTMLElement | undefined = $state();
 
@@ -103,13 +106,18 @@
 <!-- A table of the documents in one run with a pager: every row is one stop of the Tab key, the arrow keys move between rows, and a row opens its panel.
      The controls of a row stay out of the way of that: they work the document without opening it. A chevron ends every row, as it does in the Memory tables. -->
 <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-  <div class="doc-table @container min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-    <table role="grid" aria-label={label} class="w-full table-fixed border-separate border-spacing-0 text-sm">
+  <div class="doc-table min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain [scrollbar-gutter:stable]">
+    <table
+      role="grid"
+      aria-label={label}
+      style:min-width={minTableWidth([...columns.map((column) => column.width), CHEVRON_WIDTH])}
+      class="w-full table-fixed border-separate border-spacing-0 text-sm"
+    >
       <colgroup>
         {#each columns as column (column.label)}
-          <col class={column.col} />
+          <col style:width={column.width} />
         {/each}
-        <col class="w-10" />
+        <col style:width={CHEVRON_WIDTH} />
       </colgroup>
 
       <thead class="sticky top-0 z-10 bg-surface-1">
@@ -117,7 +125,7 @@
           {#each columns as column (column.label)}
             {@const key = column.key}
 
-            <th scope="col" aria-sort={key && onsort ? ariaSort(sort, key) : undefined} class={cx('border-b border-line px-3 font-medium', column.right ? 'text-right' : 'text-left', column.head)}>
+            <th scope="col" aria-sort={key && onsort ? ariaSort(sort, key) : undefined} class={cx('border-b border-line px-3 font-medium', column.right ? 'text-right' : 'text-left')}>
               {#if key && onsort}
                 <SortButton label={column.label} active={sort?.key === key} desc={sort?.desc ?? false} end={column.right} onclick={() => onsort(nextSort(sort, { key, descFirst: column.descFirst }))} />
               {:else}

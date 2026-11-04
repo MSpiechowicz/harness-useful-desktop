@@ -9,9 +9,6 @@ export const DRAWER_BELOW_PX = 1100;
 /** From this width a workspace view has room for the details as a third column. Below it they slide over the centre. */
 export const DETAILS_INLINE_FROM_PX = 1560;
 
-/** From this width Hooks and Memory have room for the table and an always-present detail column. Below it the detail slides over. */
-export const WIDE_FROM_PX = 1360;
-
 /** The narrowest a workspace list column can be dragged. */
 export const LIST_MIN_PX = 240;
 

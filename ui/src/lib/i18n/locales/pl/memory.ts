@@ -215,8 +215,6 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.notes.count.other': '{count} notatki',
   'memory.notes.count.few': '{count} notatki',
   'memory.notes.count.many': '{count} notatek',
-  'memory.notes.detail.empty': 'Wybierz notatkę, aby ją przeczytać',
-  'memory.scripts.detail.empty': 'Wybierz skrypt, aby zobaczyć jego kod',
   'memory.menu.label': 'Więcej działań',
   'memory.deleteAll.notes.action': 'Usuń wszystkie notatki…',
   'memory.deleteAll.scripts.action': 'Usuń wszystkie skrypty…',

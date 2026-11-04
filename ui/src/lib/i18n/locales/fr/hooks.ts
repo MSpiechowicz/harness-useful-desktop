@@ -34,7 +34,6 @@ export const hooks: AreaMessages<typeof enHooks> = {
   'hooks.list.column.on': 'Actif',
   'hooks.list.noMatch': 'Aucun hook ne correspond à votre recherche.',
   'hooks.list.noFilter': 'Aucun hook ne correspond à ces filtres.',
-  'hooks.detail.empty': 'Choisissez un hook pour voir quand il se déclenche et ce qu’il fait.',
   'hooks.switch.on': 'Activer {name}',
   'hooks.switch.off': 'Désactiver {name}',
   'hooks.event.sessionStart': 'Début de session',

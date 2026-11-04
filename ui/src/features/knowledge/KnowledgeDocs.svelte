@@ -298,7 +298,6 @@
   loadingLabel={t('knowledge.docs.loading')}
   {noMatch}
   {filters}
-  detailEmpty={t('knowledge.docs.detail.empty')}
   tableLabel={t('knowledge.table.label')}
   tableId="knowledge-docs"
   columns={docColumns(usefulListed, authorsListed)}
@@ -342,10 +341,9 @@
     {/if}
   {/snippet}
 
-  {#snippet panel({ close, inline })}
+  {#snippet panel({ close })}
     <DocumentPanel
       open={openId !== null}
-      {inline}
       doc={shown}
       {detail}
       status={knowledgeDocs.detail.status}

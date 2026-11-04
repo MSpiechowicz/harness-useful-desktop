@@ -29,18 +29,18 @@ export const KIND_LABELS = {
  */
 export function noteColumns(usefulness = false, authors = false): Column[] {
   const useful: Column[] = [
-    { key: 'useful', label: t('memory.notes.column.useful'), width: COLUMN_WIDTH.useful, from: 'xl', sortable: true, descFirst: true },
-    { key: 'lastUseful', label: t('memory.notes.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, from: 'xl', sortable: true, descFirst: true },
+    { key: 'useful', label: t('memory.notes.column.useful'), width: COLUMN_WIDTH.useful, sortable: true, descFirst: true },
+    { key: 'lastUseful', label: t('memory.notes.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, sortable: true, descFirst: true },
   ];
 
   return [
     { key: 'title', label: t('memory.notes.column.title'), sortable: true },
     { key: 'kind', label: t('memory.notes.column.kind'), width: '12rem', sortable: true },
-    { key: 'scope', label: t('memory.notes.column.scope'), width: '12rem', from: 'md', sortable: true },
-    { key: 'place', label: t('memory.notes.column.place'), width: '8rem', from: 'lg', sortable: true },
+    { key: 'scope', label: t('memory.notes.column.scope'), width: '12rem', sortable: true },
+    { key: 'place', label: t('memory.notes.column.place'), width: '8rem', sortable: true },
     ...(usefulness ? useful : []),
-    ...(authors ? [{ key: 'addedBy', label: t('memory.notes.column.addedBy'), width: COLUMN_WIDTH.author, from: 'xl' } satisfies Column] : []),
-    { key: 'updated', label: t('memory.notes.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },
+    ...(authors ? [{ key: 'addedBy', label: t('memory.notes.column.addedBy'), width: COLUMN_WIDTH.author } satisfies Column] : []),
+    { key: 'updated', label: t('memory.notes.column.updated'), width: '8rem', sortable: true, descFirst: true },
   ];
 }
 

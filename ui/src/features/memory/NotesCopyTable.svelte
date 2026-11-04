@@ -1,6 +1,7 @@
 <script lang="ts">
   import Checkbox from '$lib/components/Checkbox.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
+  import { minTableWidth } from '$lib/components/table';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MemoryCopyKind } from '$lib/ipc/bindings/MemoryCopyKind';
   import type { NotesCopyRow } from '$lib/ipc/bindings/NotesCopyRow';
@@ -33,6 +34,8 @@
   const text = $derived(COPY_TEXT[kind]);
 
   const COLUMNS = $derived(blocked ? (['title', 'reason'] as const) : (['pick', 'title', 'local', 'team'] as const));
+  /** The columns without a width (the title and the reason) take what the others leave. */
+  const WIDTHS: Partial<Record<(typeof COLUMNS)[number], string>> = { pick: '5rem', local: '9rem', team: '9rem' };
   const CELL = 'border-b border-line/60 px-3 py-2 align-middle';
 
   /** A row opens a group when its repository differs from the row above. */
@@ -42,15 +45,20 @@
 </script>
 
 <!-- The entries that differ from the remote copy, or the ones that cannot be copied, a page of the server's plan at a time and grouped by repository. An entry's tick means its version replaces the remote one. A blocked entry has no tick, only its reason. -->
-<div class="@container flex min-w-0 flex-col overflow-clip rounded-md border border-line" aria-busy={busy}>
-  <div class="max-h-[40vh] overflow-y-auto overscroll-contain">
-    <table aria-label={t(blocked ? text.blockedTableLabel : text.tableLabel)} class="w-full table-fixed border-separate border-spacing-0 text-sm">
+<div class="flex min-w-0 flex-col overflow-clip rounded-md border border-line" aria-busy={busy}>
+  <div class="max-h-[40vh] overflow-auto overscroll-contain">
+    <table
+      aria-label={t(blocked ? text.blockedTableLabel : text.tableLabel)}
+      style:min-width={minTableWidth(COLUMNS.map((column) => WIDTHS[column]))}
+      class="w-full table-fixed border-separate border-spacing-0 text-sm"
+    >
       <thead class="sticky top-0 z-10 bg-surface-1">
         <tr>
           {#each COLUMNS as column (column)}
             <th
               scope="col"
-              class="h-9 border-b border-line px-3 text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase {column === 'pick' ? 'w-20' : ''} {column === 'title' && blocked ? 'w-2/5' : ''} {column === 'local' || column === 'team' ? 'hidden w-36 @lg:table-cell' : ''}"
+              style:width={WIDTHS[column]}
+              class="h-9 border-b border-line px-3 text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase {column === 'title' && blocked ? 'w-2/5' : ''}"
             >
               <span class="truncate">{column === 'title' ? t(text.columnTitle) : t(`memory.copy.column.${column}`)}</span>
             </th>
@@ -72,7 +80,7 @@
               <td class="{CELL} py-0"><Checkbox checked={picked(row.localId)} label={t('memory.copy.row.pick', { title: spelledOut(row.title) })} onchange={(on) => ontoggle(row.localId, on)} /></td>
               <td class={CELL}><div class="[overflow-wrap:anywhere] text-fg">{spelledOut(row.title)}</div></td>
               {#each [row.localUpdatedAt, row.teamUpdatedAt] as moment, index (index)}
-                <td class="{CELL} tabular hidden text-fg-3 @lg:table-cell" title={moment ? formatDateTime(moment) : undefined}>{moment ? relativeTime(moment) : '–'}</td>
+                <td class="{CELL} tabular text-fg-3" title={moment ? formatDateTime(moment) : undefined}>{moment ? relativeTime(moment) : '–'}</td>
               {/each}
             {/if}
           </tr>

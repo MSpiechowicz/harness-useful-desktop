@@ -372,7 +372,7 @@
         </EmptyState>
       </div>
     {:else}
-      <DocSplit {openId} emptyIcon={Webhook} emptyMessage={t('hooks.detail.empty')} onclose={() => void close()}>
+      <DocSplit {openId} onclose={() => void close()}>
         {#snippet body()}
           <FilterRow count={tn('hooks.count', shown.length)}>
             <ScopeFilter options={scopeOptions} value={scope} onchange={(next) => (viewState.hooksScope = next)} />
@@ -406,10 +406,9 @@
           {/if}
         {/snippet}
 
-        {#snippet panel(inline)}
+        {#snippet panel()}
           <HookPanel
             open={openId !== null}
-            {inline}
             view={shownView}
             {projects}
             busy={shownView !== null && hooks.busy.has(viewKey(shownView))}

@@ -6,10 +6,8 @@ export interface Column {
   key: string;
   label: string;
   sortable?: boolean;
-  /** A CSS width such as `8rem`; the column without one takes what the others leave. */
+  /** A CSS width such as `8rem`; the column without one takes what the others leave, and is never narrower than `MIN_FLEX_PX`. */
   width?: string;
-  /** The smallest width of the table, as a container-query size, at which the column is shown; the first columns stay at any width. */
-  from?: 'sm' | 'md' | 'lg' | 'xl';
   align?: 'end';
   /** A column of times or counts starts with the biggest, the others with the first in the alphabet. */
   descFirst?: boolean;
@@ -17,6 +15,17 @@ export interface Column {
 
 /** The widths columns of the same kind share in every table (Notes, Scripts, Documents), so who added an entry and how useful it was read alike wherever they are. */
 export const COLUMN_WIDTH = { author: '12rem', useful: '13rem', lastUseful: '9rem' } as const;
+
+/** What the column without a width of its own, the one that takes what the others leave, is never squeezed below. */
+export const MIN_FLEX_PX = 160;
+
+/**
+ * The width below which a table scrolls sideways instead of squeezing its columns: the sum of their widths, where a
+ * column without a width counts as `MIN_FLEX_PX`. A column never hides at a small width, the table scrolls.
+ */
+export function minTableWidth(widths: readonly (string | undefined)[]): string {
+  return `calc(${widths.map((width) => width ?? `${MIN_FLEX_PX}px`).join(' + ')})`;
+}
 
 export interface Sort {
   key: string;

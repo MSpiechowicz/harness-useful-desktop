@@ -130,7 +130,7 @@
       <EmptyState icon={History} title={t('routines.runs.empty.title')} body={t('routines.runs.empty.body')} />
     </div>
   {:else}
-    <DocSplit {openId} emptyIcon={History} emptyMessage={t('routines.runs.detail.empty')} onclose={() => void close()}>
+    <DocSplit {openId} onclose={() => void close()}>
       {#snippet body()}
         <FilterRow count={tn('routines.runs.count', total)}>
           <DocFilter label={t('routines.runs.filter.routine')} options={routineOptions} value={viewState.runsRoutine ?? 'all'} onchange={filterRoutine} clearLabel={t('routines.runs.filter.clearRoutine')} />
@@ -169,10 +169,9 @@
         {/if}
       {/snippet}
 
-      {#snippet panel(inline)}
+      {#snippet panel()}
         <RunPanel
           open={openId !== null}
-          {inline}
           run={shown}
           busy={shown !== null && routines.busy.has(shown.id)}
           onstop={() => shown && void routines.stop(shown)}

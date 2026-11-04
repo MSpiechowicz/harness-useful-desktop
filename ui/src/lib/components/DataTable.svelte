@@ -7,7 +7,7 @@
   import ColumnHandle from './ColumnHandle.svelte';
   import { ICON } from './icon';
   import SortButton from './SortButton.svelte';
-  import { ariaSort, type Column, type ColumnWidths, MIN_COLUMN_PX, nextSort, readColumnWidths, saveColumnWidths, type Sort, widthsForNewColumns } from './table';
+  import { ariaSort, type Column, type ColumnWidths, MIN_COLUMN_PX, minTableWidth, nextSort, readColumnWidths, saveColumnWidths, type Sort, widthsForNewColumns } from './table';
 
   interface Props {
     /** Accessible name of the table. */
@@ -35,9 +35,8 @@
 
   const ROW_PX = 44;
 
-  /** What the column without a width of its own, the one that takes what the others leave, is never squeezed below. */
-  const MIN_FLEX_PX = 160;
-  const FROM = { sm: 'hidden @lg:table-cell', md: 'hidden @2xl:table-cell', lg: 'hidden @5xl:table-cell', xl: 'hidden @7xl:table-cell' } as const;
+  /** The chevron column that ends every row (`w-10`). */
+  const CHEVRON_WIDTH = '2.5rem';
 
   let viewport: HTMLElement | undefined = $state();
   let head: HTMLElement | undefined = $state();
@@ -52,25 +51,25 @@
     untrack(() => Object.assign(widths, widthsForNewColumns(tableId, shown, widths)));
   });
 
-  // The column without a width stays the flexible one. Columns after it hang on the right of the table, so growing one takes room from the flexible one on its left edge.
+  // The column without a width stays the flexible one. Columns after it hang on the right of the table, so growing one first takes room from the flexible one on its left edge; once that is at its minimum, the table grows and scrolls.
   const flexKey = $derived(columns.find((column) => !column.width)?.key);
   const flexIndex = $derived(columns.findIndex((column) => column.key === flexKey));
 
   // One row is a tab stop: the open one, or else the first. Arrow keys move between the rows from there.
   const stopKey = $derived(rows.some((row) => rowKey(row) === selectedKey) ? selectedKey : rows[0] ? rowKey(rows[0]) : null);
 
-  function visible(column: Column): string {
-    return column.from ? FROM[column.from] : '';
+  /** The CSS width of a column: the one the user dragged it to, or else its own; none for the flexible column. */
+  function cssWidth(column: Column): string | undefined {
+    return widths[column.key] ? `${widths[column.key]}px` : column.width;
   }
 
   function widthOf(column: Column): number {
     return cells[column.key]?.offsetWidth ?? 0;
   }
 
-  /** Gives a column a width, held between the narrowest allowed and what the flexible column can spare; answers the width it got. */
+  /** Gives a column a width, no narrower than allowed: a wider table scrolls sideways. Answers the width it got. */
   function resize(column: Column, px: number): number {
-    const spare = flexKey ? Math.max(0, (cells[flexKey]?.offsetWidth ?? 0) - MIN_FLEX_PX) : Number.POSITIVE_INFINITY;
-    const width = Math.round(Math.min(Math.max(px, MIN_COLUMN_PX), Math.max(MIN_COLUMN_PX, widthOf(column) + spare)));
+    const width = Math.round(Math.max(px, MIN_COLUMN_PX));
 
     widths[column.key] = width;
 
@@ -142,11 +141,17 @@
 </script>
 
 <!-- A grid of the page on screen: every row is one stop of the Tab key, the arrow keys move between rows, and a row opens
-     its detail. Headers of sortable columns are buttons. The container query decides which columns fit. It lies in a
-     flex column and is its own scrolling viewport, with the header held at the top. A chevron ends every row: it is what
-     says that a row opens something. -->
-<div bind:this={viewport} class="@container min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
-  <table role="grid" aria-label={label} aria-busy={busy} class={cx('w-full table-fixed border-separate border-spacing-0 text-sm transition-opacity duration-[var(--dur-base)]', busy && 'opacity-60')}>
+     its detail. Headers of sortable columns are buttons. No column is ever left out: the table is never narrower than
+     its columns, so a narrow viewport scrolls sideways. It lies in a flex column and is its own scrolling viewport, with
+     the header held at the top. A chevron ends every row: it is what says that a row opens something. -->
+<div bind:this={viewport} class="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain [scrollbar-gutter:stable]">
+  <table
+    role="grid"
+    aria-label={label}
+    aria-busy={busy}
+    style:min-width={minTableWidth([...columns.map(cssWidth), CHEVRON_WIDTH])}
+    class={cx('w-full table-fixed border-separate border-spacing-0 text-sm transition-opacity duration-[var(--dur-base)]', busy && 'opacity-60')}
+  >
     <thead bind:this={head} class="group/head sticky top-0 z-10 bg-surface-1">
       <tr>
         {#each columns as column, index (column.key)}
@@ -158,8 +163,8 @@
             scope="col"
             aria-label={column.label}
             aria-sort={column.sortable ? ariaSort(sort, column.key) : undefined}
-            style:width={widths[column.key] ? `${widths[column.key]}px` : column.width}
-            class={cx('relative h-9 select-none border-b border-line px-3 text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase', column.align === 'end' ? 'text-right' : 'text-left', visible(column))}
+            style:width={cssWidth(column)}
+            class={cx('relative h-9 select-none border-b border-line px-3 text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase', column.align === 'end' ? 'text-right' : 'text-left')}
           >
             {#if column.sortable}
               <SortButton label={column.label} {active} desc={sort.desc} end={column.align === 'end'} onclick={() => onsort(nextSort(sort, column))} />
@@ -201,7 +206,7 @@
           onkeydown={(event) => onKeydown(event, row, index)}
         >
           {#each columns as column (column.key)}
-            <td role="gridcell" class={cx('border-b border-line/60 px-3', column.align === 'end' ? 'text-right' : 'text-left', visible(column))}>
+            <td role="gridcell" class={cx('border-b border-line/60 px-3', column.align === 'end' ? 'text-right' : 'text-left')}>
               <div class="truncate">{@render cell(row, column)}</div>
             </td>
           {/each}

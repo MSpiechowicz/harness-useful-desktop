@@ -34,8 +34,6 @@
 
   interface Props {
     open: boolean;
-    /** In a column of its own beside the list, not sliding in over it. */
-    inline: boolean;
     view: HookView | null;
     /** The projects on this computer, which the hook's scope is named by. */
     projects: ProjectScope[];
@@ -67,7 +65,7 @@
     onclose: () => void;
   }
 
-  let { open, inline, view, projects, busy, sharing, canUpdate, copyLock, familyUpdate, familyUpdating, onfamilyupdate, onfamilyreview, ontoggle, onapprove, onreject, onedit, ondelete, onshare, onupdate, onremove, oncopy, onclose }: Props = $props();
+  let { open, view, projects, busy, sharing, canUpdate, copyLock, familyUpdate, familyUpdating, onfamilyupdate, onfamilyreview, ontoggle, onapprove, onreject, onedit, ondelete, onshare, onupdate, onremove, oncopy, onclose }: Props = $props();
 
   const hook = $derived(view?.hook ?? null);
   const info = NOTICE_LOOKS.info;
@@ -114,7 +112,6 @@
 
 <SidePanel
   {open}
-  {inline}
   title={view ? hookTitle(view) : ''}
   subtitle={hook ? `${t(EVENT_LABELS[hook.event])} · ${scope}${team ? ` · ${t('hooks.source.team')}` : ''}` : (view?.id ?? '')}
   {onclose}

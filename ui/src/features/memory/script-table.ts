@@ -6,11 +6,11 @@ export function scriptColumns(authors = false): Column[] {
   return [
     { key: 'name', label: t('memory.scripts.column.name'), sortable: true },
     { key: 'language', label: t('memory.scripts.column.language'), width: '8rem', sortable: true },
-    { key: 'scope', label: t('memory.scripts.column.scope'), width: '11rem', from: 'md', sortable: true },
-    { key: 'place', label: t('memory.scripts.column.place'), width: '8rem', from: 'lg', sortable: true },
-    { key: 'runs', label: t('memory.scripts.column.runs'), width: '7rem', align: 'end', from: 'lg', sortable: true, descFirst: true },
-    { key: 'lastRun', label: t('memory.scripts.column.lastRun'), width: '8rem', from: 'lg', sortable: true, descFirst: true },
-    ...(authors ? [{ key: 'addedBy', label: t('memory.scripts.column.addedBy'), width: COLUMN_WIDTH.author, from: 'xl' } satisfies Column] : []),
-    { key: 'updated', label: t('memory.scripts.column.updated'), width: '8rem', sortable: true, descFirst: true, from: 'sm' },
+    { key: 'scope', label: t('memory.scripts.column.scope'), width: '11rem', sortable: true },
+    { key: 'place', label: t('memory.scripts.column.place'), width: '8rem', sortable: true },
+    { key: 'runs', label: t('memory.scripts.column.runs'), width: '7rem', align: 'end', sortable: true, descFirst: true },
+    { key: 'lastRun', label: t('memory.scripts.column.lastRun'), width: '8rem', sortable: true, descFirst: true },
+    ...(authors ? [{ key: 'addedBy', label: t('memory.scripts.column.addedBy'), width: COLUMN_WIDTH.author } satisfies Column] : []),
+    { key: 'updated', label: t('memory.scripts.column.updated'), width: '8rem', sortable: true, descFirst: true },
   ];
 }

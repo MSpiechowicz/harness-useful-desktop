@@ -59,6 +59,17 @@ describe('a flat documents table', () => {
 
     expect(screen.queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
   });
+
+  it('never hides a column: it gives each its width and a table that scrolls sideways when the room is short', () => {
+    flat(['one'], { columns: [{ key: 'name', label: 'Name' }, { key: 'scope', label: 'Scope', width: '13rem' }] });
+
+    const grid = screen.getByRole('grid', { name: 'Docs' });
+    const widths = [...grid.querySelectorAll('col')].map((col) => col.style.width);
+
+    expect(widths).toEqual(['', '13rem', '2.5rem']);
+    expect(grid.style.minWidth).toBe('calc(160px + 13rem + 2.5rem)');
+    expect(grid.parentElement).toHaveClass('overflow-auto');
+  });
 });
 
 describe('the Scope cell', () => {

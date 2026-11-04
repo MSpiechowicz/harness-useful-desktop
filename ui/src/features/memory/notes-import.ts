@@ -54,9 +54,9 @@ export function reviewColumns(): Column[] {
     { key: 'number', label: t('memory.import.column.number'), width: '3.5rem' },
     { key: 'title', label: t('memory.import.column.title') },
     { key: 'kind', label: t('memory.import.column.kind'), width: '8rem' },
-    { key: 'tags', label: t('memory.import.column.tags'), width: '10rem', from: 'md' },
+    { key: 'tags', label: t('memory.import.column.tags'), width: '10rem' },
     { key: 'scope', label: t('memory.import.column.scope'), width: '8rem' },
-    { key: 'body', label: t('memory.import.column.body'), width: '16rem', from: 'lg' },
+    { key: 'body', label: t('memory.import.column.body'), width: '16rem' },
   ];
 }
 

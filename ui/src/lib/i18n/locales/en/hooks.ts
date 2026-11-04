@@ -31,7 +31,6 @@ export const hooks = {
   'hooks.list.column.on': 'On',
   'hooks.list.noMatch': 'No hook matches your search.',
   'hooks.list.noFilter': 'No hooks match these filters.',
-  'hooks.detail.empty': 'Choose a hook to see when it fires and what it does.',
   'hooks.switch.on': 'Turn on {name}',
   'hooks.switch.off': 'Turn off {name}',
   'hooks.event.sessionStart': 'Session start',
