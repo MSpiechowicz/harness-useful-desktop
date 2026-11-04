@@ -1,3 +1,10 @@
+## [0.55.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.55.0...v0.55.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **ui:** open detail panels over the list and scroll tables sideways on narrow windows ([56a6d63](https://github.com/MSpiechowicz/harness-useful-desktop/commit/56a6d6344edb381e7bdc0e0c6caf26deafc37d01))
+
 # [0.55.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.54.0...v0.55.0) (2026-11-04)
 
 
