@@ -6,7 +6,7 @@
   import type { DocListHandlers } from '$lib/components/docs/doc-groups';
   import type { DocScope } from '$lib/components/docs/doc-scope';
   import { ICON } from '$lib/components/icon';
-  import type { Sort } from '$lib/components/table';
+  import { COLUMN_WIDTH, type Sort } from '$lib/components/table';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HookView } from '$lib/ipc/bindings/HookView';
   import { cx } from '$lib/utils/cx';
@@ -37,7 +37,7 @@
 
   const COLUMNS = $derived([
     { key: 'hook', label: t('hooks.list.column.hook') },
-    { key: 'scope', label: t('components.scope.label'), width: '13rem' },
+    { key: 'scope', label: t('components.scope.label'), width: COLUMN_WIDTH.project },
     { key: 'when', label: t('hooks.list.column.when'), width: '15rem' },
     { key: 'does', label: t('hooks.list.column.does'), width: '8.5rem' },
     { key: 'status', label: t('hooks.list.column.status'), width: '10.5rem' },

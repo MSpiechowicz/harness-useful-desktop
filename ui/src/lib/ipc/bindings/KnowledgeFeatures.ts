@@ -58,4 +58,13 @@ docsSimilar: boolean,
 /**
  * `docs-authors`: `addedBy` and `updatedBy` on documents.
  */
-docsAuthors: boolean, };
+docsAuthors: boolean, 
+/**
+ * `docs-drafts`: document states, `--draft`, `--status`, history, compare, ask and go live,
+ * reviews with comments, the stored original (download), the draft counts and `upgrade`.
+ */
+docsDrafts: boolean, 
+/**
+ * `docs-approval`: team approval (`approval get|set`), approve and request changes.
+ */
+docsApproval: boolean, };

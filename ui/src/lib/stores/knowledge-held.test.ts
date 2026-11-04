@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { KnowledgeDecided } from '$lib/ipc/bindings/KnowledgeDecided';
 import type { KnowledgeHeldItem } from '$lib/ipc/bindings/KnowledgeHeldItem';
@@ -82,6 +82,16 @@ describe('deciding about a proposal', () => {
     expect(toasts.items.map((toast) => [toast.title, toast.description])).toEqual([['Harness Knowledge refused the decision', 'the file is too large']]);
   });
 
+  it('keeps a proposal linked to a folder without a git remote out of the team database, and names only the folder', async () => {
+    const linked: KnowledgeHeldItem = { ...ITEM, links: [{ repo: 'path:/home/ada/private/notes', globs: [] }] };
+    const { store } = deciding({ type: 'localPath', message: 'notes has no git remote, so a team document cannot be linked to it (only a git: project key leaves this computer)' });
+
+    expect(await store.decide(linked, 'approve')).toBe('stay');
+    expect(toasts.items.map((toast) => [toast.title, toast.description, toast.tone])).toEqual([
+      ['Team documents need a git project', 'Team documents can only be linked to git projects. notes has no git remote.', 'danger'],
+    ]);
+  });
+
   it('keeps a proposal when the call itself failed', async () => {
     const { store } = deciding(new Error('spawn failed'));
 
@@ -96,5 +106,60 @@ describe('deciding about a proposal', () => {
 
     expect(decisions).toHaveLength(1);
     expect(store.busy.size).toBe(0);
+  });
+});
+
+describe('rejecting with a moment to undo', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const flood = () => {
+    for (let each = 0; each < 8; each += 1) {
+      toasts.push({ title: `Other ${each}`, description: 'Something else happened.' });
+    }
+  };
+
+  it('does not reject early when other toasts push the undo toast out of the stack, and rejects when its moment is over', async () => {
+    const { store, decisions } = deciding({ type: 'rejected' });
+
+    store.rejectWithUndo(ITEM, null, () => {});
+    flood();
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(decisions).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(decisions).toEqual([{ id: ITEM.id, decision: 'reject', revision: ITEM.revision }]);
+  });
+
+  it('brings the row back and never rejects when Undo is pressed', async () => {
+    const { store, decisions } = deciding({ type: 'rejected' });
+    let restored = 0;
+
+    store.rejectWithUndo(ITEM, null, () => (restored += 1));
+    toasts.items.find((toast) => toast.action)?.action?.run();
+    toasts.dismiss(toasts.items[0].id);
+
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(restored).toBe(1);
+    expect(decisions).toEqual([]);
+  });
+
+  it('rejects at once when the toast is closed', async () => {
+    const { store, decisions } = deciding({ type: 'rejected' });
+
+    store.rejectWithUndo(ITEM, 'Not relevant', () => {});
+    toasts.dismiss(toasts.items[0].id);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(decisions).toEqual([{ id: ITEM.id, decision: 'reject', revision: ITEM.revision, comment: 'Not relevant' }]);
+
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(decisions).toHaveLength(1);
   });
 });

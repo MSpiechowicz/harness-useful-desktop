@@ -18,8 +18,9 @@
   const spelledOut = $derived(hidden.segments.map((part) => part.text).join(''));
 </script>
 
-<!-- A script with invisible characters is shown plain, with each one spelled out and a warning above it: highlighting
-     would hide them, and a script that hides what it does has to be read with care. -->
+<!-- A script shows in a block that stops at `--code-max-h` and scrolls inside, under its header. A script with invisible
+     characters is shown plain, with each one spelled out and a warning above it: highlighting would hide them, and a
+     script that hides what it does has to be read with care. -->
 {#if hidden.count > 0}
   <p class="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">{tn('memory.scripts.body.hidden', hidden.count)}</p>
   <figure class="chat-radius overflow-hidden border border-line bg-canvas">
@@ -27,8 +28,9 @@
       <span class="font-mono font-medium">{grammarOf(language) || 'text'}</span>
       <CopyButton text={spelledOut} label={t('components.copy.code')} />
     </figcaption>
-    <pre class="px-3.5 py-3 font-mono text-[13px] leading-5 [overflow-wrap:anywhere] whitespace-pre-wrap text-fg"><code><HiddenText text={body} /></code></pre>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
+    <pre class="max-h-[var(--code-max-h)] overflow-y-auto px-3.5 py-3 font-mono text-[13px] leading-5 [overflow-wrap:anywhere] whitespace-pre-wrap text-fg" tabindex="0"><code><HiddenText text={body} /></code></pre>
   </figure>
 {:else}
-  <CodeBlock code={body} lang={grammarOf(language)} />
+  <CodeBlock code={body} lang={grammarOf(language)} capped />
 {/if}

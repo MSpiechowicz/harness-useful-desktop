@@ -56,7 +56,7 @@
 
 <SidePanel {open} title={note ? spelledOut(note.title) : ''} {subtitle} {onclose}>
   {#if note}
-    <SectionCard flat heading={t('memory.notes.detail.content')}>
+    <SectionCard flat heading={t('memory.notes.detail.content')} hint={t('memory.notes.detail.content.hint')}>
       <BodyState loaded={detail !== null} {status} {error} failed={t('memory.notes.body.failed')} loading={t('memory.notes.body.loading')} {onretry}>
         {#if hidden > 0}
           <p class="mb-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">{tn('memory.notes.body.hidden', hidden)}</p>
@@ -65,7 +65,7 @@
       </BodyState>
     </SectionCard>
 
-    <SectionCard flat heading={t('memory.notes.detail.tagsAndEntities')}>
+    <SectionCard flat heading={t('memory.notes.detail.tagsAndEntities')} hint={t('memory.notes.detail.tagsAndEntities.hint')}>
       {#if groups.length === 0}
         <p class="text-sm text-fg-3">{t('memory.notes.detail.noTags')}</p>
       {:else}
@@ -84,7 +84,7 @@
       {/if}
     </SectionCard>
 
-    <SectionCard flat heading={t('memory.notes.detail.links')}>
+    <SectionCard flat heading={t('memory.notes.detail.links')} hint={t('memory.notes.detail.links.hint')}>
       {#if !detail}
         <Skeleton height="1.25rem" />
       {:else}
@@ -98,6 +98,6 @@
       {/if}
     </PanelActions>
 
-    <FactsCard flat heading={t('memory.panel.details')} rows={noteFacts(note)} />
+    <FactsCard flat heading={t('memory.panel.details')} hint={t('memory.panel.details.hint')} rows={noteFacts(note)} />
   {/if}
 </SidePanel>

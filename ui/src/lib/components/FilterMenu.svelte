@@ -5,6 +5,7 @@
   import X from '@lucide/svelte/icons/x';
 
   import { cx } from '$lib/utils/cx';
+  import { uid } from '$lib/utils/ids';
 
   import Button from './Button.svelte';
   import { ICON, type IconComponent } from './icon';
@@ -15,8 +16,8 @@
   interface Props {
     /** Accessible name of the menu, e.g. "Show". */
     label: string;
-    /** The predefined filters; the first one is the unfiltered "All". A `count` is shown after the label, a `hint` under it in quiet text (the search matches it too). A `disabled` one is shown but cannot be chosen. */
-    options: { value: V; label: string; hint?: string; icon?: IconComponent; count?: number; disabled?: boolean }[];
+    /** The predefined filters; the first one is the unfiltered "All". A `count` is shown after the label, a `hint` under it in quiet text (the search matches it too). A `disabled` one is shown and reachable by keyboard (aria-disabled) but cannot be chosen, and says why in grey under its label when it has a `reason` (read out as its description). */
+    options: { value: V; label: string; hint?: string; icon?: IconComponent; count?: number; disabled?: boolean; reason?: string }[];
     value: V;
     onchange: (value: V) => void;
     /** Names what the button filters ("When"), so it reads "When: All". The button then shows the filter on, and a clear x when it narrows the list. */
@@ -37,10 +38,15 @@
     action?: { label: string; icon: IconComponent };
     /** Which side of the button the menu opens on; `auto` for a button inside a scrolling form or dialog, which would cut the menu off. */
     side?: 'top' | 'bottom' | 'auto';
+    /** Turns an action menu off: its button cannot be pressed. The caller says why next to it. */
+    disabled?: boolean;
+    /** Names the text that says why the menu is `disabled`, read out as the button's description. */
+    describedby?: string;
   }
 
-  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false, search, action, side = 'bottom' }: Props = $props();
+  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false, search, action, side = 'bottom', disabled = false, describedby }: Props = $props();
 
+  const reasonId = uid('filter-reason');
   let needle = $state('');
   const shown = $derived(matchOptions(options, needle));
 
@@ -54,7 +60,14 @@
 <Popover {label} kind="menu" {align} {side} matchTrigger={!action} class={cx('min-w-0!', search ? 'w-72' : counted || wide ? 'w-60' : 'w-48')}>
   {#snippet trigger({ props, open })}
     {#if action}
-      <Button {...props}>
+      <!-- Off but still focusable (aria-disabled), so a keyboard or screen-reader user reaches the button and hears why. -->
+      <Button
+        {...props}
+        onclick={disabled ? undefined : props.onclick}
+        aria-disabled={disabled ? 'true' : undefined}
+        aria-describedby={disabled ? describedby : undefined}
+        class={cx(disabled && 'cursor-not-allowed opacity-50 hover:bg-surface-2 active:scale-100')}
+      >
         {#snippet leading()}<action.icon size={ICON.sm} aria-hidden="true" />{/snippet}
         {action.label}
       </Button>
@@ -99,26 +112,36 @@
 
   {#snippet children({ close })}
     <MenuSearch {search} bind:needle none={shown.length === 0}>
-      {#each shown as option (option.value)}
+      {#each shown as option, index (option.value)}
+        {@const why = option.disabled ? option.reason : undefined}
         <button
           type="button"
           role={action ? 'menuitem' : 'menuitemradio'}
           aria-checked={action ? undefined : option.value === value}
-          disabled={option.disabled}
-          data-menu-item={option.disabled ? undefined : ''}
+          aria-disabled={option.disabled ? 'true' : undefined}
+          aria-describedby={why ? `${reasonId}-${index}` : undefined}
+          data-menu-item=""
           class={cx(
             'flex items-center justify-between gap-2 rounded-sm px-2.5 py-2 text-left text-sm transition-colors duration-[var(--dur-fast)] hover:bg-hover focus-visible:bg-hover',
             option.value === value ? 'text-fg' : 'text-fg-2',
-            option.disabled && 'cursor-not-allowed opacity-50 hover:bg-transparent',
+            option.disabled && 'cursor-not-allowed hover:bg-transparent',
+            option.disabled && !why && 'opacity-50',
           )}
           onclick={() => {
+            // An off choice stays in the keyboard order so its reason is heard, and choosing it does nothing.
+            if (option.disabled) {
+              return;
+            }
+
             close();
             onchange(option.value);
           }}
         >
           <span class="flex min-w-0 items-center gap-2.5">
-            {#if option.icon}<option.icon size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />{/if}
-            {#if option.hint}
+            {#if option.icon}<option.icon size={ICON.sm} class={cx('shrink-0 text-fg-3', why && 'opacity-50')} aria-hidden="true" />{/if}
+            {#if why}
+              <span class="flex min-w-0 flex-col"><span class="truncate opacity-50">{option.label}</span> <span id="{reasonId}-{index}" class="text-xs text-fg-3">{why}</span></span>
+            {:else if option.hint}
               <span class="flex min-w-0 flex-col"><span class="truncate">{option.label}</span> <span class="truncate text-xs text-fg-3">{option.hint}</span></span>
             {:else}
               <span class="truncate">{option.label}</span>

@@ -18,7 +18,11 @@
   let saving = $state(false);
 
   $effect(() => {
-    void tick().then(() => field?.select());
+    void tick().then(() => {
+      // The caret goes to the end: a selected title is a blue block that reads as a highlight, not as a field to type in.
+      field?.focus();
+      field?.setSelectionRange(field.value.length, field.value.length);
+    });
   });
 
   async function commit(): Promise<void> {
@@ -57,7 +61,7 @@
   }
 </script>
 
-<!-- The title line becomes a field as tall as a control, which overhangs the line like the buttons beside it. -->
+<!-- The header shows the field instead of the title and the line under it (the band is a fixed height and centres it), in the title's own type. It is pulled left by its border and padding so the text starts where the title did. -->
 <input
   bind:this={field}
   bind:value
@@ -67,7 +71,7 @@
   disabled={saving}
   autocomplete="off"
   spellcheck="false"
-  class="-my-1.5 h-control min-w-0 flex-1 rounded-md border border-line-strong bg-surface-2 px-3 text-base font-semibold text-fg outline-none focus-visible:border-accent/50"
+  class="-ml-[calc(var(--spacing)*3+1px)] h-control min-w-0 flex-1 rounded-md border border-line-strong bg-surface-2 px-3 text-lg font-semibold text-fg outline-none focus-visible:border-accent/50"
   onkeydown={onKeydown}
   onblur={() => void commit()}
 />

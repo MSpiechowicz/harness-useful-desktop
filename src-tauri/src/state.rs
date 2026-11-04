@@ -36,6 +36,7 @@ use crate::memory_embedder::EmbedderWatch;
 use crate::memory_held::HeldWatcher;
 use crate::memory_requests::ScriptRequests;
 use crate::routines::RoutineRuntime;
+use crate::saved_downloads::SavedDownloads;
 use crate::updates::Updates;
 
 /// State shared by all IPC commands.
@@ -53,6 +54,8 @@ pub struct AppState {
     pub detections: RwLock<HashMap<HarnessId, HarnessSummary>>,
     /// Set while a native dialog is open, so the webview cannot stack dialogs.
     pub dialog: DialogGuard,
+    /// The files the user saved with the native save dialog, which "Show in folder" may reveal.
+    pub saved_downloads: SavedDownloads,
     /// The running agent sessions.
     pub agents: Arc<Agents>,
     /// Saved-session summaries by file, reused by `sessions_list` while a file is unchanged.
@@ -192,6 +195,7 @@ impl AppState {
             runner: TokioRunner,
             detections: RwLock::new(HashMap::new()),
             dialog: DialogGuard::default(),
+            saved_downloads: SavedDownloads::default(),
             agents: Arc::new(Agents::new()),
             sessions: Arc::new(SessionCache::default()),
             dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),

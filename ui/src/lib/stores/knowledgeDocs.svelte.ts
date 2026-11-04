@@ -4,15 +4,18 @@ import type { KnowledgeDetail } from '$lib/ipc/bindings/KnowledgeDetail';
 import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
 import type { KnowledgePage } from '$lib/ipc/bindings/KnowledgePage';
 import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
+import type { KnowledgeRefusalCode } from '$lib/ipc/bindings/KnowledgeRefusalCode';
 import type { KnowledgeReposPage } from '$lib/ipc/bindings/KnowledgeReposPage';
 import type { KnowledgeScope } from '$lib/ipc/bindings/KnowledgeScope';
 import type { KnowledgeSort } from '$lib/ipc/bindings/KnowledgeSort';
+import type { KnowledgeStatusFilter } from '$lib/ipc/bindings/KnowledgeStatusFilter';
 import type { KnowledgeUsefulFilter } from '$lib/ipc/bindings/KnowledgeUsefulFilter';
 import type { SortOrder } from '$lib/ipc/bindings/SortOrder';
 import { ipc } from '$lib/ipc/client';
 import { idFromKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
 import type { Transport } from '$lib/ipc/transport';
 import { readFailureText } from '$lib/utils/knowledge-failure';
+import { localPathToast, withoutFolderPaths } from '$lib/utils/knowledge-local-path';
 
 import { reachKey } from './memory-reach';
 import { toasts } from './toasts.svelte';
@@ -34,6 +37,8 @@ export interface DocsRequest {
   place: KnowledgePlace | null;
   /** Narrows the table by whether agents found the documents useful, from a server that counts it. */
   useful?: KnowledgeUsefulFilter | null;
+  /** Narrows the table by state (live, drafts, waiting for approval, changes requested), from a server that keeps drafts. */
+  status?: KnowledgeStatusFilter | null;
   sort: KnowledgeSort;
   order: SortOrder;
   page: number;
@@ -61,13 +66,16 @@ export class KnowledgeDocsStore {
   readonly detail: ViewLoader<KnowledgeDetail, string>;
   readonly repos: ViewLoader<KnowledgeReposPage, string>;
 
+  /** The "Links saved" toast of each document, kept to change it in place. */
+  private readonly savedToasts = new Map<KnowledgeId, number>();
+
   constructor(private readonly transport: Transport) {
     this.list = new ViewLoader((key) => {
-      const { query, scope, format, place, useful, sort, order, page } = JSON.parse(key) as DocsRequest;
+      const { query, scope, format, place, useful, status, sort, order, page } = JSON.parse(key) as DocsRequest;
       const search = query.trim();
 
       return transport.invoke('knowledge_docs_list', {
-        filter: { scope: scopeOf(scope), format, place, sort, order, ...(useful ? { useful } : {}) },
+        filter: { scope: scopeOf(scope), format, place, sort, order, ...(useful ? { useful } : {}), ...(status ? { status } : {}) },
         offset: page * KNOWLEDGE_PAGE_SIZE,
         limit: KNOWLEDGE_PAGE_SIZE,
         query: search === '' ? null : search,
@@ -97,18 +105,49 @@ export class KnowledgeDocsStore {
     }
   }
 
-  /** Replaces what a document links to and answers the links as stored; null (with a toast) when the server refused. */
-  async setLinks(id: KnowledgeId, links: KnowledgeLink[]): Promise<KnowledgeLink[] | null> {
+  /**
+   * Replaces what a document links to and answers the links as stored. A save says so in a toast naming the document (`title`). Null (with a toast) when the server refused, or failed: a team
+   * document cannot link to a folder without a git remote, which the toast says by the folder's name.
+   */
+  async setLinks(id: KnowledgeId, links: KnowledgeLink[], title: string): Promise<KnowledgeLink[] | null> {
     try {
-      const stored = await this.transport.invoke('knowledge_doc_links_set', { id, links });
+      const outcome = await this.transport.invoke('knowledge_doc_links_set', { id, links });
 
+      if (outcome.type === 'refused') {
+        this.sayLinksRefused(outcome.code, outcome.message, links);
+
+        return null;
+      }
+
+      this.sayLinksSaved(id, title);
       await this.refresh();
 
-      return stored;
+      return outcome.value;
     } catch (error) {
       toasts.push({ title: t('knowledge.toast.linksFailed'), description: readFailureText(error), tone: 'danger' });
 
       return null;
+    }
+  }
+
+  /** One "Links saved" toast per document: saving again while it is shown changes it in place and starts its countdown over, instead of stacking another. */
+  private sayLinksSaved(id: KnowledgeId, title: string): void {
+    const shown = this.savedToasts.get(id);
+
+    if (shown !== undefined && toasts.has(shown)) {
+      toasts.update(shown, { title: t('knowledge.toast.linksSaved'), description: title, tone: 'success' });
+
+      return;
+    }
+
+    this.savedToasts.set(id, toasts.push({ title: t('knowledge.toast.linksSaved'), description: title, tone: 'success' }));
+  }
+
+  private sayLinksRefused(code: KnowledgeRefusalCode, message: string, links: KnowledgeLink[]): void {
+    if (code === 'localPath') {
+      toasts.push({ ...localPathToast(links), tone: 'danger' });
+    } else {
+      toasts.push({ title: t('knowledge.toast.linksFailed'), description: withoutFolderPaths(message, links), tone: 'danger' });
     }
   }
 

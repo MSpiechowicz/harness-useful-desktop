@@ -26,4 +26,18 @@ replacing?: Array<KnowledgeReplacement>,
  * Where the documents are kept when both places are in use (the routing's default for
  * their kind when not given).
  */
-place?: KnowledgePlace, };
+place?: KnowledgePlace, 
+/**
+ * Store every document as a draft (a replaced live document gets a pending version), whatever
+ * team approval says. Needs `docs-drafts`.
+ */
+draft?: boolean, 
+/**
+ * Replace the document and ask for approval in one step (needs `replaces` or `replacing`,
+ * `docs-drafts`, and team approval on: the server refuses it otherwise).
+ */
+ask?: boolean, 
+/**
+ * What the reviewers should know about the replacement, at most 500 characters. Needs `ask`.
+ */
+note?: string, };

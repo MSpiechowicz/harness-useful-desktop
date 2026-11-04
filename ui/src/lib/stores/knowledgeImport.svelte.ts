@@ -10,8 +10,12 @@ import type { KnowledgeSimilar } from '$lib/ipc/bindings/KnowledgeSimilar';
 import { ipc } from '$lib/ipc/client';
 import type { Transport } from '$lib/ipc/transport';
 import { writeFailureText } from '$lib/utils/knowledge-failure';
+import { withoutFolderPaths } from '$lib/utils/knowledge-local-path';
 import { choiceKey, type Landing, type MatchChoices, type MatchRow, matchRows, replacementsOf } from '$lib/utils/knowledge-match';
 
+import { knowledgeChanges } from './knowledgeChanges.svelte';
+import { knowledgeStats } from './knowledgeStats.svelte';
+import { knowledgeStatus } from './knowledgeStatus.svelte';
 import { toasts } from './toasts.svelte';
 
 /** One file of an import as the server reported it. */
@@ -22,6 +26,10 @@ export interface ImportRow {
   chunks: number | null;
   embedding: KnowledgeEmbedding | null;
   warnings: string[];
+  /** The document was stored as a draft, which agents do not use until it goes live. */
+  draft: boolean;
+  /** The version was asked for approval at once (an import with `ask`), whether or not its text changed. */
+  asked: boolean;
 }
 
 /** What an import has done so far: built from its events by `reduceImport`. */
@@ -50,7 +58,22 @@ export function reduceImport(run: ImportRun, event: KnowledgeImportEvent): Impor
     case 'plan':
       return { ...run, total: event.total };
     case 'file':
-      return { ...run, rows: [...run.rows, { path: event.path, status: event.status, reason: event.reason, chunks: event.chunks, embedding: event.embedding, warnings: event.warnings }] };
+      return {
+        ...run,
+        rows: [
+          ...run.rows,
+          {
+            path: event.path,
+            status: event.status,
+            reason: event.reason,
+            chunks: event.chunks,
+            embedding: event.embedding,
+            warnings: event.warnings,
+            draft: event.draft === true,
+            asked: event.asked === true,
+          },
+        ],
+      };
     case 'progress':
       return { ...run, done: event.done, total: event.total };
     case 'done':
@@ -76,6 +99,13 @@ export function fractionOf(run: ImportRun): number | null {
   return run.total === null || run.total === 0 ? null : Math.min(1, run.done / run.total);
 }
 
+/** How an import ended in one line: how many documents were added or updated, how many wait for approval as pending updates, how many failed. */
+export function countsText(counts: KnowledgeImportCounts): string {
+  const written = counts.added + counts.updated;
+
+  return counts.pending ? t('knowledge.drafts.import.counts', { written, pending: counts.pending, failed: counts.failed }) : t('knowledge.import.toast.counts', { written, failed: counts.failed });
+}
+
 export type ImportPhase = 'idle' | 'staged' | 'running' | 'done';
 
 /**
@@ -91,6 +121,8 @@ export class KnowledgeImportStore {
   links = $state.raw<KnowledgeLink[]>([]);
   /** Where every imported document is kept when the user chose (both places in use), none for the routing's own choice. */
   place = $state<KnowledgePlace | null>(null);
+  /** The "Save as draft" switch: the documents are stored as drafts agents do not use until they go live. */
+  draft = $state(false);
   run = $state.raw<ImportRun>(emptyRun(0));
   /** A native dialog is open. */
   picking = $state(false);
@@ -121,6 +153,21 @@ export class KnowledgeImportStore {
     return this.phase === 'running';
   }
 
+  /** This Harness Knowledge keeps drafts, so the import can store its documents as drafts. */
+  get canDraft(): boolean {
+    return knowledgeStatus.value?.features.docsDrafts === true;
+  }
+
+  /** Team approval is on and the import goes to the team database: every document starts as a draft, the switch is on and cannot be turned off. */
+  get approvalLocked(): boolean {
+    return this.canDraft && (knowledgeChanges.pulse?.approval ?? knowledgeStats.value?.approval) === true && this.landing !== 'local';
+  }
+
+  /** Whether the documents are stored as drafts: the user's choice, or team approval's. */
+  get asDraft(): boolean {
+    return this.canDraft && (this.draft || this.approvalLocked);
+  }
+
   /** Opens the dialog on what is staged, or on the picking step. */
   begin(): void {
     if (this.phase === 'done') {
@@ -144,6 +191,7 @@ export class KnowledgeImportStore {
     this.intake = null;
     this.run = emptyRun(0);
     this.cancelling = false;
+    this.draft = false;
     this.forgetScan();
   }
 
@@ -271,7 +319,13 @@ export class KnowledgeImportStore {
     try {
       const result = await this.transport.invoke('knowledge_import', {
         token: intake.token,
-        options: { links: this.links, replaces: null, ...(replacing.length === 0 ? {} : { replacing }), ...(this.place === null ? {} : { place: this.place }) },
+        options: {
+          links: this.links,
+          replaces: null,
+          ...(replacing.length === 0 ? {} : { replacing }),
+          ...(this.place === null ? {} : { place: this.place }),
+          ...(this.asDraft ? { draft: true } : {}),
+        },
         onEvent: (event) => {
           this.run = reduceImport(this.run, event);
         },
@@ -283,6 +337,11 @@ export class KnowledgeImportStore {
       }
     } catch (error) {
       this.run = { ...this.run, failure: this.run.failure ?? writeFailureText(error) };
+    }
+
+    // What the server says about a folder without a git remote names the folder, never where it is on this computer.
+    if (this.run.failure !== null) {
+      this.run = { ...this.run, failure: withoutFolderPaths(this.run.failure, this.links) };
     }
 
     this.phase = 'done';
@@ -301,9 +360,7 @@ export class KnowledgeImportStore {
     if (failure !== null) {
       toasts.push({ title: t('knowledge.import.toast.failed'), description: failure, tone: 'danger' });
     } else if (counts !== null) {
-      const written = counts.added + counts.updated;
-
-      toasts.push({ title: t(this.run.cancelled ? 'knowledge.import.toast.cancelled' : 'knowledge.import.toast.done'), description: t('knowledge.import.toast.counts', { written, failed: counts.failed }), tone: counts.failed > 0 ? 'warning' : 'success' });
+      toasts.push({ title: t(this.run.cancelled ? 'knowledge.import.toast.cancelled' : 'knowledge.import.toast.done'), description: countsText(counts), tone: counts.failed > 0 ? 'warning' : 'success' });
     }
   }
 
@@ -342,6 +399,7 @@ export class KnowledgeImportStore {
     this.clear();
     this.links = [];
     this.place = null;
+    this.draft = false;
     this.landing = 'unknown';
     this.picking = false;
     this.embeddingPending = 0;

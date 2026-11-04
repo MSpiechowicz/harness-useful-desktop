@@ -8,6 +8,7 @@ import { knowledgeStats } from '$lib/stores/knowledgeStats.svelte';
 import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
 import { type DocsRequest, docsKey, knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
 import { heldKey, type HeldRequest, knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
+import { knowledgeReview } from '$lib/stores/knowledgeReview.svelte';
 import { revalidateProjectScopes } from '$lib/stores/project-scopes.svelte';
 import { project } from '$lib/stores/project.svelte';
 import { viewState } from '$lib/stores/view-state.svelte';
@@ -15,15 +16,17 @@ import { autoRefresh } from '$lib/utils/auto-refresh';
 
 import { settled } from '../memory/memory-data.svelte';
 import { USEFUL_SORTS, sortOf } from './knowledge-format';
+import { liveIdOf, versionOf } from './review-model';
 
-/** The request the documents table makes under what the view state holds. `usefulKnown` is false for a server that does not count usefulness: it has no such filter or sort. */
-export function docsRequest(query: string, usefulKnown = true): DocsRequest {
+/** The request the documents table makes under what the view state holds. `usefulKnown` is false for a server that does not count usefulness: it has no such filter or sort. `draftsKnown` is false for one that keeps no drafts. */
+export function docsRequest(query: string, usefulKnown = true, draftsKnown = true): DocsRequest {
   return {
     query,
     scope: viewState.knowledgeScope,
     format: viewState.knowledgeFormat,
     place: viewState.knowledgePlace,
     useful: usefulKnown ? viewState.knowledgeUseful : null,
+    status: draftsKnown ? viewState.knowledgeStatus : null,
     sort: sortOf(viewState.knowledgeSort.key, usefulKnown),
     order: viewState.knowledgeSort.desc ? 'desc' : 'asc',
     page: viewState.knowledgePage,
@@ -57,7 +60,16 @@ export function useKnowledgeData(): void {
     }
   });
 
-  const documents = $derived<DocsRequest>(docsRequest(docsQuery.value, !usefulUnsupported));
+  // A server that keeps no drafts has no State filter either.
+  const draftsUnsupported = $derived(knowledgeStatus.value?.features.docsDrafts === false);
+
+  $effect(() => {
+    if (draftsUnsupported && viewState.knowledgeStatus !== null) {
+      viewState.knowledgeStatus = null;
+    }
+  });
+
+  const documents = $derived<DocsRequest>(docsRequest(docsQuery.value, !usefulUnsupported, !draftsUnsupported));
   const proposals = $derived<HeldRequest>({ query: heldQuery.value, page: viewState.heldPage, scope: viewState.heldScope, sort: viewState.heldSort });
 
   // Opening the view (or a change of the search, the filters, the sort or the page) reads again; a list already read is quietly refreshed.
@@ -77,6 +89,36 @@ export function useKnowledgeData(): void {
     const id = viewState.knowledgeDocId;
 
     untrack(() => knowledgeDocs.detail.sync(id === null ? null : idKey(id), null));
+  });
+
+  // The history, comments and comparison of the open document: of its pending version when it has one. They are read for a server that keeps drafts, and stay read while the full review is open.
+  const opened = $derived(knowledgeDocs.detail.data?.document.id === viewState.knowledgeDocId ? knowledgeDocs.detail.data?.document : undefined);
+  const version = $derived(knowledgeStatus.value?.features.docsDrafts === true && opened ? versionOf(opened) : null);
+  const historyId = $derived(knowledgeStatus.value?.features.docsDrafts === true && opened ? (version?.id ?? opened.id) : null);
+
+  $effect(() => {
+    const id = historyId;
+
+    untrack(() => knowledgeReview.history.sync(id === null ? null : idKey(id), null));
+  });
+
+  // A live document with a pending update has the rounds of the update under the pending row and its own events under the live row: the History section reads both.
+  const liveId = $derived(version && opened ? liveIdOf(opened) : null);
+
+  $effect(() => {
+    const id = liveId;
+
+    untrack(() => knowledgeReview.liveHistory.sync(id === null ? null : idKey(id), null));
+  });
+
+  $effect(() => {
+    const id = version?.id ?? null;
+    const key = id === null ? null : idKey(id);
+
+    untrack(() => {
+      knowledgeReview.comments.sync(key, null);
+      knowledgeReview.compare.sync(key, null);
+    });
   });
 
   $effect(() => {
@@ -120,12 +162,13 @@ export function useKnowledgeData(): void {
     if (state !== seen) {
       seen = state;
 
-      untrack(() => void Promise.all([knowledgeDocs.refresh(), knowledgeHeld.refresh(), knowledgeStats.load()]));
+      untrack(() => void Promise.all([knowledgeDocs.refresh(), knowledgeHeld.refresh(), knowledgeReview.refresh(), knowledgeStats.load()]));
     }
   });
 
-  // The database tells when it changes, so this is only the backstop: a server that was missing or failing is asked again on the retry schedule.
-  $effect(() => autoRefresh(() => Promise.all([knowledgeDocs.refresh(), knowledgeHeld.refresh()]), KNOWLEDGE_POLL_MS, { failing: knowledgeDocs.list.status === 'error' }));
+  // The database tells when it changes, so this is only the backstop: a server that was missing or failing is asked again on the retry schedule. The comparison of the open version is read
+  // with the document, so the diff on screen and the revision a verdict is made on never drift apart.
+  $effect(() => autoRefresh(() => Promise.all([knowledgeDocs.refresh(), knowledgeHeld.refresh(), knowledgeReview.refresh()]), KNOWLEDGE_POLL_MS, { failing: knowledgeDocs.list.status === 'error' }));
 
   // A search starts at its first page.
   let searched = [viewState.knowledgeQuery, viewState.heldQuery];

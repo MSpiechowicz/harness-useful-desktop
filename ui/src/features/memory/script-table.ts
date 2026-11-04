@@ -6,7 +6,7 @@ export function scriptColumns(authors = false): Column[] {
   return [
     { key: 'name', label: t('memory.scripts.column.name'), sortable: true },
     { key: 'language', label: t('memory.scripts.column.language'), width: '8rem', sortable: true },
-    { key: 'scope', label: t('memory.scripts.column.scope'), width: '11rem', sortable: true },
+    { key: 'scope', label: t('memory.scripts.column.scope'), width: COLUMN_WIDTH.project, sortable: true },
     { key: 'place', label: t('memory.scripts.column.place'), width: '8rem', sortable: true },
     { key: 'runs', label: t('memory.scripts.column.runs'), width: '7rem', align: 'end', sortable: true, descFirst: true },
     { key: 'lastRun', label: t('memory.scripts.column.lastRun'), width: '8rem', sortable: true, descFirst: true },

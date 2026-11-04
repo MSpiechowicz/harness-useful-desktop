@@ -41,18 +41,21 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.pathCopied': 'La ruta del archivo está en el portapapeles.',
 
   'config.overview.title': 'Resumen',
+  'config.overview.title.hint': 'Cuánto contiene esta sección.',
   'config.overview.entries': 'entradas de primer nivel',
   'config.overview.values': 'valores',
   'config.overview.depth': 'niveles de profundidad',
   'config.overview.secrets': 'secretos ocultos',
 
   'config.file.title': 'Archivo',
+  'config.file.title.hint': 'Dónde se guarda esta sección.',
   'config.file.layer': 'Capa',
   'config.file.format': 'Formato',
   'config.file.profile': 'Perfil',
   'config.file.path': 'Ruta',
 
   'config.profiles.title': 'Perfiles',
+  'config.profiles.title.hint': 'Conjuntos de ajustes con nombre con los que puedes iniciar.',
   'config.profiles.hint': 'Inicia {harness} con --profile <name> para usar uno.',
   'config.profiles.less': 'Mostrar menos',
   'config.profiles.all': 'Mostrar las {count}',

@@ -4,13 +4,9 @@
   import { cx } from '$lib/utils/cx';
 
   import Card from './Card.svelte';
+  import type { SectionHead } from './section-card';
 
-  interface Props {
-    heading: string;
-    /** One line under the heading that says what the section is. */
-    hint?: string;
-    /** No card: the section is told apart by a hairline above it and its small caps heading, so a pane of sections is one flat page. */
-    flat?: boolean;
+  interface Props extends SectionHead {
     class?: string;
     children: Snippet;
   }
@@ -19,8 +15,9 @@
 </script>
 
 {#snippet content()}
-  <h3 class={cx('text-xs font-medium tracking-wider text-fg-3 uppercase', hint ? 'mb-1' : 'mb-2.5')}>{heading}</h3>
-  {#if hint}<p class="mb-2.5 text-sm text-fg-3">{hint}</p>{/if}
+  <!-- One gap from the heading (or the hint under it) to the content, in every section: the 14px a Details row starts at. -->
+  <h3 class={cx('text-xs font-medium tracking-wider text-fg-3 uppercase', hint ? 'mb-1' : 'mb-3.5')}>{heading}</h3>
+  {#if hint}<p class="mb-3.5 text-sm text-fg-3">{hint}</p>{/if}
   {@render children()}
 {/snippet}
 

@@ -188,4 +188,13 @@ export const shell: AreaMessages<typeof enShell> = {
   'shell.palette.onboarding.keywords': 'configurar detectar bienvenida',
   'shell.palette.untracked': 'Sin seguimiento',
   'shell.palette.resumeInChat': 'Reanudar en el chat',
+  'shell.count.knowledgeToReview.one': '{count} por revisar',
+  'shell.count.knowledgeToReview.other': '{count} por revisar',
+  'shell.count.knowledgeWaiting.one': '{count} esperando aprobación',
+  'shell.count.knowledgeWaiting.other': '{count} esperando aprobación',
+  'shell.notice.knowledgeRestart.title': 'Se actualizó Harness Knowledge',
+  'shell.notice.knowledgeRestart.body': 'Reinicia tus harnesses para que sus agentes usen la nueva versión.',
+  'shell.notice.knowledgeRestart.action': 'Entendido',
+  'shell.notice.knowledgeWaits.title': 'El conocimiento remoto no está al día',
+  'shell.notice.knowledgeWaits.body': 'Esperando a que un compañero actualice el conocimiento remoto.',
 };

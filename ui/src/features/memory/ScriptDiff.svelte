@@ -20,6 +20,7 @@
 </script>
 
 <figure class="chat-radius overflow-hidden border border-line bg-canvas" aria-label={label ?? t('memory.request.diff.label')}>
-  <!-- Like the code block, the diff shows in full: the dialog around it is the one thing that scrolls. -->
-  <pre class="py-2 font-mono text-[13px] leading-5 whitespace-pre-wrap [overflow-wrap:anywhere]"><code class="grid">{#each diff.rows as row, index (index)}{#if row.kind === 'gap'}<span class="px-3.5 py-1 font-sans text-xs text-fg-3 select-none">{tn('memory.request.diff.gap', row.hidden)}</span>{:else}<span class={cx('grid grid-cols-[1.5ch_1fr] gap-x-2 px-3.5', DIFF_ROW[TONES[row.kind]], DIFF_TEXT[TONES[row.kind]])} data-diff={row.kind}><span class="select-none">{SIGNS[row.kind]}</span><span><HiddenText text={row.text} /></span></span>{/if}{/each}</code></pre>
+  <!-- Like the code block of a script, the diff stops at `--code-max-h` and scrolls inside. -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
+  <pre class="max-h-[var(--code-max-h)] overflow-y-auto py-2 font-mono text-[13px] leading-5 whitespace-pre-wrap [overflow-wrap:anywhere]" tabindex="0"><code class="grid">{#each diff.rows as row, index (index)}{#if row.kind === 'gap'}<span class="px-3.5 py-1 font-sans text-xs text-fg-3 select-none">{tn('memory.request.diff.gap', row.hidden)}</span>{:else}<span class={cx('grid grid-cols-[1.5ch_1fr] gap-x-2 px-3.5', DIFF_ROW[TONES[row.kind]], DIFF_TEXT[TONES[row.kind]])} data-diff={row.kind}><span class="select-none">{SIGNS[row.kind]}</span><span><HiddenText text={row.text} /></span></span>{/if}{/each}</code></pre>
 </figure>

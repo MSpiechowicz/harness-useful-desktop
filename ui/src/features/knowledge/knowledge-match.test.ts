@@ -276,7 +276,7 @@ describe('the files of an import next to the documents they are versions of', ()
     await table();
     expect(calls(invoke, 'knowledge_similar')).toHaveLength(1);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Link a repository' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'Link a project' }));
     await fireEvent.click(await screen.findByRole('menuitem', { name: /useful\/website/ }));
 
     await waitFor(() => expect(calls(invoke, 'knowledge_similar')).toHaveLength(2));

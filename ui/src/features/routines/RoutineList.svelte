@@ -6,7 +6,7 @@
   import DocTable from '$lib/components/docs/DocTable.svelte';
   import type { DocTableHandle } from '$lib/components/docs/doc-groups';
   import { ICON } from '$lib/components/icon';
-  import type { Sort } from '$lib/components/table';
+  import { COLUMN_WIDTH, type Sort } from '$lib/components/table';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
   import type { RoutineView } from '$lib/ipc/bindings/RoutineView';
@@ -44,7 +44,7 @@
 
   const COLUMNS = $derived([
     { key: 'routine', label: t('routines.list.column.routine') },
-    { key: 'scope', label: t('routines.list.column.scope'), width: '13rem' },
+    { key: 'scope', label: t('routines.list.column.scope'), width: COLUMN_WIDTH.project },
     { key: 'when', label: t('routines.list.column.when'), width: '13rem' },
     { key: 'next', label: t('routines.list.column.next'), width: '8.5rem' },
     { key: 'status', label: t('routines.list.column.status'), width: '10.5rem' },

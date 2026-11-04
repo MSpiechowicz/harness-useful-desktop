@@ -3,4 +3,4 @@
 /**
  * What became of one file.
  */
-export type KnowledgeFileStatus = "added" | "updated" | "unchanged" | "skipped" | "failed";
+export type KnowledgeFileStatus = "added" | "updated" | "unchanged" | "pending" | "skipped" | "failed";

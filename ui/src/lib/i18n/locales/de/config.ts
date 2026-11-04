@@ -41,18 +41,21 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.pathCopied': 'Der Dateipfad liegt in der Zwischenablage.',
 
   'config.overview.title': 'Überblick',
+  'config.overview.title.hint': 'Wie viel dieser Abschnitt enthält.',
   'config.overview.entries': 'Einträge auf oberster Ebene',
   'config.overview.values': 'Werte',
   'config.overview.depth': 'Ebenen tief',
   'config.overview.secrets': 'Geheimnisse maskiert',
 
   'config.file.title': 'Datei',
+  'config.file.title.hint': 'Wo dieser Abschnitt gespeichert ist.',
   'config.file.layer': 'Ebene',
   'config.file.format': 'Format',
   'config.file.profile': 'Profil',
   'config.file.path': 'Pfad',
 
   'config.profiles.title': 'Profile',
+  'config.profiles.title.hint': 'Benannte Einstellungssätze, mit denen du starten kannst.',
   'config.profiles.hint': 'Starte {harness} mit --profile <name>, um eines zu verwenden.',
   'config.profiles.less': 'Weniger anzeigen',
   'config.profiles.all': 'Alle {count} anzeigen',

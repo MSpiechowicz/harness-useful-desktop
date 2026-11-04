@@ -27,7 +27,7 @@
 </script>
 
 <!-- One plain line per profile, no count or bullets (the rows and "Show all" already say how many); the way to use one sits under a hairline. -->
-<SectionCard flat heading={t('config.profiles.title')}>
+<SectionCard flat heading={t('config.profiles.title')} hint={t('config.profiles.title.hint')}>
   <ul class="flex flex-col">
     {#each shown as name (name)}
       <li class="flex h-7 items-center text-sm text-fg-2" title={name}>

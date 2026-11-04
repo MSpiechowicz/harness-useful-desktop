@@ -21,4 +21,36 @@ held: number | null,
  * The remote database cannot be reached: the counts are this computer's, and writes to the
  * remote are paused.
  */
-offline: boolean, };
+offline: boolean, 
+/**
+ * How many documents wait for THIS person's approval in every place (the rail badge): the ones
+ * they did not write and did not ask for. `0` from a server that does not say who could
+ * approve (so nobody is badged for their own documents), none from a server without
+ * `docs-drafts`.
+ */
+waiting?: number | null, 
+/**
+ * How many documents wait for approval in every place, whoever could approve them (the
+ * Waiting filter's total), none from a server without `docs-drafts`.
+ */
+waitingAll?: number | null, 
+/**
+ * Whether team approval is on, none with no team database, while it cannot be reached and from
+ * a server without `docs-approval`.
+ */
+approval?: boolean | null, 
+/**
+ * The database was moved to a newer schema by this computer's update: tell the user to restart
+ * their harnesses, once (`knowledge_restart_notice_dismiss` ends it).
+ */
+restartHarnesses?: boolean | null, 
+/**
+ * The database needs an upgrade a read-only role cannot make: it waits for a teammate's update.
+ */
+upgradeWaits?: boolean | null, 
+/**
+ * The git `user.name` of the person at the terminal, as the server reads it: what the view
+ * compares authors with to tell their own documents. None from a server that predates it or
+ * while no name is set.
+ */
+me?: string | null, };

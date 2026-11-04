@@ -41,11 +41,11 @@
 </script>
 
 <!-- The body of the details panel, which supplies the heading, the padding and the scrolling. -->
-<SectionCard flat heading={t('config.overview.title')}>
+<SectionCard flat heading={t('config.overview.title')} hint={t('config.overview.title.hint')}>
   <StatGrid stats={overview} />
 </SectionCard>
 
-<SectionCard flat heading={t('config.file.title')}>
+<SectionCard flat heading={t('config.file.title')} hint={t('config.file.title.hint')}>
   <dl class="flex flex-col">
     {#each file as row (row.label)}
       <div class="flex justify-between gap-3 py-1 text-sm">

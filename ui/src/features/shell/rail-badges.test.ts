@@ -48,14 +48,27 @@ describe('the rail badge of the Routines view', () => {
 });
 
 describe('the rail badge of the Knowledge view', () => {
+  const knowledge = (held: number, waiting: number) => railBadge('knowledge', null, null, 0, undefined, 0, { held, waiting });
+
   it('counts the documents waiting for review, and is quiet without any', () => {
-    expect(railBadge('knowledge', null, null, 0, undefined, 0, 2)).toEqual({ text: '2', label: '2 documents to review', tone: 'warning', busy: false });
-    expect(railBadge('knowledge', null, null, 0, undefined, 0, 1)?.label).toBe('1 document to review');
+    expect(knowledge(2, 0)).toEqual({ text: '2', label: '2 to review', tone: 'warning', busy: false });
+    expect(knowledge(1, 0)?.label).toBe('1 to review');
+    expect(knowledge(0, 0)).toBeNull();
     expect(railBadge('knowledge', null, null)).toBeNull();
   });
 
+  it('counts the documents waiting for the user to approve', () => {
+    expect(knowledge(0, 3)).toEqual({ text: '3', label: '3 waiting for approval', tone: 'warning', busy: false });
+  });
+
+  it('adds what waits for review to what waits for approval and says both', () => {
+    expect(knowledge(2, 3)).toEqual({ text: '5', label: '2 to review · 3 waiting for approval', tone: 'warning', busy: false });
+    expect(knowledge(1, 1)?.label).toBe('1 to review · 1 waiting for approval');
+  });
+
   it('caps the count and does not mark another view', () => {
-    expect(railBadge('knowledge', null, null, 0, undefined, 0, 150)?.text).toBe('99+');
-    expect(railBadge('hooks', null, null, 0, undefined, 0, 4)).toBeNull();
+    expect(knowledge(150, 0)?.text).toBe('99+');
+    expect(knowledge(60, 60)?.text).toBe('99+');
+    expect(railBadge('hooks', null, null, 0, undefined, 0, { held: 4, waiting: 2 })).toBeNull();
   });
 });

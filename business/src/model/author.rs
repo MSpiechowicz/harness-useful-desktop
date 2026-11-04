@@ -31,7 +31,7 @@ pub struct AuthorRef {
 
 /// `text` without control characters and characters that draw nothing or reorder the text around
 /// them, trimmed, at most `max_chars` long. For text of another program that is shown as it is.
-pub(crate) fn display_text(text: &str, max_chars: usize) -> String {
+pub fn display_text(text: &str, max_chars: usize) -> String {
     let kept: String = text
         .trim()
         .chars()
@@ -85,5 +85,69 @@ pub mod lenient_author {
             .filter(|via| !via.is_empty());
 
         Ok(Some(AuthorRef { name, via }))
+    }
+}
+
+/// The serde `with` of a teammate's name that is a plain optional string (`#[serde(default, with =
+/// "lenient_name")]`): cleaned like an [`AuthorRef`]'s name ([`display_text`], at most
+/// [`MAX_AUTHOR_NAME_CHARS`]), and `None` for `null`, anything that is not a string and a name that
+/// is empty once cleaned.
+pub mod lenient_name {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde_json::Value;
+
+    use super::{MAX_AUTHOR_NAME_CHARS, display_text};
+
+    /// Writes the name as it is.
+    pub fn serialize<S: Serializer>(name: &Option<String>, serializer: S) -> Result<S::Ok, S::Error> {
+        name.serialize(serializer)
+    }
+
+    /// Reads and cleans the name (see the module docs).
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+        let value = Option::<Value>::deserialize(deserializer)?;
+
+        Ok(match value {
+            Some(Value::String(name)) => {
+                Some(display_text(&name, MAX_AUTHOR_NAME_CHARS)).filter(|name| !name.is_empty())
+            }
+            _ => None,
+        })
+    }
+}
+
+/// The serde `with` of a list of teammates' names (`#[serde(default, with = "lenient_names")]`):
+/// every name cleaned like [`lenient_name`]'s, the ones that are not strings or are empty once
+/// cleaned dropped, and `None` for `null`, an absent key and anything that is not a list. A list
+/// this app cannot read never fails the document around it.
+pub mod lenient_names {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde_json::Value;
+
+    use super::{MAX_AUTHOR_NAME_CHARS, display_text};
+
+    /// Writes the names as they are.
+    pub fn serialize<S: Serializer>(names: &Option<Vec<String>>, serializer: S) -> Result<S::Ok, S::Error> {
+        names.serialize(serializer)
+    }
+
+    /// Reads and cleans the names (see the module docs).
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Vec<String>>, D::Error> {
+        let value = Option::<Value>::deserialize(deserializer)?;
+
+        let Some(Value::Array(items)) = value else {
+            return Ok(None);
+        };
+
+        let names = items
+            .into_iter()
+            .filter_map(|item| match item {
+                Value::String(name) => Some(display_text(&name, MAX_AUTHOR_NAME_CHARS)),
+                _ => None,
+            })
+            .filter(|name| !name.is_empty())
+            .collect();
+
+        Ok(Some(names))
     }
 }

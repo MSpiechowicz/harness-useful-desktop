@@ -5,6 +5,7 @@
   import { fly } from 'svelte/transition';
 
   import { scaled, travel } from '$lib/design/motion';
+  import { motion } from '$lib/stores/motion.svelte';
   import { cx } from '$lib/utils/cx';
 
   import PaneHeader from './PaneHeader.svelte';
@@ -20,8 +21,8 @@
     /** Fills the column it is placed in instead of sliding in over the right edge of its parent: no slide, no shadow. */
     inline?: boolean;
     /**
-     * A panel that lays itself out: no shadow (the 1px panel edge alone sets it off the page it covers) and a body without
-     * padding or gaps, so `top` and `footer` can run edge to edge and the content sets its own inset.
+     * A panel that lays itself out: a body without padding or gaps, so `top` and `footer` can run edge to edge and the
+     * content sets its own inset. Panels carry no shadow, the 1px panel edge sets them off the page they cover.
      */
     flat?: boolean;
     /** Controls at the end of the title line, before the close button. */
@@ -30,6 +31,8 @@
     titleField?: Snippet;
     /** Fixed under the header, above the scrolling body (a status card, tabs). */
     top?: Snippet;
+    /** A state row in the header under the title, in place of the subtitle (see `PaneHeader`). */
+    status?: Snippet;
     /** Fixed under the scrolling body, edge to edge (a message box). */
     footer?: Snippet;
     /** Drawn over the whole panel, above its scrolling body (a drop target that says what a drop does). */
@@ -45,9 +48,14 @@
     children: Snippet;
   }
 
-  let { open, title, subtitle = '', mono = false, inline = false, flat = false, actions, titleField, top, footer, overlay, ondragenter, ondragover, ondragleave, ondrop, element = $bindable(null), onclose, children }: Props = $props();
+  let { open, title, subtitle = '', mono = false, inline = false, flat = false, actions, titleField, status, top, footer, overlay, ondragenter, ondragover, ondragleave, ondrop, element = $bindable(null), onclose, children }: Props = $props();
 
   const SLIDE_PX = 560;
+
+  // The panel slides fully opaque: a see-through panel shows the darker page under it while it moves, so its colour would change
+  // as it settles. With reduced motion it does not travel, and fades in place instead. Read from the motion store, so a change of the setting (or of the OS preference)
+  // while the app runs reaches the next slide.
+  const fade = $derived(motion.level === 'full' ? 1 : 0);
 </script>
 
 <!-- A flat panel's subtitle is trimmed to its baseline, not to the descender line the header otherwise centres on, so the space
@@ -56,7 +64,7 @@
 {#snippet subtitleLine()}{#if flat}<span class="block truncate py-[0.3em] -my-[0.3em] [text-box:trim-both_cap_alphabetic]">{subtitle}</span>{:else}{subtitle}{/if}{/snippet}
 
 {#snippet body()}
-  <PaneHeader {title} {mono} inset="panel" subtitle={subtitle ? subtitleLine : undefined} subtitleHint={subtitle} {actions} {titleField} {onclose} />
+  <PaneHeader {title} {mono} inset="panel" subtitle={subtitle ? subtitleLine : undefined} subtitleHint={subtitle} {status} {actions} {titleField} {onclose} />
 
   {@render top?.()}
 
@@ -86,10 +94,10 @@
     {ondragover}
     {ondragleave}
     {ondrop}
-    in:fly={{ x: travel(SLIDE_PX), opacity: 0.2, duration: scaled(340), easing: expoOut }}
-    out:fly={{ x: travel(SLIDE_PX), opacity: 0.2, duration: scaled(220), easing: expoOut }}
+    in:fly={{ x: travel(SLIDE_PX), opacity: fade, duration: scaled(340), easing: expoOut }}
+    out:fly={{ x: travel(SLIDE_PX), opacity: fade, duration: scaled(220), easing: expoOut }}
     style:width="min({SIDE_PANEL_WIDTH}, 100%)"
-    class={cx('absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden border-l border-panel-edge bg-surface-1', !flat && 'shadow-pop')}
+    class="absolute inset-y-0 right-0 z-20 flex flex-col overflow-hidden border-l border-panel-edge bg-surface-1"
   >
     {@render body()}
   </section>

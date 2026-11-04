@@ -21,6 +21,7 @@
   import { hooks } from '../hooks/hooks-data.svelte';
   import { routines } from '../routines/routines-data.svelte';
 
+  import KnowledgeNotices from './KnowledgeNotices.svelte';
   import { railBadge } from './rail-badges';
   import RailFooter from './RailFooter.svelte';
   import RailItem from './RailItem.svelte';
@@ -168,7 +169,7 @@
           shortcut={viewHint(view.id)}
           active={view.id === nav.current}
           {expanded}
-          badge={railBadge(view.id, chat, git.status, hooks.pending, { pending: routines.pending, needsYou: routines.waiting.size }, hooks.updates, knowledgeChanges.held)}
+          badge={railBadge(view.id, chat, git.status, hooks.pending, { pending: routines.pending, needsYou: routines.waiting.size }, hooks.updates, { held: knowledgeChanges.held, waiting: knowledgeChanges.pulse?.waiting ?? 0 })}
           bind:button={buttons[index]}
           onselect={() => nav.go(view.id)}
         />
@@ -200,3 +201,6 @@
 
   <RailFooter {expanded} />
 </nav>
+
+<!-- Says in toasts what the Knowledge database reports about itself (restart the harnesses, a database that waits for a teammate), wherever the user is. It draws nothing. -->
+<KnowledgeNotices />

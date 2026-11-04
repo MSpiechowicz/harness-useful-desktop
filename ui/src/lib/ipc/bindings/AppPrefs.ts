@@ -150,6 +150,13 @@ codeEnabled: boolean,
  */
 codeAutoInstallDone: boolean, 
 /**
+ * Whether the one-time notice to restart running harnesses was raised, when this computer first
+ * had a Harness Knowledge with drafts installed (default off). A harness that started before
+ * holds the older server, whether or not this computer upgraded the database. Server-managed:
+ * only the install of Harness Knowledge changes it.
+ */
+knowledgeRestartNoticeDone: boolean, 
+/**
  * Whether the one-time switch of every update setting to automatic already ran (see
  * [`PrefsStore::turn_updates_on_once`](crate::prefs::PrefsStore::turn_updates_on_once)). A file
  * without this key reads `false`, so every existing install gets it once; fresh installs start with

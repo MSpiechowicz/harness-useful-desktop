@@ -15,15 +15,17 @@
     name: string;
     /** The title of the document the file would replace, for the hint under "Update". */
     title: string;
+    /** The import stores its documents as drafts (team approval is on, or the user asked): an update then becomes a pending update that waits for approval. */
+    draft: boolean;
     onchange: (update: boolean) => void;
   }
 
-  let { update, name, title, onchange }: Props = $props();
+  let { update, name, title, draft, onchange }: Props = $props();
 
   const choice = $derived(update ? t('knowledge.match.update') : t('knowledge.match.addNew'));
 
   const options = $derived([
-    { value: true, label: t('knowledge.match.update'), hint: t('knowledge.match.update.hint', { title }) },
+    { value: true, label: t('knowledge.match.update'), hint: draft ? t('knowledge.drafts.match.update.hint') : t('knowledge.match.update.hint', { title }) },
     { value: false, label: t('knowledge.match.addNew'), hint: t('knowledge.match.addNew.hint') },
   ]);
 </script>
@@ -31,7 +33,7 @@
 <!-- The menu opens in the window's layer, so the table and the dialog around it never cut it off. -->
 <Popover label={t('knowledge.match.choose', { name })} kind="menu" side="auto" align="end" matchTrigger={false} rootClass="w-full" class="w-72 min-w-0!">
   {#snippet trigger({ props, open })}
-    <Button {...props} aria-label={`${t('knowledge.match.choose', { name })}: ${choice}`} class="w-full justify-between">
+    <Button {...props} aria-label={`${t('knowledge.match.choose', { name })}: ${choice}`} title={update && draft ? t('knowledge.drafts.match.update.hint') : undefined} class="w-full justify-between">
       {choice}
       {#snippet trailing()}<ChevronDown size={ICON.sm} class={cx('transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-expo)]', open && 'rotate-180')} aria-hidden="true" />{/snippet}
     </Button>

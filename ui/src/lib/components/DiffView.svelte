@@ -1,6 +1,6 @@
 <script lang="ts">
   import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down';
-  import { tick, untrack } from 'svelte';
+  import { type Snippet, tick, untrack } from 'svelte';
 
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import { diffKey, expandGaps, skippedBefore } from '$lib/git/diff-expand';
@@ -14,6 +14,7 @@
 
   import DiffNotice from './DiffNotice.svelte';
   import DiffViewComposer from './DiffViewComposer.svelte';
+  import DiffViewHalves from './DiffViewHalves.svelte';
   import DiffViewSplitRow from './DiffViewSplitRow.svelte';
   import DiffViewThread from './DiffViewThread.svelte';
   import DiffViewUnifiedRow from './DiffViewUnifiedRow.svelte';
@@ -26,6 +27,15 @@
     comments: ThreadComment[];
     /** Longest comment body in bytes. */
     maxBytes: number;
+    /** What the empty comment field says; by default it is for the agent, as in the code review. */
+    placeholder?: string;
+    /**
+     * Threads kept elsewhere (a document review's saved comments) that belong under a line of this diff: each says which line it ends at and
+     * `savedThread` draws it. They show above the comments being written, in the half of their own side in split mode. Without them the view is
+     * the code review's and draws only `comments`.
+     */
+    saved?: { key: string; side: CommentSide; endLine: number }[];
+    savedThread?: Snippet<[key: string]>;
     /** Reads the file's text so the unchanged lines between hunks can be opened; without it those rows only count. */
     loadLines?: () => Promise<string[]>;
     /** What the user searched for; its matches are marked, and `cursor` picks the one that is scrolled to. */
@@ -40,7 +50,7 @@
     onreveal?: () => void;
   }
 
-  let { diff: source, mode, comments, maxBytes, query = '', cursor = 0, onmatches, loadLines, oncomment, onedit, onremove, onreveal }: Props = $props();
+  let { diff: source, mode, comments, maxBytes, placeholder, saved = [], savedThread, query = '', cursor = 0, onmatches, loadLines, oncomment, onedit, onremove, onreveal }: Props = $props();
 
   const ROW_ESTIMATE_PX = 20;
   const OVERSCAN_ROWS = 20;
@@ -141,6 +151,19 @@
     return byIndex;
   });
 
+  const savedAt = $derived.by(() => {
+    const byIndex = new Map<number, { key: string; side: CommentSide }[]>();
+
+    for (const thread of saved) {
+      const index = anchorIndex(lines, thread.side, thread.endLine);
+      if (index !== -1) {
+        byIndex.set(index, [...(byIndex.get(index) ?? []), thread]);
+      }
+    }
+
+    return byIndex;
+  });
+
   /** Reads the file once, then opens the lines before `hunk`. */
   async function openGap(hunk: number): Promise<void> {
     if (readingFile || !loadLines) {
@@ -167,6 +190,10 @@
 
   function threadFor(row: DiffRow): ThreadComment[] {
     return rowIndexes(row).flatMap((index) => threadsAt.get(index) ?? []);
+  }
+
+  function savedFor(row: DiffRow): { key: string; side: CommentSide }[] {
+    return rowIndexes(row).flatMap((index) => savedAt.get(index) ?? []);
   }
 
   function select(from: number, to: number, side: CommentSide): void {
@@ -226,6 +253,39 @@
 
 <svelte:window onpointerup={pick.finish} onpointercancel={pick.finish} />
 
+{#snippet threadCard(comments: ThreadComment[], kept: { key: string }[])}
+  {#if kept.length > 0 && savedThread}
+    <div class="flex flex-col gap-2">
+      {#each kept as thread (thread.key)}
+        {@render savedThread(thread.key)}
+      {/each}
+
+      {#if comments.length > 0}<DiffViewThread {comments} {maxBytes} {onedit} {onremove} />{/if}
+    </div>
+  {:else}
+    <DiffViewThread {comments} {maxBytes} {onedit} {onremove} />
+  {/if}
+{/snippet}
+
+{#snippet composerCard(target: Selection)}
+  <DiffViewComposer heading={commentHeading(target)} {placeholder} {maxBytes} onsave={save} oncancel={cancel} />
+{/snippet}
+
+<!-- In split mode a thread or the composer goes in the half of its own side, so a comment on a new line is read under the new code. -->
+{#snippet halves(oldThread: ThreadComment[], newThread: ThreadComment[], oldKept: { key: string }[], newKept: { key: string }[], composer: Selection | null)}
+  {#if oldThread.length + oldKept.length > 0 || newThread.length + newKept.length > 0}
+    <DiffViewHalves left={oldThread.length + oldKept.length > 0 ? oldSide : undefined} right={newThread.length + newKept.length > 0 ? newSide : undefined} />
+  {/if}
+
+  {#if composer}
+    <DiffViewHalves left={composer.side === 'old' ? composerSide : undefined} right={composer.side === 'new' ? composerSide : undefined} />
+  {/if}
+
+  {#snippet oldSide()}{@render threadCard(oldThread, oldKept)}{/snippet}
+  {#snippet newSide()}{@render threadCard(newThread, newKept)}{/snippet}
+  {#snippet composerSide()}{#if composer}{@render composerCard(composer)}{/if}{/snippet}
+{/snippet}
+
 {#if noLines}
   <DiffNotice {diff} {onreveal} />
 {:else}
@@ -261,12 +321,24 @@
         {/if}
 
         {@const thread = threadFor(item)}
-        {#if thread.length > 0}
-          <div class="py-2 pr-3 pl-[98px]"><DiffViewThread comments={thread} {maxBytes} {onedit} {onremove} /></div>
-        {/if}
+        {@const kept = savedFor(item)}
+        {@const composer = composing && selection && rowIndexes(item).includes(composeAt) ? selection : null}
+        {#if mode === 'split'}
+          {@render halves(
+            thread.filter((comment) => comment.side === 'old'),
+            thread.filter((comment) => comment.side === 'new'),
+            kept.filter((each) => each.side === 'old'),
+            kept.filter((each) => each.side === 'new'),
+            composer,
+          )}
+        {:else}
+          {#if thread.length + kept.length > 0}
+            <div class="py-2 pr-3 pl-[98px]">{@render threadCard(thread, kept)}</div>
+          {/if}
 
-        {#if composing && selection && rowIndexes(item).includes(composeAt)}
-          <div class="py-2 pr-3 pl-[98px]"><DiffViewComposer heading={commentHeading(selection)} {maxBytes} onsave={save} oncancel={cancel} /></div>
+          {#if composer}
+            <div class="py-2 pr-3 pl-[98px]">{@render composerCard(composer)}</div>
+          {/if}
         {/if}
       {/snippet}
     </VirtualList>

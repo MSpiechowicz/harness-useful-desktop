@@ -13,6 +13,11 @@ added: number,
  */
 updated: number, 
 /**
+ * Pending versions of live documents (their `docs-drafts` import with approval on, or
+ * `draft`). Absent from a server without `docs-drafts`.
+ */
+pending?: number, 
+/**
  * Documents that stayed as they were.
  */
 unchanged: number, 

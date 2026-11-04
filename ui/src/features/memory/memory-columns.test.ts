@@ -109,7 +109,7 @@ describe('resizing a column', () => {
 
     expect(widthOf('Kind')).toBe('180px');
     // Narrower than allowed, or not a column of this table: not applied.
-    expect(widthOf('Scope')).toBe('12rem');
+    expect(widthOf('Scope')).toBe('18rem');
   });
 
   it('shows the table with its own widths when what is kept is not JSON', async () => {

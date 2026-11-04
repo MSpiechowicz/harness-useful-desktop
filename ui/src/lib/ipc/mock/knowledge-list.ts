@@ -2,8 +2,8 @@ import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeListFilter } from '../bindings/KnowledgeListFilter';
 import { numberOf } from './knowledge-routing';
 
-/** The documents a list shows: by repository scope, format, place and the words of the search (in the title). */
-export function visibleDocuments(documents: KnowledgeDocument[], filter: KnowledgeListFilter | null, query: string | null): KnowledgeDocument[] {
+/** The documents a list shows: by repository scope, format, place, state and the words of the search (in the title). A live document counts for the state of its pending version too (`pendingOf` finds it). */
+export function visibleDocuments(documents: KnowledgeDocument[], filter: KnowledgeListFilter | null, query: string | null, pendingOf: (doc: KnowledgeDocument) => KnowledgeDocument | undefined = () => undefined): KnowledgeDocument[] {
   const scope = filter?.scope ?? { kind: 'all' };
   const needle = (query ?? '').trim().toLowerCase();
 
@@ -30,6 +30,10 @@ export function visibleDocuments(documents: KnowledgeDocument[], filter: Knowled
     }
 
     if (filter?.useful === 'never' && ((doc.shown ?? 0) < 3 || (doc.useful ?? 0) > 0)) {
+      return false;
+    }
+
+    if (filter?.status && !inState(doc, pendingOf(doc), filter.status)) {
       return false;
     }
 
@@ -72,4 +76,16 @@ export function sortDocuments(documents: KnowledgeDocument[], filter: KnowledgeL
 
     return (a < b ? -1 : a > b ? 1 : tie) * direction;
   });
+}
+
+/** Whether a row is in the state a list asks for: its own, or for a live row its pending version's (`live` keeps live rows with or without one). */
+function inState(doc: KnowledgeDocument, pending: KnowledgeDocument | undefined, status: NonNullable<KnowledgeListFilter['status']>): boolean {
+  switch (status) {
+    case 'live':
+      return doc.status === 'live';
+    case 'pending':
+      return doc.status === 'live' && pending !== undefined;
+    default:
+      return doc.status === status || (doc.status === 'live' && pending?.status === status);
+  }
 }

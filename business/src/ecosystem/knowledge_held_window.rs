@@ -10,17 +10,20 @@ pub enum HeldSort {
     Title,
     Client,
     Project,
+    /// The person the proposal is written for (`addedBy`), proposals without a name last.
+    AddedBy,
     #[default]
     Proposed,
 }
 
 impl HeldSort {
-    /// The sort a column key names (`title`, `client`, `project`, `proposed`), else the time.
+    /// The sort a column key names (`title`, `client`, `project`, `addedBy`, `proposed`), else the time.
     pub fn of_key(key: Option<&str>) -> Self {
         match key {
             Some("title") => Self::Title,
             Some("client") => Self::Client,
             Some("project") => Self::Project,
+            Some("addedBy") => Self::AddedBy,
             _ => Self::Proposed,
         }
     }
@@ -38,8 +41,34 @@ pub(super) fn in_scope(item: &KnowledgeHeldItem, scope: &KnowledgeScope) -> bool
     }
 }
 
-/// Sorts `items` descending by `sort` (the caller reverses for ascending), ties by the time.
-pub(super) fn sort_items(items: &mut [KnowledgeHeldItem], sort: HeldSort) {
+/// Sorts `items` by `sort`, Z to A or newest first when `descending`, ties by the time. A proposal
+/// with no name is the last of the `AddedBy` order in either direction.
+pub(super) fn sort_items(items: &mut [KnowledgeHeldItem], sort: HeldSort, descending: bool) {
+    if sort == HeldSort::AddedBy {
+        let name = |item: &KnowledgeHeldItem| {
+            item.added_by
+                .as_deref()
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .map(str::to_lowercase)
+        };
+
+        items.sort_by(|left, right| {
+            let (left_name, right_name) = (name(left), name(right));
+            let by = match (&left_name, &right_name) {
+                (Some(left), Some(right)) if descending => right.cmp(left),
+                (Some(left), Some(right)) => left.cmp(right),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            };
+
+            by.then_with(|| right.created_at.cmp(&left.created_at))
+        });
+
+        return;
+    }
+
     let folder = |item: &KnowledgeHeldItem| {
         item.project_path
             .as_deref()
@@ -53,9 +82,13 @@ pub(super) fn sort_items(items: &mut [KnowledgeHeldItem], sort: HeldSort) {
             HeldSort::Title => left.title.to_lowercase().cmp(&right.title.to_lowercase()),
             HeldSort::Client => left.client.to_lowercase().cmp(&right.client.to_lowercase()),
             HeldSort::Project => folder(left).cmp(&folder(right)),
-            HeldSort::Proposed => std::cmp::Ordering::Equal,
+            HeldSort::AddedBy | HeldSort::Proposed => std::cmp::Ordering::Equal,
         };
 
         by.then_with(|| left.created_at.cmp(&right.created_at)).reverse()
     });
+
+    if !descending {
+        items.reverse();
+    }
 }

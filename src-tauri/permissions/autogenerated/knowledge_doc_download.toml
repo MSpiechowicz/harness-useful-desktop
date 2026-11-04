@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-doc-download"
+description = "Enables the knowledge_doc_download command without any pre-configured scope."
+commands.allow = ["knowledge_doc_download"]
+
+[[permission]]
+identifier = "deny-knowledge-doc-download"
+description = "Denies the knowledge_doc_download command without any pre-configured scope."
+commands.deny = ["knowledge_doc_download"]

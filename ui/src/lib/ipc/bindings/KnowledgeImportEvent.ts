@@ -40,7 +40,17 @@ embedding: KnowledgeEmbedding | null,
 /**
  * What the extraction noticed.
  */
-warnings: Array<string>, } | { "type": "progress", 
+warnings: Array<string>, 
+/**
+ * The document was stored as a draft (never live, so agents do not see it): `draft`,
+ * or team approval is on. Absent from a server without `docs-drafts`.
+ */
+draft?: boolean, 
+/**
+ * The draft was asked for approval at once (`ask`, or its replaced document's pending
+ * version): it is waiting, not a draft to finish. Absent from a server without `docs-drafts`.
+ */
+asked?: boolean, } | { "type": "progress", 
 /**
  * Files done.
  */

@@ -240,6 +240,8 @@
   --panel-fade-end: 24px;
   /* How tall a subagent's brief gets in its card before it scrolls inside the card: past it the messages sent later still show. */
   --brief-max-h: 320px;
+  /* How tall the code of a script gets in a panel or a dialog before it scrolls inside its block: 20 lines of 20px and the block's 12px padding above and below. */
+  --code-max-h: 424px;
   /* The output card of a subagent: the room the line numbers keep beyond their digits. */
   --output-gutter-pad: 3.5ch;
   /* The least a pane header keeps for its title (a file name, say) when the controls beside it crowd it: they shrink first. */

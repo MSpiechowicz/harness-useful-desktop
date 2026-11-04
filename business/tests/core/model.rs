@@ -48,6 +48,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "knowledgeVectorSearch": true,
             "codeEnabled": true,
             "codeAutoInstallDone": false,
+            "knowledgeRestartNoticeDone": false,
             "updatesTurnedOn": true,
             "keepRunningInTray": false,
             "memoryNotesAskDefault": false,

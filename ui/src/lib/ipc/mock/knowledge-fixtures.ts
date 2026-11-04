@@ -1,7 +1,10 @@
 import type { AuthorRef } from '../bindings/AuthorRef';
 import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeHeldItem } from '../bindings/KnowledgeHeldItem';
+import type { KnowledgeDocStatus } from '../bindings/KnowledgeDocStatus';
+import type { KnowledgeHeldStatus } from '../bindings/KnowledgeHeldStatus';
 import type { KnowledgeId } from '../bindings/KnowledgeId';
+import type { KnowledgeLastChange } from '../bindings/KnowledgeLastChange';
 import type { KnowledgeLink } from '../bindings/KnowledgeLink';
 import type { KnowledgeOrigin } from '../bindings/KnowledgeOrigin';
 import type { KnowledgeSection } from '../bindings/KnowledgeSection';
@@ -15,7 +18,7 @@ const HOUR = 3_600_000;
 export const DESKTOP_REPO = 'git:github.com/useful/harness-desktop';
 export const WEBSITE_REPO = 'git:github.com/useful/website';
 
-function ago(hours: number): string {
+export function ago(hours: number): string {
   return new Date(Date.now() - hours * HOUR).toISOString();
 }
 
@@ -41,6 +44,12 @@ export interface Seed {
   addedBy?: AuthorRef;
   updatedBy?: AuthorRef;
   usage?: Usage;
+  /** The state and revision of a document that is not live (live at revision 0 unless given). */
+  status?: KnowledgeDocStatus;
+  revision?: number;
+  /** For a pending row: the live document it replaces. */
+  pendingOf?: KnowledgeId;
+  lastChange?: KnowledgeLastChange;
 }
 
 export function documentOf(seed: Seed): KnowledgeDocument {
@@ -66,6 +75,12 @@ export function documentOf(seed: Seed): KnowledgeDocument {
     shown: usage?.shown ?? 0,
     useful: usage?.useful ?? 0,
     lastUsefulAt: usage?.lastUseful === undefined ? null : ago(usage.lastUseful),
+    status: seed.status ?? 'live',
+    revision: seed.revision ?? 0,
+    pending: null,
+    pendingOf: seed.pendingOf ?? null,
+    lastChange: seed.lastChange ?? null,
+    authors: null,
   };
 }
 
@@ -105,10 +120,15 @@ export function bulkDocuments(count: number): KnowledgeDocument[] {
   });
 }
 
+/** The source name of the preview document whose outline repeats a heading: two `Install` sections and an `Install#2`, which a key made of the heading and a counter would confuse with the second one. */
+export const REPEATED_HEADINGS_NAME = 'install-variants.md';
+
+const REPEATED_HEADINGS = ['Install', 'Install', 'Install#2', 'Reference'];
+
 /** The outline of a document: a few sections per document, derived from its chunk count. A longer document cuts Configuration into two chunks, as the server does a long section. */
 export function outlineOf(doc: KnowledgeDocument): KnowledgeSection[] {
   const names = ['Overview', 'Install', 'Configuration', 'Reference', 'Troubleshooting'];
-  const headings = doc.chunkCount >= 6 ? [...names.slice(0, 3), 'Configuration', ...names.slice(3)] : names.slice(0, Math.max(1, doc.chunkCount));
+  const headings = doc.sourceName === REPEATED_HEADINGS_NAME ? REPEATED_HEADINGS : doc.chunkCount >= 6 ? [...names.slice(0, 3), 'Configuration', ...names.slice(3)] : names.slice(0, Math.max(1, doc.chunkCount));
 
   return headings.map((headingPath, ordinal) => ({
     chunkId: doc.place === 'local' ? `local:${numberOf(doc.id) * 100 + ordinal}` : numberOf(doc.id) * 100 + ordinal,
@@ -135,7 +155,7 @@ export function chunkText(doc: KnowledgeDocument, section: KnowledgeSection): st
   return lines.join('\n');
 }
 
-function held(seed: { id: string; title: string; name: string; text: string; client: string; age: number; links?: KnowledgeLink[]; replaces?: number }): KnowledgeHeldItem {
+export function held(seed: { id: string; title: string; name: string; text: string; client: string; age: number; links?: KnowledgeLink[]; replaces?: number; session?: string; status?: KnowledgeHeldStatus; comment?: string }): KnowledgeHeldItem {
   return {
     id: seed.id,
     title: seed.title,
@@ -145,13 +165,16 @@ function held(seed: { id: string; title: string; name: string; text: string; cli
     text: seed.text,
     links: seed.links ?? DESKTOP,
     client: seed.client,
-    session: 'a1b2c3',
+    session: seed.session ?? 'a1b2c3',
     projectPath: '/home/dev/projects/harness-desktop',
     repoKey: DESKTOP_REPO,
     sourcePath: `docs/${seed.name}`,
     replaces: seed.replaces ?? null,
     revision: fakeSha(seed.id).slice(0, 16),
     createdAt: ago(seed.age),
+    addedBy: ADA.name,
+    status: seed.status ?? 'waiting',
+    comment: seed.comment ?? null,
   };
 }
 
@@ -159,7 +182,7 @@ function held(seed: { id: string; title: string; name: string; text: string; cli
 export function sampleHeld(): KnowledgeHeldItem[] {
   return [
     held({ id: '0b6f2f0e-7f63-4c0e-9d1a-0d5a4a0a7e11', title: 'Install notes for Windows', name: 'install-windows.md', client: 'claude-code', age: 1, text: '# Install notes for Windows\n\nRun the installer from PowerShell and restart the shell so the new PATH applies.' }),
-    held({ id: '7a1c3d52-1d8e-4b57-8f9b-2c7e5a1f9b22', title: 'Billing API', name: 'billing-openapi.yaml', client: 'codex', age: 6, replaces: 2, text: '# Billing API\n\nThe retry rules changed: a failed charge is retried three times, one hour apart.' }),
+    held({ id: '7a1c3d52-1d8e-4b57-8f9b-2c7e5a1f9b22', title: 'Billing API', name: 'billing-openapi.yaml', client: 'codex', age: 6, replaces: 2, session: 'gone-chat', text: '# Billing API\n\nThe retry rules changed: a failed charge is retried three times, one hour apart.' }),
     held({ id: '3e9d8a71-5c20-4a6d-b1f3-9f4e6d2c8a33', title: 'Local database reset', name: 'db-reset.md', client: 'opencode', age: 27, links: [], text: '# Local database reset\n\nDelete the data folder and start the app again to get an empty database.' }),
   ];
 }

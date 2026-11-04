@@ -77,6 +77,9 @@ pub enum KnowledgeFileStatus {
     Updated,
     /// Nothing changed, so nothing was embedded again.
     Unchanged,
+    /// A new version of a live document was stored as its pending version: it replaces the live one
+    /// once it is approved (or made live).
+    Pending,
     /// Not documentation, with a reason.
     Skipped,
     /// It could not be read, with a reason.
@@ -103,6 +106,11 @@ pub struct KnowledgeImportCounts {
     pub added: u32,
     /// Changed documents.
     pub updated: u32,
+    /// Pending versions of live documents (their `docs-drafts` import with approval on, or
+    /// `draft`). Absent from a server without `docs-drafts`.
+    #[serde(default)]
+    #[ts(optional, as = "Option<u32>")]
+    pub pending: u32,
     /// Documents that stayed as they were.
     pub unchanged: u32,
     /// Files that are no documentation.
@@ -138,6 +146,15 @@ pub enum KnowledgeImportEvent {
         embedding: Option<KnowledgeEmbedding>,
         /// What the extraction noticed.
         warnings: Vec<String>,
+        /// The document was stored as a draft (never live, so agents do not see it): `draft`,
+        /// or team approval is on. Absent from a server without `docs-drafts`.
+        #[ts(optional, as = "Option<bool>")]
+        draft: bool,
+        /// The draft was asked for approval at once (`ask`, or its replaced document's pending
+        /// version): it is waiting, not a draft to finish. Absent from a server without `docs-drafts`.
+        #[serde(default)]
+        #[ts(optional, as = "Option<bool>")]
+        asked: bool,
     },
     /// How far the import is.
     Progress {
@@ -195,6 +212,20 @@ pub struct KnowledgeImportOptions {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub place: Option<KnowledgePlace>,
+    /// Store every document as a draft (a replaced live document gets a pending version), whatever
+    /// team approval says. Needs `docs-drafts`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(optional, as = "Option<bool>")]
+    pub draft: bool,
+    /// Replace the document and ask for approval in one step (needs `replaces` or `replacing`,
+    /// `docs-drafts`, and team approval on: the server refuses it otherwise).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(optional, as = "Option<bool>")]
+    pub ask: bool,
+    /// What the reviewers should know about the replacement, at most 500 characters. Needs `ask`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub note: Option<String>,
 }
 
 /// How a finished import ended, for the command's answer.

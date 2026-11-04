@@ -23,12 +23,12 @@
      the view (`WorkspaceLayout` puts it above this), and the item's stats and facts are `ExtensionAside`, in the details panel. -->
 <article class="flex flex-col gap-4" aria-labelledby="extension-title">
   {#if description}
-    <SectionCard heading={t('extensions.detail.description')}>
+    <SectionCard heading={t('extensions.detail.description')} hint={t('extensions.detail.description.hint')}>
       <p class="text-sm leading-relaxed break-words text-fg-2">{description}</p>
     </SectionCard>
   {/if}
 
-  <FactsCard heading={t('extensions.detail.location')} rows={location} />
+  <FactsCard heading={t('extensions.detail.location')} hint={t('extensions.detail.location.hint')} rows={location} />
 
   {@render children?.()}
 </article>

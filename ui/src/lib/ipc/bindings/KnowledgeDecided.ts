@@ -27,11 +27,24 @@ chunks: number | null,
 /**
  * Whether its chunks got their vectors, none for `unchanged`.
  */
-embedding: KnowledgeEmbedding | null, } | { "type": "rejected" } | { "type": "notFound", 
+embedding: KnowledgeEmbedding | null, 
+/**
+ * Team approval is on, so it was stored as a draft (a new document) and agents do not see
+ * it yet. Absent from a server without `docs-drafts`.
+ */
+draft?: boolean, } | { "type": "rejected" } | { "type": "changesRequested" } | { "type": "commentRequired", 
+/**
+ * The server's sentence (redacted).
+ */
+message: string, } | { "type": "notFound", 
 /**
  * The server's sentence (redacted).
  */
 message: string, } | { "type": "changed", 
+/**
+ * The server's sentence (redacted).
+ */
+message: string, } | { "type": "localPath", 
 /**
  * The server's sentence (redacted).
  */

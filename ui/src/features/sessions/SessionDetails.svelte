@@ -51,11 +51,11 @@
 </script>
 
 <!-- The same four sections in the same order whatever has loaded, in the body of the view's details panel. What is missing reads as a dash. -->
-<SectionCard flat heading={t('sessions.details.overview')}>
+<SectionCard flat heading={t('sessions.details.overview')} hint={t('sessions.details.overview.hint')}>
   <StatGrid stats={overview} />
 </SectionCard>
 
-<SectionCard flat heading={t('sessions.details.models')}>
+<SectionCard flat heading={t('sessions.details.models')} hint={t('sessions.details.models.hint')}>
   {#if turns === 0}
     <p class="text-sm text-fg-3">{NONE}</p>
   {:else}
@@ -76,7 +76,7 @@
   {/if}
 </SectionCard>
 
-<SectionCard flat heading={t('sessions.details.session')}>
+<SectionCard flat heading={t('sessions.details.session')} hint={t('sessions.details.session.hint')}>
   <dl class="flex flex-col">
     {#each session as row (row.label)}
       <div class="flex justify-between gap-3 py-1 text-sm">
@@ -87,6 +87,6 @@
   </dl>
 </SectionCard>
 
-<SectionCard flat heading={filesHeading}>
+<SectionCard flat heading={filesHeading} hint={t('sessions.touched.hint')}>
   <TouchedFiles {project} paths={touched} />
 </SectionCard>

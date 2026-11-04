@@ -99,8 +99,8 @@ describe('the Scope filter', () => {
     await fireEvent.click(screen.getByRole('button', { name: /^Scope:/ }));
     const menu = await screen.findByRole('menu', { name: 'Scope' });
 
-    expect(within(menu).getByRole('menuitemradio', { name: /^scratch/ })).toBeDisabled();
-    expect(within(menu).getByRole('menuitemradio', { name: /^widget/ })).toBeEnabled();
+    expect(within(menu).getByRole('menuitemradio', { name: /^scratch/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(within(menu).getByRole('menuitemradio', { name: /^widget/ })).not.toHaveAttribute('aria-disabled');
 
     await fireEvent.click(within(menu).getByRole('menuitemradio', { name: /^scratch/ }));
     expect(onchange).not.toHaveBeenCalled();

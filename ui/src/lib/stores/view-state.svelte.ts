@@ -2,6 +2,7 @@ import type { Sort } from '$lib/components/table';
 import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
+import type { KnowledgeStatusFilter } from '$lib/ipc/bindings/KnowledgeStatusFilter';
 import type { KnowledgeUsefulFilter } from '$lib/ipc/bindings/KnowledgeUsefulFilter';
 import type { KnowledgeId } from '$lib/ipc/knowledge-id';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
@@ -107,6 +108,12 @@ export class ViewState {
   knowledgePlace = $state<KnowledgePlace | null>(null);
   /** Only the documents an agent found useful at least once (`ever`), or those shown often and never found useful (`never`); null for all. */
   knowledgeUseful = $state<KnowledgeUsefulFilter | null>(null);
+  /** The State filter of the documents table: live, drafts, waiting for approval or changes requested (every state unless given). */
+  knowledgeStatus = $state<KnowledgeStatusFilter | null>(null);
+  /** The document whose pending changes are open in the full-width review (null: the lists). */
+  knowledgeReviewId = $state<KnowledgeId | null>(null);
+  /** The section (heading path) the review opens on, when the summary in the panel named one. */
+  knowledgeReviewSection = $state<string | null>(null);
   knowledgeSort = $state<Sort>({ key: 'updated', desc: true });
   knowledgePage = $state(0);
   heldId = $state<string | null>(null);
@@ -238,6 +245,9 @@ export class ViewState {
       this.knowledgeFormat = null;
       this.knowledgePlace = null;
       this.knowledgeUseful = null;
+      this.knowledgeStatus = null;
+      this.knowledgeReviewId = null;
+      this.knowledgeReviewSection = null;
       this.knowledgeSort = { key: 'updated', desc: true };
       this.knowledgePage = 0;
       this.heldId = null;

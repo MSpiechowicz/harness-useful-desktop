@@ -92,6 +92,7 @@ pub async fn setup_install_knowledge(
     if result.ok {
         sidecar_setup::after_install::<Knowledge>(&state).await;
         sidecar_embedder::reconcile::<Knowledge>(&state).await;
+        state.knowledge_pulse.upgrade_after_install(&state).await;
     }
 
     Ok(result)

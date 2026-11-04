@@ -115,8 +115,8 @@ describe('the Scope filter', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Scope: All' }));
     const menu = await screen.findByRole('menu', { name: 'Scope' });
 
-    expect(within(menu).getByRole('menuitemradio', { name: /^legacy-api/ })).toBeDisabled();
-    expect(within(menu).getByRole('menuitemradio', { name: /^demo/ })).toBeEnabled();
+    expect(within(menu).getByRole('menuitemradio', { name: /^legacy-api/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(within(menu).getByRole('menuitemradio', { name: /^demo/ })).not.toHaveAttribute('aria-disabled');
   });
 
   it('keeps a project listed with the key Harness Memory gives it once that is known', async () => {

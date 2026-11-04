@@ -67,6 +67,25 @@ pub enum KnowledgeUsefulFilter {
     Never,
 }
 
+/// Which documents a list keeps by their state (`--status`). A live document counts for the state of
+/// its pending version too, because that is what its people wait on. Asked of a server that lists
+/// `docs-drafts` only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum KnowledgeStatusFilter {
+    /// Live documents, with or without a pending version.
+    Live,
+    /// Drafts, and live documents whose pending version is a draft.
+    Draft,
+    /// Documents waiting for approval, and live ones whose pending version waits.
+    Waiting,
+    /// Documents with changes requested, and live ones whose pending version has them.
+    ChangesRequested,
+    /// Live documents that have a pending version.
+    Pending,
+}
+
 /// What a list of documents is asked with: the filters and the page (see
 /// [`SortOrder`] for the direction).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -88,4 +107,9 @@ pub struct KnowledgeListFilter {
     #[serde(default)]
     #[ts(optional = nullable)]
     pub useful: Option<KnowledgeUsefulFilter>,
+    /// By state (live documents and drafts, never a pending version of its own, unless given).
+    /// Dropped for a server without `docs-drafts`.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub status: Option<KnowledgeStatusFilter>,
 }

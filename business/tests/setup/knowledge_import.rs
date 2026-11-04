@@ -46,6 +46,7 @@ fn manifest() -> ImportManifest {
             replaces: None,
             replacing: Vec::new(),
             place: None,
+            ..Default::default()
         },
     )
     .unwrap()
@@ -145,6 +146,8 @@ async fn the_manifest_reaches_stdin_and_every_event_is_forwarded_in_order() {
             chunks: Some(3),
             embedding: Some(KnowledgeEmbedding::Done),
             warnings: vec![],
+            draft: false,
+            asked: false,
         }
     );
     assert!(matches!(
@@ -156,6 +159,7 @@ async fn the_manifest_reaches_stdin_and_every_event_is_forwarded_in_order() {
         Some(KnowledgeImportCounts {
             added: 1,
             updated: 0,
+            pending: 0,
             unchanged: 0,
             skipped: 0,
             failed: 1
@@ -195,6 +199,7 @@ fn lines_that_are_no_event_are_skipped_and_a_done_line_is_read_whole() {
             counts: KnowledgeImportCounts {
                 added: 2,
                 updated: 0,
+                pending: 0,
                 unchanged: 5,
                 skipped: 0,
                 failed: 0
@@ -342,6 +347,7 @@ fn a_manifest_refuses_links_the_server_would_refuse_and_replaces_without_exactly
         replaces: None,
         replacing: Vec::new(),
         place: None,
+        ..Default::default()
     };
     let error = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], bad_link).expect_err("bad link");
     assert!(matches!(error, BusinessError::InvalidInput(_)));
@@ -351,6 +357,7 @@ fn a_manifest_refuses_links_the_server_would_refuse_and_replaces_without_exactly
         replaces: Some(7.into()),
         replacing: Vec::new(),
         place: None,
+        ..Default::default()
     };
     for (paths, folders) in [
         (vec!["/docs/a.md", "/docs/b.md"], vec![]),
@@ -378,6 +385,7 @@ fn a_place_and_a_local_replaces_id_are_written_into_the_manifest_as_given() {
         replaces: Some(KnowledgeId::Local("local:12".to_owned())),
         replacing: Vec::new(),
         place: Some(KnowledgePlace::Local),
+        ..Default::default()
     };
     let one = ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], options).unwrap();
     let json: serde_json::Value = serde_json::from_slice(&one.to_json().unwrap()).unwrap();
@@ -395,6 +403,7 @@ fn a_place_and_a_local_replaces_id_are_written_into_the_manifest_as_given() {
         replaces: Some(KnowledgeId::Local("local:x".to_owned())),
         replacing: Vec::new(),
         place: None,
+        ..Default::default()
     };
     assert!(ImportManifest::new(vec!["/docs/a.md".to_owned()], vec![], bad).is_err());
 }

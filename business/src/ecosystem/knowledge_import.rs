@@ -4,8 +4,10 @@
 //! - One import runs at a time ([`KnowledgeImporter::begin`]): a second one is refused
 //!   (`invalidInput`) until the first one ended.
 //! - The manifest is `{"paths": [...], "folders": [...], "links": [...], "replaces": ID, "replacing":
-//!   {PATH: ID}, "place": "remote"|"local"}`, all optional (`replacing` only for a server that lists
-//!   `docs-similar`), at most 4 MiB. It is written to the child's stdin, which is closed after it.
+//!   {PATH: ID}, "place": "remote"|"local", "draft": true, "ask": true, "note": TEXT}`, all optional
+//!   (`replacing` only for a server that lists `docs-similar`, `draft`, `ask` and `note` only for
+//!   one that lists `docs-drafts`), at most 4 MiB. It is written to the child's stdin, which is
+//!   closed after it.
 //! - Each stdout line is one event ([`parse_import_event`]); a line that is no event (a newer
 //!   event, a stray line) is skipped. Every event goes to the sink as it arrives. An import that
 //!   ends without its `done` event (a crash, a refused manifest) ends with a `failed` event that
@@ -16,31 +18,26 @@
 //!
 //! Paths and file names reach the sink and nothing else: they are never logged.
 
-use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use serde::Serialize;
 use serde_json::Value;
 use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::sync::Notify;
 use tokio::time::{Instant, sleep_until, timeout};
 
 use super::catalog::KNOWLEDGE_SIDECAR;
-use super::knowledge_docs::check_links;
+pub use super::knowledge_manifest::{ImportManifest, MANIFEST_MAX_BYTES};
 use super::sidecar_cli::clean;
 use super::sidecar_embedder_lines::next_line;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     KnowledgeEmbedding, KnowledgeFileStatus, KnowledgeId, KnowledgeImportCounts, KnowledgeImportEvent,
-    KnowledgeImportOptions, KnowledgeImportResult,
+    KnowledgeImportResult,
 };
 use crate::process::{ChildHandle, ExecSpec, ProcessSpawner, SpawnedProcess, launcher_search_dirs};
-
-/// The most bytes of the manifest the server reads.
-pub const MANIFEST_MAX_BYTES: usize = 4 * 1024 * 1024;
 
 /// How long a child gets to end after it was asked to stop before it is killed.
 pub const CANCEL_GRACE: Duration = Duration::from_secs(30);
@@ -50,134 +47,6 @@ const EXIT_GRACE: Duration = Duration::from_secs(5);
 
 /// The longest stderr line kept for a failure message.
 const STDERR_LINE_CHARS: usize = 500;
-
-/// The manifest of an import: what to import and the links of every document.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-pub struct ImportManifest {
-    /// Files to import, as absolute paths.
-    pub paths: Vec<String>,
-    /// Folders to import every document of.
-    pub folders: Vec<String>,
-    /// The repositories every imported document links to.
-    pub links: Vec<crate::model::KnowledgeLink>,
-    /// The document the one file of this import replaces.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub replaces: Option<crate::model::KnowledgeId>,
-    /// The document each of several files replaces, by the file's path. Left out unless given.
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub replacing: BTreeMap<String, crate::model::KnowledgeId>,
-    /// Where the documents are kept (`remote` or `local`).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub place: Option<crate::model::KnowledgePlace>,
-}
-
-impl ImportManifest {
-    /// The manifest of `paths` and `folders` for a server without `docs-similar`: [`with_features`]
-    /// with no `replacing`.
-    ///
-    /// [`with_features`]: Self::with_features
-    pub fn new(paths: Vec<String>, folders: Vec<String>, options: KnowledgeImportOptions) -> Result<Self> {
-        Self::with_features(paths, folders, options, false)
-    }
-
-    /// The manifest of `paths` and `folders` with the options the user chose. `invalidInput` for
-    /// links the server would refuse (the same check as setting a document's links), for
-    /// `replaces` unless the import is exactly one file, and for `replacing` that is combined with
-    /// `replaces`, names a file that is not one of `paths`, a path twice, an id that is no
-    /// document's or an id twice. `unsupported` for `replacing` unless `docs_similar` (the server
-    /// lists `docs-similar`): an older server would import the file as a new document.
-    pub fn with_features(
-        paths: Vec<String>,
-        folders: Vec<String>,
-        options: KnowledgeImportOptions,
-        docs_similar: bool,
-    ) -> Result<Self> {
-        check_links(&options.links)?;
-
-        if options.replaces.as_ref().is_some_and(|id| !id.is_valid()) {
-            return Err(BusinessError::InvalidInput("that is not a document id".to_owned()));
-        }
-
-        if options.replaces.is_some() && !(paths.len() == 1 && folders.is_empty()) {
-            return Err(BusinessError::InvalidInput(
-                "a document is replaced by exactly one file".to_owned(),
-            ));
-        }
-
-        let replacing = replacing_map(&paths, &options, docs_similar)?;
-
-        Ok(Self {
-            paths,
-            folders,
-            links: options.links,
-            replaces: options.replaces,
-            replacing,
-            place: options.place,
-        })
-    }
-
-    /// The manifest as the server reads it. `invalidInput` above [`MANIFEST_MAX_BYTES`].
-    pub fn to_json(&self) -> Result<Vec<u8>> {
-        let bytes = serde_json::to_vec(self).map_err(|error| BusinessError::Internal(error.to_string()))?;
-
-        if bytes.len() > MANIFEST_MAX_BYTES {
-            return Err(BusinessError::InvalidInput(
-                "that is too many files for one import, split it".to_owned(),
-            ));
-        }
-
-        Ok(bytes)
-    }
-}
-
-/// The `replacing` of the manifest: each file of `options.replacing` with the document it replaces
-/// (see [`ImportManifest::with_features`] for what is refused).
-fn replacing_map(
-    paths: &[String],
-    options: &KnowledgeImportOptions,
-    docs_similar: bool,
-) -> Result<BTreeMap<String, KnowledgeId>> {
-    if options.replacing.is_empty() {
-        return Ok(BTreeMap::new());
-    }
-
-    if !docs_similar {
-        return Err(BusinessError::Unsupported(format!(
-            "this {} cannot replace documents found by name, so update {}",
-            KNOWLEDGE_SIDECAR.binary, KNOWLEDGE_SIDECAR.product
-        )));
-    }
-
-    if options.replaces.is_some() {
-        return Err(BusinessError::InvalidInput(
-            "replacing one document and several are not combined".to_owned(),
-        ));
-    }
-
-    let staged: HashSet<&str> = paths.iter().map(String::as_str).collect();
-    let mut ids = HashSet::new();
-    let mut map = BTreeMap::new();
-
-    for replacement in &options.replacing {
-        if !staged.contains(replacement.path.as_str()) {
-            return Err(BusinessError::InvalidInput(
-                "a document is replaced by a file of this import".to_owned(),
-            ));
-        }
-
-        if !replacement.id.is_document() {
-            return Err(BusinessError::InvalidInput("that is not a document id".to_owned()));
-        }
-
-        if !ids.insert(&replacement.id) || map.insert(replacement.path.clone(), replacement.id.clone()).is_some() {
-            return Err(BusinessError::InvalidInput(
-                "each document is replaced by one file at most".to_owned(),
-            ));
-        }
-    }
-
-    Ok(map)
-}
 
 /// The event on one line of the import's stdout; `None` for anything this app does not understand.
 pub fn parse_import_event(line: &str) -> Option<KnowledgeImportEvent> {
@@ -216,6 +85,8 @@ pub fn parse_import_event(line: &str) -> Option<KnowledgeImportEvent> {
                 .and_then(Value::as_array)
                 .map(|warnings| warnings.iter().filter_map(Value::as_str).map(clean).collect())
                 .unwrap_or_default(),
+            draft: value.get("draft").and_then(Value::as_bool).unwrap_or(false),
+            asked: value.get("asked").and_then(Value::as_bool).unwrap_or(false),
         }),
         "done" => {
             let counts = value.get("counts").cloned().unwrap_or(Value::Null);
@@ -224,6 +95,7 @@ pub fn parse_import_event(line: &str) -> Option<KnowledgeImportEvent> {
                 counts: KnowledgeImportCounts {
                     added: number(&counts, "added"),
                     updated: number(&counts, "updated"),
+                    pending: number(&counts, "pending"),
                     unchanged: number(&counts, "unchanged"),
                     skipped: number(&counts, "skipped"),
                     failed: number(&counts, "failed"),
@@ -244,6 +116,7 @@ fn file_status(name: &str) -> Option<KnowledgeFileStatus> {
     match name {
         "added" => Some(KnowledgeFileStatus::Added),
         "updated" => Some(KnowledgeFileStatus::Updated),
+        "pending" => Some(KnowledgeFileStatus::Pending),
         "unchanged" => Some(KnowledgeFileStatus::Unchanged),
         "skipped" => Some(KnowledgeFileStatus::Skipped),
         "failed" => Some(KnowledgeFileStatus::Failed),

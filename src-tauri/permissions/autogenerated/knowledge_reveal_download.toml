@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-reveal-download"
+description = "Enables the knowledge_reveal_download command without any pre-configured scope."
+commands.allow = ["knowledge_reveal_download"]
+
+[[permission]]
+identifier = "deny-knowledge-reveal-download"
+description = "Denies the knowledge_reveal_download command without any pre-configured scope."
+commands.deny = ["knowledge_reveal_download"]

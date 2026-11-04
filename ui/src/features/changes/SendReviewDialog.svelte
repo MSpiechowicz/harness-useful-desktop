@@ -1,15 +1,15 @@
 <script lang="ts">
-  import Check from '@lucide/svelte/icons/check';
   import MessageSquare from '@lucide/svelte/icons/message-square';
   import Plus from '@lucide/svelte/icons/plus';
   import { onMount, untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
+  import type { Choice } from '$lib/components/change-list';
+  import ChoiceList from '$lib/components/ChoiceList.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import Markdown from '$lib/components/Markdown.svelte';
   import Skeleton from '$lib/components/Skeleton.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
-  import { cx } from '$lib/utils/cx';
   import type { ComposedReview } from '$lib/ipc/bindings/ComposedReview';
   import { IpcFailure } from '$lib/ipc/transport';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -34,14 +34,14 @@
   const canStartNew = $derived(harness.chatActive?.detection.installed ?? false);
 
   /** Where the review can go: each open chat of the project, then a new session. */
-  const options = $derived<{ value: string; title: string; detail: string; fresh: boolean }[]>([
+  const options = $derived<Choice[]>([
     ...chats.map((session) => ({
       value: session.key,
       title: agentSessions.title(session.key),
       detail: session.streaming ? t('changes.send.busy') : t('changes.send.idle'),
-      fresh: false,
+      icon: MessageSquare,
     })),
-    ...(canStartNew ? [{ value: NEW_SESSION, title: t('changes.send.new'), detail: t('changes.send.newDetail'), fresh: true }] : []),
+    ...(canStartNew ? [{ value: NEW_SESSION, title: t('changes.send.new'), detail: t('changes.send.newDetail'), icon: Plus }] : []),
   ]);
 
   /**
@@ -99,29 +99,7 @@
       <Markdown source={composed.prompt} />
     </div>
 
-    <p class="mt-5 mb-2 text-sm font-medium text-fg-2" id="send-to-label">{t('changes.send.to')}</p>
-    <div class="flex flex-col gap-1" role="radiogroup" aria-labelledby="send-to-label">
-      {#each options as option (option.value)}
-        {@const selected = option.value === target}
-        <button
-          type="button"
-          role="radio"
-          aria-checked={selected}
-          class={cx(
-            'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors duration-[var(--dur-fast)]',
-            selected ? 'border-accent/30 bg-accent-wash' : 'border-transparent hover:bg-hover active:bg-press',
-          )}
-          onclick={() => (target = option.value)}
-        >
-          {#if option.fresh}<Plus size={16} aria-hidden="true" class="shrink-0 text-fg-3" />{:else}<MessageSquare size={16} aria-hidden="true" class="shrink-0 text-fg-3" />{/if}
-          <span class="flex min-w-0 flex-1 flex-col">
-            <span class="truncate text-sm font-medium text-fg">{option.title}</span>
-            <span class="truncate text-xs text-fg-3">{option.detail}</span>
-          </span>
-          <Check size={16} aria-hidden="true" class={cx('shrink-0 text-accent-text', !selected && 'invisible')} />
-        </button>
-      {/each}
-    </div>
+    <ChoiceList label={t('changes.send.to')} choices={options} bind:value={target} class="mt-5" />
   {:else}
     <div class="flex flex-col gap-2" role="status" aria-label={t('changes.send.composing')}>
       <Skeleton height="1rem" />

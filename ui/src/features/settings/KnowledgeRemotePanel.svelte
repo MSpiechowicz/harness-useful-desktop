@@ -12,6 +12,7 @@
   import { RemoteConnectionDraft } from './remote-connection.svelte';
   import RemoteDatabasePanel from './RemoteDatabasePanel.svelte';
   import RoutingChangeConfirm from './RoutingChangeConfirm.svelte';
+  import TeamApprovalRow from './TeamApprovalRow.svelte';
   import type { RoutingEffect } from './routing-change';
 
   interface Props {
@@ -32,7 +33,8 @@
   let confirming = $state(false);
   let pendingEffects = $state.raw<RoutingEffect<DocumentScope>[]>([]);
 
-  const headingId = `${uid('knowledge-remote')}-kept-in`;
+  const keptInHeadingId = `${uid('knowledge-remote')}-kept-in`;
+  const approvalHeadingId = `${uid('knowledge-remote')}-approval`;
   const routingChanged = $derived(repositoryDocuments !== remote.repositoryDocuments || globalDocuments !== remote.globalDocuments);
 
   function choose(scope: DocumentScope, next: MemoryNotesRouting): void {
@@ -107,11 +109,17 @@
 
 <RemoteDatabasePanel {draft} otherChanges={routingChanged} onsave={save}>
   {#snippet sections()}
-    <section aria-labelledby={headingId}>
-      <h3 id={headingId} class={REMOTE_SUBHEADING}>{t('settings.memoryRemote.section.keptIn')}</h3>
+    <section aria-labelledby={keptInHeadingId}>
+      <h3 id={keptInHeadingId} class={REMOTE_SUBHEADING}>{t('settings.memoryRemote.section.keptIn')}</h3>
       <div class="divide-y divide-line">
         <KnowledgeKeptIn {remote} {repositoryDocuments} {globalDocuments} onchange={choose} />
       </div>
+    </section>
+
+    <!-- Applies at once, not with Save: the setting lives in the team database, for every teammate. -->
+    <section aria-labelledby={approvalHeadingId}>
+      <h3 id={approvalHeadingId} class={REMOTE_SUBHEADING}>{t('settings.knowledgeApproval.section')}</h3>
+      <TeamApprovalRow remoteSaved={remote.enabled} />
     </section>
   {/snippet}
 </RemoteDatabasePanel>

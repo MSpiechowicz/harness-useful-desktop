@@ -13,9 +13,13 @@
     repo: string;
     /** A glob was entered. */
     onadd: (glob: string) => void;
+    /** The button that opens the field is off (a read-only role). */
+    disabled?: boolean;
+    /** The id of the text that says why it is off. */
+    describedby?: string;
   }
 
-  let { repo, onadd }: Props = $props();
+  let { repo, onadd, disabled = false, describedby }: Props = $props();
 
   let editing = $state(false);
   let value = $state('');
@@ -55,7 +59,7 @@
   }
 </script>
 
-<!-- A button that reveals an ordinary field, not a box that is always there: Enter adds the glob, Escape puts it away. -->
+<!-- A secondary button, like every action of a panel, that reveals an ordinary field, not a box that is always there: Enter adds the glob, Escape puts it away. -->
 {#if editing}
   <input
     bind:this={field}
@@ -66,13 +70,13 @@
     placeholder={t('knowledge.links.pathPlaceholder')}
     autocomplete="off"
     spellcheck="false"
-    class="h-control w-full rounded-md border border-line-strong bg-surface-2 px-3 font-mono text-sm text-fg outline-none placeholder:text-fg-3 focus-visible:border-accent/50"
+    class="h-control min-w-0 flex-1 rounded-md border border-line-strong bg-surface-2 px-3 font-mono text-sm text-fg outline-none placeholder:text-fg-3 focus-visible:border-accent/50"
     onkeydown={onKeydown}
     onblur={() => value.trim() === '' && void leave()}
   />
 {:else}
   <span bind:this={button} class="contents">
-    <Button variant="ghost" aria-label={t('knowledge.links.addPathFor', { repo })} onclick={() => void reveal()}>
+    <Button aria-label={t('knowledge.links.addPathFor', { repo })} {disabled} aria-describedby={describedby} onclick={() => void reveal()}>
       {#snippet leading()}<Plus size={ICON.sm} aria-hidden="true" />{/snippet}
       {t('knowledge.links.addPath')}
     </Button>

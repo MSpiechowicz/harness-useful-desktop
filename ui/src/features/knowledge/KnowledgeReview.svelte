@@ -1,15 +1,16 @@
 <script lang="ts">
-  import FileText from '@lucide/svelte/icons/file-text';
   import ShieldCheck from '@lucide/svelte/icons/shield-check';
   import { untrack } from 'svelte';
 
+  import AuthorCell from '$lib/components/AuthorCell.svelte';
+  import Badge from '$lib/components/Badge.svelte';
   import type { ScopeChoice } from '$lib/components/scope/scope-options';
   import ScopeFilter from '$lib/components/scope/ScopeFilter.svelte';
   import type { Column } from '$lib/components/table';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeHeldItem } from '$lib/ipc/bindings/KnowledgeHeldItem';
   import { KNOWLEDGE_PAGE_SIZE } from '$lib/stores/knowledgeDocs.svelte';
-  import { knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
+  import { followUpKey, knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { formatDateTime, relativeTime } from '$lib/utils/format';
@@ -17,15 +18,12 @@
 
   import MemorySearch from '../memory/MemorySearch.svelte';
   import MemoryTable from '../memory/MemoryTable.svelte';
-  import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import HeldPanel from './HeldPanel.svelte';
-  import { folderName, heldColumns, linksText } from './knowledge-format';
+  import { folderHint, folderName, heldColumns, linksText, proposerOf } from './knowledge-format';
   import { knowledgeScopeOptions } from './knowledge-repos';
   import KnowledgeEmpty from './KnowledgeEmpty.svelte';
   import KnowledgeTabs from './KnowledgeTabs.svelte';
   import { exitRow } from './row-exit';
-
-  let confirmer: SessionConfirm | undefined = $state();
 
   const page = $derived(knowledgeHeld.list.data);
   const rows = $derived(page?.items ?? []);
@@ -65,29 +63,38 @@
     }
   });
 
+  // Whether the chat of the open proposal's agent is open in this app: only then can "Request changes" reach the agent.
+  $effect(() => {
+    const key = shown ? followUpKey(shown) : null;
+
+    untrack(() => knowledgeHeld.followUp.sync(key, null));
+  });
+
+  const followUp = $derived(shown?.session != null && knowledgeHeld.followUp.data === true);
+
   /** Lets the row go, asks the server, and brings the row back when the decision did not take it away. */
-  async function decide(item: KnowledgeHeldItem, decision: 'approve' | 'reject'): Promise<void> {
-    if (decision === 'reject') {
-      const confirmed = await confirmer?.ask({
-        title: t('knowledge.held.reject.title'),
-        description: t('knowledge.held.reject.body'),
-        subject: { icon: FileText, name: item.title, details: [folderName(item.projectPath), relativeTime(item.createdAt)].filter(Boolean).join(' · ') },
-        confirmLabel: t('knowledge.held.reject'),
-        cancelLabel: t('knowledge.held.reject.keep'),
-      });
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
+  async function approve(item: KnowledgeHeldItem): Promise<void> {
     viewState.heldId = null;
 
     const restore = await exitRow(item.id);
 
-    if ((await knowledgeHeld.decide(item, decision)) === 'stay') {
+    if ((await knowledgeHeld.decide(item, 'approve')) === 'stay') {
       restore();
     }
+  }
+
+  /** The proposal stays in the queue, marked as waiting for its agent's revision. */
+  async function request(item: KnowledgeHeldItem, comment: string): Promise<void> {
+    await knowledgeHeld.requestChanges(item, comment);
+  }
+
+  /** The row leaves at once and a toast offers to undo: the server is asked when the toast is gone. */
+  async function reject(item: KnowledgeHeldItem, reason: string | null): Promise<void> {
+    viewState.heldId = null;
+
+    const restore = await exitRow(item.id);
+
+    knowledgeHeld.rejectWithUndo(item, reason, restore);
   }
 </script>
 
@@ -142,10 +149,11 @@
     {#snippet cell(item: KnowledgeHeldItem, column: Column)}
       {#if column.key === 'title'}
         <span class="text-fg">{item.title}</span>
-      {:else if column.key === 'client'}
-        <span class="text-fg-2">{item.client}</span>
+        {#if item.status === 'changesRequested'}<span class="ml-2 inline-block align-middle"><Badge tone="danger">{t('knowledge.status.changesRequested')}</Badge></span>{/if}
+      {:else if column.key === 'addedBy'}
+        <AuthorCell author={proposerOf(item)} />
       {:else if column.key === 'project'}
-        <span class="text-fg-2" title={item.projectPath ?? linksText(item.links)}>{folderName(item.projectPath) || linksText(item.links)}</span>
+        <span class="text-fg-2" title={item.projectPath === null ? linksText(item.links) : folderHint(item.projectPath)}>{folderName(item.projectPath) || linksText(item.links)}</span>
       {:else}
         <span class="tabular text-fg-3" title={formatDateTime(item.createdAt)}>{relativeTime(item.createdAt)}</span>
       {/if}
@@ -159,13 +167,14 @@
         status={knowledgeHeld.detail.status}
         error={knowledgeHeld.detail.error?.message ?? null}
         busy={shown !== null && knowledgeHeld.busy.has(shown.id)}
+        {followUp}
         onretry={() => void knowledgeHeld.detail.refresh()}
-        onapprove={(item) => void decide(item, 'approve')}
-        onreject={(item) => void decide(item, 'reject')}
+        onapprove={(item) => void approve(item)}
+        onrequest={(item, comment) => void request(item, comment)}
+        onreject={(item, reason) => void reject(item, reason)}
         onclose={close}
       />
     {/snippet}
   </MemoryTable>
 {/if}
 
-<SessionConfirm bind:this={confirmer} />

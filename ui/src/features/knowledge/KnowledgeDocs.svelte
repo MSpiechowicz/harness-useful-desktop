@@ -19,12 +19,14 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeDocument } from '$lib/ipc/bindings/KnowledgeDocument';
   import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
+  import type { KnowledgeStatusFilter } from '$lib/ipc/bindings/KnowledgeStatusFilter';
   import type { KnowledgeUsefulFilter } from '$lib/ipc/bindings/KnowledgeUsefulFilter';
   import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { knowledgeDocs, KNOWLEDGE_PAGE_SIZE } from '$lib/stores/knowledgeDocs.svelte';
   import { knowledgeImport } from '$lib/stores/knowledgeImport.svelte';
   import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
   import { knowledgeReplace } from '$lib/stores/knowledgeReplace.svelte';
+  import { knowledgeReview } from '$lib/stores/knowledgeReview.svelte';
   import { knowledgeStats } from '$lib/stores/knowledgeStats.svelte';
   import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
@@ -43,10 +45,13 @@
   import DocumentPanel from './DocumentPanel.svelte';
   import { docColumns, docSubtitle, formatKey, formatLabel, formatTone, KNOWLEDGE_FORMATS, linksText, pathCount, pathsText, placeLabel, repoLabel } from './knowledge-format';
   import { keptRemote } from './knowledge-replace';
+  import { lookOf, STATUS_CHOICE_LABELS, STATUS_CHOICES } from './knowledge-status';
   import { knowledgeScopeOptions } from './knowledge-repos';
   import KnowledgeEmpty from './KnowledgeEmpty.svelte';
   import KnowledgePlaceFilter from './KnowledgePlaceFilter.svelte';
   import KnowledgeTabs from './KnowledgeTabs.svelte';
+  import { takeStep } from './review-steps';
+  import { decisionPin, type ReviewStep, versionOf } from './review-model';
   import { exitRow } from './row-exit';
 
   type UsefulChoice = KnowledgeUsefulFilter | 'all';
@@ -57,7 +62,7 @@
   const rows = $derived(page?.items ?? []);
   const total = $derived(page?.total ?? 0);
   const searching = $derived(viewState.knowledgeQuery.trim() !== '');
-  const filtered = $derived(viewState.knowledgeScope !== 'all' || viewState.knowledgeFormat !== null || viewState.knowledgePlace !== null || viewState.knowledgeUseful !== null);
+  const filtered = $derived(viewState.knowledgeScope !== 'all' || viewState.knowledgeFormat !== null || viewState.knowledgePlace !== null || viewState.knowledgeUseful !== null || viewState.knowledgeStatus !== null);
   // Nothing at all is kept: no documents, and no search or filter that would explain it.
   const none = $derived(page !== null && total === 0 && !searching && !filtered);
   // Both places are in use while the routing says so, or while a document says where it is kept. The routing is known once it was read.
@@ -72,6 +77,11 @@
   const features = $derived(knowledgeStatus.value?.features);
   const usefulListed = $derived(features?.docsUseful ?? rows.some((row) => row.shown != null));
   const authorsListed = $derived(features?.docsAuthors ?? rows.some((row) => row.addedBy != null));
+  // A Harness Knowledge that keeps drafts has the Status column and the Status filter, and the panel's review, changes and history.
+  // They stay while a status filter is applied, even when no row on the page shows a state (the filter answered nothing), so the user can see and clear it.
+  const draftsListed = $derived((features?.docsDrafts ?? rows.some((row) => row.status !== 'live')) || viewState.knowledgeStatus !== null);
+
+  const statusOptions = $derived(STATUS_CHOICES.map((value) => ({ value, label: t(STATUS_CHOICE_LABELS[value]) })));
 
   const usefulOptions = $derived([
     { value: 'all' as UsefulChoice, label: t('memory.filter.all') },
@@ -151,7 +161,7 @@
   }
 
   async function relink(links: KnowledgeLink[]): Promise<KnowledgeLink[] | null> {
-    return openId === null ? null : knowledgeDocs.setLinks(openId, links);
+    return openId === null ? null : knowledgeDocs.setLinks(openId, links, shown?.title ?? '');
   }
 
   async function remove(): Promise<void> {
@@ -187,8 +197,8 @@
   // A read-only role on the remote place can neither replace nor delete what is kept there. While it is not known (no remote, a remote that is down) the actions stay on.
   const readOnly = $derived(shown !== null && keptRemote(shown, routing) && knowledgeStats.remoteWritable === false);
 
-  /** Asks the user to confirm replacing the open document by `file`, and replaces it. */
-  async function replaceWith(source: 'pick' | 'drop'): Promise<void> {
+  /** Asks the user to confirm replacing the open document by `file`, and replaces it. With `ask` the replacement is also asked for approval, with the note for the reviewers. */
+  async function replaceWith(source: 'pick' | 'drop', ask: { note: string } | null = null): Promise<void> {
     const doc = shown;
 
     if (!doc || readOnly || knowledgeReplace.busy) {
@@ -205,13 +215,42 @@
       title: t('knowledge.replace.title'),
       description: t('knowledge.replace.body', { name: file.name, size: formatBytes(file.bytes ?? 0) }),
       subject: { icon: FileText, name: doc.title, details: [formatLabel(formatKey(doc)), ...(doc.updatedBy ? [t('knowledge.replace.updatedBy', { name: authorLine(doc.updatedBy) })] : []), relativeTime(doc.updatedAt)].join(' · ') },
-      confirmLabel: t('knowledge.replace.confirm'),
+      confirmLabel: t(ask ? 'knowledge.drafts.replace.confirmAsk' : 'knowledge.replace.confirm'),
       cancelLabel: t('knowledge.replace.keep'),
       tone: 'primary',
     });
 
-    if (confirmed && (await knowledgeReplace.replace(doc, file))) {
+    if (confirmed && (await knowledgeReplace.replace(doc, file, ask))) {
       await knowledgeDocs.refresh();
+    }
+  }
+
+  /** A button of the Review section: a step of the review, or choosing the file that replaces the version (with the note, asking at once). */
+  function step(next: ReviewStep, text: string): void {
+    const doc = shown;
+    const version = doc ? versionOf(doc) : null;
+
+    if (!doc || !version) {
+      return;
+    }
+
+    if (next === 'replace') {
+      void replaceWith('pick', { note: text });
+    } else if (next === 'approve' || next === 'requestChanges') {
+      // A verdict is about the diff on screen: it waits for that diff to be the version's latest text.
+      const pin = decisionPin(knowledgeReview.shownCompare(version.id), version);
+
+      if (pin.reason === null) {
+        void takeStep(doc, version, next, text, pin.revision);
+      }
+    } else {
+      void takeStep(doc, version, next, text);
+    }
+  }
+
+  function download(liveVersion: boolean): void {
+    if (shown) {
+      void knowledgeReview.download({ id: shown.id, title: shown.title }, shown.sourceName, liveVersion);
     }
   }
 
@@ -248,6 +287,24 @@
     clearLabel={t('knowledge.filter.clearFormat')}
     align="start"
   />
+
+  {#if draftsListed}
+    <FilterMenu
+      label={t('knowledge.filter.status')}
+      prefix={t('knowledge.filter.status')}
+      options={statusOptions}
+      value={viewState.knowledgeStatus ?? 'all'}
+      onchange={(next) => choose(() => {
+          viewState.knowledgeStatus = next === 'all' ? null : (next as KnowledgeStatusFilter);
+        })}
+      onclear={() => choose(() => {
+          viewState.knowledgeStatus = null;
+        })}
+      clearLabel={t('knowledge.filter.clearStatus')}
+      align="start"
+      wide
+    />
+  {/if}
 
   {#if usefulListed || viewState.knowledgeUseful !== null}
     <FilterMenu
@@ -300,7 +357,7 @@
   {filters}
   tableLabel={t('knowledge.table.label')}
   tableId="knowledge-docs"
-  columns={docColumns(usefulListed, authorsListed)}
+  columns={docColumns(usefulListed, authorsListed, draftsListed)}
   {rows}
   sort={viewState.knowledgeSort}
   onsort={(next) => choose(() => {
@@ -321,6 +378,9 @@
     {:else if column.key === 'format'}
       {@const format = formatKey(doc)}
       <Badge tone={formatTone(format)} size="lg">{formatLabel(format)}</Badge>
+    {:else if column.key === 'status'}
+      {@const look = lookOf(doc)}
+      <Badge tone={look.tone} outline={look.outline} size="lg"><look.icon size={ICON.sm} aria-hidden="true" />{look.label}</Badge>
     {:else if column.key === 'repos'}
       {@render repos(doc.links)}
     {:else if column.key === 'chunks'}
@@ -357,6 +417,12 @@
       onreplace={() => void replaceWith('pick')}
       onreplacedrop={() => void replaceWith('drop')}
       {readOnly}
+      onstep={step}
+      ondownload={download}
+      onreview={(section) => {
+        viewState.knowledgeReviewSection = section;
+        viewState.knowledgeReviewId = openId;
+      }}
       onclose={close}
     />
   {/snippet}

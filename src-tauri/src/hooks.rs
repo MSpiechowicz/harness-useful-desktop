@@ -403,6 +403,16 @@ impl HookRuntime {
             .and_then(|chat| chat.project())
     }
 
+    /// The key of the tracked chat whose Harness Memory key is `memory_key`: the session Harness
+    /// Knowledge records in the proposals of that chat's agent. `None` when no tracked chat has it
+    /// (its chat was closed).
+    pub fn chat_of_memory_key(&self, memory_key: &str) -> Option<String> {
+        self.lock_chats()
+            .values()
+            .find(|chat| chat.memory_key() == Some(memory_key))
+            .map(|chat| chat.key().to_owned())
+    }
+
     /// Stops tracking chat `key` (it stopped or its channel closed). A `sessionEnd` still fires
     /// from its `exited` event.
     pub fn forget(&self, key: &str) {

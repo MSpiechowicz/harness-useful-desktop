@@ -12,11 +12,14 @@
     choices: RepoChoice[];
     /** A repository was chosen, by its key. */
     onpick: (key: string) => void;
+    /** The user may not change the links: the button is off, and `describedby` names the text that says why. */
+    disabled?: boolean;
+    describedby?: string;
   }
 
-  let { choices, onpick }: Props = $props();
+  let { choices, onpick, disabled = false, describedby }: Props = $props();
 
-  const options = $derived(choices.map((choice) => ({ value: choice.key, label: choice.label, hint: choice.hint, icon: GitBranch })));
+  const options = $derived(choices.map((choice) => ({ value: choice.key, label: choice.label, hint: choice.hint, reason: choice.reason, disabled: choice.reason !== undefined, icon: GitBranch })));
 </script>
 
 <!-- The menu of the Scope filter, as a button that links: the same search above the choices and the same rows. It opens on the side with more room, as the editor sits in a scrolling panel or dialog. -->
@@ -28,5 +31,7 @@
   onchange={onpick}
   align="start"
   side="auto"
+  {disabled}
+  {describedby}
   search={{ label: t('components.scope.search'), placeholder: t('components.scope.search.placeholder'), empty: t('components.scope.search.empty') }}
 />

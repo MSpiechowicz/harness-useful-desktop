@@ -94,7 +94,7 @@ describe('the knowledge preview backend', () => {
 
     // The next import runs to the end, with a failed scan and a skipped file in it.
     const full = await knowledge_import({ token: 't', options: null, onEvent: () => {} });
-    expect(full).toEqual({ counts: { added: 3, updated: 0, unchanged: 0, skipped: 1, failed: 1 }, cancelled: false });
+    expect(full).toEqual({ counts: { added: 3, updated: 0, pending: 0, unchanged: 0, skipped: 1, failed: 1 }, cancelled: false });
   });
 
   it('keeps documents by whether agents found them useful and sorts by it, as the server does', () => {

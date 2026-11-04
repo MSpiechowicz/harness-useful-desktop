@@ -15,6 +15,7 @@ import { hostHandlers } from './host-handlers';
 import { knowledgeEmbedderHandlers } from './knowledge-embedder-handlers';
 import { knowledgeHandlers, knowledgeScenarioFromLocation, MockKnowledge } from './knowledge-handlers';
 import { knowledgeImportHandlers } from './knowledge-import-handlers';
+import { knowledgeReviewHandlers } from './knowledge-review-handlers';
 import { usesBothPlaces } from '$lib/utils/knowledge-routing';
 import { knowledgeRemoteHandlers, knowledgeRemoteScenarioFromLocation } from './knowledge-remote-handlers';
 import { knowledgeOfflineFromLocation, knowledgeRoutingFromLocation } from './knowledge-routing';
@@ -90,14 +91,16 @@ export function defaultScenario(): Scenario {
     return roster && list[0] ? rosterSummaries(roster, list) : list;
   };
   const setup = setupHandlers(harnesses, setupScenarioFromLocation, () => state.setMemoryEnabled(true), () => state.setKnowledgeEnabled(true), () => state.setCodeEnabled(true));
-  // A routed preview (`?kroute=`) needs a remote database, so it starts with one unless `?kremote=` says otherwise.
+  // A routed preview (`?kroute=`) needs a remote database, and so does team approval (`?knowledge=drafts|solo`): they start with one unless `?kremote=` says otherwise.
   const routing = knowledgeRoutingFromLocation();
+  const teamScenario = knowledgeScenarioFromLocation() === 'drafts' || knowledgeScenarioFromLocation() === 'solo';
   const remoteScenario = () => {
     const scenario = knowledgeRemoteScenarioFromLocation();
 
-    return scenario === 'none' && usesBothPlaces(true, routing) ? 'postgres' : scenario;
+    return scenario === 'none' && (usesBothPlaces(true, routing) || teamScenario) ? 'postgres' : scenario;
   };
   const knowledge = new MockKnowledge(knowledgeScenarioFromLocation(), usesBothPlaces(remoteScenario() !== 'none', routing), knowledgeOfflineFromLocation());
+  knowledge.team = remoteScenario() !== 'none';
   const ecosystem = ecosystemHandlers();
   const copyStores: CopyStores = {};
 
@@ -173,6 +176,7 @@ export function defaultScenario(): Scenario {
     // A test passes for URLs containing "ok", and a URL with `nopgvector`, `nomongot`, `pgvectorprivilege`, `pgvectorold`, `nolibsqlvector`, `nofts5`, `indexbuilding` or `badauth` in it fails with that problem.
     ...knowledgeHandlers(knowledge, knowledgeScenarioFromLocation, () => setup.knowledgeServer().installed),
     ...knowledgeImportHandlers(knowledge),
+    ...knowledgeReviewHandlers(knowledge, knowledgeScenarioFromLocation),
     ...knowledgeRemoteHandlers(remoteScenario, () => setup.knowledgeServer().installed && knowledgeScenarioFromLocation() !== 'outdated', routing),
     ...knowledgeEmbedderHandlers(state),
     // `?remote=postgres|libsql|problem` starts with a saved team database; `harness-memory check` passes for URLs containing "ok".

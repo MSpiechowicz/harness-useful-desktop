@@ -1,6 +1,7 @@
 import Check from '@lucide/svelte/icons/check';
 import CircleAlert from '@lucide/svelte/icons/circle-alert';
 import Equal from '@lucide/svelte/icons/equal';
+import GitPullRequestDraft from '@lucide/svelte/icons/git-pull-request-draft';
 import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 import SkipForward from '@lucide/svelte/icons/skip-forward';
 
@@ -12,19 +13,20 @@ import type { KnowledgeSkipReason } from '$lib/ipc/bindings/KnowledgeSkipReason'
 import { tildePath } from '../memory/script-format';
 
 /** The results of one file, in the order the chips list them. */
-export const FILE_STATUSES: readonly KnowledgeFileStatus[] = ['added', 'updated', 'unchanged', 'skipped', 'failed'];
+export const FILE_STATUSES: readonly KnowledgeFileStatus[] = ['added', 'updated', 'pending', 'unchanged', 'skipped', 'failed'];
 
 export const STATUS_LABELS = {
   added: 'knowledge.import.status.added',
   updated: 'knowledge.import.status.updated',
+  pending: 'knowledge.import.status.pending',
   unchanged: 'knowledge.import.status.unchanged',
   skipped: 'knowledge.import.status.skipped',
   failed: 'knowledge.import.status.failed',
 } as const satisfies Record<KnowledgeFileStatus, MessageKey>;
 
-export const STATUS_TONES = { added: 'success', updated: 'accent', unchanged: 'neutral', skipped: 'warning', failed: 'danger' } as const satisfies Record<KnowledgeFileStatus, string>;
+export const STATUS_TONES = { added: 'success', updated: 'accent', pending: 'info', unchanged: 'neutral', skipped: 'warning', failed: 'danger' } as const satisfies Record<KnowledgeFileStatus, string>;
 
-export const STATUS_ICONS: Record<KnowledgeFileStatus, IconComponent> = { added: Check, updated: RefreshCw, unchanged: Equal, skipped: SkipForward, failed: CircleAlert };
+export const STATUS_ICONS: Record<KnowledgeFileStatus, IconComponent> = { added: Check, updated: RefreshCw, pending: GitPullRequestDraft, unchanged: Equal, skipped: SkipForward, failed: CircleAlert };
 
 export const SKIP_REASONS = {
   missing: 'knowledge.import.skip.missing',

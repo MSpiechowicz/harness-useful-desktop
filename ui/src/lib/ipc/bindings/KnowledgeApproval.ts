@@ -3,4 +3,4 @@
 /**
  * What an approval did to the document.
  */
-export type KnowledgeApproval = "added" | "updated" | "unchanged";
+export type KnowledgeApproval = "added" | "updated" | "unchanged" | "pending";

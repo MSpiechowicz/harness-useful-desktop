@@ -51,11 +51,11 @@ const pluralBases = Object.keys(en)
   .map((key) => key.slice(0, -'.other'.length));
 
 describe('English catalog', () => {
-  it('has the twenty-four areas, each key under its own area and no key twice', () => {
+  it('has the twenty-five areas, each key under its own area and no key twice', () => {
     const areas = areasOf('en');
 
     expect(Object.keys(areas).sort()).toEqual(
-      ['branch', 'changes', 'chat', 'code', 'common', 'components', 'config', 'ecosystem', 'extensions', 'harness', 'hooks', 'knowledge', 'memory', 'memory-editor', 'memory-guards', 'memory-import', 'onboarding', 'routines', 'sessions', 'settings', 'shell', 'subagents', 'sync', 'updates'],
+      ['branch', 'changes', 'chat', 'code', 'common', 'components', 'config', 'ecosystem', 'extensions', 'harness', 'hooks', 'knowledge', 'knowledge-drafts', 'memory', 'memory-editor', 'memory-guards', 'memory-import', 'onboarding', 'routines', 'sessions', 'settings', 'shell', 'subagents', 'sync', 'updates'],
     );
 
     let total = 0;

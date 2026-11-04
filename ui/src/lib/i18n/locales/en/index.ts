@@ -21,6 +21,7 @@ import { memoryGuards } from './memory-guards';
 import { branch } from './branch';
 import { subagents } from './subagents';
 import { knowledge } from './knowledge';
+import { knowledgeDrafts } from './knowledge-drafts';
 import { code } from './code';
 
 export const en = {
@@ -47,6 +48,7 @@ export const en = {
   ...branch,
   ...subagents,
   ...knowledge,
+  ...knowledgeDrafts,
   ...code,
 } satisfies Record<string, string>;
 

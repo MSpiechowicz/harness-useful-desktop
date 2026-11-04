@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-restart-notice-dismiss"
+description = "Enables the knowledge_restart_notice_dismiss command without any pre-configured scope."
+commands.allow = ["knowledge_restart_notice_dismiss"]
+
+[[permission]]
+identifier = "deny-knowledge-restart-notice-dismiss"
+description = "Denies the knowledge_restart_notice_dismiss command without any pre-configured scope."
+commands.deny = ["knowledge_restart_notice_dismiss"]

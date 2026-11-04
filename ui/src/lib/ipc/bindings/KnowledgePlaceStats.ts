@@ -27,4 +27,16 @@ generation: number,
 /**
  * The place cannot be reached, so its counts are not known (`{"offline": true}`).
  */
-offline: boolean, };
+offline: boolean, 
+/**
+ * How many documents are drafts (absent from a server without `docs-drafts`).
+ */
+drafts?: number | null, 
+/**
+ * How many documents wait for approval.
+ */
+waiting?: number | null, 
+/**
+ * How many live documents have a pending version.
+ */
+pending?: number | null, };

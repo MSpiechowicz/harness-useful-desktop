@@ -1,10 +1,8 @@
 <script lang="ts">
   import FileUp from '@lucide/svelte/icons/file-up';
-  import Lock from '@lucide/svelte/icons/lock';
   import Pencil from '@lucide/svelte/icons/pencil';
-  import Replace from '@lucide/svelte/icons/replace';
-  import Trash2 from '@lucide/svelte/icons/trash-2';
 
+  import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import FactsCard from '$lib/components/FactsCard.svelte';
   import { ICON } from '$lib/components/icon';
@@ -12,24 +10,40 @@
   import type { ScopeOption } from '$lib/components/scope/scope-options';
   import SectionCard from '$lib/components/SectionCard.svelte';
   import SidePanel from '$lib/components/SidePanel.svelte';
-  import { rise } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { idKey } from '$lib/ipc/knowledge-id';
   import type { KnowledgeDetail } from '$lib/ipc/bindings/KnowledgeDetail';
   import type { KnowledgeDocument } from '$lib/ipc/bindings/KnowledgeDocument';
   import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
+  import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { knowledgeReplace } from '$lib/stores/knowledgeReplace.svelte';
+  import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
+  import { knowledgeReview } from '$lib/stores/knowledgeReview.svelte';
+  import { knowledgeStats } from '$lib/stores/knowledgeStats.svelte';
+  import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
+  import { knowledgeViewer } from '$lib/stores/knowledgeViewer.svelte';
   import type { ViewStatus } from '$lib/stores/view-loader.svelte';
-  import { uid } from '$lib/utils/ids';
+  import { readFailureText } from '$lib/utils/knowledge-failure';
 
   import BodyState from '../memory/BodyState.svelte';
   import { settled } from '../memory/memory-data.svelte';
   import { ChunkTexts } from './chunk-texts.svelte';
+  import DocumentActions from './DocumentActions.svelte';
+  import DocumentChanges from './DocumentChanges.svelte';
+  import DocumentHistory from './DocumentHistory.svelte';
   import DocumentMatches from './DocumentMatches.svelte';
+  import DocumentReview from './DocumentReview.svelte';
   import DocumentSections from './DocumentSections.svelte';
   import DocumentTitle from './DocumentTitle.svelte';
   import DropVeil from './DropVeil.svelte';
   import { docFacts, docSubtitle, outlineOf } from './knowledge-format';
+  import { inTeamDatabase } from './knowledge-repos';
+  import { lookOf } from './knowledge-status';
   import LinksEditor from './LinksEditor.svelte';
+  import { joinHistory } from './history-entries';
+  import { useReveal } from './panel-reveal.svelte';
+  import PanelSpinner from './PanelSpinner.svelte';
+  import { decisionPin, liveIdOf, mineOf, reviewModel, type ReviewStep, versionOf } from './review-model';
 
   interface Props {
     open: boolean;
@@ -43,7 +57,7 @@
     error: string | null;
     onretry: () => void;
     onrename: (title: string) => Promise<boolean>;
-    /** Saves the links and answers them as stored; null when the server refused. */
+    /** Saves the links and answers them as stored, and says so in a toast. Null (with a toast) when the server refused. */
     onlinks: (links: KnowledgeLink[]) => Promise<KnowledgeLink[] | null>;
     ondelete: () => void;
     /** Asks for a file to take the document's place. */
@@ -52,14 +66,18 @@
     onreplacedrop: () => void;
     /** The user may not change the document (a read-only role on the remote place): Replace and Delete are off, with the reason under them. */
     readOnly: boolean;
+    /** The user chose a step of the review. `text` is the comment of a request for changes, or the note that goes with a new file. */
+    onstep: (step: ReviewStep, text: string) => void;
+    /** Saves the original file of the document, or of its live version. */
+    ondownload: (live: boolean) => void;
+    /** Opens the full review of the pending changes, at a section when one was chosen. */
+    onreview: (section: string | null) => void;
     onclose: () => void;
     /** The search of the documents table as typed: while it holds words, the panel shows where they are in the document. */
     query: string;
   }
 
-  let { open, doc, detail, status, error, options, query, onretry, onrename, onlinks, ondelete, onreplace, onreplacedrop, readOnly, onclose }: Props = $props();
-
-  const readOnlyId = uid('knowledge-read-only');
+  let { open, doc, detail, status, error, options, query, onretry, onrename, onlinks, ondelete, onreplace, onreplacedrop, readOnly, onstep, ondownload, onreview, onclose }: Props = $props();
 
   const searched = settled(() => query);
   const searching = $derived(searched.value.trim() !== '');
@@ -68,12 +86,54 @@
   const docId = $derived(doc?.id ?? null);
   const texts = $derived(docId === null ? null : new ChunkTexts(docId));
 
+  // Drafts, approval and the review exist for a Harness Knowledge that keeps them (`docs-drafts`): without it the panel is the one it always was.
+  const drafts = $derived(knowledgeStatus.value?.features.docsDrafts === true);
+  /** A document in the team database can only link to git projects: teammates could not find a folder without a git remote. */
+  const inTeam = $derived(doc !== null && inTeamDatabase(doc, knowledgeRemote.value));
+  const version = $derived(drafts && doc ? versionOf(doc) : null);
+  const look = $derived(version && doc ? lookOf(doc) : null);
+  const approval = $derived(knowledgeChanges.pulse?.approval ?? knowledgeStats.value?.approval ?? null);
+  /** The events of what the History section is about (the pending version of a live document that has one): only once they were read for it, never those of the document shown before. */
+  const ownEvents = $derived(doc ? knowledgeReview.eventsOf(version?.id ?? doc.id) : null);
+  const versionEvents = $derived(version ? ownEvents : null);
+  /** The diff on screen: a verdict is about it, so it must be the version's latest text (see `decisionPin`). */
+  const compare = $derived(version ? knowledgeReview.shownCompare(version.id) : null);
+  const model = $derived(
+    version
+      ? reviewModel({
+          version,
+          approval,
+          mine: mineOf(version, versionEvents ?? [], (name) => knowledgeViewer.is(name)),
+          readOnly,
+          noName: knowledgeViewer.noName,
+          pin: decisionPin(compare, version).reason,
+          events: versionEvents ?? [],
+          lastChange: doc?.lastChange ?? null,
+        })
+      : null,
+  );
+
+  const replaceInReview = $derived(model?.actions.some((action) => action.step === 'replace') ?? false);
+
+  // The History section is the whole story of the document: of a live document with a pending update, the events of both rows in one timeline.
+  const liveId = $derived(doc && version ? liveIdOf(doc) : null);
+  const liveEvents = $derived(liveId === null ? null : knowledgeReview.liveEventsOf(liveId));
+  const timeline = $derived(liveId === null ? ownEvents : ownEvents && liveEvents ? joinHistory(ownEvents, liveEvents) : null);
+  const loaders = $derived(liveId === null ? [knowledgeReview.history] : [knowledgeReview.history, knowledgeReview.liveHistory]);
+  const failed = $derived(loaders.find((loader) => loader.error !== null)?.error ?? null);
+  const historyStatus = $derived<ViewStatus>(failed ? 'error' : loaders.some((loader) => loader.status === 'loading') ? 'loading' : knowledgeReview.history.status);
+  const stepping = $derived(version !== null && knowledgeReview.busy.has(String(version.id)));
+
+  // The body waits until every read of the document is in (its sections, and with drafts its history and its diff, or their failures), behind one
+  // spinner: shown part by part, the sections would push each other up and down while they arrive.
+  const compareSettled = $derived(version === null || compare !== null || knowledgeReview.compareOutcome(version.id) !== null || knowledgeReview.compareFailed(version.id));
+  const historySettled = $derived(!drafts || timeline !== null || failed !== null);
+  const reveal = useReveal(() => (open && doc ? idKey(doc.id) : null), () => (detail !== null || status === 'error') && historySettled && compareSettled);
+
   let renaming = $state(false);
-  /** The links as the user left them while the server has not answered yet, and whether the last change was saved. */
+  /** The links as the user left them while the server has not answered yet. A save says so in a toast (see `knowledgeDocs.setLinks`). */
   let draft = $state.raw<KnowledgeLink[] | null>(null);
-  let saved = $state(false);
   let sent = 0;
-  let timer: ReturnType<typeof setTimeout> | undefined;
 
   // Another document starts from what it has, with no field open.
   $effect(() => {
@@ -81,7 +141,6 @@
 
     renaming = false;
     draft = null;
-    saved = false;
   });
 
   // A file dragged over the panel replaces its document, unless the document may not be changed. The page's own drop target steps aside while it is over the panel.
@@ -145,10 +204,8 @@
     const mine = sent;
 
     draft = next;
-    saved = false;
-    clearTimeout(timer);
 
-    const stored = await onlinks(next);
+    await onlinks(next);
 
     // A newer change owns what is on screen.
     if (mine !== sent) {
@@ -156,8 +213,6 @@
     }
 
     draft = null;
-    saved = stored !== null;
-    timer = setTimeout(() => (saved = false), 2000);
   }
 </script>
 
@@ -175,10 +230,19 @@
   {/if}
 {/snippet}
 
+{#snippet statusRow()}
+  {#if doc && look}
+    <!-- The state is said once, in the header under the title, as a badge of the size the table's Format badge has, with what the line under the title says in grey. -->
+    <Badge tone={look.tone} outline={look.outline} size="lg" class="shrink-0"><look.icon size={ICON.sm} aria-hidden="true" />{look.label}</Badge>
+    <span class="min-w-0 truncate text-xs text-fg-3" title={docSubtitle(doc)}>{docSubtitle(doc)}</span>
+  {/if}
+{/snippet}
+
 <SidePanel
   {open}
   title={doc?.title ?? ''}
-  subtitle={doc ? docSubtitle(doc) : ''}
+  subtitle={doc && !look ? docSubtitle(doc) : ''}
+  status={look ? statusRow : undefined}
   actions={doc ? rename : undefined}
   titleField={renaming ? field : undefined}
   overlay={dropVeil}
@@ -189,7 +253,9 @@
   ondrop={drop}
   {onclose}
 >
-  {#if doc}
+  {#if doc && !reveal.shown}
+    <PanelSpinner label={t('knowledge.panel.loading')} />
+  {:else if doc}
     {#if doc.warnings.length > 0}
       <ul class="flex flex-col gap-1 rounded-md bg-warning-wash px-3 py-2 text-sm text-warning" role="status">
         {#each doc.warnings as warning (warning)}
@@ -204,8 +270,19 @@
       </SectionCard>
     {/if}
 
-    <SectionCard flat heading={t('knowledge.panel.links')}>
-      <LinksEditor links={draft ?? doc.links} onchange={(next) => void change(next)} {options} {saved} globalNote={t('knowledge.links.global')} />
+    {#if model && version}
+      <SectionCard flat heading={t('knowledge.drafts.panel.review')} hint={t('knowledge.drafts.panel.review.hint')}>
+        <DocumentReview {model} busy={stepping} {onstep} />
+      </SectionCard>
+
+      <SectionCard flat heading={t('knowledge.drafts.panel.changes')} hint={t('knowledge.drafts.panel.changes.hint')}>
+        <DocumentChanges {compare} status={knowledgeReview.compare.status} {onreview} />
+      </SectionCard>
+    {/if}
+
+    <!-- Every section says what it is under its heading. Without links, the hint says what that means. -->
+    <SectionCard flat heading={t('knowledge.panel.links')} hint={t((draft ?? doc.links).length === 0 ? 'knowledge.links.global' : 'knowledge.panel.links.hint')}>
+      <LinksEditor links={draft ?? doc.links} onchange={(next) => void change(next)} {options} team={inTeam} {readOnly} />
     </SectionCard>
 
     <SectionCard flat heading={t('knowledge.panel.sections')} hint={t('knowledge.sections.hint')}>
@@ -214,25 +291,18 @@
       </BodyState>
     </SectionCard>
 
-    <FactsCard flat heading={t('knowledge.panel.details')} rows={docFacts(doc, detail ? outlineOf(detail.sections).length : null)} />
+    <FactsCard flat heading={t('knowledge.panel.details')} hint={t('knowledge.panel.details.hint')} rows={docFacts(doc, detail ? outlineOf(detail.sections).length : null)} />
 
-    <SectionCard flat heading={t('knowledge.panel.actions')}>
-      <div class="flex flex-wrap items-center gap-2">
-        <Button disabled={readOnly} loading={knowledgeReplace.busy || knowledgeReplace.picking} aria-describedby={readOnly ? readOnlyId : undefined} onclick={onreplace}>
-          {#snippet leading()}<Replace size={ICON.sm} aria-hidden="true" />{/snippet}
-          {t('knowledge.panel.replace')}
-        </Button>
-
-        <Button variant="dangerQuiet" disabled={readOnly} aria-describedby={readOnly ? readOnlyId : undefined} onclick={ondelete}>
-          {#snippet leading()}<Trash2 size={ICON.sm} aria-hidden="true" />{/snippet}
-          {t('knowledge.panel.delete')}
-        </Button>
-      </div>
-
-      {#if readOnly}
-        <p id={readOnlyId} in:rise={{ y: 4, duration: 200 }} class="mt-3 flex items-center gap-2 text-sm text-fg-3"><Lock size={ICON.sm} class="shrink-0" aria-hidden="true" />{t('knowledge.panel.readOnly')}</p>
-      {/if}
+    <SectionCard flat heading={t('knowledge.panel.actions')} hint={t('knowledge.panel.actions.hint')}>
+      <!-- The Review section offers Replace file… itself while changes are requested (it asks for approval again in the same step), so Actions leaves it out then. -->
+      <DocumentActions update={doc.pending != null} {readOnly} replace={!replaceInReview} {ondownload} {onreplace} {ondelete} />
     </SectionCard>
+
+    {#if drafts}
+      <SectionCard flat heading={t('knowledge.drafts.panel.history')} hint={t('knowledge.drafts.panel.history.hint')}>
+        <DocumentHistory events={timeline} status={historyStatus} error={failed ? readFailureText(failed) : null} onretry={() => void Promise.all(loaders.map((loader) => loader.refresh()))} />
+      </SectionCard>
+    {/if}
   {:else if open && status === 'error'}
     <!-- A document that is not on this page and cannot be read (its place is unreachable) has nothing else to show. -->
     <div class="flex flex-col items-start gap-3">

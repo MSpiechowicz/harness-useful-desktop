@@ -34,8 +34,10 @@
 
   let paused = $state(false);
 
-  // Auto-dismiss; hovering or focusing the toast pauses the countdown.
+  // Auto-dismiss; hovering or focusing the toast pauses the countdown, and an update of the toast starts it over.
   $effect(() => {
+    void toast.revision;
+
     if (toast.duration === 0 || paused) {
       return;
     }

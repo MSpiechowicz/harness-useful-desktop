@@ -38,18 +38,21 @@ export const config = {
   'config.menu.pathCopied': 'The file path is on the clipboard.',
 
   'config.overview.title': 'Overview',
+  'config.overview.title.hint': 'How much this section holds.',
   'config.overview.entries': 'top-level entries',
   'config.overview.values': 'values',
   'config.overview.depth': 'levels deep',
   'config.overview.secrets': 'secrets masked',
 
   'config.file.title': 'File',
+  'config.file.title.hint': 'Where this section is stored.',
   'config.file.layer': 'Layer',
   'config.file.format': 'Format',
   'config.file.profile': 'Profile',
   'config.file.path': 'Path',
 
   'config.profiles.title': 'Profiles',
+  'config.profiles.title.hint': 'Named sets of settings you can start with.',
   'config.profiles.hint': 'Start {harness} with --profile <name> to use one.',
   'config.profiles.less': 'Show fewer',
   'config.profiles.all': 'Show all {count}',

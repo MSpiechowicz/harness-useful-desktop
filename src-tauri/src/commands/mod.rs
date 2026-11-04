@@ -17,6 +17,7 @@ pub mod knowledge_embedder;
 pub mod knowledge_held;
 pub mod knowledge_import;
 pub mod knowledge_remote;
+pub mod knowledge_review;
 pub mod memory;
 pub mod memory_embedder;
 pub mod memory_guards;

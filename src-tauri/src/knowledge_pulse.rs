@@ -6,13 +6,15 @@
 //! otherwise (the rail badge only). While project knowledge is off the counts are zero, so the badge
 //! clears. While the remote database is the only place in use and cannot be reached, the counts are
 //! an `offline` pulse without numbers (see `knowledge_pulse`), so the last ones are not shown as
-//! current.
+//! current. A database that is not upgraded yet is upgraded first (`harness-knowledge upgrade`), and
+//! the pulse carries the one-time notice that running harnesses must be restarted until the page
+//! dismissed it.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use harness_business::ecosystem::knowledge_pulse;
+use harness_business::ecosystem::{KnowledgeUpgradeNotice, knowledge_pulse_upgrading, upgrade_installed};
 use harness_business::model::KnowledgePulse;
 use tauri::async_runtime::{self, JoinHandle};
 use tauri::ipc::Channel;
@@ -35,12 +37,48 @@ pub struct PulseWatch {
     watching: Arc<AtomicBool>,
     /// Ends the wait for the next read early.
     wake: Arc<Notify>,
+    /// What the database's upgrade did, for the pulse.
+    notice: Arc<KnowledgeUpgradeNotice>,
 }
 
 impl PulseWatch {
     /// The interval to read at, for whether the Knowledge view is open.
     pub fn interval(watching: bool) -> Duration {
         if watching { WATCHING_INTERVAL } else { IDLE_INTERVAL }
+    }
+
+    /// What the database's upgrade did: its restart notice and whether it waits for a teammate.
+    pub fn notice(&self) -> &Arc<KnowledgeUpgradeNotice> {
+        &self.notice
+    }
+
+    /// The page showed the restart notice and the user dismissed it: the next pulse leaves it out at once.
+    pub fn dismiss_restart_notice(&self) {
+        self.notice.dismiss();
+        self.wake.notify_one();
+    }
+
+    /// Upgrades the database after Harness Knowledge was installed or updated, then reads the
+    /// counts at once (a server without `docs-drafts` has nothing to upgrade). The first server with
+    /// drafts this computer gets also raises the one-time restart notice, upgraded here or not, and
+    /// the app remembers it did.
+    pub async fn upgrade_after_install(&self, state: &AppState) {
+        let first_drafts = !state.prefs.with(|store| store.load()).knowledge_restart_notice_done;
+
+        let has_drafts = upgrade_installed(
+            &state.env,
+            &state.runner,
+            &state.knowledge_features,
+            &self.notice,
+            first_drafts,
+        )
+        .await;
+
+        if has_drafts && first_drafts {
+            remember_restart_notice(state).await;
+        }
+
+        self.wake.notify_one();
     }
 
     /// Tells that the Knowledge view opened or closed: the counts are read at once and then at the
@@ -54,6 +92,7 @@ impl PulseWatch {
     pub fn listen(&self, app: AppHandle, channel: Channel<KnowledgePulse>) {
         let watching = Arc::clone(&self.watching);
         let wake = Arc::clone(&self.wake);
+        let notice = Arc::clone(&self.notice);
         let task = async_runtime::spawn(async move {
             let mut last: Option<KnowledgePulse> = None;
 
@@ -65,7 +104,7 @@ impl PulseWatch {
                 }
 
                 // A failure that is not the remote being unreachable sends nothing: the last counts stay.
-                if let Some(pulse) = read(&state).await
+                if let Some(pulse) = read(&state, &notice).await
                     && last.as_ref() != Some(&pulse)
                 {
                     // A closed channel means its page is gone.
@@ -95,18 +134,39 @@ impl PulseWatch {
     }
 }
 
+/// Records that the restart notice was raised. A pref that cannot be stored is logged: the notice
+/// itself is already up, and it may come once more.
+async fn remember_restart_notice(state: &AppState) {
+    let prefs = state.prefs.clone();
+
+    let stored = async_runtime::spawn_blocking(move || {
+        prefs.with(|store| store.update(|prefs| prefs.knowledge_restart_notice_done = true))
+    })
+    .await;
+
+    if !matches!(stored, Ok(Ok(_))) {
+        tracing::warn!("the restart notice of Harness Knowledge could not be remembered");
+    }
+}
+
 /// The counts while the server answers, and none (zero, so no badge) while project knowledge is off.
-async fn read(state: &AppState) -> Option<KnowledgePulse> {
+async fn read(state: &AppState, notice: &KnowledgeUpgradeNotice) -> Option<KnowledgePulse> {
     if !crate::sidecar_setup::enabled::<crate::product::Knowledge>(state).await {
         return Some(KnowledgePulse {
             documents: 0,
             generation: 0,
             held: Some(0),
             offline: false,
+            waiting: Some(0),
+            waiting_all: Some(0),
+            approval: None,
+            restart_harnesses: None,
+            upgrade_waits: None,
+            me: None,
         });
     }
 
-    knowledge_pulse(&state.env, &state.runner, &state.knowledge_features).await
+    knowledge_pulse_upgrading(&state.env, &state.runner, &state.knowledge_features, notice).await
 }
 
 #[cfg(test)]

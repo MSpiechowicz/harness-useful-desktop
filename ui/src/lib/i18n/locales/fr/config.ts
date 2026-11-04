@@ -41,18 +41,21 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.pathCopied': 'Le chemin du fichier est dans le presse-papiers.',
 
   'config.overview.title': 'Aperçu',
+  'config.overview.title.hint': 'Ce que contient cette section, en chiffres.',
   'config.overview.entries': 'entrées de premier niveau',
   'config.overview.values': 'valeurs',
   'config.overview.depth': 'niveaux de profondeur',
   'config.overview.secrets': 'secrets masqués',
 
   'config.file.title': 'Fichier',
+  'config.file.title.hint': 'Où cette section est enregistrée.',
   'config.file.layer': 'Niveau',
   'config.file.format': 'Format',
   'config.file.profile': 'Profil',
   'config.file.path': 'Chemin',
 
   'config.profiles.title': 'Profils',
+  'config.profiles.title.hint': 'Des jeux de réglages nommés avec lesquels vous pouvez démarrer.',
   'config.profiles.hint': 'Lancez {harness} avec --profile <name> pour en utiliser un.',
   'config.profiles.less': 'Afficher moins',
   'config.profiles.all': 'Afficher les {count}',

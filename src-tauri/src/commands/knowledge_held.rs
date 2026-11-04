@@ -9,7 +9,7 @@
 
 use harness_business::ecosystem::{
     HeldSort, ListWindow, approval_place, decide_knowledge_held, get_knowledge_held, knowledge_held_server,
-    list_knowledge_held,
+    list_knowledge_held, reject_knowledge_held,
 };
 use harness_business::model::{
     KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgePlace, KnowledgePulse,
@@ -58,8 +58,10 @@ pub async fn knowledge_held_get(state: State<'_, AppState>, id: String) -> Comma
 
 /// Approves (imports) or rejects (throws away) a proposal, only the version whose `revision` is
 /// given (what the review showed). With `place` an approval is kept there (when both places are in
-/// use, the routing's default otherwise); the server refuses a place the routing does not allow. `invalidInput` for an id or revision that is not one. A
-/// refusal is an answer (`notFound`, `changed`, `refused`), not an error.
+/// use, the routing's default otherwise); the server refuses a place the routing does not allow. A
+/// rejection may carry a `comment` for the agent (1 to 500 characters, dropped for a server without
+/// `docs-drafts`). `invalidInput` for an id, revision or comment that is not one. A refusal is an
+/// answer (`notFound`, `changed`, `refused`), not an error.
 #[tauri::command]
 pub async fn knowledge_held_decide(
     state: State<'_, AppState>,
@@ -67,9 +69,31 @@ pub async fn knowledge_held_decide(
     decision: KnowledgeDecision,
     revision: Option<String>,
     place: Option<KnowledgePlace>,
+    comment: Option<String>,
 ) -> CommandResult<KnowledgeDecided> {
     let server = knowledge_held_server(&state.env, &state.runner, &state.knowledge_features).await?;
     let place = approval_place(&state.env, &state.runner, &state.knowledge_features, place).await;
+
+    // A server without `docs-drafts` knows no `--comment`: the rejection goes without it.
+    let comment = match comment.filter(|comment| !comment.trim().is_empty()) {
+        Some(comment)
+            if decision == KnowledgeDecision::Reject
+                && state
+                    .knowledge_features
+                    .support(&state.env, &state.runner)
+                    .await
+                    .docs_drafts() =>
+        {
+            Some(comment)
+        }
+        _ => None,
+    };
+
+    if let Some(comment) = comment {
+        return Ok(
+            reject_knowledge_held(&state.env, &state.runner, &server, &id, revision.as_deref(), &comment).await?,
+        );
+    }
 
     Ok(decide_knowledge_held(
         &state.env,

@@ -9,17 +9,25 @@
 use std::path::{Path, PathBuf};
 
 use harness_business::env::Env;
-use harness_business::process::{ExecSpec, ExitInfo};
+use harness_business::process::{ExecOutput, ExecSpec, ExitInfo};
 use harness_business::testing::FakePeer;
 use serde_json::{Value, json};
 use tokio::io::AsyncReadExt;
+
+pub mod review;
 
 use crate::memory_cli_support::{installed_binary, installed_binary_at};
 use crate::setup_support::play;
 use crate::team_support::{Cli, exits};
 
 /// What a current server lists.
-pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\n";
+pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\ndocs-drafts\ndocs-approval\n";
+
+/// What a server lists with drafts but before team approval: no `docs-approval`.
+pub const BEFORE_APPROVAL: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\ndocs-drafts\n";
+
+/// What a server lists before drafts and team approval: no `docs-drafts` and no `docs-approval`.
+pub const BEFORE_DRAFTS: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\n";
 
 /// A repository key the tests link documents to.
 pub const REPO: &str = "git:github.com/acme/widget";
@@ -56,6 +64,51 @@ pub fn document_with_quality(id: i64, title: &str) -> Value {
     document["lastUsefulAt"] = json!("2026-10-05T12:00:00Z");
 
     document
+}
+
+/// `document` as a server with `docs-drafts` prints it: in `status` (`live`, `draft`, `waiting` or
+/// `changesRequested`) at `revision`, with no pending version.
+pub fn reviewed_document(id: i64, title: &str, status: &str, revision: i64) -> Value {
+    let mut document = document(id, title);
+
+    document["status"] = json!(status);
+    document["revision"] = json!(revision);
+    document["pending"] = Value::Null;
+
+    document
+}
+
+/// The pending summary of a live document's `docs list` row: pending row `id`, in `status`.
+pub fn pending_summary(id: i64, status: &str, revision: i64) -> Value {
+    json!({
+        "id": id,
+        "status": status,
+        "revision": revision,
+        "updatedBy": { "name": "Grace Hopper", "via": null },
+        "updatedAt": "2026-10-04T09:00:00Z"
+    })
+}
+
+/// A refusal as the server prints it: exit 1, `{"error": code, "message"}` on stdout and the line
+/// on stderr.
+pub fn refusing(code: &str, message: &str) -> ExecOutput {
+    exits(
+        1,
+        &json!({ "error": code, "message": message }).to_string(),
+        &format!("harness-knowledge: {message}\n"),
+    )
+}
+
+/// The `stats --json` of a server with `docs-drafts`: 12 documents of which 2 are drafts, 3 wait for
+/// approval (2 of them could be approved by this person) and 1 live document has a pending version,
+/// with approval on.
+pub fn drafts_stats() -> Value {
+    json!({
+        "documents": 12, "chunks": 40, "embeddedChunks": 40, "bytes": 1000, "globalDocuments": 1,
+        "repositories": 2, "generation": 31, "schema": 2, "model": null, "held": 1,
+        "drafts": 2, "waiting": 3, "waitingForYou": 2, "pending": 1, "approval": true,
+        "me": { "name": "Ada Lovelace" }
+    })
 }
 
 /// The `match` of `docs similar` for stored document `id`, by `reason`.

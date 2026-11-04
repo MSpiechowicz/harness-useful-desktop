@@ -165,6 +165,7 @@ fn an_approval_passes_the_revision_shown_and_answers_the_document_it_made() {
             title: "Retry policy".to_owned(),
             chunks: Some(3),
             embedding: Some(KnowledgeEmbedding::Pending),
+            draft: false,
         }
     );
     assert_eq!(
@@ -220,6 +221,7 @@ fn an_unchanged_approval_has_no_chunks_to_report() {
             title: "Retry policy".to_owned(),
             chunks: None,
             embedding: None,
+            draft: false,
         }
     );
 }

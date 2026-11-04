@@ -82,6 +82,7 @@
   };
 
   const TEXT_HEADINGS = { addContext: 'hooks.field.context', followUp: 'hooks.field.message', command: 'hooks.field.command' } as const;
+  const TEXT_HINTS = { addContext: 'hooks.field.context.hint', followUp: 'hooks.field.message.hint', command: 'hooks.field.command.hint' } as const;
 
   const waiting = $derived(hook && view?.status === 'paused' ? waitingFor(hook, memberSwitches(prefs.value, codeGraph.index?.enabled !== false)) : null);
   const team = $derived(view?.origin === 'team');
@@ -117,7 +118,7 @@
   {onclose}
 >
   {#if view}
-    <SectionCard flat heading={t('hooks.panel.status')}>
+    <SectionCard flat heading={t('hooks.panel.status')} hint={t('hooks.panel.status.hint')}>
       {#if hook}
         <div class="-my-4">
           <SettingRow title={view.status === 'duplicate' ? t('hooks.status.duplicate') : t('hooks.panel.enabled')} description={statusText}>
@@ -171,21 +172,21 @@
     </SectionCard>
 
     {#if view.status === 'pending'}
-      <SectionCard flat heading={t('hooks.panel.review')}>
+      <SectionCard flat heading={t('hooks.panel.review')} hint={t('hooks.panel.review.hint')}>
         <HookReview {view} {projects} {busy} {onapprove} onreject={team ? undefined : onreject} />
       </SectionCard>
     {/if}
 
     {#if hook}
       {#if hook.description}
-        <SectionCard flat heading={t('hooks.field.description')}>
+        <SectionCard flat heading={t('hooks.field.description')} hint={t('hooks.field.description.hint')}>
           <p class="text-sm leading-relaxed break-words text-fg-2"><HiddenText text={hook.description} /></p>
         </SectionCard>
       {/if}
 
-      <FactsCard flat heading={t('hooks.panel.details')} rows={hookFacts(hook, view.approval, scope, team ? view : null)} />
+      <FactsCard flat heading={t('hooks.panel.details')} hint={t('hooks.panel.details.hint')} rows={hookFacts(hook, view.approval, scope, team ? view : null)} />
 
-      <SectionCard flat heading={t(TEXT_HEADINGS[hook.action.type])}>
+      <SectionCard flat heading={t(TEXT_HEADINGS[hook.action.type])} hint={t(TEXT_HINTS[hook.action.type])}>
         {#if hook.action.type === 'command'}
           <ScriptCode body={hook.action.command} language="sh" />
         {:else}
@@ -194,7 +195,7 @@
       </SectionCard>
     {/if}
 
-    <SectionCard flat heading={t('hooks.panel.actions')}>
+    <SectionCard flat heading={t('hooks.panel.actions')} hint={t('hooks.panel.actions.hint')}>
       <HookActions {view} {lockReason} {sharing} {canUpdate} {copyLock} {busy} {onedit} {ondelete} {onshare} {onupdate} {onremove} {oncopy} />
     </SectionCard>
   {/if}

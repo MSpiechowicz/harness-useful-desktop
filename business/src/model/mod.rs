@@ -27,10 +27,12 @@ mod harness;
 mod hook;
 mod ipc_error;
 mod knowledge;
+mod knowledge_comment;
 mod knowledge_held;
 mod knowledge_import;
 mod knowledge_list;
 mod knowledge_remote;
+mod knowledge_review;
 mod knowledge_similar;
 mod knowledge_stats;
 mod memory_embedder;
@@ -65,8 +67,8 @@ pub use agent_action::{
 };
 pub use agent_event::{AgentEnvelope, AgentEvent};
 pub use app::AppInfo;
-pub(crate) use author::display_text;
-pub use author::{AuthorRef, MAX_AUTHOR_NAME_CHARS, MAX_AUTHOR_VIA_CHARS, lenient_author};
+pub use author::display_text;
+pub use author::{AuthorRef, MAX_AUTHOR_NAME_CHARS, MAX_AUTHOR_VIA_CHARS, lenient_author, lenient_name, lenient_names};
 pub use chat::{
     AgentOption, ChatBlock, ChatMessage, ContextUsage, MessageRole, ModelOption, PromptStatus, SessionState,
     SessionStats, TokenUsage,
@@ -113,22 +115,33 @@ pub use knowledge::{
     KnowledgeDocument, KnowledgeFeatures, KnowledgeId, KnowledgeLink, KnowledgeOrigin, KnowledgePage, KnowledgePlace,
     KnowledgeRepoCount, KnowledgeReposPage, KnowledgeSection, KnowledgeStatus, KnowledgeSwitchResult,
 };
+pub use knowledge_comment::{
+    KnowledgeComment, KnowledgeCommentChanged, KnowledgeCommentsDeleted, KnowledgeQuoteKind, KnowledgeQuoteLine,
+};
 pub use knowledge_held::{
-    KnowledgeApproval, KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeHit,
-    KnowledgePulse, KnowledgeSearchScope,
+    KnowledgeApproval, KnowledgeDecided, KnowledgeDecision, KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeHeldStatus,
+    KnowledgeHit, KnowledgePulse, KnowledgeSearchScope,
 };
 pub use knowledge_import::{
     KnowledgeEmbedding, KnowledgeFileStatus, KnowledgeImportCounts, KnowledgeImportEvent, KnowledgeImportOptions,
     KnowledgeImportResult, KnowledgeIntake, KnowledgeIntakeEntry, KnowledgeReindexed, KnowledgeReplacement,
     KnowledgeSkipReason, KnowledgeSkipped,
 };
-pub use knowledge_list::{KnowledgeListFilter, KnowledgeScope, KnowledgeSort, KnowledgeUsefulFilter};
+pub use knowledge_list::{
+    KnowledgeListFilter, KnowledgeScope, KnowledgeSort, KnowledgeStatusFilter, KnowledgeUsefulFilter,
+};
 pub use knowledge_remote::{
     KnowledgeCapabilities, KnowledgeCheck, KnowledgeIndexState, KnowledgePlaceCheck, KnowledgePlaceChecks,
     KnowledgeProblem, KnowledgeRemote,
 };
+pub use knowledge_review::{
+    KnowledgeChangesRequested, KnowledgeCompare, KnowledgeDocStatus, KnowledgeDownloaded, KnowledgeEventKind,
+    KnowledgeHistory, KnowledgeHistoryEvent, KnowledgeLastChange, KnowledgeLineComment, KnowledgeOutcome,
+    KnowledgePending, KnowledgeRefusalCode, KnowledgeReviewSubmit, KnowledgeSectionDiff, KnowledgeTeamApproval,
+    KnowledgeTransition, KnowledgeTransitioned, KnowledgeUpgraded, KnowledgeVerdict,
+};
 pub use knowledge_similar::{KnowledgeMatch, KnowledgeMatchReason, KnowledgeSimilar, KnowledgeSimilarEntry};
-pub use knowledge_stats::{KnowledgePlaceStats, KnowledgeStats, KnowledgeStatsPlaces};
+pub use knowledge_stats::{KnowledgePlaceStats, KnowledgeStats, KnowledgeStatsPlaces, KnowledgeViewer};
 pub use memory_embedder::{EmbedderPhase, MemoryEmbedderState, MemorySettings, MemoryVectorSwitchResult};
 pub use memory_guards::{
     GlobalKindGuard, HeldItem, HeldKind, HeldSaved, HeldTool, KindGuard, MemoryChatGuards, MemoryChatGuardsSet,

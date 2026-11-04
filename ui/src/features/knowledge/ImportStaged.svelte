@@ -14,6 +14,7 @@
   import type { MatchRow } from '$lib/utils/knowledge-match';
 
   import { folderOf, SKIP_REASONS } from './import-format';
+  import ImportDraftRow from './ImportDraftRow.svelte';
   import ImportMatchTable from './ImportMatchTable.svelte';
 
   interface Props {
@@ -45,7 +46,7 @@
   <p class="text-sm font-medium text-fg-2">{[intake.files.length > 0 ? tn('knowledge.import.staged.files', intake.files.length) : '', intake.folders.length > 0 ? tn('knowledge.import.staged.folders', intake.folders.length) : ''].filter(Boolean).join(', ')}</p>
 
   {#if matching}
-    <ImportMatchTable rows={flow.rows ?? chosen} pending={flow.rows === null} choices={flow.choices} landing={flow.landing} onchange={(path, update) => flow.setUpdate(path, update)} />
+    <ImportMatchTable rows={flow.rows ?? chosen} pending={flow.rows === null} choices={flow.choices} landing={flow.landing} draft={flow.asDraft} onchange={(path, update) => flow.setUpdate(path, update)} />
 
     {#if flow.similar?.offline}
       <p class="text-xs text-fg-3">{t('knowledge.match.offline')}</p>
@@ -71,6 +72,10 @@
 
   {#if intake.folders.length > 0}
     <p class="text-xs text-fg-3">{t('knowledge.import.folderNote')}</p>
+  {/if}
+
+  {#if flow.canDraft}
+    <ImportDraftRow />
   {/if}
 
   {#if intake.skipped.length > 0}

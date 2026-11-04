@@ -143,12 +143,50 @@ describe('what changes a document', () => {
     const stored = [{ repo: 'git:github.com/acme/widget', globs: ['src/**'] }];
     const store = new KnowledgeDocsStore(
       fakeTransport({
-        knowledge_doc_links_set: () => stored,
+        knowledge_doc_links_set: () => ({ type: 'done', value: stored }),
         knowledge_docs_list: () => ({ availability: { type: 'available' }, items: [], total: 0 }),
         knowledge_repos_list: () => ({ availability: { type: 'available' }, global: 0, repos: [] }),
       }),
     );
 
-    expect(await store.setLinks(1, [{ repo: 'git:github.com/acme/widget', globs: [' src/** '] }])).toEqual(stored);
+    expect(await store.setLinks(1, [{ repo: 'git:github.com/acme/widget', globs: [' src/** '] }], 'Guide')).toEqual(stored);
+    expect(toasts.items.map((toast) => [toast.title, toast.description, toast.tone])).toEqual([['Links saved', 'Guide', 'success']]);
+  });
+
+  it('shows one Links saved toast per document and changes it in place, so saving again does not stack toasts', async () => {
+    const store = new KnowledgeDocsStore(
+      fakeTransport({
+        knowledge_doc_links_set: () => ({ type: 'done', value: [] }),
+        knowledge_docs_list: () => ({ availability: { type: 'available' }, items: [], total: 0 }),
+        knowledge_repos_list: () => ({ availability: { type: 'available' }, global: 0, repos: [] }),
+      }),
+    );
+
+    await store.setLinks(1, [], 'Guide');
+    const [first] = toasts.items;
+    await store.setLinks(1, [], 'Guide');
+    await store.setLinks(1, [], 'Guide');
+
+    expect(toasts.items.map((toast) => [toast.id, toast.title])).toEqual([[first.id, 'Links saved']]);
+    expect(toasts.items[0].revision).toBe(2);
+
+    await store.setLinks(2, [], 'Other');
+    expect(toasts.items.map((toast) => toast.description)).toEqual(['Guide', 'Other']);
+
+    toasts.dismiss(first.id);
+    await store.setLinks(1, [], 'Guide');
+    expect(toasts.items.map((toast) => toast.description)).toEqual(['Other', 'Guide']);
+  });
+
+  it('names only the folder when the server will not link a team document to a folder without a git remote', async () => {
+    const message = 'notes has no git remote, so a team document cannot be linked to it (only a git: project key leaves this computer)';
+    const store = new KnowledgeDocsStore(fakeTransport({ knowledge_doc_links_set: () => ({ type: 'refused', code: 'localPath', message }) }));
+
+    expect(await store.setLinks(1, [{ repo: 'path:/home/ada/private/notes', globs: [] }], 'Guide')).toBeNull();
+
+    const [toast] = toasts.items;
+    expect(toast.tone).toBe('danger');
+    expect(toast.description).toBe('Team documents can only be linked to git projects. notes has no git remote.');
+    expect(JSON.stringify(toasts.items)).not.toContain('/home/ada');
   });
 });

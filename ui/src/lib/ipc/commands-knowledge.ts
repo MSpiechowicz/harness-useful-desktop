@@ -1,6 +1,18 @@
 import type { SortOrder } from './bindings/SortOrder';
 import type { KnowledgeScope } from './bindings/KnowledgeScope';
 import type { KnowledgeCheck } from './bindings/KnowledgeCheck';
+import type { KnowledgeChangesRequested } from './bindings/KnowledgeChangesRequested';
+import type { KnowledgeComment } from './bindings/KnowledgeComment';
+import type { KnowledgeCommentChanged } from './bindings/KnowledgeCommentChanged';
+import type { KnowledgeCommentsDeleted } from './bindings/KnowledgeCommentsDeleted';
+import type { KnowledgeCompare } from './bindings/KnowledgeCompare';
+import type { KnowledgeDownloaded } from './bindings/KnowledgeDownloaded';
+import type { KnowledgeHistory } from './bindings/KnowledgeHistory';
+import type { KnowledgeOutcome } from './bindings/KnowledgeOutcome';
+import type { KnowledgeReviewSubmit } from './bindings/KnowledgeReviewSubmit';
+import type { KnowledgeTeamApproval } from './bindings/KnowledgeTeamApproval';
+import type { KnowledgeTransition } from './bindings/KnowledgeTransition';
+import type { KnowledgeTransitioned } from './bindings/KnowledgeTransitioned';
 import type { KnowledgeDecided } from './bindings/KnowledgeDecided';
 import type { KnowledgeDecision } from './bindings/KnowledgeDecision';
 import type { KnowledgeDeleted } from './bindings/KnowledgeDeleted';
@@ -89,7 +101,7 @@ export const knowledgeCommands = {
   /** Renames a document (1 to 300 characters) and answers the title as stored. */
   knowledge_doc_rename: cmd<{ id: KnowledgeId; title: string }, string>(),
   /** Replaces the repositories and path globs a document links to (none: global) and answers them as stored. */
-  knowledge_doc_links_set: cmd<{ id: KnowledgeId; links: KnowledgeLink[] }, KnowledgeLink[]>(),
+  knowledge_doc_links_set: cmd<{ id: KnowledgeId; links: KnowledgeLink[] }, KnowledgeOutcome<KnowledgeLink[]>>(),
   /** Deletes documents with their chunks. Ids that do not exist count nothing. */
   knowledge_docs_delete: cmd<{ ids: KnowledgeId[] }, KnowledgeDeleted>(),
   /** The repositories that have documents, most documents first, and how many documents are global. */
@@ -103,10 +115,69 @@ export const knowledgeCommands = {
   /** One proposal with all of its text, for the review. */
   knowledge_held_get: cmd<{ id: string }, KnowledgeHeldItem>(),
   /**
-   * Approves (imports) or rejects (throws away) a proposal, only the version whose `revision` is given. A refusal is an answer
-   * (`notFound`, `changed`, `refused`), not an error.
+   * Approves (imports) or rejects (throws away) a proposal, only the version whose `revision` is given. A rejection may carry a `comment` for the
+   * agent (1 to 500 characters, dropped for a server without `docsDrafts`). An approval may be `pending` or a `draft` (team approval on). A refusal is
+   * an answer (`notFound`, `changed`, `refused`), not an error.
    */
-  knowledge_held_decide: cmd<{ id: string; decision: KnowledgeDecision; revision: string | null; place?: KnowledgePlace }, KnowledgeDecided>(),
+  knowledge_held_decide: cmd<{ id: string; decision: KnowledgeDecision; revision: string | null; place?: KnowledgePlace; comment?: string | null }, KnowledgeDecided>(),
+  /**
+   * Moves a document one step, only while its `revision` is the one shown: `ask` (draft or changes requested to waiting), `requestChanges` (waiting to
+   * changes requested, needs a `comment` of 1 to 500 characters), `approve` (waiting to live, by a teammate of the author) or `goLive` (by its author,
+   * with approval off). The first three need `docsApproval`, `goLive` needs `docsDrafts`. Answers the state it is in (the live id after a promote) or the
+   * server's refusal (`changed`, `wrongState`, `approvalOn`, `approvalOff`, `selfApproval`, `noName`, `readOnly`, `commentRequired`). Rejects with
+   * `unreachable` while the team database cannot be reached.
+   */
+  knowledge_doc_transition: cmd<{ id: KnowledgeId; action: KnowledgeTransition; revision: number; comment: string | null }, KnowledgeOutcome<KnowledgeTransitioned>>(),
+  /**
+   * Submits a review of a pending version: the overall `body`, the comments on lines of the compare (at most 200, 1 to 4000 characters each) and the
+   * verdict (`comment` changes nothing, `approve` makes it live, `requestChanges` needs an overall comment). Only while `revision` is the one reviewed.
+   * Answers like `knowledge_doc_transition`.
+   */
+  knowledge_doc_review: cmd<{ id: KnowledgeId; revision: number; review: KnowledgeReviewSubmit }, KnowledgeOutcome<KnowledgeTransitioned>>(),
+  /** The events of a document, newest first (at most 200), with the rounds of its promoted pending versions. Needs `docsDrafts`. */
+  knowledge_doc_history: cmd<{ id: KnowledgeId }, KnowledgeHistory>(),
+  /** The comments of a document (the pending row, or a live row that has a pending version), replies and resolved ones included. Needs `docsDrafts`. */
+  knowledge_doc_comments: cmd<{ id: KnowledgeId }, KnowledgeComment[]>(),
+  /** Answers a comment (1 to 4000 characters). Anybody may reply, the author included. */
+  knowledge_doc_comment_reply: cmd<{ id: KnowledgeId; commentId: KnowledgeId; body: string }, KnowledgeOutcome<KnowledgeCommentChanged>>(),
+  /** Resolves a comment (`resolved: true`) or opens it again. */
+  knowledge_doc_comment_resolve: cmd<{ id: KnowledgeId; commentId: KnowledgeId; resolved: boolean }, KnowledgeOutcome<KnowledgeCommentChanged>>(),
+  /** Deletes a comment the user wrote, with its replies when it starts a thread. Refuses `notAuthor` for another person's comment. History is untouched. */
+  knowledge_doc_comment_delete: cmd<{ id: KnowledgeId; commentId: KnowledgeId }, KnowledgeOutcome<KnowledgeCommentsDeleted>>(),
+  /**
+   * Compares a pending version (the pending row, or a live row that has one) with its live document, or with the version asked at revision `since`:
+   * the sections that differ as the Changes view shows files (`path` is the heading path). A new document compares with nothing, every line is added.
+   * Refuses with `sinceUnavailable` when that version was not kept.
+   */
+  knowledge_doc_compare: cmd<{ id: KnowledgeId; since: number | null }, KnowledgeOutcome<KnowledgeCompare>>(),
+  /**
+   * Lets the user choose where to save a document in a native dialog (suggesting `name`, a file name) and writes its original file there, or its stored
+   * text as Markdown or text when the original was not kept (`original` says which). `live` takes the live document's file instead of its pending
+   * version's. Null when the user cancelled.
+   */
+  knowledge_doc_download: cmd<{ id: KnowledgeId; name: string | null; live: boolean | null }, KnowledgeOutcome<KnowledgeDownloaded> | null>(),
+  /**
+   * Opens the file manager with a file this app just saved with `knowledge_doc_download` selected. `path` must be exactly the path the save dialog
+   * returned (`KnowledgeDownloaded.path`) for a download of this run: any other path is `forbidden`, a saved file that is gone `notFound`.
+   */
+  knowledge_reveal_download: cmd<{ path: string }, null>(),
+  /** Whether team approval is on, where it is kept and whether the user may change it. Needs `docsApproval`. */
+  knowledge_approval_get: cmd<undefined, KnowledgeTeamApproval>(),
+  /** Turns team approval on or off for the team database (applied at once). Refuses with `readOnly` for a read-only role, `refused` with no team database. */
+  knowledge_approval_set: cmd<{ on: boolean }, KnowledgeOutcome<KnowledgeTeamApproval>>(),
+  /**
+   * Asks the agent of a proposal for changes: the proposal stays in the queue as `changesRequested` with the `comment` (1 to 500 characters), only while
+   * `revision` is the one shown. When the chat of that agent is still open in this app the comment is also sent to it as a follow-up message and
+   * `delivered` says so.
+   */
+  knowledge_held_request_changes: cmd<{ id: string; revision: string | null; comment: string }, KnowledgeChangesRequested>(),
+  /**
+   * Whether the `session` a proposal records belongs to a chat that is open in this app and works in `projectPath`, the folder the proposal was about
+   * (`projectPath` of the proposal): false without either, and for a chat of another project, so "Request changes" can tell its agent.
+   */
+  knowledge_held_follow_up_available: cmd<{ session: string | null; projectPath?: string | null }, boolean>(),
+  /** The user dismissed the notice to restart running harnesses after the database was upgraded: the pulse stops carrying `restartHarnesses`. */
+  knowledge_restart_notice_dismiss: cmd<undefined, null>(),
   /** Sends the database's counts to `onEvent` now and whenever one changes, replacing the previous listener: the live list and the review badge. */
   knowledge_changes_listen: cmd<{ onEvent: EventSink<KnowledgePulse> }, null>(),
   /** Tells that the Knowledge view is open or closed: the counts are read every 4 s while it is, every 30 s otherwise. */

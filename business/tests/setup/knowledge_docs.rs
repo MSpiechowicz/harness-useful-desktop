@@ -12,8 +12,8 @@ use harness_business::ecosystem::{
     set_links,
 };
 use harness_business::model::{
-    KnowledgeAvailability, KnowledgeLink, KnowledgeListFilter, KnowledgeOrigin, KnowledgeProblem, KnowledgeScope,
-    KnowledgeSort, SortOrder,
+    KnowledgeAvailability, KnowledgeLink, KnowledgeListFilter, KnowledgeOrigin, KnowledgeOutcome, KnowledgeProblem,
+    KnowledgeRefusalCode, KnowledgeScope, KnowledgeSort, SortOrder,
 };
 use knowledge_stand_in::{ALL_FEATURES, REPO, cli, document, installed, server};
 use pretty_assertions::assert_eq;
@@ -47,6 +47,7 @@ fn a_page_becomes_the_servers_page_number_with_the_sort_and_filters() {
         sort: Some(KnowledgeSort::Title),
         order: None,
         useful: None,
+        status: None,
     };
 
     let page = wait(list_docs(
@@ -272,7 +273,7 @@ fn links_travel_on_stdin_and_are_checked_first() {
 
     let stored = wait(set_links(&env, &server_cli, &server(&env), &7.into(), &links)).unwrap();
 
-    assert_eq!(stored, links);
+    assert_eq!(stored, KnowledgeOutcome::Done { value: links.clone() });
     assert_eq!(last_args(&server_cli), ["docs", "links", "set", "--json", "7"]);
     let stdin = server_cli.runs.lock().unwrap().last().unwrap().stdin.clone().unwrap();
     assert_eq!(
@@ -289,6 +290,31 @@ fn links_travel_on_stdin_and_are_checked_first() {
         Err(BusinessError::InvalidInput(_))
     ));
     assert_eq!(server_cli.commands().len(), 1, "the refused links ran nothing");
+}
+
+#[test]
+fn a_team_document_linked_to_a_folder_without_a_remote_is_a_refusal_not_an_error() {
+    let (_dir, env) = installed();
+    let links = vec![KnowledgeLink {
+        repo: "path:/work/scratch".to_owned(),
+        globs: vec![],
+    }];
+    let refusal = json!({
+        "error": "localPath",
+        "message": "scratch has no git remote, so a team document cannot be linked to it (only a git: project key leaves this computer)"
+    })
+    .to_string();
+    let server_cli = cli(ALL_FEATURES).starting(&["docs", "links", "set"], exits(1, &format!("{refusal}\n"), ""));
+
+    let outcome = wait(set_links(&env, &server_cli, &server(&env), &7.into(), &links)).unwrap();
+
+    assert!(matches!(
+        outcome,
+        KnowledgeOutcome::Refused {
+            code: KnowledgeRefusalCode::LocalPath,
+            ..
+        }
+    ));
 }
 
 #[test]

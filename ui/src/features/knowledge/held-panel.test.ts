@@ -23,13 +23,14 @@ const BASE: KnowledgeHeldItem = {
   createdAt: '2026-10-30T10:00:00Z',
 };
 
-function show(props: { detail: KnowledgeHeldItem | null; status?: 'ready' | 'error' | 'loading'; item?: KnowledgeHeldItem }) {
+function show(props: { detail: KnowledgeHeldItem | null; status?: 'ready' | 'error' | 'loading'; item?: KnowledgeHeldItem; followUp?: boolean }) {
   const onapprove = vi.fn();
   const onreject = vi.fn();
+  const onrequest = vi.fn();
 
-  render(HeldPanel, { open: true, item: props.item ?? BASE, detail: props.detail, status: props.status ?? 'ready', error: null, busy: false, onretry: () => {}, onapprove, onreject, onclose: () => {} });
+  render(HeldPanel, { open: true, item: props.item ?? BASE, detail: props.detail, status: props.status ?? 'ready', error: null, busy: false, followUp: props.followUp ?? false, onretry: () => {}, onapprove, onrequest, onreject, onclose: () => {} });
 
-  return { onapprove, onreject };
+  return { onapprove, onreject, onrequest };
 }
 
 describe('deciding on a proposal', () => {
@@ -39,7 +40,8 @@ describe('deciding on a proposal', () => {
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
-    expect(onreject).toHaveBeenCalledTimes(1);
+    await fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    expect(onreject).toHaveBeenCalledWith(BASE, null);
     expect(onapprove).not.toHaveBeenCalled();
   });
 
@@ -60,7 +62,7 @@ describe('deciding on a proposal', () => {
 
   it('warns about hidden characters only from the whole text, not from the preview', () => {
     const hidden = `Retry‮ three times.`;
-    const { unmount } = render(HeldPanel, { open: true, item: { ...BASE, text: hidden }, detail: null, status: 'loading', error: null, busy: false, onretry: () => {}, onapprove: () => {}, onreject: () => {}, onclose: () => {} });
+    const { unmount } = render(HeldPanel, { open: true, item: { ...BASE, text: hidden }, detail: null, status: 'loading', error: null, busy: false, onretry: () => {}, followUp: false, onapprove: () => {}, onrequest: () => {}, onreject: () => {}, onclose: () => {} });
 
     expect(screen.queryByRole('alert')).toBeNull();
     unmount();

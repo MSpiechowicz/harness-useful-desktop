@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { fade } from 'svelte/transition';
+
+  import { rise, scaled } from '$lib/design/motion';
   import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
   import { knowledgeHeld } from '$lib/stores/knowledgeHeld.svelte';
   import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
@@ -14,6 +17,7 @@
   import KnowledgeOffNotice from './KnowledgeOffNotice.svelte';
   import KnowledgeOfflineBanner from './KnowledgeOfflineBanner.svelte';
   import KnowledgeReview from './KnowledgeReview.svelte';
+  import ReviewChangesView from './ReviewChangesView.svelte';
   import KnowledgeUnavailable from './KnowledgeUnavailable.svelte';
 
   useKnowledgeData();
@@ -31,7 +35,15 @@
   }
 </script>
 
-<div class="relative flex size-full min-h-0 flex-col overflow-clip">
+<!-- The review and the lists share one grid cell and crossfade in place, like the views of the shell: the outgoing one stays
+     while its top bar header fades out, so in a column the incoming one would start under it and then jump up. -->
+<div class="grid size-full min-h-0 *:col-start-1 *:row-start-1">
+  {#key viewState.knowledgeReviewId !== null}
+  <div class="relative flex size-full min-h-0 flex-col overflow-clip" in:rise={{ y: 10, delay: 80, duration: 320 }} out:fade={{ duration: scaled(120) }}>
+  {#if viewState.knowledgeReviewId !== null}
+    <!-- The full-width review of the pending changes of one document replaces the lists until it is left. -->
+    <ReviewChangesView id={viewState.knowledgeReviewId} onclose={() => (viewState.knowledgeReviewId = null)} />
+  {:else}
   <KnowledgeHeader slot={headerActions} {available} />
 
   {#if unavailable}
@@ -53,6 +65,9 @@
   {#if available}
     <DropOverlay />
   {/if}
+  {/if}
+  </div>
+  {/key}
 </div>
 
 <ImportDialog />

@@ -121,8 +121,11 @@ export class KnowledgeReplaceStore {
     return { token: intake.token, name: file.name, bytes: file.bytes };
   }
 
-  /** Replaces `doc` by `file`, keeping where it applies. Says how it went in a toast, and answers whether the document now holds the file's text. */
-  async replace(doc: Pick<KnowledgeDocument, 'id' | 'links' | 'title'>, file: ReplaceFile): Promise<boolean> {
+  /**
+   * Replaces `doc` by `file`, keeping where it applies. With `ask` (and an optional `note` for the reviewers) the replacement is also asked for approval in one step.
+   * Says how it went in a toast, and answers whether the document now holds the file's text.
+   */
+  async replace(doc: Pick<KnowledgeDocument, 'id' | 'links' | 'title'>, file: ReplaceFile, ask: { note: string } | null = null): Promise<boolean> {
     if (this.busy) {
       return false;
     }
@@ -134,7 +137,7 @@ export class KnowledgeReplaceStore {
     try {
       await this.transport.invoke('knowledge_import', {
         token: file.token,
-        options: { links: doc.links, replaces: doc.id },
+        options: { links: doc.links, replaces: doc.id, ...(ask ? { ask: true, ...(ask.note.trim() ? { note: ask.note.trim() } : {}) } : {}) },
         onEvent: (event) => {
           run = reduceImport(run, event);
         },
@@ -145,10 +148,10 @@ export class KnowledgeReplaceStore {
       this.busy = false;
     }
 
-    return this.tell(doc.title, run);
+    return this.tell(doc.title, run, ask !== null);
   }
 
-  private tell(title: string, run: ReturnType<typeof emptyRun>): boolean {
+  private tell(title: string, run: ReturnType<typeof emptyRun>, asked: boolean): boolean {
     const [row] = run.rows;
 
     if (run.failure !== null || row === undefined || row.status === 'failed' || row.status === 'skipped') {
@@ -157,13 +160,17 @@ export class KnowledgeReplaceStore {
       return false;
     }
 
-    if (row.status === 'unchanged') {
+    // A file with the text the document has changes nothing, unless it was sent for approval in the same step: that ask was made, so it says so.
+    if (row.status === 'unchanged' && !row.asked) {
       toasts.push({ title: t('knowledge.toast.replaceUnchanged'), description: t('knowledge.toast.replaceUnchanged.body'), tone: 'info' });
 
       return false;
     }
 
-    toasts.push({ title: t('knowledge.toast.replaced'), description: title, tone: 'success' });
+    // With team approval on a replaced live document becomes a pending update, which agents use once a teammate approves it.
+    const key = row.status === 'pending' ? 'knowledge.drafts.toast.replacedPending' : asked ? 'knowledge.drafts.toast.replacedAsked' : 'knowledge.toast.replaced';
+
+    toasts.push({ title: t(key), description: title, tone: 'success' });
 
     return true;
   }

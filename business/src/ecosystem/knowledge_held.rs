@@ -1,55 +1,52 @@
 //! The documents agents proposed through `knowledge_add`, waiting in this computer's review queue
-//! (`knowledge_held_list`, `knowledge_held_get`, `knowledge_held_decide`), and the counts the live
-//! view follows ([`knowledge_pulse`]).
+//! (`knowledge_held_list`, `knowledge_held_get`, `knowledge_held_decide`,
+//! `knowledge_held_request_changes`); the counts the live view follows are
+//! [`knowledge_pulse`](super::knowledge_pulse)'s.
 //!
 //! The queue belongs to the server: the app reads and settles it only through
-//! `harness-knowledge held list|get|approve|reject --json`, and needs `held` in the server's
-//! features. The commands are exactly:
+//! `harness-knowledge held list|get|approve|reject|request-changes --json`, and needs `held` in the
+//! server's features. The commands are exactly:
 //!
 //! - `held list --json` prints `{"held": [...]}` (at most 100, newest first, each with a `preview`
-//!   of its text), `held get --json ID` prints `{"held": {...}}` with the whole `content`. The
-//!   queue is small and has no paging of its own, so a [`ListWindow`] filters it (`query` finds
-//!   its words in the title or the file name), orders it and cuts the page here.
+//!   of its text), `held get --json ID` prints `{"held": {...}}` with the whole `content`. An item
+//!   carries `addedBy` (the person it is written for), and after a request for changes `status:
+//!   "changesRequested"` with the `comment`. The queue is small and has no paging of its own, so a
+//!   [`ListWindow`] filters it (`query` finds its words in the title or the file name), orders it and
+//!   cuts the page here.
 //! - `held approve --json ID [--expect REVISION] [--place remote|local]` prints `{"approved": {heldId, docId, status,
-//!   title, chunks, embedding}}`, `held reject --json ID [--expect REVISION]` `{"rejected": ID}`.
+//!   title, chunks, embedding, draft}}` (the status may be `pending`, `draft` is true while team
+//!   approval is on), `held reject --json ID [--expect REVISION] [--comment TEXT]` `{"rejected": ID}`,
+//!   `held request-changes --json ID [--expect REVISION] --comment TEXT` marks the item `changesRequested`.
 //!   The id is the proposal's UUID, the revision the one its item showed.
-//! - A refusal exits 1 and prints `{"error": "notFound" | "changed" | "refused", "message"}` on
-//!   stdout: [`decide_knowledge_held`] answers it as a [`KnowledgeDecided`] outcome, [`get_knowledge_held`]
-//!   as `notFound`. Any other failure is an error.
+//! - A refusal exits 1 and prints `{"error": "notFound" | "changed" | "commentRequired" | "refused",
+//!   "message"}` on stdout: [`decide_knowledge_held`] answers it as a [`KnowledgeDecided`] outcome,
+//!   [`get_knowledge_held`] as `notFound`. Any other failure is an error.
 //!
 //! What the server prints is read strictly: an item that does not have every field fails the read
 //! (`protocol`) instead of being skipped. Neither the proposals' text nor their titles are logged.
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde_json::Value;
 
 use super::catalog::KNOWLEDGE_SIDECAR;
-use super::knowledge_cli::{
-    CliCall, CliFailure, availability_of, availability_of_failure, call, field, run_json, run_typed, unreachable_in,
-    words,
-};
-use super::knowledge_docs::{docs_server, read_stats};
+use super::knowledge_cli::{CliFailure, availability_of, availability_of_failure, call, field, run_typed, words};
 use super::knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
 use super::knowledge_held_window::{HeldSort, in_scope, sort_items};
-use super::sidecar_cli::{CliAnswer, ListWindow, USAGE_EXIT, clean, run_sidecar_cli};
+use super::knowledge_refusal::{Answer, run_refusing};
+use super::sidecar_cli::ListWindow;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
     KnowledgeApproval, KnowledgeAvailability, KnowledgeDecided, KnowledgeDecision, KnowledgeEmbedding,
-    KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeId, KnowledgeLink, KnowledgePlace, KnowledgePlaceStats,
-    KnowledgePulse, KnowledgeScope, KnowledgeStats,
+    KnowledgeHeldItem, KnowledgeHeldPage, KnowledgeHeldStatus, KnowledgeId, KnowledgeLink, KnowledgePlace,
+    KnowledgeRefusalCode, KnowledgeScope, MAX_AUTHOR_NAME_CHARS, display_text,
 };
 use crate::process::ProcessRunner;
 
-/// The bits of the combined generation that are kept: a JavaScript number holds 53 exactly.
-const GENERATION_MASK: u64 = (1 << 52) - 1;
-
-/// The exit code of a command that refused (see the module docs).
-const REFUSED_EXIT: i32 = 1;
+/// The most characters of the comment of a rejection or of a request for changes.
+const COMMENT_MAX_CHARS: usize = 500;
 
 /// The installed server when it lists `held`.
 pub async fn knowledge_held_server(
@@ -111,11 +108,7 @@ async fn read_page(
     }
 
     items.retain(|item| in_scope(item, scope));
-    sort_items(&mut items, sort);
-
-    if !window.descending(true) {
-        items.reverse();
-    }
+    sort_items(&mut items, sort, window.descending(true));
 
     let total = u32::try_from(items.len()).unwrap_or(u32::MAX);
 
@@ -137,9 +130,9 @@ pub async fn get_knowledge_held(
     let mut args = words(&["held", "get", "--json"]);
     args.push(check_id(id)?.into());
 
-    match run_held(env, runner, server, call("held get", args)).await? {
+    match run_refusing(env, runner, server, call("held get", args)).await? {
         Answer::Done(data) => parse_item(&field::<Value>(&data, "held", "held get")?, "content", "held get"),
-        Answer::Refused(Refusal::NotFound, message) => Err(BusinessError::NotFound(message)),
+        Answer::Refused(KnowledgeRefusalCode::NotFound, message) => Err(BusinessError::NotFound(message)),
         Answer::Refused(_, message) => Err(BusinessError::Process(message)),
     }
 }
@@ -156,6 +149,51 @@ pub async fn decide_knowledge_held(
     expect: Option<&str>,
     place: Option<KnowledgePlace>,
 ) -> Result<KnowledgeDecided> {
+    let extras = DecisionExtras {
+        expect,
+        place,
+        comment: None,
+    };
+
+    decide(env, runner, server, id, decision, &extras).await
+}
+
+/// Rejects proposal `id` like [`decide_knowledge_held`] and tells its agent why (`held reject
+/// --comment TEXT`, 1 to 500 characters).
+pub async fn reject_knowledge_held(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    server: &Path,
+    id: &str,
+    expect: Option<&str>,
+    comment: &str,
+) -> Result<KnowledgeDecided> {
+    let extras = DecisionExtras {
+        expect,
+        place: None,
+        comment: Some(comment),
+    };
+
+    decide(env, runner, server, id, KnowledgeDecision::Reject, &extras).await
+}
+
+/// What a decision carries besides its proposal.
+#[derive(Clone, Copy)]
+struct DecisionExtras<'a> {
+    expect: Option<&'a str>,
+    place: Option<KnowledgePlace>,
+    comment: Option<&'a str>,
+}
+
+async fn decide(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    server: &Path,
+    id: &str,
+    decision: KnowledgeDecision,
+    extras: &DecisionExtras<'_>,
+) -> Result<KnowledgeDecided> {
+    let DecisionExtras { expect, place, comment } = *extras;
     let (verb, name) = match decision {
         KnowledgeDecision::Approve => ("approve", "held approve"),
         KnowledgeDecision::Reject => ("reject", "held reject"),
@@ -177,11 +215,13 @@ pub async fn decide_knowledge_held(
         args.extend(["--place".into(), name.into()]);
     }
 
-    let data = match run_held(env, runner, server, call(name, args)).await? {
+    if let Some(comment) = comment.filter(|_| decision == KnowledgeDecision::Reject) {
+        args.extend(["--comment".into(), check_comment(comment)?.into()]);
+    }
+
+    let data = match run_refusing(env, runner, server, call(name, args)).await? {
         Answer::Done(data) => data,
-        Answer::Refused(Refusal::NotFound, message) => return Ok(KnowledgeDecided::NotFound { message }),
-        Answer::Refused(Refusal::Changed, message) => return Ok(KnowledgeDecided::Changed { message }),
-        Answer::Refused(Refusal::Refused, message) => return Ok(KnowledgeDecided::Refused { message }),
+        Answer::Refused(code, message) => return Ok(refused_outcome(code, message)),
     };
 
     tracing::info!(verb, "a proposed knowledge document was decided");
@@ -196,6 +236,7 @@ pub async fn decide_knowledge_held(
                 title: approved.title,
                 chunks: approved.chunks,
                 embedding: approved.embedding,
+                draft: approved.draft,
             })
         }
         KnowledgeDecision::Reject => {
@@ -203,6 +244,68 @@ pub async fn decide_knowledge_held(
 
             Ok(KnowledgeDecided::Rejected)
         }
+    }
+}
+
+/// Asks the agent of proposal `id` for changes (`held request-changes --json ID --expect REVISION
+/// --comment TEXT`): the proposal stays in the queue as `changesRequested` with the comment. The
+/// comment is 1 to 500 characters (an empty one is [`KnowledgeDecided::CommentRequired`] without
+/// asking the server). A refusal is an outcome, not an error.
+pub async fn request_changes_knowledge_held(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    server: &Path,
+    id: &str,
+    expect: Option<&str>,
+    comment: &str,
+) -> Result<KnowledgeDecided> {
+    let mut args = words(&["held", "request-changes", "--json"]);
+    args.push(check_id(id)?.into());
+
+    if let Some(revision) = expect {
+        args.extend(["--expect".into(), check_revision(revision)?.into()]);
+    }
+
+    if comment.trim().is_empty() {
+        return Ok(KnowledgeDecided::CommentRequired {
+            message: "say what should change".to_owned(),
+        });
+    }
+
+    args.extend(["--comment".into(), check_comment(comment)?.into()]);
+
+    match run_refusing(env, runner, server, call("held request-changes", args)).await? {
+        Answer::Done(_) => {
+            tracing::info!("changes were requested on a proposed knowledge document");
+
+            Ok(KnowledgeDecided::ChangesRequested)
+        }
+        Answer::Refused(code, message) => Ok(refused_outcome(code, message)),
+    }
+}
+
+/// The outcome a refusal of a decision is: the codes of the queue, any other as `refused`.
+fn refused_outcome(code: KnowledgeRefusalCode, message: String) -> KnowledgeDecided {
+    match code {
+        KnowledgeRefusalCode::NotFound => KnowledgeDecided::NotFound { message },
+        KnowledgeRefusalCode::Changed => KnowledgeDecided::Changed { message },
+        KnowledgeRefusalCode::CommentRequired => KnowledgeDecided::CommentRequired { message },
+        KnowledgeRefusalCode::LocalPath => KnowledgeDecided::LocalPath { message },
+        _ => KnowledgeDecided::Refused { message },
+    }
+}
+
+/// `comment` trimmed, when it has 1 to 500 characters.
+fn check_comment(comment: &str) -> Result<&str> {
+    let comment = comment.trim();
+    let length = comment.chars().count();
+
+    if (1..=COMMENT_MAX_CHARS).contains(&length) {
+        Ok(comment)
+    } else {
+        Err(BusinessError::InvalidInput(format!(
+            "a comment has 1 to {COMMENT_MAX_CHARS} characters"
+        )))
     }
 }
 
@@ -221,97 +324,6 @@ pub async fn approval_place(
     }
 }
 
-/// The counts the live view follows, all from one `stats --json` call: the documents, the
-/// generation and how many proposals wait (`held`). A server that predates that field is asked for
-/// `held list --json` instead, while it has a review queue. `None` while the server cannot answer
-/// `stats`.
-pub async fn knowledge_pulse(
-    env: &Env,
-    runner: &dyn ProcessRunner,
-    features: &KnowledgeFeatures,
-) -> Option<KnowledgePulse> {
-    let server = docs_server(env, runner, features).await.ok()?;
-    let stats = match read_stats(env, runner, &server).await {
-        Ok(stats) => stats,
-        // The remote is the only place in use and cannot be reached (with both, the server falls
-        // back to this computer and answers): nothing is known, and it is said so, so the last
-        // counts are not taken for current ones.
-        Err(BusinessError::Unreachable(_)) => {
-            return Some(KnowledgePulse {
-                documents: 0,
-                generation: 0,
-                held: None,
-                offline: true,
-            });
-        }
-        Err(_) => return None,
-    };
-
-    let held = match stats.held {
-        Some(held) => Some(held),
-        None => match knowledge_held_server(env, runner, features).await {
-            Ok(server) => held_total(env, runner, &server).await,
-            Err(_) => None,
-        },
-    };
-
-    let (documents, generation) = combined_counts(&stats);
-
-    Some(KnowledgePulse {
-        documents,
-        generation,
-        held,
-        offline: stats.offline,
-    })
-}
-
-/// The documents and the generation the view follows. With both places in use the top-level
-/// numbers are the team database's alone, so they are the places' that can be reached: the sum of
-/// their documents, and one number that moves when any of them changes (a local import must
-/// reload the list too). Otherwise the top-level numbers.
-fn combined_counts(stats: &KnowledgeStats) -> (u32, i64) {
-    let Some(places) = &stats.places else {
-        return (stats.documents, stats.generation);
-    };
-
-    let reachable: Vec<&KnowledgePlaceStats> = [&places.remote, &places.local]
-        .into_iter()
-        .flatten()
-        .filter(|place| !place.offline)
-        .collect();
-
-    let documents = reachable
-        .iter()
-        .fold(0_u32, |sum, place| sum.saturating_add(place.documents));
-
-    let mut hasher = DefaultHasher::new();
-
-    for place in &reachable {
-        (place.generation, place.documents, place.chunks, place.embedded_chunks).hash(&mut hasher);
-    }
-
-    // 52 bits, so the number stays exact as a JavaScript number and positive.
-    let generation = i64::try_from(hasher.finish() & GENERATION_MASK).unwrap_or_default();
-
-    (documents, generation)
-}
-
-/// How many proposals wait: the length of `held list`'s `held`.
-async fn held_total(env: &Env, runner: &dyn ProcessRunner, server: &Path) -> Option<u32> {
-    let data = run_json(
-        env,
-        runner,
-        server,
-        call("held list", words(&["held", "list", "--json"])),
-    )
-    .await
-    .ok()?;
-
-    let held = data.get("held")?.as_array()?;
-
-    Some(u32::try_from(held.len()).unwrap_or(u32::MAX))
-}
-
 /// What `held approve` prints under `approved`.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -321,6 +333,9 @@ struct Approved {
     title: String,
     chunks: Option<u32>,
     embedding: Option<KnowledgeEmbedding>,
+    /// Stored as a draft because team approval is on (absent from a server without `docs-drafts`).
+    #[serde(default)]
+    draft: bool,
 }
 
 /// One proposal as `held list` and `held get` print it, without the text.
@@ -341,6 +356,14 @@ struct HeldFields {
     replaces: Option<KnowledgeId>,
     revision: String,
     created_at: String,
+    /// The person it is written for: a name, or an author object of a server that prints one.
+    #[serde(default)]
+    added_by: Option<Value>,
+    /// `changesRequested` once the user asked for changes, absent (waiting) before.
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    comment: Option<String>,
 }
 
 /// A proposal from the server's JSON, its text under `text_key` (`preview` in a list, `content` in
@@ -372,71 +395,28 @@ fn parse_item(entry: &Value, text_key: &str, command: &str) -> Result<KnowledgeH
         replaces: fields.replaces,
         revision: fields.revision,
         created_at: fields.created_at,
+        added_by: fields.added_by.as_ref().and_then(author_name),
+        status: match fields.status.as_deref() {
+            Some("changesRequested") => KnowledgeHeldStatus::ChangesRequested,
+            _ => KnowledgeHeldStatus::Waiting,
+        },
+        comment: fields
+            .comment
+            .map(|comment| display_text(&comment, COMMENT_MAX_CHARS))
+            .filter(|comment| !comment.is_empty()),
     })
 }
 
-/// What a command answered: its object, or its refusal.
-enum Answer {
-    Done(Value),
-    Refused(Refusal, String),
-}
-
-/// The `error` codes of a refusal.
-enum Refusal {
-    NotFound,
-    Changed,
-    Refused,
-}
-
-/// Runs `call` like [`run_typed`], except that a refusal (exit 1 and `{"error": CODE, "message"}`
-/// on stdout) is an [`Answer::Refused`] with the server's sentence (redacted).
-async fn run_held(env: &Env, runner: &dyn ProcessRunner, server: &Path, call: CliCall<'_>) -> Result<Answer> {
-    let name = call.name.to_owned();
-
-    match run_sidecar_cli(&KNOWLEDGE_SIDECAR, env, runner, server, call).await? {
-        CliAnswer::Done(stdout) => serde_json::from_str(&stdout).map(Answer::Done).map_err(|_| {
-            BusinessError::Protocol(format!(
-                "{} {name} answered output this app cannot read",
-                KNOWLEDGE_SIDECAR.binary
-            ))
-        }),
-        CliAnswer::Failed {
-            status: Some(REFUSED_EXIT),
-            message,
-            stdout,
-        } => match refusal_of(&stdout) {
-            Some((refusal, sentence)) => Ok(Answer::Refused(refusal, sentence.unwrap_or(message))),
-            None => Err(unreachable_in(&stdout, &message)
-                .map_or_else(|| BusinessError::Process(message), BusinessError::Unreachable)),
-        },
-        CliAnswer::Failed {
-            status: Some(USAGE_EXIT),
-            ..
-        } => Err(BusinessError::Unsupported(format!(
-            "this {} predates `{name}`, so update {}",
-            KNOWLEDGE_SIDECAR.binary, KNOWLEDGE_SIDECAR.product
-        ))),
-        CliAnswer::Failed { message, .. } => Err(BusinessError::Process(message)),
-    }
-}
-
-/// The refusal and the server's sentence in `{"error": CODE, "message"}`; `None` for any other
-/// output.
-fn refusal_of(stdout: &str) -> Option<(Refusal, Option<String>)> {
-    let data: Value = stdout
-        .lines()
-        .map(str::trim)
-        .find(|line| line.starts_with('{'))
-        .and_then(|line| serde_json::from_str(line).ok())?;
-
-    let refusal = match data.get("error")?.as_str()? {
-        "notFound" => Refusal::NotFound,
-        "changed" => Refusal::Changed,
-        "refused" => Refusal::Refused,
+/// The cleaned name in `addedBy`: the server prints the name as text, a server that prints the
+/// author object `{"name", "via"}` is read too. `None` for anything else and for an empty name.
+fn author_name(value: &Value) -> Option<String> {
+    let name = match value {
+        Value::String(name) => name,
+        Value::Object(author) => author.get("name")?.as_str()?,
         _ => return None,
     };
 
-    Some((refusal, data.get("message").and_then(Value::as_str).map(clean)))
+    Some(display_text(name, MAX_AUTHOR_NAME_CHARS)).filter(|name| !name.is_empty())
 }
 
 /// `id` when it is a proposal id: a lowercase UUID (`8-4-4-4-12` hex digits).

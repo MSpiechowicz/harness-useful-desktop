@@ -7,9 +7,11 @@
   interface Props {
     /** Runs before the Recommended setup opens, e.g. to close the dialog this sits in. */
     onleave?: () => void;
+    /** See `DocMcpHint`: off in a dialog. */
+    centered?: boolean;
   }
 
-  let { onleave }: Props = $props();
+  let { onleave, centered = true }: Props = $props();
 </script>
 
-<DocMcpHint message={t('hooks.mcpHint')} action={t('hooks.mcpHint.action')} {onleave} onsetup={() => onboarding.restart('setup')} />
+<DocMcpHint message={t('hooks.mcpHint')} action={t('hooks.mcpHint.action')} {onleave} {centered} onsetup={() => onboarding.restart('setup')} />

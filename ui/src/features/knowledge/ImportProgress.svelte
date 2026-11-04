@@ -97,7 +97,7 @@
           </div>
 
           {#if row.chunks !== null}<span class="tabular shrink-0 text-xs text-fg-3">{t('knowledge.import.chunks', { count: row.chunks })}</span>{/if}
-          <Badge tone={STATUS_TONES[row.status]}>{t(STATUS_LABELS[row.status])}</Badge>
+          <Badge tone={row.draft && row.status === 'added' ? 'neutral' : STATUS_TONES[row.status]}>{t(row.draft && row.status === 'added' ? 'knowledge.drafts.import.status.draft' : STATUS_LABELS[row.status])}</Badge>
         </li>
       {:else}
         <li class="px-3 py-4 text-sm text-fg-3">{t('knowledge.import.rows.none')}</li>

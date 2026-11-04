@@ -60,7 +60,7 @@
 
 <SidePanel {open} title={run?.routineName ? spelledOut(run.routineName) : ''} subtitle={run ? `${t(RUN_STATUS_LABELS[run.status])} · ${formatDateTime(run.startedAt)}` : ''} {onclose}>
   {#if run}
-    <SectionCard flat heading={t('routines.panel.status')}>
+    <SectionCard flat heading={t('routines.panel.status')} hint={t('routines.run.status.hint')}>
       <div class="flex flex-col gap-3">
         <div class="flex items-center gap-3"><RunStatusBadge {run} /></div>
         {#if run.message}<p class="text-sm break-words text-fg-2">{spelledOut(run.message)}</p>{/if}
@@ -74,21 +74,21 @@
       </div>
     </SectionCard>
 
-    <FactsCard flat heading={t('routines.panel.details')} rows={facts} />
+    <FactsCard flat heading={t('routines.panel.details')} hint={t('routines.run.details.hint')} rows={facts} />
 
     {#if run.excerpt}
-      <SectionCard flat heading={t(run.session ? 'routines.run.reply' : 'routines.run.output')}>
+      <SectionCard flat heading={t(run.session ? 'routines.run.reply' : 'routines.run.output')} hint={t(run.session ? 'routines.run.reply.hint' : 'routines.run.output.hint')}>
         {@render output(run.excerpt)}
       </SectionCard>
     {/if}
 
     {#if run.errorExcerpt}
-      <SectionCard flat heading={t('routines.run.errors')}>
+      <SectionCard flat heading={t('routines.run.errors')} hint={t('routines.run.errors.hint')}>
         {@render output(run.errorExcerpt)}
       </SectionCard>
     {/if}
 
-    <SectionCard flat heading={t('routines.panel.actions')}>
+    <SectionCard flat heading={t('routines.panel.actions')} hint={t('routines.run.actions.hint')}>
       <div class="flex flex-wrap items-center gap-2">
         {#if run.status === 'running'}
           {#if run.needsYou}

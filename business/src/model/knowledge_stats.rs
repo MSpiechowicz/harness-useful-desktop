@@ -4,6 +4,8 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use super::lenient_name;
+
 /// What the database holds (`harness-knowledge stats --json`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -46,6 +48,47 @@ pub struct KnowledgeStats {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional = nullable)]
     pub remote_writable: Option<bool>,
+    /// How many documents of this place are drafts (never agent-visible). Absent from a server
+    /// without `docs-drafts`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub drafts: Option<u32>,
+    /// How many documents wait for approval in every place in use. Absent as for `drafts`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub waiting: Option<u32>,
+    /// How many of those waiting documents this person could approve (not written by them nor
+    /// asked for by them: the sidecar's `selfApproval` rule, by their git `user.name`, `0` without
+    /// one). Absent from a server that predates it, which the pulse reads as `0` so that nobody is
+    /// badged for their own documents.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub waiting_for_you: Option<u32>,
+    /// How many live documents have a pending version. Absent as for `drafts`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub pending: Option<u32>,
+    /// Whether team approval is on: `None` with no team database, while it cannot be reached and
+    /// from a server without `docs-approval`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub approval: Option<bool>,
+    /// Who the person at the terminal is (`me`): the git `user.name` the server reads in the folder
+    /// it runs in. Absent from a server that predates it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub me: Option<KnowledgeViewer>,
+}
+
+/// The person using the app, as the server knows them (`stats --json` `me`).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct KnowledgeViewer {
+    /// Their git `user.name`, none when no name is set.
+    #[serde(default, with = "lenient_name")]
+    #[ts(optional = nullable, as = "Option<String>")]
+    pub name: Option<String>,
 }
 
 /// The counts of each place in use (`stats --json` `places`).
@@ -87,4 +130,16 @@ pub struct KnowledgePlaceStats {
     /// The place cannot be reached, so its counts are not known (`{"offline": true}`).
     #[serde(default)]
     pub offline: bool,
+    /// How many documents are drafts (absent from a server without `docs-drafts`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub drafts: Option<u32>,
+    /// How many documents wait for approval.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub waiting: Option<u32>,
+    /// How many live documents have a pending version.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional = nullable)]
+    pub pending: Option<u32>,
 }

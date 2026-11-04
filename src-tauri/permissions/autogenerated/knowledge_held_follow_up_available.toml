@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-held-follow-up-available"
+description = "Enables the knowledge_held_follow_up_available command without any pre-configured scope."
+commands.allow = ["knowledge_held_follow_up_available"]
+
+[[permission]]
+identifier = "deny-knowledge-held-follow-up-available"
+description = "Denies the knowledge_held_follow_up_available command without any pre-configured scope."
+commands.deny = ["knowledge_held_follow_up_available"]

@@ -150,6 +150,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         knowledge_vector_search: _,
         code_enabled: _,
         code_auto_install_done: _,
+        knowledge_restart_notice_done: _,
         updates_turned_on: _,
         main_branches: _,
     } = ui.clone();

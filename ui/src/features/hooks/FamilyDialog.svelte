@@ -127,7 +127,7 @@
     <p class="mt-4 text-sm text-fg-2">{t('hooks.family.recallNote')}</p>
   {/if}
 
-  <div class="mt-4"><DesktopMcpHint onleave={() => (open = false)} /></div>
+  <div class="mt-4"><DesktopMcpHint centered={false} onleave={() => (open = false)} /></div>
 
   {#snippet footer()}
     <Button variant="ghost" onclick={() => (open = false)}>{t('hooks.family.close')}</Button>

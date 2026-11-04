@@ -8,6 +8,8 @@ import { idKey } from '../knowledge-id';
 import { IpcFailure } from '../transport';
 import { ADA } from './authors';
 import { documentOf } from './knowledge-fixtures';
+import { draftsApply, putPending } from './knowledge-review';
+import { keptInTeam, localPathMessage } from './knowledge-routing';
 import type { MockKnowledge } from './knowledge-handlers';
 import type { Handlers } from './types';
 
@@ -151,7 +153,7 @@ export function knowledgeImportHandlers(store: MockKnowledge): Pick<Handlers, Im
       running = true;
       cancelled = false;
 
-      const counts: KnowledgeImportCounts = { added: 0, updated: 0, unchanged: 0, skipped: 0, failed: 0 };
+      const counts: KnowledgeImportCounts = { added: 0, updated: 0, pending: 0, unchanged: 0, skipped: 0, failed: 0 };
       // The preview's tokens say how many of the picked files they hold (`intake-1-0` is the first one alone). A folder, or any other token, imports the sample files.
       const chosen = PICKED.slice(0, Number(/^intake-(\d+)-/.exec(token)?.[1]) || PICKED.length);
 
@@ -169,6 +171,20 @@ export function knowledgeImportHandlers(store: MockKnowledge): Pick<Handlers, Im
           throw IpcFailure.from({ code: 'invalidInput', message: 'the document to replace lives in another place than the import files its documents in' });
         }
 
+        // Asking for approval of a replacement is refused while approval is off, as the server does, and nothing was imported.
+        if (options?.ask === true && !store.review.approval) {
+          throw IpcFailure.from({ code: 'invalidInput', message: 'team approval is off, so there is nobody to ask' });
+        }
+
+        // Like the server, an import into the team database that links to a folder without a git remote is refused as a whole, before the first file.
+        const refusal = store.team && keptInTeam(options?.place ?? undefined) ? localPathMessage(options?.links ?? []) : null;
+
+        if (refusal !== null) {
+          onEvent({ type: 'failed', message: refusal });
+
+          return { counts: null, cancelled: false };
+        }
+
         onEvent({ type: 'plan', total: chosen.length });
 
         for (const [index, name] of chosen.entries()) {
@@ -184,23 +200,30 @@ export function knowledgeImportHandlers(store: MockKnowledge): Pick<Handlers, Im
           const replacement = options?.replacing?.find((candidate) => candidate.path === path) ?? (options?.replaces == null ? undefined : { id: options.replaces });
           const replaced = replacement && outcome.status === 'added' ? store.documents.find((doc) => idKey(doc.id) === idKey(replacement.id)) : undefined;
 
-          const status = replaced ? 'updated' : outcome.status;
+          // With team approval on (or `draft`) every document is stored as a draft, and a replacement of a live document as its pending version (waiting at once when it asks).
+          const draft = outcome.status === 'added' && (options?.draft === true || draftsApply(store, replaced?.place ?? options?.place));
+          const pending = replaced !== undefined && draft ? putPending(store, replaced, ADA, options?.ask === true) : undefined;
+
+          const status = pending ? 'pending' : replaced ? 'updated' : outcome.status;
           const { reason } = outcome;
-          const docId = replaced?.id ?? (status === 'added' ? store.newId(options?.place) : null);
+          const docId = pending?.id ?? replaced?.id ?? (status === 'added' ? store.newId(options?.place) : null);
           counts[status] += 1;
 
-          if (replaced) {
+          if (replaced && !pending) {
             // A new object, as a server answers with what it holds now: a reader that kept the old one sees the change.
             store.documents[store.documents.indexOf(replaced)] = { ...replaced, updatedAt: new Date().toISOString(), updatedBy: ADA };
             store.changed();
+          } else if (pending) {
+            store.changed();
           } else if (docId !== null) {
-            const doc = documentOf({ id: docId, title: name.replace(/\.[^.]+$/, ''), name, format: formatOf(name), kb: 24, chunks: 6, age: 0, links: options?.links ?? [], addedBy: ADA });
+            const doc = documentOf({ id: docId, title: name.replace(/\.[^.]+$/, ''), name, format: formatOf(name), kb: 24, chunks: 6, age: 0, links: options?.links ?? [], addedBy: ADA, status: draft ? 'draft' : 'live', revision: draft ? 1 : 0 });
 
             store.documents.push(store.split ? { ...doc, place: options?.place ?? 'remote' } : doc);
+            store.review.record(docId, 'drafted', ADA.name);
             store.changed();
           }
 
-          onEvent({ type: 'file', path, status, reason, docId, chunks: docId === null ? null : 6, embedding: docId === null ? null : 'done', warnings: [] });
+          onEvent({ type: 'file', path, status, reason, docId, chunks: docId === null ? null : 6, embedding: docId === null ? null : 'done', warnings: [], draft: draft && docId !== null, asked: draft && docId !== null && options?.ask === true });
           onEvent({ type: 'progress', done: index + 1, total: chosen.length });
         }
 

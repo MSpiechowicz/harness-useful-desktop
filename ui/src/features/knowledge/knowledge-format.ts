@@ -8,9 +8,11 @@ import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
 import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
 import type { KnowledgeSort } from '$lib/ipc/bindings/KnowledgeSort';
 import type { KnowledgeId } from '$lib/ipc/knowledge-id';
-import { addedByFact, updatedByFact } from '$lib/utils/author-format';
+import type { AuthorRef } from '$lib/ipc/bindings/AuthorRef';
+import { addedByFact, authorLine, updatedByFact } from '$lib/utils/author-format';
 import { formatBytes } from '$lib/utils/format';
 import { KNOWLEDGE_FORMATS } from '$lib/utils/knowledge-formats';
+import { folderOfKey, isFolderKey } from '$lib/utils/knowledge-local-path';
 
 /** The formats the Format filter lists, in the order of the menu. */
 export { KNOWLEDGE_FORMATS };
@@ -51,9 +53,9 @@ export function placeLabel(place: KnowledgePlace): string {
   return t(place === 'local' ? 'settings.memoryRemote.target.local' : 'settings.memoryRemote.target.remote');
 }
 
-/** A repository key for people: `acme/widget` for `git:github.com/acme/widget`, the folder of a `path:` key. */
+/** A repository key for people: `acme/widget` for `git:github.com/acme/widget`, and only the last folder of a `path:` key, never its whole path. */
 export function repoLabel(key: string): string {
-  return shortRepoName(key.replace(/^(git|path):/, ''));
+  return isFolderKey(key) ? folderOfKey(key) : shortRepoName(key.replace(/^git:/, ''));
 }
 
 /** How many paths of its repositories a document is narrowed to. */
@@ -76,10 +78,10 @@ export function sortOf(key: string, usefulKnown = true): KnowledgeSort {
 }
 
 /**
- * The columns of the documents table. The two of usefulness exist only for a Harness Knowledge that counts it, and "Added by" only for one that tells who added a
- * document: an older one has nothing to show in them. Who added a document is not sortable, the server has no sort by it.
+ * The columns of the documents table. The two of usefulness exist only for a Harness Knowledge that counts it, "Added by" only for one that tells who added a
+ * document, and "Status" only for one that keeps drafts: an older one has nothing to show in them. Who added a document and its state are not sortable, the server has no sort by them.
  */
-export function docColumns(usefulness = false, authors = false): Column[] {
+export function docColumns(usefulness = false, authors = false, states = false): Column[] {
   const useful: Column[] = [
     { key: 'useful', label: t('knowledge.column.useful'), width: COLUMN_WIDTH.useful, sortable: true, descFirst: true },
     { key: 'lastUseful', label: t('knowledge.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, sortable: true, descFirst: true },
@@ -88,7 +90,8 @@ export function docColumns(usefulness = false, authors = false): Column[] {
   return [
     { key: 'title', label: t('knowledge.column.title'), sortable: true },
     { key: 'format', label: t('knowledge.column.format'), width: '8.5rem', sortable: true },
-    { key: 'repos', label: t('knowledge.column.repos'), width: '12rem', sortable: true },
+    ...(states ? [{ key: 'status', label: t('knowledge.column.status'), width: '14.5rem' } satisfies Column] : []),
+    { key: 'repos', label: t('knowledge.column.repos'), width: COLUMN_WIDTH.project, sortable: true },
     { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', sortable: true, descFirst: true },
     ...(usefulness ? useful : []),
     ...(authors ? [{ key: 'addedBy', label: t('knowledge.column.addedBy'), width: COLUMN_WIDTH.author } satisfies Column] : []),
@@ -96,10 +99,23 @@ export function docColumns(usefulness = false, authors = false): Column[] {
   ];
 }
 
+/** Who a proposal is written for and through which harness: the git name with the harness after it, or the harness alone when no name was known. */
+export function proposerOf(item: Pick<KnowledgeHeldItem, 'addedBy' | 'client'>): AuthorRef {
+  const via = item.client && item.client !== 'unknown' ? item.client : null;
+
+  return item.addedBy ? { name: item.addedBy, via } : { name: via ?? item.client, via: null };
+}
+
+/** The line under a proposal's title: who proposed it through which harness, then where it applies. */
+export function heldSubtitle(item: Pick<KnowledgeHeldItem, 'addedBy' | 'client' | 'links'>): string {
+  return [authorLine(proposerOf(item)), linksText(item.links)].join(' · ');
+}
+
+/** The columns of the review queue, each sorted by the server ("Added by" by the git name that proposed). */
 export function heldColumns(): Column[] {
   return [
     { key: 'title', label: t('knowledge.column.proposal'), sortable: true },
-    { key: 'client', label: t('knowledge.column.client'), width: '11rem', sortable: true },
+    { key: 'addedBy', label: t('knowledge.column.addedBy'), width: COLUMN_WIDTH.author, sortable: true },
     { key: 'project', label: t('knowledge.column.project'), width: '13rem', sortable: true },
     { key: 'proposed', label: t('knowledge.column.proposed'), width: '10rem', sortable: true, descFirst: true },
   ];
@@ -108,6 +124,11 @@ export function heldColumns(): Column[] {
 /** The folder name of a project path, for the Project column. */
 export function folderName(path: string | null): string {
   return path?.split(/[\\/]/).filter(Boolean).at(-1) ?? '';
+}
+
+/** A project path as a tooltip: its parent folder and the folder, never the whole path to it. */
+export function folderHint(path: string | null): string {
+  return path?.split(/[\\/]/).filter(Boolean).slice(-2).join('/') ?? '';
 }
 
 /** The Details card of a document. `sections` is how many headings the outline lists, which the document alone does not say. */
@@ -132,9 +153,10 @@ export function heldFacts(item: KnowledgeHeldItem): FactRow[] {
   return [
     { label: t('knowledge.fact.format'), value: formatLabel(item.format) },
     { label: t('knowledge.fact.size'), value: formatBytes(item.bytes) },
-    { label: t('knowledge.fact.source'), value: item.sourcePath ?? item.name, mono: true },
+    // The file the agent named, by its name: the path it gave is on this computer and is never shown whole.
+    { label: t('knowledge.fact.source'), value: item.name, mono: true },
     { label: t('knowledge.fact.client'), value: item.client },
-    ...(item.projectPath === null ? [] : [{ label: t('knowledge.fact.project'), value: folderName(item.projectPath), title: item.projectPath }]),
+    ...(item.projectPath === null ? [] : [{ label: t('knowledge.fact.project'), value: folderName(item.projectPath), title: folderHint(item.projectPath) }]),
     momentFact(t('knowledge.fact.proposed'), item.createdAt),
     ...(item.replaces === null ? [] : [{ label: t('knowledge.fact.replaces'), value: t('knowledge.fact.replaces.value') }]),
   ];
@@ -153,6 +175,11 @@ export function linksText(links: readonly KnowledgeLink[]): string {
 /** "3 paths", or nothing for a whole repository. */
 export function pathsText(count: number): string | null {
   return count === 0 ? null : tn('knowledge.repos.paths', count);
+}
+
+/** What a link card says it covers, in its badge: "Whole project", or how many paths narrow it. */
+export function pathsBadge(count: number): string {
+  return pathsText(count) ?? t('knowledge.links.wholeRepo');
 }
 
 /** The outline of a document: the server lists one entry per chunk, so the chunks a long section is cut into are one heading here. */

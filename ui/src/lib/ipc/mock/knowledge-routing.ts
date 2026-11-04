@@ -34,5 +34,22 @@ export function numberOf(id: KnowledgeId): number {
 
 /** A copy of `doc` kept in the other place, as the server shows it when both places are in use: local ids are `local:N`. */
 export function placed(doc: KnowledgeDocument, local: boolean): KnowledgeDocument {
-  return { ...doc, id: local ? `local:${numberOf(doc.id)}` : numberOf(doc.id), place: local ? 'local' : 'remote' };
+  const where = (id: KnowledgeId): KnowledgeId => (local ? `local:${numberOf(id)}` : numberOf(id));
+
+  return { ...doc, id: where(doc.id), pendingOf: doc.pendingOf == null ? null : where(doc.pendingOf), place: local ? 'local' : 'remote' };
+}
+
+/** Whether a document kept in `place` is in the team database: where it says so, else where the routing sends project documents (remote unless they are kept on this computer). */
+export function keptInTeam(place: 'remote' | 'local' | undefined, routing: DocumentRouting = knowledgeRoutingFromLocation()): boolean {
+  return place === undefined ? routing.repositoryDocuments !== 'local' : place === 'remote';
+}
+
+/**
+ * The server's refusal of a team document linked to a folder without a git remote (only a `git:` project key leaves this computer): its sentence names the
+ * folder, not the path. Null when no link is such a folder.
+ */
+export function localPathMessage(links: readonly { repo: string }[]): string | null {
+  const folder = links.find((link) => link.repo.startsWith('path:'))?.repo.split(/[\\/]/).filter(Boolean).at(-1);
+
+  return folder === undefined ? null : `${folder} has no git remote, so a team document cannot be linked to it (only a git: project key leaves this computer)`;
 }

@@ -11,11 +11,11 @@
 use harness_business::ecosystem::KnowledgeSupport;
 use harness_business::ecosystem::{
     ListWindow, delete_docs, docs_server, get_doc, knowledge_doc_matches as find_matches, list_docs,
-    list_knowledge_repos, read_stats, rename_doc, search_knowledge, set_links,
+    list_knowledge_repos, read_stats_upgrading, rename_doc, search_knowledge, set_links,
 };
 use harness_business::model::{
     KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches, KnowledgeHit, KnowledgeId, KnowledgeLink,
-    KnowledgeListFilter, KnowledgePage, KnowledgeReposPage, KnowledgeSearchScope, KnowledgeStats,
+    KnowledgeListFilter, KnowledgeOutcome, KnowledgePage, KnowledgeReposPage, KnowledgeSearchScope, KnowledgeStats,
 };
 use tauri::State;
 
@@ -88,13 +88,14 @@ pub async fn knowledge_doc_rename(state: State<'_, AppState>, id: KnowledgeId, t
 
 /// Replaces the links of a document (at most 32 repositories with at most 32 path globs each, none
 /// makes it global) and answers the links as stored. `invalidInput` for a repository key that is
-/// not one or a glob the server would refuse.
+/// not one or a glob the server would refuse. A team document linked to a folder without a git remote
+/// is refused as `localPath`, an answer and no error.
 #[tauri::command]
 pub async fn knowledge_doc_links_set(
     state: State<'_, AppState>,
     id: KnowledgeId,
     links: Vec<KnowledgeLink>,
-) -> CommandResult<Vec<KnowledgeLink>> {
+) -> CommandResult<KnowledgeOutcome<Vec<KnowledgeLink>>> {
     let server = docs_server(&state.env, &state.runner, &state.knowledge_features).await?;
 
     Ok(set_links(&state.env, &state.runner, &server, &id, &links).await?)
@@ -120,12 +121,15 @@ pub async fn knowledge_repos_list(state: State<'_, AppState>) -> CommandResult<K
 }
 
 /// What the database holds: documents, chunks, how many have a vector, the size, the generation
-/// and the model that embedded them.
+/// and the model that embedded them, and the counts of drafts and documents waiting for approval.
 #[tauri::command]
 pub async fn knowledge_stats(state: State<'_, AppState>) -> CommandResult<KnowledgeStats> {
     let server = docs_server(&state.env, &state.runner, &state.knowledge_features).await?;
 
-    Ok(read_stats(&state.env, &state.runner, &server).await?)
+    // A database that is not upgraded yet is upgraded first, as the live counts do.
+    let notice = state.knowledge_pulse.notice();
+
+    Ok(read_stats_upgrading(&state.env, &state.runner, &state.knowledge_features, &server, notice).await?)
 }
 
 /// The passages that answer `query`, best first, at most `limit` (1 to 20, 10 when not given), as

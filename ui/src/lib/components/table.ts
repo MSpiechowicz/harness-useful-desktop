@@ -14,7 +14,9 @@ export interface Column {
 }
 
 /** The widths columns of the same kind share in every table (Notes, Scripts, Documents), so who added an entry and how useful it was read alike wherever they are. */
-export const COLUMN_WIDTH = { author: '12rem', useful: '13rem', lastUseful: '9rem' } as const;
+export const COLUMN_WIDTH = { author: '12rem', useful: '13rem', lastUseful: '9rem', project: '18rem' } as const;
+
+/* `project` is the column that names the projects a row applies to (Projects, Scope): room for an `owner/repository` name. */
 
 /** What the column without a width of its own, the one that takes what the others leave, is never squeezed below. */
 export const MIN_FLEX_PX = 160;

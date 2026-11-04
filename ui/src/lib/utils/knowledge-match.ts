@@ -110,3 +110,16 @@ export function summaryOf(rows: readonly MatchRow[], choices: MatchChoices, land
 
   return { update, add };
 }
+
+/**
+ * Whether any document of the import is filed in the team's database. A file set to update goes where the document it replaces is kept (the server files the
+ * replacement there), every other file goes to `newPlace`, the place the import files new documents in. Before the comparison every file counts as new.
+ */
+export function goesToTeam(rows: readonly MatchRow[] | null, choices: MatchChoices, landing: Landing, newPlace: KnowledgePlace): boolean {
+  if (rows === null || rows.length === 0) {
+    return newPlace === 'remote';
+  }
+
+  // A file that could not be compared is not imported (see `summaryOf`), so it never sends a link anywhere.
+  return rows.some((row) => row.error === null && (updates(row, choices, landing) ? (row.match?.place ?? newPlace) : newPlace) === 'remote');
+}

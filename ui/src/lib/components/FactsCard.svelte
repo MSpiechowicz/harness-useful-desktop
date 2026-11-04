@@ -2,17 +2,15 @@
   import { cx } from '$lib/utils/cx';
 
   import type { FactRow } from './facts';
+  import type { SectionHead } from './section-card';
   import SectionCard from './SectionCard.svelte';
   import StatusDot from './StatusDot.svelte';
 
-  interface Props {
-    heading: string;
+  interface Props extends SectionHead {
     rows: FactRow[];
-    /** Without the card around it: see `SectionCard`. */
-    flat?: boolean;
   }
 
-  let { heading, rows, flat = false }: Props = $props();
+  let { heading, hint, rows, flat = false }: Props = $props();
 
   /** How many characters at the end of a long value stay visible when its middle is cut. */
   const TAIL = 12;
@@ -29,8 +27,9 @@
 </script>
 
 {#if rows.length > 0}
-  <SectionCard {heading} {flat}>
-    <dl class="flex flex-col">
+  <SectionCard {heading} {hint} {flat}>
+    <!-- The first row's own padding is part of the section's gap under the heading, so its text starts where every section's content does. -->
+    <dl class="-mt-1 flex flex-col">
       {#each rows as fact (fact.label)}
         <!-- Every row is the label on the left and the value on the right, on one line. A long value is shortened in the
              middle, so both its start and its end (the version, the file name) stay readable; the tooltip has all of it. -->

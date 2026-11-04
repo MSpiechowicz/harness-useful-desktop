@@ -16,15 +16,18 @@ use serde_json::Value;
 use super::knowledge_cli::{
     CliFailure, availability_of, availability_of_failure, call, count_of, field, run_json, run_typed, words,
 };
+use super::knowledge_doc_read::{read_document, read_documents};
 use super::knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
+use super::knowledge_refusal::{Answer, run_refusing};
 use super::knowledge_remote::knowledge_remote_get;
 use super::sidecar_cli::{CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListWindow, is_repo_key};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches, KnowledgeDocument,
-    KnowledgeFeatures as FeatureSet, KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgePage, KnowledgePlace,
-    KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope, KnowledgeSort, KnowledgeStats, KnowledgeUsefulFilter,
+    KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches,
+    KnowledgeFeatures as FeatureSet, KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgeOutcome, KnowledgePage,
+    KnowledgePlace, KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope, KnowledgeSort, KnowledgeStats,
+    KnowledgeStatusFilter, KnowledgeUsefulFilter,
 };
 use crate::process::ProcessRunner;
 
@@ -106,7 +109,7 @@ fn both_places(env: &Env) -> bool {
 fn read_page(data: &Value) -> Result<KnowledgePage> {
     Ok(KnowledgePage {
         availability: KnowledgeAvailability::Available,
-        items: field::<Vec<KnowledgeDocument>>(data, "items", "docs list")?,
+        items: read_documents(data, "items", "docs list")?,
         total: count_of(data.get("total")),
         offline: is_offline(data),
     })
@@ -118,10 +121,11 @@ fn is_offline(data: &Value) -> bool {
     data.get("offline").and_then(Value::as_bool).unwrap_or(false)
 }
 
-/// `docs list --json [--repo KEY | --global] [--format F] [--place P] [--useful U] [--query Q] --sort S
-/// [--desc] --page N --per-page N`: `--place` only of a server that lists `offline-fallback`,
-/// `--useful` and the sorts `useful` and `lastUseful` only of one that lists `docs-useful` (an
-/// older one refuses them as usage errors, so they fall back to the default order).
+/// `docs list --json [--repo KEY | --global] [--format F] [--place P] [--useful U] [--status S]
+/// [--query Q] --sort S [--desc] --page N --per-page N`: `--place` only of a server that lists
+/// `offline-fallback`, `--useful` and the sorts `useful` and `lastUseful` only of one that lists
+/// `docs-useful`, `--status` only of one that lists `docs-drafts` (an older one refuses them as
+/// usage errors, so they fall back to the default order and every document).
 fn list_args(
     filter: &KnowledgeListFilter,
     window: &ListWindow,
@@ -155,6 +159,10 @@ fn list_args(
         None => {}
     }
 
+    if let Some(status) = filter.status.filter(|_| features.docs_drafts) {
+        args.extend(["--status".into(), status_name(status).into()]);
+    }
+
     if let Some(query) = window.query() {
         if query.chars().count() > MAX_QUERY_CHARS {
             return Err(invalid(&format!("a search is at most {MAX_QUERY_CHARS} characters")));
@@ -178,6 +186,17 @@ fn list_args(
     args.extend(["--per-page".into(), per_page.to_string().into()]);
 
     Ok(args)
+}
+
+/// The server's name of `status`.
+fn status_name(status: KnowledgeStatusFilter) -> &'static str {
+    match status {
+        KnowledgeStatusFilter::Live => "live",
+        KnowledgeStatusFilter::Draft => "draft",
+        KnowledgeStatusFilter::Waiting => "waiting",
+        KnowledgeStatusFilter::ChangesRequested => "changesRequested",
+        KnowledgeStatusFilter::Pending => "pending",
+    }
 }
 
 /// The server's name of `sort`.
@@ -220,7 +239,7 @@ pub async fn get_doc(
     };
 
     Ok(KnowledgeDetail {
-        document: field(&data, "document", "docs get")?,
+        document: read_document(&data, "document", "docs get")?,
         sections: field(&data, "sections", "docs get")?,
         chunk,
     })
@@ -266,14 +285,15 @@ pub async fn doc_matches(
 }
 
 /// Replaces the links of document `id` (`docs links set --json ID`, the links as JSON on stdin);
-/// none makes it global. Answers the links as stored.
+/// none makes it global. Answers the links as stored, or the server's refusal: a team document
+/// cannot link to a folder without a git remote (`localPath`), which is an answer, not an error.
 pub async fn set_links(
     env: &Env,
     runner: &dyn ProcessRunner,
     server: &Path,
     id: &KnowledgeId,
     links: &[KnowledgeLink],
-) -> Result<Vec<KnowledgeLink>> {
+) -> Result<KnowledgeOutcome<Vec<KnowledgeLink>>> {
     check_links(links)?;
 
     let mut args = words(&["docs", "links", "set", "--json"]);
@@ -288,9 +308,12 @@ pub async fn set_links(
         stdin: Some(stdin),
     };
 
-    let data = run_json(env, runner, server, command).await?;
-
-    field(&data, "links", "docs links set")
+    match run_refusing(env, runner, server, command).await? {
+        Answer::Done(data) => Ok(KnowledgeOutcome::Done {
+            value: field(&data, "links", "docs links set")?,
+        }),
+        Answer::Refused(code, message) => Ok(KnowledgeOutcome::Refused { code, message }),
+    }
 }
 
 /// Renames document `id` (`docs rename --json ID --title TITLE`); answers the title as stored.

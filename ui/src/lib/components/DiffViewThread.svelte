@@ -8,8 +8,9 @@
 
   import Badge from './Badge.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
-  import DiffViewComposer from './DiffViewComposer.svelte';
-  import IconButton from './IconButton.svelte';
+  import DiffViewEdit from './DiffViewEdit.svelte';
+  import Button from './Button.svelte';
+  import { ICON } from './icon';
 
   interface Props {
     comments: ThreadComment[];
@@ -37,33 +38,38 @@
   }
 </script>
 
-<!-- A saved comment keeps the card it was written in: the same width and corners, the same badge naming the lines. Edit and
-     delete are always there, at the height of the badge beside them. -->
+<!-- A comment of the review being written keeps the card it was written in, in the layout of a sent comment's card (the knowledge
+     review's ReviewThread): who wrote it and that it is not sent yet on the left, the lines it is on in a table-size badge at the top
+     right, the text, then Edit and Delete as buttons. -->
 <ul class="flex flex-col gap-2" aria-label={t('components.diff.comments')}>
   {#each comments as comment (comment.id)}
     <li class="max-w-(--comment-card)">
       {#if editing === comment.id}
-        <DiffViewComposer
-          heading={commentHeading(comment)}
-          initial={comment.body}
-          saveLabel={t('components.diff.save')}
-          {maxBytes}
-          onsave={(body) => {
-            onedit(comment.id, body);
-            editing = null;
-          }}
-          oncancel={() => (editing = null)}
-        />
+        <DiffViewEdit {comment} {maxBytes} onsave={(body) => onedit(comment.id, body)} onleave={() => (editing = null)} />
       {:else}
-        <div class="group/comment flex flex-col gap-2 rounded-lg border border-line-strong bg-surface-1 p-4 shadow-raised">
-          <div class="flex items-center gap-2">
-            <Badge tone="accent" class="h-control rounded-md! px-2.5 text-sm!">{commentHeading(comment)}</Badge>
-            <span class="ml-auto flex items-center gap-2">
-              <IconButton icon={Pencil} label={t('components.diff.edit')} iconSize={16} class="bg-surface-3! hover:bg-surface-4!" onclick={() => (editing = comment.id)} />
-              <IconButton icon={Trash2} label={t('components.diff.delete')} iconSize={16} class="bg-danger-wash! text-danger! hover:bg-danger/25!" onclick={() => ask(comment)} />
-            </span>
+        <div class="flex flex-col gap-3 rounded-lg border border-line-strong bg-surface-1 p-4 shadow-raised">
+          <div>
+            <div class="flex min-w-0 items-center gap-3">
+              <p class="flex min-h-5 min-w-0 flex-1 items-baseline gap-1.5 text-sm text-fg-3">
+                <span class="truncate font-medium text-fg">{t('components.diff.you')}</span>
+                <span aria-hidden="true">·</span>
+                <span class="shrink-0 text-xs">{t('components.diff.notSent')}</span>
+              </p>
+              <Badge tone="accent" size="lg" class="shrink-0">{commentHeading(comment)}</Badge>
+            </div>
+            <p class="mt-1 text-sm leading-relaxed break-words whitespace-pre-wrap text-fg-2">{comment.body}</p>
           </div>
-          <p class="px-1 text-base leading-relaxed break-words whitespace-pre-wrap text-fg">{comment.body}</p>
+
+          <div class="flex flex-nowrap items-center gap-2">
+            <Button aria-label={t('components.diff.edit')} onclick={() => (editing = comment.id)}>
+              {#snippet leading()}<Pencil size={ICON.sm} aria-hidden="true" />{/snippet}
+              {t('components.diff.editShort')}
+            </Button>
+            <Button variant="dangerQuiet" aria-label={t('components.diff.delete')} onclick={() => ask(comment)}>
+              {#snippet leading()}<Trash2 size={ICON.sm} aria-hidden="true" />{/snippet}
+              {t('components.diff.deleteConfirm')}
+            </Button>
+          </div>
         </div>
       {/if}
     </li>

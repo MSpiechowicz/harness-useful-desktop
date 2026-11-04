@@ -20,11 +20,17 @@ export interface RoutineAttention {
   needsYou: number;
 }
 
+/** What waits for the user in the Knowledge view: proposals held for review, and documents waiting for a teammate's approval that the user may give. */
+export interface KnowledgeAttention {
+  held: number;
+  waiting: number;
+}
+
 /**
  * What the rail says about a view without opening it: changed files, hooks and routines waiting for approval, a routine run that asks something, and a chat waiting on the user (an approval or a
- * question), and documents agents proposed that wait for review in Knowledge. A working agent needs no badge: the animated logo and the rail status already say so.
+ * question), and documents agents proposed that wait for review and documents that wait for the user's approval in Knowledge. A working agent needs no badge: the animated logo and the rail status already say so.
  */
-export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null, pendingHooks = 0, routines: RoutineAttention = { pending: 0, needsYou: 0 }, hookUpdates = 0, knowledgeHeld = 0): RailBadge | null {
+export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus | null, pendingHooks = 0, routines: RoutineAttention = { pending: 0, needsYou: 0 }, hookUpdates = 0, knowledge: KnowledgeAttention = { held: 0, waiting: 0 }): RailBadge | null {
   if (view === 'chat' && chat) {
     const status = chatStatus(chat);
 
@@ -43,8 +49,8 @@ export function railBadge(view: ViewId, chat: ChatState | null, git: GitStatus |
     return hooksBadge(pendingHooks, hookUpdates);
   }
 
-  if (view === 'knowledge' && knowledgeHeld > 0) {
-    return { text: knowledgeHeld > 99 ? '99+' : String(knowledgeHeld), label: tn('knowledge.count.toReview', knowledgeHeld), tone: 'warning', busy: false };
+  if (view === 'knowledge' && knowledge.held + knowledge.waiting > 0) {
+    return knowledgeBadge(knowledge);
   }
 
   if (view === 'routines' && routines.pending + routines.needsYou > 0) {
@@ -60,6 +66,14 @@ function hooksBadge(pending: number, updates: number): RailBadge {
   const parts = [pending > 0 ? tn('shell.count.hooksToApprove', pending) : '', updates > 0 ? tn('shell.count.hookUpdates', updates) : ''];
 
   return { text: total > 99 ? '99+' : String(total), label: parts.filter(Boolean).join(', '), tone: pending > 0 ? 'warning' : 'accent', busy: false };
+}
+
+/** The count of what waits in Knowledge: proposals to review and documents waiting for approval, each named in the label. */
+function knowledgeBadge({ held, waiting }: KnowledgeAttention): RailBadge {
+  const total = held + waiting;
+  const parts = [held > 0 ? tn('shell.count.knowledgeToReview', held) : '', waiting > 0 ? tn('shell.count.knowledgeWaiting', waiting) : ''];
+
+  return { text: total > 99 ? '99+' : String(total), label: parts.filter(Boolean).join(' · '), tone: 'warning', busy: false };
 }
 
 /** The count of what waits in Routines. A run that asks something is urgent, so it makes the badge pulse. */

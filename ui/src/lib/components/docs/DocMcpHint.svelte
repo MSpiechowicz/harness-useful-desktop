@@ -1,7 +1,8 @@
 <script lang="ts">
-  import Info from '@lucide/svelte/icons/info';
+  import Settings2 from '@lucide/svelte/icons/settings-2';
 
   import { desktopMcp } from '$lib/stores/desktop-mcp.svelte';
+  import { cx } from '$lib/utils/cx';
 
   import Button from '../Button.svelte';
   import { ICON } from '../icon';
@@ -15,9 +16,11 @@
     onleave?: () => void;
     /** Opens the Recommended setup. */
     onsetup: () => void;
+    /** Centred under an empty view's own text and button; off in a dialog, whose text starts at the left. */
+    centered?: boolean;
   }
 
-  let { message, action, onleave, onsetup }: Props = $props();
+  let { message, action, onleave, onsetup, centered = true }: Props = $props();
 
   // The machine is read once, when the hint first has a place on screen.
   $effect(() => {
@@ -27,14 +30,17 @@
 
 <!-- Agents write documents through the app's own MCP server. Without it in any harness there is nobody to write them, so the way to add it is one click away. -->
 {#if desktopMcp.state === 'missing'}
-  <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md bg-info-wash px-3.5 py-2.5 text-sm" role="note">
-    <p class="flex min-w-0 items-center gap-2 text-fg-2"><Info size={ICON.sm} class="shrink-0 text-info" aria-hidden="true" />{message}</p>
+  <!-- Grey text and a secondary button, as the app says every other hint: no coloured box, and the button on its own line, never wrapped beside the text. -->
+  <div class={cx('flex flex-col gap-3', centered ? 'items-center text-center' : 'items-start')} role="note">
+    <p class="text-sm text-fg-3">{message}</p>
     <Button
-      variant="ghost"
       onclick={() => {
         onleave?.();
         onsetup();
-      }}>{action}</Button
+      }}
     >
+      {#snippet leading()}<Settings2 size={ICON.sm} aria-hidden="true" />{/snippet}
+      {action}
+    </Button>
   </div>
 {/if}

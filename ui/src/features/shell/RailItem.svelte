@@ -25,7 +25,8 @@
   const description = $derived(badge ? `${view.label}, ${badge.label}` : view.label);
 </script>
 
-<Tooltip text={view.label} shortcut={shortcut ?? undefined} side="right" disabled={expanded} class="flex w-full">
+<!-- The label of the badge ("2 to review · 3 waiting for approval") is the line under the view's name, so the count says what it counts, also in the expanded rail. -->
+<Tooltip text={view.label} detail={badge?.label} shortcut={shortcut ?? undefined} side="right" disabled={expanded && !badge} class="flex w-full">
   {#snippet children({ describedby })}
     <button
       bind:this={button}

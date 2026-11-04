@@ -78,6 +78,13 @@
     return Array.from(panel?.querySelectorAll<HTMLElement>('[data-menu-item]') ?? []);
   }
 
+  /** The first action that can be chosen, else the first one: an off action (aria-disabled) is reachable by arrows but is not where focus starts. */
+  function firstItem(): HTMLElement | undefined {
+    const list = items();
+
+    return list.find((item) => item.getAttribute('aria-disabled') !== 'true') ?? list[0];
+  }
+
   function close(returnFocus: boolean): void {
     open = false;
 
@@ -89,7 +96,7 @@
   // On open, move focus to a `[data-autofocus]` element (e.g. a filter field), else the first action, else the panel.
   $effect(() => {
     if (open) {
-      queueMicrotask(() => (panel?.querySelector<HTMLElement>('[data-autofocus]') ?? items()[0] ?? panel)?.focus({ preventScroll: true }));
+      queueMicrotask(() => (panel?.querySelector<HTMLElement>('[data-autofocus]') ?? firstItem() ?? panel)?.focus({ preventScroll: true }));
     }
   });
 

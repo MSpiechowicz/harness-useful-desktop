@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-approval-set"
+description = "Enables the knowledge_approval_set command without any pre-configured scope."
+commands.allow = ["knowledge_approval_set"]
+
+[[permission]]
+identifier = "deny-knowledge-approval-set"
+description = "Denies the knowledge_approval_set command without any pre-configured scope."
+commands.deny = ["knowledge_approval_set"]

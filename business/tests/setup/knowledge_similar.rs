@@ -345,6 +345,15 @@ fn options(replacing: &[(&str, KnowledgeId)], replaces: Option<KnowledgeId>) -> 
             })
             .collect(),
         place: None,
+        ..Default::default()
+    }
+}
+
+/// The features of a server that lists `docs-similar` or not.
+fn similar(docs_similar: bool) -> harness_business::model::KnowledgeFeatures {
+    harness_business::model::KnowledgeFeatures {
+        docs_similar,
+        ..Default::default()
     }
 }
 
@@ -362,20 +371,20 @@ fn replacing_is_written_as_a_map_of_paths_only_for_a_server_with_docs_similar() 
         None,
     );
 
-    let manifest = ImportManifest::with_features(paths(), vec![], both.clone(), true).unwrap();
+    let manifest = ImportManifest::with_features(paths(), vec![], both.clone(), similar(true)).unwrap();
     let json: Value = serde_json::from_slice(&manifest.to_json().unwrap()).unwrap();
     assert_eq!(json["replacing"], json!({ "/docs/a.md": 7, "/docs/b.md": "local:12" }));
     assert!(json.get("replaces").is_none());
 
     // An older server would import the files as new documents: refused, never written.
     for old in [
-        ImportManifest::with_features(paths(), vec![], both.clone(), false),
+        ImportManifest::with_features(paths(), vec![], both.clone(), similar(false)),
         ImportManifest::new(paths(), vec![], both),
     ] {
         assert!(matches!(old, Err(BusinessError::Unsupported(_))), "{old:?}");
     }
 
-    let plain = ImportManifest::with_features(paths(), vec![], options(&[], None), true).unwrap();
+    let plain = ImportManifest::with_features(paths(), vec![], options(&[], None), similar(true)).unwrap();
     let json: Value = serde_json::from_slice(&plain.to_json().unwrap()).unwrap();
     assert!(json.get("replacing").is_none(), "left out when nothing is replaced");
 }
@@ -394,7 +403,7 @@ fn replacing_a_document_of_the_other_place_is_accepted_as_the_user_chose() {
     );
     cross.place = Some(KnowledgePlace::Local);
 
-    let manifest = ImportManifest::with_features(paths(), vec![], cross, true).unwrap();
+    let manifest = ImportManifest::with_features(paths(), vec![], cross, similar(true)).unwrap();
     let json: Value = serde_json::from_slice(&manifest.to_json().unwrap()).unwrap();
 
     assert_eq!(json["place"], "local");
@@ -404,7 +413,7 @@ fn replacing_a_document_of_the_other_place_is_accepted_as_the_user_chose() {
 #[test]
 fn replacing_names_files_of_the_import_and_documents_once() {
     let refused = |options: KnowledgeImportOptions, paths: Vec<String>, folders: Vec<String>| {
-        let error = ImportManifest::with_features(paths, folders, options, true).expect_err("refused");
+        let error = ImportManifest::with_features(paths, folders, options, similar(true)).expect_err("refused");
 
         assert!(matches!(error, BusinessError::InvalidInput(_)), "{error:?}");
     };

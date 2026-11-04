@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-knowledge-doc-comment-reply"
+description = "Enables the knowledge_doc_comment_reply command without any pre-configured scope."
+commands.allow = ["knowledge_doc_comment_reply"]
+
+[[permission]]
+identifier = "deny-knowledge-doc-comment-reply"
+description = "Denies the knowledge_doc_comment_reply command without any pre-configured scope."
+commands.deny = ["knowledge_doc_comment_reply"]

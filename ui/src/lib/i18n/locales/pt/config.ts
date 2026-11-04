@@ -41,18 +41,21 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.pathCopied': 'O caminho do arquivo está na área de transferência.',
 
   'config.overview.title': 'Visão geral',
+  'config.overview.title.hint': 'Quanto esta seção contém.',
   'config.overview.entries': 'entradas de nível superior',
   'config.overview.values': 'valores',
   'config.overview.depth': 'níveis de profundidade',
   'config.overview.secrets': 'segredos mascarados',
 
   'config.file.title': 'Arquivo',
+  'config.file.title.hint': 'Onde esta seção está guardada.',
   'config.file.layer': 'Camada',
   'config.file.format': 'Formato',
   'config.file.profile': 'Perfil',
   'config.file.path': 'Caminho',
 
   'config.profiles.title': 'Perfis',
+  'config.profiles.title.hint': 'Conjuntos de configurações com nome que você pode usar ao iniciar.',
   'config.profiles.hint': 'Inicie o {harness} com --profile <name> para usar um.',
   'config.profiles.less': 'Mostrar menos',
   'config.profiles.all': 'Mostrar todos os {count}',

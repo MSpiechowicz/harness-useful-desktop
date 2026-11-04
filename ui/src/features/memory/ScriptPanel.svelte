@@ -55,11 +55,11 @@
 
 <SidePanel {open} title={script?.name ?? ''} subtitle={script ? `${languageLabel(script.language)} · ${scopeText(script)}` : ''} mono {onclose}>
   {#if script}
-    <SectionCard flat heading={t('memory.scripts.detail.description')}>
+    <SectionCard flat heading={t('memory.scripts.detail.description')} hint={t('memory.scripts.detail.description.hint')}>
       <p class="text-sm leading-relaxed break-words text-fg-2">{script.description}</p>
     </SectionCard>
 
-    <SectionCard flat heading={t('memory.scripts.detail.code')}>
+    <SectionCard flat heading={t('memory.scripts.detail.code')} hint={t('memory.scripts.detail.code.hint')}>
       <BodyState loaded={detail !== null} {status} {error} failed={t('memory.scripts.body.failed')} loading={t('memory.scripts.body.loading')} {onretry}>
         <div class="flex flex-col gap-3">{#if detail}<ScriptCode body={detail.body} language={detail.language} />{/if}</div>
       </BodyState>
@@ -89,6 +89,6 @@
       {/if}
     </PanelActions>
 
-    <FactsCard flat heading={t('memory.panel.details')} rows={facts} />
+    <FactsCard flat heading={t('memory.panel.details')} hint={t('memory.panel.details.hint')} rows={facts} />
   {/if}
 </SidePanel>

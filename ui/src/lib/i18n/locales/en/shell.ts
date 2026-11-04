@@ -185,4 +185,13 @@ export const shell = {
   'shell.palette.onboarding.keywords': 'setup detect welcome',
   'shell.palette.untracked': 'Untracked',
   'shell.palette.resumeInChat': 'Resume in chat',
+  'shell.count.knowledgeToReview.one': '{count} to review',
+  'shell.count.knowledgeToReview.other': '{count} to review',
+  'shell.count.knowledgeWaiting.one': '{count} waiting for approval',
+  'shell.count.knowledgeWaiting.other': '{count} waiting for approval',
+  'shell.notice.knowledgeRestart.title': 'Harness Knowledge was updated',
+  'shell.notice.knowledgeRestart.body': 'Restart your harnesses so their agents use the new version.',
+  'shell.notice.knowledgeRestart.action': 'Got it',
+  'shell.notice.knowledgeWaits.title': 'Remote knowledge is not up to date',
+  'shell.notice.knowledgeWaits.body': 'Waiting for a teammate to update Remote knowledge.',
 } satisfies Record<string, string>;

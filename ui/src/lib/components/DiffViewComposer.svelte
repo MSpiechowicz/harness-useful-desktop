@@ -13,13 +13,15 @@
     heading: string;
     initial?: string;
     saveLabel?: string;
+    /** What the empty field says; the code review's, for the agent, unless the caller reviews for someone else. */
+    placeholder?: string;
     /** Longest allowed body in bytes. */
     maxBytes: number;
     onsave: (body: string) => void;
     oncancel: () => void;
   }
 
-  let { heading, initial = '', saveLabel, maxBytes, onsave, oncancel }: Props = $props();
+  let { heading, initial = '', saveLabel, placeholder, maxBytes, onsave, oncancel }: Props = $props();
 
   const fieldId = uid('comment');
   let body = $state(untrack(() => initial));
@@ -49,7 +51,7 @@
      it, so it only names them; the footer says how to send and cancel. -->
 <div class="@container flex max-w-(--comment-card) flex-col rounded-lg border border-line-strong bg-surface-1 shadow-raised">
   <div class="px-4 pt-4">
-    <label for={fieldId} class="inline-flex"><Badge tone="accent" class="h-control rounded-md! px-2.5 text-sm!">{heading}</Badge></label>
+    <label for={fieldId} class="inline-flex"><Badge tone="accent" size="lg">{heading}</Badge></label>
   </div>
 
   <div class="px-4 py-3">
@@ -59,7 +61,7 @@
       use:autofocus
       {onkeydown}
       rows="6"
-      placeholder={t('components.diff.placeholder')}
+      placeholder={placeholder ?? t('components.diff.placeholder')}
       class="w-full resize-none rounded-md border border-line bg-surface-2 px-4 py-3 text-base leading-relaxed text-fg outline-none placeholder:text-fg-3 focus:border-focus"
     ></textarea>
   </div>

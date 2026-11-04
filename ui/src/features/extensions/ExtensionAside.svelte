@@ -19,9 +19,9 @@
 
 <!-- The body of the details panel: the item's numbers and facts. The panel brings the padding, the gap and the scrolling. -->
 {#if stats.length > 0}
-  <SectionCard flat heading={t('extensions.overview.title')}>
+  <SectionCard flat heading={t('extensions.overview.title')} hint={t('extensions.overview.title.hint')}>
     <StatGrid {stats} />
   </SectionCard>
 {/if}
 
-<FactsCard flat heading={t('extensions.detail.details')} rows={details} />
+<FactsCard flat heading={t('extensions.detail.details')} hint={t('extensions.detail.details.hint')} rows={details} />

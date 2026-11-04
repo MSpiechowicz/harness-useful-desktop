@@ -25,7 +25,8 @@
 //!   files the app registered it in), [`knowledge_features`] (`harness-knowledge features`),
 //!   [`knowledge_docs`] (the documents, repositories and counts), [`knowledge_import`] (the streamed
 //!   import and its cancel), [`knowledge_intake`] (the files and folders picked or dropped),
-//!   [`knowledge_held`] (the review queue of proposed documents), [`knowledge_search`],
+//!   [`knowledge_held`] (the review queue of proposed documents), [`knowledge_review`] (drafts, their
+//!   review and team approval), [`knowledge_upgrade`] (the database's schema), [`knowledge_search`],
 //!   [`knowledge_recall`] (the recall the app runs for chats),
 //!   [`knowledge_embedder`] (its own embedder and reindex), [`knowledge_remote`] (its team
 //!   database and `check --json`), all on top of the `sidecar_*` modules and [`knowledge_cli`].
@@ -94,8 +95,10 @@ pub mod desktop_register;
 pub mod detect;
 pub mod installer;
 mod installer_log;
+pub mod knowledge_approval;
 pub mod knowledge_binary;
 pub(crate) mod knowledge_cli;
+mod knowledge_doc_read;
 pub mod knowledge_docs;
 pub mod knowledge_embedder;
 pub mod knowledge_features;
@@ -103,12 +106,19 @@ pub mod knowledge_held;
 mod knowledge_held_window;
 pub mod knowledge_import;
 pub mod knowledge_intake;
+mod knowledge_manifest;
+pub mod knowledge_pulse;
 pub mod knowledge_recall;
 pub mod knowledge_record;
+mod knowledge_refusal;
 pub mod knowledge_register;
 pub mod knowledge_remote;
+pub mod knowledge_review;
+mod knowledge_review_check;
+mod knowledge_review_read;
 pub mod knowledge_search;
 pub mod knowledge_similar;
+pub mod knowledge_upgrade;
 pub mod mcp_cli;
 pub mod mcp_client;
 pub mod mcp_merge;
@@ -189,6 +199,7 @@ pub use desktop_register::{
 };
 pub use detect::ecosystem_status;
 pub use installer::{Companion, Installed, InstallerSpec, installer, run_installer, run_installer_with};
+pub use knowledge_approval::{get_approval, set_approval};
 pub use knowledge_binary::{
     KNOWLEDGE_SESSION_VAR, installed_knowledge, knowledge_version, parse_knowledge_version, resolve_knowledge,
 };
@@ -202,8 +213,8 @@ pub use knowledge_embedder::{
 };
 pub use knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
 pub use knowledge_held::{
-    approval_place, decide_knowledge_held, get_knowledge_held, knowledge_held_server, knowledge_pulse,
-    list_knowledge_held,
+    approval_place, decide_knowledge_held, get_knowledge_held, knowledge_held_server, list_knowledge_held,
+    reject_knowledge_held, request_changes_knowledge_held,
 };
 pub use knowledge_held_window::HeldSort;
 pub use knowledge_import::{
@@ -212,6 +223,7 @@ pub use knowledge_import::{
 pub use knowledge_intake::{
     Checked, IMPORT_EXTENSIONS, IntakePaths, KnowledgeIntakes, MAX_DROPPED_PATHS, MAX_INTAKE_FILES, check_paths,
 };
+pub use knowledge_pulse::{knowledge_pulse, knowledge_pulse_upgrading};
 pub use knowledge_recall::{MAX_RECALL_OUTPUT_BYTES, knowledge_recall};
 pub use knowledge_record::{KNOWLEDGE_RECORD_FILE, KnowledgeRecord};
 pub use knowledge_register::{
@@ -222,8 +234,15 @@ pub use knowledge_remote::{
     KnowledgeRemoteChange, knowledge_config_path, knowledge_remote_get, knowledge_remote_set, knowledge_remote_test,
     read_check,
 };
+pub use knowledge_review::{
+    approval_server, compare_doc, delete_comment, doc_comments, doc_history, download_doc, drafts_server,
+    reply_comment, resolve_comment, review_doc, review_server, transition_doc, transition_needs_approval,
+};
 pub use knowledge_search::{MAX_HITS, search_knowledge, search_server};
 pub use knowledge_similar::{MAX_ENTRIES as MAX_SIMILAR_ENTRIES, similar_docs};
+pub use knowledge_upgrade::{
+    KnowledgeUpgradeNotice, is_not_upgraded, read_stats_upgrading, upgrade_installed, upgrade_knowledge,
+};
 pub use mcp_cli::{
     MCP_CLI_TIMEOUT, register_dashboard_mcp_cli, register_desktop_mcp_cli, register_sidecar_mcp_cli,
     unregister_sidecar_mcp_cli,

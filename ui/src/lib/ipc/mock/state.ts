@@ -48,6 +48,7 @@ export function defaultPrefs(): AppPrefs {
     knowledgeVectorSearch: true,
     codeEnabled: true,
     codeAutoInstallDone: false,
+    knowledgeRestartNoticeDone: false,
     updatesTurnedOn: true,
     keepRunningInTray: false,
     memoryNotesAskDefault: false,
@@ -112,6 +113,7 @@ export class MockState {
       knowledgeVectorSearch: this.knowledgeVectorSearch,
       codeEnabled: this.codeEnabled,
       codeAutoInstallDone: this.codeAutoInstallDone,
+      knowledgeRestartNoticeDone: false,
       updatesTurnedOn: true,
       mainBranches: structuredClone(this.mainBranches),
     };

@@ -26,6 +26,22 @@ async function commentOn(text: string): Promise<void> {
   await fireEvent.click(screen.getByRole('button', { name: 'Comment' }));
 }
 
+describe('the comment field', () => {
+  it('speaks to the agent unless the caller reviews for someone else', async () => {
+    const { unmount } = render(DiffView, { diff: LIB(), mode: 'unified', comments: [], maxBytes: 8192, oncomment: vi.fn(), onedit: vi.fn(), onremove: vi.fn() });
+
+    await fireEvent.click(gutter('new', 3));
+    expect(body()).toBeInTheDocument();
+    unmount();
+
+    render(DiffView, { diff: LIB(), mode: 'unified', comments: [], maxBytes: 8192, placeholder: 'Leave a comment for the author…', oncomment: vi.fn(), onedit: vi.fn(), onremove: vi.fn() });
+
+    await fireEvent.click(gutter('new', 3));
+    expect(screen.getByPlaceholderText('Leave a comment for the author…')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Leave a comment for the agent…')).toBeNull();
+  });
+});
+
 describe('rendering a diff', () => {
   it('numbers every line on its own side and marks the missing newline', () => {
     mount();
@@ -267,6 +283,26 @@ describe('saved comments', () => {
 
     expect(screen.getByText('Check the module name.')).toBeInTheDocument();
     expect(screen.getByText('Breaking change.')).toBeInTheDocument();
+  });
+
+  it('puts each thread in the half of the side it is about in split mode', () => {
+    mount({ mode: 'split', comments: COMMENTS });
+
+    const halfOf = (text: string) => screen.getByText(text).closest('[data-half]')?.getAttribute('data-half');
+
+    expect(halfOf('Check the module name.')).toBe('new');
+    expect(halfOf('Breaking change.')).toBe('old');
+  });
+
+  it('opens the composer in the half of the side being commented on in split mode', async () => {
+    mount({ mode: 'split' });
+
+    await fireEvent.click(gutter('new', 7));
+    expect(body().closest('[data-half]')).toHaveAttribute('data-half', 'new');
+    await fireEvent.keyDown(body(), { key: 'Escape' });
+
+    await fireEvent.click(gutter('old', 3));
+    expect(body().closest('[data-half]')).toHaveAttribute('data-half', 'old');
   });
 });
 

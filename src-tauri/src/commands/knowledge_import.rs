@@ -105,7 +105,10 @@ async fn put(state: &AppState, paths: Vec<PathBuf>) -> CommandResult<KnowledgeIn
 /// Imports the files and folders of the intake `token`, linking every document to
 /// `options.links` (none: global), replacing document `options.replaces` in place when given
 /// (one file only) and the documents of `options.replacing` (each one file of the selection, needs a
-/// server with `docs-similar`: `unsupported` otherwise, `invalidInput` with `replaces`). Each event of `harness-knowledge docs import --ndjson` goes to `on_event` as it
+/// server with `docs-similar`: `unsupported` otherwise, `invalidInput` with `replaces`). With
+/// `options.draft` every document is stored as a draft, with `options.ask` (and a replaced document)
+/// the replacement is asked for approval at once with `options.note` for the reviewers: both need
+/// `docs-drafts`, `unsupported` otherwise. Each event of `harness-knowledge docs import --ndjson` goes to `on_event` as it
 /// happens: `plan`, then `file` and `progress` after each file, then `done`; `failed` when the
 /// import could not run. The embedder is started first while vector search is on, so the chunks get
 /// their vectors. Re-importing unchanged content embeds nothing again. `invalidInput` while another
@@ -128,13 +131,12 @@ pub async fn knowledge_import(
         )
         .await?;
     let paths = state.knowledge_intakes.get(&token)?;
-    let docs_similar = state
+    let features = state
         .knowledge_features
         .support(&state.env, &state.runner)
         .await
-        .docs_similar();
-    let manifest =
-        ImportManifest::with_features(paths.files, paths.folders, options.unwrap_or_default(), docs_similar)?;
+        .features();
+    let manifest = ImportManifest::with_features(paths.files, paths.folders, options.unwrap_or_default(), features)?;
     let run = state.knowledge_importer.begin()?;
 
     // The selection is used up as the import starts: it cannot be started a second time.

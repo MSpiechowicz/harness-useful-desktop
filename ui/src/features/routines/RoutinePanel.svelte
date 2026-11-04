@@ -70,6 +70,7 @@
   };
 
   const TEXT_HEADINGS = { agent: 'routines.field.prompt', command: 'routines.field.command', script: 'routines.field.script' } as const;
+  const TEXT_HINTS = { agent: 'routines.field.prompt.hint', command: 'routines.field.command.hint', script: 'routines.field.script.hint' } as const;
 
   // Why the switch and Edit are off: both would write the file, and a write approves what it writes. A team routine has no Edit.
   const lockReason = $derived.by(() => {
@@ -101,7 +102,7 @@
   onclose={handlers.close}
 >
   {#if view}
-    <SectionCard flat heading={t('routines.panel.status')}>
+    <SectionCard flat heading={t('routines.panel.status')} hint={t('routines.panel.status.hint')}>
       {#if routine}
         <div class="-my-4">
           <SettingRow title={view.status === 'duplicate' ? t('routines.status.duplicate') : t('routines.panel.enabled')} description={statusText}>
@@ -132,7 +133,7 @@
     </SectionCard>
 
     {#if running}
-      <SectionCard flat heading={t('routines.panel.running')}>
+      <SectionCard flat heading={t('routines.panel.running')} hint={t('routines.panel.running.hint')}>
         <div class={cx('flex flex-col gap-3 rounded-md p-3', waiting ? warning.box : info.box)} role="status">
           <p class="text-sm font-medium text-fg">{t(waiting ? 'routines.panel.waiting.title' : 'routines.panel.running.title', { when: relativeTime(running.startedAt) })}</p>
           {#if waiting}<p class="text-sm text-fg-2">{t('routines.panel.waiting.body')}</p>{/if}
@@ -156,21 +157,21 @@
     {/if}
 
     {#if view.status === 'pending'}
-      <SectionCard flat heading={t('routines.panel.review')}>
+      <SectionCard flat heading={t('routines.panel.review')} hint={t('routines.panel.review.hint')}>
         <RoutineReview {view} {projects} {busy} onapprove={handlers.approve} onreject={team ? undefined : handlers.reject} />
       </SectionCard>
     {/if}
 
     {#if routine}
       {#if routine.description}
-        <SectionCard flat heading={t('routines.field.description')}>
+        <SectionCard flat heading={t('routines.field.description')} hint={t('routines.field.description.hint')}>
           <p class="text-sm leading-relaxed break-words text-fg-2"><HiddenText text={routine.description} /></p>
         </SectionCard>
       {/if}
 
-      <FactsCard flat heading={t('routines.panel.details')} rows={routineFacts(routine, view.approval, view, scope)} />
+      <FactsCard flat heading={t('routines.panel.details')} hint={t('routines.panel.details.hint')} rows={routineFacts(routine, view.approval, view, scope)} />
 
-      <SectionCard flat heading={t(TEXT_HEADINGS[routine.action.type])}>
+      <SectionCard flat heading={t(TEXT_HEADINGS[routine.action.type])} hint={t(TEXT_HINTS[routine.action.type])}>
         {#if routine.action.type === 'command'}
           <ScriptCode body={routine.action.command} language="sh" />
         {:else if routine.action.type === 'script'}
@@ -182,12 +183,12 @@
         {#if view.runsUnattended}<div class="mt-3"><UnattendedChip hint={t('routines.panel.unattended')} /></div>{/if}
       </SectionCard>
 
-      <SectionCard flat heading={t('routines.panel.runs')}>
+      <SectionCard flat heading={t('routines.panel.runs')} hint={t('routines.panel.runs.hint')}>
         <RecentRuns routineId={view.id} onopen={(runId) => handlers.showRuns(runId)} onall={() => handlers.showRuns()} />
       </SectionCard>
     {/if}
 
-    <SectionCard flat heading={t('routines.panel.actions')}>
+    <SectionCard flat heading={t('routines.panel.actions')} hint={t('routines.panel.actions.hint')}>
       <RoutineActions
         {view}
         {lockReason}

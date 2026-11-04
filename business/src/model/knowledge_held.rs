@@ -6,7 +6,19 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{KnowledgeAvailability, KnowledgeEmbedding, KnowledgeId, KnowledgeLink};
+use super::{KnowledgeAvailability, KnowledgeEmbedding, KnowledgeId, KnowledgeLink, lenient_name};
+
+/// Where a proposal stands in the review queue.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum KnowledgeHeldStatus {
+    /// It waits for the user's review.
+    #[default]
+    Waiting,
+    /// The user asked its agent for changes, with a comment: it waits for the revised proposal.
+    ChangesRequested,
+}
 
 /// One proposed document of the review queue, as `held list` and `held get` print it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -45,6 +57,19 @@ pub struct KnowledgeHeldItem {
     pub revision: String,
     /// When it was proposed (RFC 3339).
     pub created_at: String,
+    /// The git `user.name` of the person the proposal is written for (its `addedBy`), none when no
+    /// name was known and from a server that predates it.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub added_by: Option<String>,
+    /// Whether it waits for review or for its agent to revise it (`waiting` when absent).
+    #[serde(default)]
+    #[ts(optional, as = "Option<KnowledgeHeldStatus>")]
+    pub status: KnowledgeHeldStatus,
+    /// What the user asked for, while the status is `changesRequested`.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub comment: Option<String>,
 }
 
 /// One page of the review queue.
@@ -93,6 +118,9 @@ pub enum KnowledgeApproval {
     Updated,
     /// The same text was imported already: nothing changed but the links.
     Unchanged,
+    /// The new version of a live document was stored as its pending version, which replaces the
+    /// live one once it is approved.
+    Pending,
 }
 
 /// What a decision came to: it was carried out, or the server refused it. A refusal is an answer,
@@ -113,9 +141,20 @@ pub enum KnowledgeDecided {
         chunks: Option<u32>,
         /// Whether its chunks got their vectors, none for `unchanged`.
         embedding: Option<KnowledgeEmbedding>,
+        /// Team approval is on, so it was stored as a draft (a new document) and agents do not see
+        /// it yet. Absent from a server without `docs-drafts`.
+        #[ts(optional, as = "Option<bool>")]
+        draft: bool,
     },
     /// It was thrown away.
     Rejected,
+    /// It was marked `changesRequested` with the user's comment (the item stays in the queue).
+    ChangesRequested,
+    /// Requesting changes needs a comment (`commentRequired`).
+    CommentRequired {
+        /// The server's sentence (redacted).
+        message: String,
+    },
     /// There is no such proposal, or another decision took it (`notFound`).
     NotFound {
         /// The server's sentence (redacted).
@@ -123,6 +162,12 @@ pub enum KnowledgeDecided {
     },
     /// The proposal is not the version that was shown (`changed`): reload it.
     Changed {
+        /// The server's sentence (redacted).
+        message: String,
+    },
+    /// The proposal links to a folder without a git remote, so it cannot go to the team place
+    /// (`localPath`). It waits: unlink the folder or keep it on this computer.
+    LocalPath {
         /// The server's sentence (redacted).
         message: String,
     },
@@ -150,6 +195,38 @@ pub struct KnowledgePulse {
     /// remote are paused.
     #[serde(default)]
     pub offline: bool,
+    /// How many documents wait for THIS person's approval in every place (the rail badge): the ones
+    /// they did not write and did not ask for. `0` from a server that does not say who could
+    /// approve (so nobody is badged for their own documents), none from a server without
+    /// `docs-drafts`.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub waiting: Option<u32>,
+    /// How many documents wait for approval in every place, whoever could approve them (the
+    /// Waiting filter's total), none from a server without `docs-drafts`.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub waiting_all: Option<u32>,
+    /// Whether team approval is on, none with no team database, while it cannot be reached and from
+    /// a server without `docs-approval`.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub approval: Option<bool>,
+    /// The database was moved to a newer schema by this computer's update: tell the user to restart
+    /// their harnesses, once (`knowledge_restart_notice_dismiss` ends it).
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub restart_harnesses: Option<bool>,
+    /// The database needs an upgrade a read-only role cannot make: it waits for a teammate's update.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub upgrade_waits: Option<bool>,
+    /// The git `user.name` of the person at the terminal, as the server reads it: what the view
+    /// compares authors with to tell their own documents. None from a server that predates it or
+    /// while no name is set.
+    #[serde(default, with = "lenient_name")]
+    #[ts(optional = nullable, as = "Option<String>")]
+    pub me: Option<String>,
 }
 
 /// Which documents a search sees besides the global ones.

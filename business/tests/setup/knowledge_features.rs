@@ -28,6 +28,8 @@ const EVERY_FEATURE: Features = Features {
     docs_useful: true,
     docs_similar: true,
     docs_authors: true,
+    docs_drafts: true,
+    docs_approval: true,
 };
 
 #[test]

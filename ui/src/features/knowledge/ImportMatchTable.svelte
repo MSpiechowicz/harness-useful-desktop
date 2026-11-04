@@ -25,10 +25,12 @@
     choices: MatchChoices;
     /** Where the import files its documents. */
     landing: Landing;
+    /** The import stores its documents as drafts, so an update is a pending update. */
+    draft?: boolean;
     onchange: (path: string, update: boolean) => void;
   }
 
-  let { rows, pending, choices, landing, onchange }: Props = $props();
+  let { rows, pending, choices, landing, draft = false, onchange }: Props = $props();
 
   const COLUMNS = 'grid-cols-[minmax(0,5fr)_minmax(0,6fr)_9.5rem]';
 
@@ -75,7 +77,7 @@
 
       <div role="cell" class="min-w-0">
         {#if row.match && canReplace(row, landing)}
-          <ImportMatchAction update={updates(row, choices, landing)} name={row.name} title={row.match.title} onchange={(next) => onchange(row.path, next)} />
+          <ImportMatchAction update={updates(row, choices, landing)} name={row.name} title={row.match.title} {draft} onchange={(next) => onchange(row.path, next)} />
         {:else if !pending}
           <!-- The server refuses to replace a document of the other place, so the file is added as new. The tooltip says where the match is kept. -->
           {@const kept = row.match && landing !== 'unknown' && inOtherPlace(row, landing) ? t('knowledge.match.keptElsewhere', { place: placeLabel(row.match.place) }) : undefined}

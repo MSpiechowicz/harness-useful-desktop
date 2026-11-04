@@ -2,6 +2,7 @@
 import type { KnowledgePlace } from "./KnowledgePlace";
 import type { KnowledgeScope } from "./KnowledgeScope";
 import type { KnowledgeSort } from "./KnowledgeSort";
+import type { KnowledgeStatusFilter } from "./KnowledgeStatusFilter";
 import type { KnowledgeUsefulFilter } from "./KnowledgeUsefulFilter";
 import type { SortOrder } from "./SortOrder";
 
@@ -34,4 +35,9 @@ order: SortOrder | null,
  * By whether agents found the document useful (every document unless given). Dropped for a
  * server without `docs-useful`.
  */
-useful?: KnowledgeUsefulFilter | null, };
+useful?: KnowledgeUsefulFilter | null, 
+/**
+ * By state (live documents and drafts, never a pending version of its own, unless given).
+ * Dropped for a server without `docs-drafts`.
+ */
+status?: KnowledgeStatusFilter | null, };

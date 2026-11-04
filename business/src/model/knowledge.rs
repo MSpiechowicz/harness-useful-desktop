@@ -9,7 +9,10 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{AuthorRef, DashboardSetup, KnowledgeProblem, ManualRemoval, lenient_author};
+use super::{
+    AuthorRef, DashboardSetup, KnowledgeDocStatus, KnowledgeLastChange, KnowledgePending, KnowledgeProblem,
+    ManualRemoval, lenient_author, lenient_names,
+};
 
 /// An id of a document or chunk as the server gave it: a plain number (the remote database, or the
 /// only place in use) or a string `local:N` (this computer's store when both places are in use).
@@ -142,6 +145,13 @@ pub struct KnowledgeFeatures {
     pub docs_similar: bool,
     /// `docs-authors`: `addedBy` and `updatedBy` on documents.
     pub docs_authors: bool,
+    /// `docs-drafts`: document states, `--draft`, `--status`, history, compare, ask and go live,
+    /// reviews with comments, the stored original (download), the draft counts and `upgrade`.
+    #[serde(default)]
+    pub docs_drafts: bool,
+    /// `docs-approval`: team approval (`approval get|set`), approve and request changes.
+    #[serde(default)]
+    pub docs_approval: bool,
 }
 
 /// What `knowledge_status` says: whether the server is there and what it can do.
@@ -241,6 +251,32 @@ pub struct KnowledgeDocument {
     #[serde(default)]
     #[ts(optional = nullable)]
     pub last_useful_at: Option<String>,
+    /// The document's state. `live` from a server without `docs-drafts`.
+    #[serde(default)]
+    pub status: KnowledgeDocStatus,
+    /// Raised by every content change and transition: give it back to a transition so only the
+    /// version that was shown is changed. 0 from a server without `docs-drafts`.
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub revision: i64,
+    /// The pending version of a live document, none when it has none.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub pending: Option<KnowledgePending>,
+    /// For a pending row opened with `knowledge_doc_get`: the live document it replaces.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub pending_of: Option<KnowledgeId>,
+    /// For a document that is not live: the last time a reviewer asked for changes.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub last_change: Option<KnowledgeLastChange>,
+    /// For a document that is not live: everyone the approval and take-back rules count as an
+    /// author of this version (who wrote or renamed it since it was last live, and who asked for
+    /// its approval), each once. `None` from a server that does not name them.
+    #[serde(default, with = "lenient_names")]
+    #[ts(optional = nullable, as = "Option<Vec<String>>")]
+    pub authors: Option<Vec<String>>,
 }
 
 /// One entry of a document's outline.

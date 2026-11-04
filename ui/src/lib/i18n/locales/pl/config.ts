@@ -43,18 +43,21 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.pathCopied': 'Ścieżka pliku jest w schowku.',
 
   'config.overview.title': 'Przegląd',
+  'config.overview.title.hint': 'Ile zawiera ta sekcja.',
   'config.overview.entries': 'wpisów najwyższego poziomu',
   'config.overview.values': 'wartości',
   'config.overview.depth': 'poziomów zagnieżdżenia',
   'config.overview.secrets': 'ukrytych sekretów',
 
   'config.file.title': 'Plik',
+  'config.file.title.hint': 'Gdzie ta sekcja jest zapisana.',
   'config.file.layer': 'Warstwa',
   'config.file.format': 'Format',
   'config.file.profile': 'Profil',
   'config.file.path': 'Ścieżka',
 
   'config.profiles.title': 'Profile',
+  'config.profiles.title.hint': 'Nazwane zestawy ustawień, z którymi możesz uruchomić.',
   'config.profiles.hint': 'Uruchom {harness} z opcją --profile <name>, aby użyć jednego.',
   'config.profiles.less': 'Pokaż mniej',
   'config.profiles.all': 'Pokaż wszystkie ({count})',

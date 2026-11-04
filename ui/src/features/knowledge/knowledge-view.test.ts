@@ -116,7 +116,8 @@ describe('an open document', () => {
     await fireEvent.keyDown(field, { key: 'Enter' });
 
     await waitFor(() => expect(calls(invoke, 'knowledge_doc_links_set').at(-1)).toEqual({ id: 2, links: [{ repo: 'git:github.com/useful/harness-desktop', globs: ['src/billing/**', 'src/invoices/**', 'src/payments/**'] }] }));
-    expect(await within(panel).findByText('Saved')).toBeInTheDocument();
+    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('Links saved'));
+    expect(within(panel).queryByText('Saved')).toBeNull();
   });
 
   it('links a repository chosen in the searchable menu of the repository filter, and unlinks it again', async () => {
@@ -125,9 +126,9 @@ describe('an open document', () => {
 
     await fireEvent.click(within(document.querySelector<HTMLElement>('[data-row="6"]') as HTMLElement).getByText('Onboarding for new engineers'));
     const panel = await screen.findByRole('region', { name: 'Onboarding for new engineers' });
-    expect(within(panel).getByText(/Applies to every repository/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Applies to every project/)).toBeInTheDocument();
 
-    await fireEvent.click(within(panel).getByRole('button', { name: 'Link a repository' }));
+    await fireEvent.click(within(panel).getByRole('button', { name: 'Link a project' }));
     await fireEvent.input(await screen.findByRole('searchbox', { name: 'Search projects' }), { target: { value: 'web' } });
     expect(screen.queryByRole('menuitem', { name: /research/ })).toBeNull();
     await fireEvent.click(screen.getByRole('menuitem', { name: /useful\/website/ }));
@@ -176,6 +177,23 @@ describe('the review queue', () => {
     expect(screen.getByRole('radio', { name: /Documents/ })).toBeInTheDocument();
   });
 
+  it('names the folder of a proposal in the table and the panel, with no tooltip that has the whole path', async () => {
+    fakeKnowledge();
+    await show();
+
+    await fireEvent.click(screen.getByRole('radio', { name: /Review/ }));
+    await screen.findByRole('grid', { name: 'Proposals waiting for review' });
+
+    const named = Array.from(document.querySelectorAll('[title="projects/harness-desktop"]'));
+    expect(named.length).toBeGreaterThan(0);
+
+    await fireEvent.click(screen.getByText('Install notes for Windows'));
+    await screen.findByRole('region', { name: 'Install notes for Windows' });
+
+    expect(Array.from(document.querySelectorAll('[title]')).filter((element) => element.getAttribute('title')?.includes('/home/dev'))).toEqual([]);
+    expect(document.body.innerHTML).not.toContain('title="/home/dev');
+  });
+
   it('reads a proposal before it is decided, approves it into the documents and drops its row', async () => {
     const { store, invoke } = fakeKnowledge();
     await show();
@@ -194,7 +212,7 @@ describe('the review queue', () => {
     expect(store.documents.some((doc) => doc.title === 'Install notes for Windows' && doc.origin === 'agentApproved')).toBe(true);
   });
 
-  it('asks before it throws a proposal away', async () => {
+  it('throws a proposal away after a moment to undo it, with the reason for its agent', async () => {
     const { invoke, store } = fakeKnowledge();
     await show();
 
@@ -203,11 +221,37 @@ describe('the review queue', () => {
     const panel = await screen.findByRole('region', { name: 'Local database reset' });
 
     await fireEvent.click(within(panel).getByRole('button', { name: 'Reject' }));
-    expect(await screen.findByText('Reject this proposal?')).toBeInTheDocument();
+    await fireEvent.input(within(panel).getByRole('textbox', { name: /Reason for the agent/ }), { target: { value: 'Already documented' } });
+    await fireEvent.click(within(panel).getByRole('button', { name: 'Reject' }));
+
+    const toast = toasts.items.find((item) => item.title === 'Proposal rejected');
+
+    expect(toast?.action?.label).toBe('Undo');
     expect(calls(invoke, 'knowledge_held_decide')).toHaveLength(0);
 
-    await fireEvent.click(screen.getByRole('button', { name: 'Keep it' }));
+    toast?.action?.run();
+    toasts.dismiss(toast?.id ?? 0);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    expect(calls(invoke, 'knowledge_held_decide')).toHaveLength(0);
     expect(store.held).toHaveLength(3);
+  });
+
+  it('asks the server to reject once the undo toast is gone', async () => {
+    const { invoke } = fakeKnowledge();
+    await show();
+
+    await fireEvent.click(screen.getByRole('radio', { name: /Review/ }));
+    await fireEvent.click(await screen.findByText('Local database reset'));
+    const panel = await screen.findByRole('region', { name: 'Local database reset' });
+
+    await fireEvent.click(within(panel).getByRole('button', { name: 'Reject' }));
+    await fireEvent.input(within(panel).getByRole('textbox', { name: /Reason for the agent/ }), { target: { value: 'Already documented' } });
+    await fireEvent.click(within(panel).getByRole('button', { name: 'Reject' }));
+
+    toasts.dismiss(toasts.items.find((item) => item.title === 'Proposal rejected')?.id ?? 0);
+
+    await waitFor(() => expect(calls(invoke, 'knowledge_held_decide').at(-1)).toMatchObject({ decision: 'reject', comment: 'Already documented' }));
   });
 });
 

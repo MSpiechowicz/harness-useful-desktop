@@ -14,6 +14,7 @@ mod drops;
 mod error;
 mod hooks;
 mod knowledge_embedder;
+mod knowledge_follow_up;
 mod knowledge_pulse;
 mod lifecycle;
 mod logging;
@@ -27,6 +28,7 @@ mod notifications;
 mod product;
 mod releases;
 mod routines;
+mod saved_downloads;
 mod sidecar_embedder;
 mod sidecar_setup;
 pub mod state;
@@ -115,6 +117,21 @@ pub fn run() -> ExitCode {
             commands::knowledge_held::knowledge_held_decide,
             commands::knowledge_held::knowledge_changes_listen,
             commands::knowledge_held::knowledge_changes_watch,
+            commands::knowledge_review::knowledge_doc_transition,
+            commands::knowledge_review::knowledge_doc_review,
+            commands::knowledge_review::knowledge_doc_history,
+            commands::knowledge_review::knowledge_doc_comments,
+            commands::knowledge_review::knowledge_doc_comment_reply,
+            commands::knowledge_review::knowledge_doc_comment_resolve,
+            commands::knowledge_review::knowledge_doc_comment_delete,
+            commands::knowledge_review::knowledge_doc_compare,
+            commands::knowledge_review::knowledge_doc_download,
+            commands::knowledge_review::knowledge_reveal_download,
+            commands::knowledge_review::knowledge_approval_get,
+            commands::knowledge_review::knowledge_approval_set,
+            commands::knowledge_review::knowledge_held_request_changes,
+            commands::knowledge_review::knowledge_held_follow_up_available,
+            commands::knowledge_review::knowledge_restart_notice_dismiss,
             commands::knowledge_embedder::knowledge_set_vector_search,
             commands::knowledge_embedder::knowledge_embedder_watch,
             commands::knowledge_embedder::knowledge_embedder_remove_model,

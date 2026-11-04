@@ -13,10 +13,14 @@
     lang?: string;
     /** The block is still growing: highlighting waits for a pause in the stream. */
     streaming?: boolean;
+    /** The code scrolls inside the block past `--code-max-h`, under a header that stays: for a panel or a dialog that holds a whole script. Chat blocks show in full. */
+    capped?: boolean;
     class?: string;
   }
 
-  let { code, lang = '', streaming = false, class: className }: Props = $props();
+  let { code, lang = '', streaming = false, capped = false, class: className }: Props = $props();
+
+  const CAP = 'max-h-[var(--code-max-h)] overflow-y-auto';
 
   const STREAM_PAUSE_MS = 150;
 
@@ -74,10 +78,10 @@
 
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
   <!-- Long lines wrap and the block shows in full: the conversation is the only scroller, so no scrollbar ever sits
-       over the code (WebKitGTK widens its overlay bars on hover). Copy keeps the original lines. -->
+       over the code (WebKitGTK widens its overlay bars on hover). Only a `capped` block scrolls inside itself. Copy keeps the original lines. -->
   {#if isDiff}
-    <pre class="py-3 font-mono text-[13px] leading-5 [overflow-wrap:anywhere] whitespace-pre-wrap text-fg"><code class="grid">{#each code.split('\n') as line, row (row)}{@const kind = diffKind(line)}<span class={cx('px-3.5', kind === 'hunk' && 'text-info', kind !== null && kind !== 'hunk' && `${DIFF_ROW[kind]} ${DIFF_TEXT[kind]}`)}>{line || ' '}</span>{/each}</code></pre>
+    <pre class={cx('py-3 font-mono text-[13px] leading-5 [overflow-wrap:anywhere] whitespace-pre-wrap text-fg', capped && CAP)} tabindex={capped ? 0 : undefined}><code class="grid">{#each code.split('\n') as line, row (row)}{@const kind = diffKind(line)}<span class={cx('px-3.5', kind === 'hunk' && 'text-info', kind !== null && kind !== 'hunk' && `${DIFF_ROW[kind]} ${DIFF_TEXT[kind]}`)}>{line || ' '}</span>{/each}</code></pre>
   {:else}
-  <pre class="px-3.5 py-3 font-mono text-[13px] leading-5 [overflow-wrap:anywhere] whitespace-pre-wrap text-fg"><code>{#if view}{#each view.lines as line, row (row)}{#each line as token, column (column)}<span style:color={token.color} class:font-semibold={token.bold} class:italic={token.italic}>{token.content}</span>{/each}{#if row < view.lines.length - 1}{'\n'}{/if}{/each}{view.tail}{:else}{code}{/if}</code></pre>
+  <pre class={cx('px-3.5 py-3 font-mono text-[13px] leading-5 [overflow-wrap:anywhere] whitespace-pre-wrap text-fg', capped && CAP)} tabindex={capped ? 0 : undefined}><code>{#if view}{#each view.lines as line, row (row)}{#each line as token, column (column)}<span style:color={token.color} class:font-semibold={token.bold} class:italic={token.italic}>{token.content}</span>{/each}{#if row < view.lines.length - 1}{'\n'}{/if}{/each}{view.tail}{:else}{code}{/if}</code></pre>
   {/if}
 </figure>

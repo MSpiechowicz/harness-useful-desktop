@@ -30,7 +30,7 @@
   let { editLabel, onedit, deleteLabel, ondelete, readOnly = false, onhide, hidden = false, children }: Props = $props();
 </script>
 
-<SectionCard flat heading={t('memory.panel.actions')}>
+<SectionCard flat heading={t('memory.panel.actions')} hint={t('memory.panel.actions.hint')}>
   <div class="flex flex-col items-start gap-3">
     {@render children?.()}
 

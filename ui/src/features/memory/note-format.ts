@@ -36,7 +36,7 @@ export function noteColumns(usefulness = false, authors = false): Column[] {
   return [
     { key: 'title', label: t('memory.notes.column.title'), sortable: true },
     { key: 'kind', label: t('memory.notes.column.kind'), width: '12rem', sortable: true },
-    { key: 'scope', label: t('memory.notes.column.scope'), width: '12rem', sortable: true },
+    { key: 'scope', label: t('memory.notes.column.scope'), width: COLUMN_WIDTH.project, sortable: true },
     { key: 'place', label: t('memory.notes.column.place'), width: '8rem', sortable: true },
     ...(usefulness ? useful : []),
     ...(authors ? [{ key: 'addedBy', label: t('memory.notes.column.addedBy'), width: COLUMN_WIDTH.author } satisfies Column] : []),

@@ -9,10 +9,13 @@
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
   import { knowledgeDocs } from '$lib/stores/knowledgeDocs.svelte';
-  import { knowledgeImport as flow } from '$lib/stores/knowledgeImport.svelte';
+  import { countsText, knowledgeImport as flow } from '$lib/stores/knowledgeImport.svelte';
   import { knowledgeRemote } from '$lib/stores/knowledgeRemote.svelte';
   import { knowledgeStatus } from '$lib/stores/knowledgeStatus.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
+  import { uid } from '$lib/utils/ids';
+  import { isFolderKey } from '$lib/utils/knowledge-local-path';
+  import { goesToTeam } from '$lib/utils/knowledge-match';
   import { choosesPlace, effectivePlace, usesBothPlaces } from '$lib/utils/knowledge-routing';
 
   import ImportDrop from './ImportDrop.svelte';
@@ -30,6 +33,12 @@
   const remote = $derived(knowledgeRemote.value);
   /** Where a document goes is chosen only while a kind of document reads Remote + this computer. */
   const choosing = $derived(remote !== null && remote.routingSupported && choosesPlace(remote.enabled, remote));
+
+  // The team database only takes documents linked to git projects. Whether a link to a project would go there depends on where the import goes, which the user may still change,
+  // and per file: one set to update a document is filed where that document is kept, the others where the import files new documents.
+  const toTeam = $derived(remote !== null && remote.enabled && goesToTeam(flow.rows, flow.choices, flow.landing, effectivePlace(remote, false, choosing ? flow.place : null)));
+  const blocked = $derived(toTeam && flow.links.some((link) => isFolderKey(link.repo)));
+  const blockedId = uid('knowledge-import-blocked');
 
   function start(): void {
     flow.place = choosing && remote ? effectivePlace(remote, flow.links.length === 0, flow.place) : null;
@@ -82,7 +91,7 @@
 
     const counts = flow.run.counts;
 
-    return counts === null ? t('knowledge.import.description.noCounts') : t('knowledge.import.toast.counts', { written: counts.added + counts.updated, failed: counts.failed });
+    return counts === null ? t('knowledge.import.description.noCounts') : countsText(counts);
   });
 </script>
 
@@ -94,9 +103,8 @@
     <div class="flex flex-col gap-5">
       <ImportStaged intake={flow.intake} />
 
-      <SectionCard flat heading={t('knowledge.import.links.heading')}>
-        <p class="mb-3 text-sm text-fg-3">{t('knowledge.import.links.help')}</p>
-        <LinksEditor links={flow.links} onchange={(next) => (flow.links = next)} {options} />
+      <SectionCard flat heading={t('knowledge.import.links.heading')} hint={t('knowledge.import.links.help')}>
+        <LinksEditor links={flow.links} onchange={(next) => (flow.links = next)} {options} team={toTeam} />
       </SectionCard>
 
       {#if choosing && remote}
@@ -117,8 +125,9 @@
       {#if running}
         <p class="text-sm text-fg-3">{t('knowledge.import.keepsRunning')}</p>
       {:else if flow.embeddingPending > 0}
-        <div class="flex flex-wrap items-center gap-3 rounded-md bg-info-wash px-3 py-2 text-sm text-fg" role="status">
-          <span class="min-w-0 flex-1">{tn('knowledge.embed.notice', flow.embeddingPending)}</span>
+        <!-- Grey text with its button under it, as every hint of the app: no coloured box (see DocMcpHint). -->
+        <div class="flex flex-col items-start gap-3" role="status">
+          <p class="text-sm text-fg-3">{tn('knowledge.embed.notice', flow.embeddingPending)}</p>
           <Button onclick={() => void flow.embedNow()}>{t('knowledge.embed.action')}</Button>
         </div>
       {/if}
@@ -130,9 +139,13 @@
       <Button variant="dangerQuiet" loading={flow.cancelling} onclick={() => void flow.cancel()}>{flow.cancelling ? t('knowledge.import.cancelling') : t('knowledge.import.cancel')}</Button>
       <Button onclick={() => flow.close()}>{t('common.close')}</Button>
     {:else if flow.phase === 'staged'}
-      {#if summary}<span class="mr-auto self-center text-sm text-fg-3" aria-live="polite">{summary}</span>{/if}
+      {#if blocked}
+        <span id={blockedId} class="mr-auto self-center text-sm text-fg-3" aria-live="polite">{t('knowledge.import.blocked')}</span>
+      {:else if summary}
+        <span class="mr-auto self-center text-sm text-fg-3" aria-live="polite">{summary}</span>
+      {/if}
       <Button disabled={flow.picking} onclick={() => void flow.pick('files')}>{t('knowledge.import.chooseOther')}</Button>
-      <Button variant="primary" onclick={start}>
+      <Button variant="primary" disabled={blocked} aria-describedby={blocked ? blockedId : undefined} onclick={start}>
         {#snippet leading()}<Play size={ICON.sm} aria-hidden="true" />{/snippet}
         {t('knowledge.import.start')}
       </Button>
