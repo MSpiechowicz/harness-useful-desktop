@@ -143,10 +143,7 @@ fn the_download_the_load_and_the_backfill_add_up_to_one_state() {
 
 #[test]
 fn a_model_reloaded_on_demand_after_idle_stays_ready() {
-    let mut tracker = tracker_after(&[
-        r#"{"event":"ready","model":"m1","dim":384}"#,
-        r#"{"event":"idle"}"#,
-    ]);
+    let mut tracker = tracker_after(&[r#"{"event":"ready","model":"m1","dim":384}"#, r#"{"event":"idle"}"#]);
 
     assert!(!tracker.apply(EmbedderEvent::Loading));
     assert_eq!(shown(&tracker), (EmbedderPhase::Ready, None));
