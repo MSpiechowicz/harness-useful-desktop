@@ -129,8 +129,8 @@
       {#if rich}
         {@render rich()}
       {:else if detail}
-        <span class="flex items-center gap-2 font-medium">{text}{#if shortcut}<Kbd keys={shortcut} />{/if}</span>
-        <span class="font-normal whitespace-pre-line text-fg-3">{detail}</span>
+        <span class="flex min-w-0 items-center gap-2 font-medium [overflow-wrap:anywhere]">{text}{#if shortcut}<Kbd keys={shortcut} />{/if}</span>
+        <span class="min-w-0 font-normal whitespace-pre-line text-fg-3 [overflow-wrap:anywhere]">{detail}</span>
       {:else}
         {text}
         {#if shortcut}<Kbd keys={shortcut} />{/if}
