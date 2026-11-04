@@ -1,3 +1,17 @@
+# [0.55.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.54.0...v0.55.0) (2026-11-04)
+
+
+### Bug Fixes
+
+* **memory:** build the code index on open on macOS too ([3fa9bdc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3fa9bdc601493bde74532b3a8401e833245150c8))
+* **memory:** keep vector search ready while the idle model reloads on demand ([f0c5e80](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f0c5e807c7e0f90bae651739377f9e1309847380))
+* **ui:** wrap long unbreakable text in two-line tooltips ([c4be20f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c4be20fe945490b7240472f1df0b677f36dabc71))
+
+
+### Features
+
+* **config:** change OMP model roles in place and edit thinking levels from the roles table ([6cd95a4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6cd95a420fe8c30dcd78dff097abc3e36a87db91))
+
 # [0.54.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.53.0...v0.54.0) (2026-11-04)
 
 
