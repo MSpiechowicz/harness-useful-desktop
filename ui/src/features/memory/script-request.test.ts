@@ -345,7 +345,7 @@ describe('script run request dialog', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(screen.queryByRole('dialog')).toBeNull();
-    await waitFor(() => expect(toasts.items).toMatchObject([{ title: 'The request to run deploy-check ended', tone: 'neutral' }]));
+    await waitFor(() => expect(toasts.items).toMatchObject([{ title: 'Request ended', description: expect.stringContaining('The request to run deploy-check ended.'), tone: 'neutral' }]));
   });
 
   it('cannot be run once the time is up', async () => {

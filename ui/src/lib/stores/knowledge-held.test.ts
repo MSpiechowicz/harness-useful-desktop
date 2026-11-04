@@ -72,7 +72,7 @@ describe('deciding about a proposal', () => {
     const { store } = deciding({ type: 'changed', message: 'revision moved' });
 
     expect(await store.decide(ITEM, 'approve')).toBe('stay');
-    expect(said()).toEqual(['warning: The proposal changed. Read the new version before you decide.']);
+    expect(said()).toEqual(['warning: Proposal changed']);
   });
 
   it('keeps a proposal the server refused and says the reason it gave', async () => {

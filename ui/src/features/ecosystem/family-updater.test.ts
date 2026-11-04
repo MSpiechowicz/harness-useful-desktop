@@ -98,8 +98,8 @@ describe('Harness family auto-update', () => {
 
     await updater.check();
 
-    expect(log).toEqual(['start:memory', 'end:memory', 'toast:Harness Memory updated to 1.1.0', 'updated:memory']);
-    expect(toasts[0].tone).toBe('success');
+    expect(log).toEqual(['start:memory', 'end:memory', 'toast:Harness Memory updated', 'updated:memory']);
+    expect(toasts[0]).toMatchObject({ tone: 'success', description: 'Now on version 1.1.0.' });
     expect(updated).toHaveBeenCalledWith('memory');
   });
 
@@ -108,7 +108,7 @@ describe('Harness family auto-update', () => {
 
     await updater.check();
 
-    expect(log).toEqual(['start:knowledge', 'end:knowledge', 'toast:Harness Knowledge updated to 1.1.0', 'updated:knowledge', 'start:code', 'end:code', 'toast:Harness Code updated to 1.1.0', 'updated:code']);
+    expect(log).toEqual(['start:knowledge', 'end:knowledge', 'toast:Harness Knowledge updated', 'updated:knowledge', 'start:code', 'end:code', 'toast:Harness Code updated', 'updated:code']);
     expect(updated).toHaveBeenCalledWith('code');
   });
 
@@ -119,8 +119,8 @@ describe('Harness family auto-update', () => {
     await reported.updater.check();
     await silent.updater.check();
 
-    expect(reported.toasts[0].title).toBe('Harness Dashboard updated to 1.2.3');
-    expect(silent.toasts[0].title).toBe('Harness Dashboard updated to 1.1.0');
+    expect(reported.toasts[0]).toMatchObject({ title: 'Harness Dashboard updated', description: 'Now on version 1.2.3.' });
+    expect(silent.toasts[0]).toMatchObject({ title: 'Harness Dashboard updated', description: 'Now on version 1.1.0.' });
   });
 
   it('never installs a member that is not installed', async () => {
@@ -215,7 +215,7 @@ describe('Harness family auto-update', () => {
 
     await updater.check();
 
-    expect(toasts.map((toast) => toast.title)).toEqual(['Harness Dashboard update failed', 'Harness Memory updated to 1.1.0']);
+    expect(toasts.map((toast) => toast.title)).toEqual(['Harness Dashboard update failed', 'Harness Memory updated']);
     expect(toasts[0].description).toBe('spawn failed');
     expect(log).toContain('start:memory');
   });
@@ -234,7 +234,7 @@ describe('Harness family auto-update', () => {
     await updater.check();
 
     expect(log.filter((entry) => entry.startsWith('start:'))).toEqual(['start:memory', 'start:memory']);
-    expect(log).toContain('toast:Harness Memory updated to 1.2.0');
+    expect(log).toContain('toast:Harness Memory updated');
   });
 
   it('skips quietly while the same member is already being installed, and tries again at the next reading', async () => {
@@ -258,7 +258,7 @@ describe('Harness family auto-update', () => {
     await updater.check();
 
     expect(log.filter((entry) => entry.startsWith('start:'))).toEqual(['start:memory', 'start:memory']);
-    expect(toasts.map((toast) => toast.title)).toEqual(['Harness Memory updated to 1.1.0']);
+    expect(toasts.map((toast) => toast.title)).toEqual(['Harness Memory updated']);
   });
 
   it('does not start a second run while one is going, and looks once more when it ends', async () => {
@@ -298,8 +298,8 @@ describe('Harness Code installed once for a Harness Memory without it', () => {
 
     await updater.check();
 
-    expect(log).toEqual(['claim', 'start:code', 'end:code', 'toast:Harness Code installed, so the code graph keeps working', 'updated:code']);
-    expect(toasts[0].tone).toBe('success');
+    expect(log).toEqual(['claim', 'start:code', 'end:code', 'toast:Harness Code installed', 'updated:code']);
+    expect(toasts[0]).toMatchObject({ tone: 'success', description: 'The code graph keeps working.' });
   });
 
   it('asks the backend once per launch and installs once, whatever the readings after it', async () => {

@@ -96,7 +96,7 @@ export const memoryEditor = {
   'memory.editor.script.changed.reload': 'Reload',
   'memory.editor.script.gone': 'This script no longer exists. It was deleted since you opened it.',
   'memory.editor.script.gone.close': 'Close',
-  'memory.editor.script.reload.failed': 'The script could not be read again',
+  'memory.editor.script.reload.failed': 'Could not reload the script',
   'memory.editor.script.toast.created': 'Script added',
   'memory.editor.script.toast.saved': 'Script saved',
   'memory.editor.script.toast.notTrusted.title': 'Script saved but not trusted',

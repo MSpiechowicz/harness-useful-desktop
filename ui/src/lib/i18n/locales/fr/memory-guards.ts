@@ -31,11 +31,11 @@ export const memoryGuards: AreaMessages<typeof enMemoryGuards> = {
   'memory.guards.ask.off': 'L’agent enregistre de lui-même',
   'memory.guards.check': 'Revérifier',
   'memory.guards.checking': 'Vérification…',
-  'memory.guards.check.failed': 'Impossible de demander à l’agent de vérifier',
+  'memory.guards.check.failed': 'Impossible de demander à l’agent',
   'memory.guards.pause': 'Mettre en pause',
   'memory.guards.resume': 'Reprendre',
   'memory.guards.pausedNote': 'Rien n’est enregistré dans cette conversation tant que vous ne reprenez pas. Les agents continuent de lire les notes et les scripts.',
-  'memory.guards.toast.failed': 'Impossible de modifier ce que les agents peuvent enregistrer',
+  'memory.guards.toast.failed': 'Impossible de modifier le réglage',
 
   'memory.guards.waiting.label': 'Enregistrements en attente de votre examen',
   'memory.guards.waiting.notes.one': '{count} note',

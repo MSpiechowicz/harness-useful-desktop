@@ -111,7 +111,7 @@
         open = true;
       } else if (scope.stay > 0) {
         // Only remote entries that cannot be deleted here are left: say so instead of asking about nothing.
-        toasts.push({ title: tn(STAY_TEXT[section].onlyTeam, scope.stay), tone: 'info' });
+        toasts.push({ title: t('memory.deleteAll.onlyTeamTitle'), description: tn(STAY_TEXT[section].stay, scope.stay), tone: 'info' });
       }
     } finally {
       asking = false;

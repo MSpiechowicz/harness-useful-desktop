@@ -199,7 +199,8 @@ export const extensions = {
   'extensions.dialog.close': 'Close',
   'extensions.dialog.cancel': 'Cancel',
 
-  'extensions.toast.chatsReloaded': 'Open chats were restarted to load the change',
+  'extensions.toast.chatsReloaded': 'Chats restarted',
+  'extensions.toast.chatsReloadedBody': 'Open chats were restarted to load the change.',
   'extensions.autoUpdate.installing': 'Installing extension updates',
   'extensions.autoUpdate.done': 'Extensions updated',
   'extensions.autoUpdate.failed': 'An extension update failed',

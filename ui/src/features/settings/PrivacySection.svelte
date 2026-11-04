@@ -31,7 +31,7 @@
     }
 
     if (project.recents.length === 0) {
-      toasts.push({ title: t('settings.privacy.recents.cleared'), tone: 'success' });
+      toasts.push({ title: t('settings.privacy.recents.cleared'), description: t('settings.privacy.recents.clearedBody'), tone: 'success' });
     }
   }
 

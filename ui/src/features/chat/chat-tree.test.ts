@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fixtures } from '$lib/ipc/mock/fixtures';
@@ -76,11 +76,41 @@ describe('chat tree', () => {
     expect(screen.queryByRole('textbox', { name: 'Chat name' })).toBeNull();
   });
 
-  it('closes an idle chat at once', async () => {
+  it('asks before closing an idle chat, so rows that move up under the pointer are not closed by a second click', async () => {
     const [first] = open();
     const stop = vi.spyOn(agentSessions, 'stop').mockResolvedValue();
 
     await fireEvent.click(screen.getAllByRole('button', { name: 'Close chat' })[0]);
+
+    expect(stop).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog', { name: 'Close this chat?' });
+    expect(dialog.textContent).toContain(`Closing ${agentSessions.title(first.key)} stops its agent.`);
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Close chat' }));
+
+    expect(stop).toHaveBeenCalledWith(first.key);
+    expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the chat open when the close is cancelled', async () => {
+    open();
+    const stop = vi.spyOn(agentSessions, 'stop').mockResolvedValue();
+
+    await fireEvent.click(screen.getAllByRole('button', { name: 'Close chat' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Close this chat?' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Keep open' }));
+
+    expect(stop).not.toHaveBeenCalled();
+  });
+
+  it('warns that a working chat loses the answer in progress', async () => {
+    const [first] = open();
+    first.streaming = true;
+    const stop = vi.spyOn(agentSessions, 'stop').mockResolvedValue();
+
+    await fireEvent.click(screen.getAllByRole('button', { name: 'Close chat' })[0]);
+    const dialog = await screen.findByRole('dialog', { name: 'Stop this chat?' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Stop chat' }));
 
     expect(stop).toHaveBeenCalledWith(first.key);
   });

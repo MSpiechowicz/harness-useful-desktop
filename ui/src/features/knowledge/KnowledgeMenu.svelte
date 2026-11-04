@@ -39,12 +39,12 @@
     viewState.knowledgePage = 0;
 
     if (done.deleted < done.total) {
-      toasts.push({ title: t('knowledge.deleteAll.partial', { deleted: done.deleted, total: done.total }), tone: 'warning' });
+      toasts.push({ title: t('knowledge.deleteAll.partial'), description: t('knowledge.deleteAll.partialBody', { deleted: done.deleted, total: done.total }), tone: 'warning' });
 
       return;
     }
 
-    toasts.push({ title: tn('knowledge.deleteAll.done', done.deleted), tone: 'success' });
+    toasts.push({ title: t('knowledge.deleteAll.done'), description: tn('knowledge.deleteAll.doneBody', done.deleted), tone: 'success' });
   }
 </script>
 

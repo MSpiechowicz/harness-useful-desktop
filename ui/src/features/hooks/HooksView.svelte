@@ -237,7 +237,7 @@
     if (created && hook) {
       toasts.push({ title: t('hooks.toast.added', { name: hookTitle(view) }), description: t('hooks.toast.runs', { when: t(EVENT_WHEN[hook.event]) }), tone: 'success' });
     } else if (hook) {
-      toasts.push({ title: t('hooks.toast.saved', { name: hookTitle(view) }), tone: 'success' });
+      toasts.push({ title: t('hooks.toast.saved'), description: t('hooks.toast.savedBody', { name: hookTitle(view) }), tone: 'success' });
     }
 
     viewState.hookId = view.id;

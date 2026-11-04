@@ -35,15 +35,33 @@ describe('decide', () => {
 
     expect(first).toMatchObject({
       action: 'push',
-      toast: { title: 'Building code graph for api…', description: '24 of 240 files', duration: 0 },
+      toast: { title: 'Building code graph', description: '24 of 240 files indexed in api.', duration: 0 },
     });
     expect(first.action === 'push' && first.toast.project).toBeUndefined();
   });
 
-  it('leaves the description out while the files are not counted yet', () => {
+  it('says what is going on while the files are not counted yet, so the toast still has a description', () => {
     const [first] = run([[build({ filesTotal: 0, filesDone: 0 }), 0]]);
 
-    expect(first.action === 'push' && first.toast.description).toBeUndefined();
+    expect(first.action === 'push' && first.toast.description).toBe('Counting the files of api.');
+  });
+
+  it('says the repository is indexed when it is ready without a file count', () => {
+    const [, ready] = run([
+      [build({ filesTotal: 0, filesDone: 0 }), 0],
+      [build({ phase: 'ready', filesTotal: 0, filesDone: 0 }), 1000],
+    ]);
+
+    expect(ready).toMatchObject({ toast: { title: 'Code graph ready', description: 'api is indexed.' } });
+  });
+
+  it('gives a failed build without a reason a description that says so', () => {
+    const [, failed] = run([
+      [build(), 0],
+      [build({ phase: 'error', error: null }), 1000],
+    ]);
+
+    expect(failed).toMatchObject({ toast: { title: 'Code graph could not be built', description: 'The indexer did not say why.' } });
   });
 
   it('updates the description as the same build goes on, and says nothing for the same event again', () => {
@@ -53,7 +71,7 @@ describe('decide', () => {
       [build({ filesDone: 72 }), 1500],
     ]);
 
-    expect(more).toMatchObject({ action: 'update', toast: { description: '72 of 240 files' } });
+    expect(more).toMatchObject({ action: 'update', toast: { description: '72 of 240 files indexed in api.' } });
     expect(again.action).toBe('none');
   });
 
@@ -63,7 +81,7 @@ describe('decide', () => {
       [build({ phase: 'ready', filesDone: 240 }), 1000],
     ]);
 
-    expect(ready).toMatchObject({ action: 'update', toast: { title: 'Code graph ready', tone: 'success', duration: 4000, description: '240 files indexed in api' } });
+    expect(ready).toMatchObject({ action: 'update', toast: { title: 'Code graph ready', tone: 'success', duration: 4000, description: '240 files indexed in api.' } });
   });
 
   it('says "1 file" for one file', () => {
@@ -72,7 +90,7 @@ describe('decide', () => {
       [build({ phase: 'ready', filesTotal: 1, filesDone: 1 }), 1000],
     ]);
 
-    expect(ready).toMatchObject({ toast: { title: 'Code graph ready', description: '1 file indexed in api' } });
+    expect(ready).toMatchObject({ toast: { title: 'Code graph ready', description: '1 file indexed in api.' } });
   });
 
   it('shows a failed build as a danger toast with the reason, that stays until dismissed', () => {
@@ -96,7 +114,7 @@ describe('decide', () => {
   it('shows a build that was done before the backend saw it as one short success toast', () => {
     const [lone] = run([[build({ phase: 'ready', filesDone: 240 }), 0]]);
 
-    expect(lone).toMatchObject({ action: 'push', toast: { title: 'Code graph ready', description: '240 files indexed in api', tone: 'success', duration: 4000 } });
+    expect(lone).toMatchObject({ action: 'push', toast: { title: 'Code graph ready', description: '240 files indexed in api.', tone: 'success', duration: 4000 } });
   });
 
   it('shows nothing for a stopped build it never saw', () => {
@@ -149,7 +167,7 @@ describe('decide', () => {
     ]);
 
     expect(decisions.map((each) => each.action)).toEqual(['push', 'dismiss', 'push', 'update', 'update']);
-    expect(decisions[2]).toMatchObject({ toast: { description: '48 of 240 files', duration: 0 } });
+    expect(decisions[2]).toMatchObject({ toast: { description: '48 of 240 files indexed in api.', duration: 0 } });
   });
 
   it('does not reopen a cancelled build', () => {
@@ -242,13 +260,13 @@ describe('the build toasts of the store', () => {
     expect(push).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledTimes(2);
     expect(notifications.items).toHaveLength(1);
-    expect(notifications.items[0]).toMatchObject({ description: '144 of 240 files', duration: 0 });
+    expect(notifications.items[0]).toMatchObject({ description: '144 of 240 files indexed in api.', duration: 0 });
 
     store.handle(build({ phase: 'ready', filesDone: 240 }));
 
     expect(push).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledTimes(3);
-    expect(notifications.items).toEqual([expect.objectContaining({ title: 'Code graph ready', tone: 'success', duration: 4000, description: '240 files indexed in api' })]);
+    expect(notifications.items).toEqual([expect.objectContaining({ title: 'Code graph ready', tone: 'success', duration: 4000, description: '240 files indexed in api.' })]);
   });
 
   it('keeps the toast of a build when the user changes project, and turns it ready', () => {
@@ -258,12 +276,12 @@ describe('the build toasts of the store', () => {
     notifications.leaveProjects('/work/other');
     store.handle(build({ filesDone: 120 }));
 
-    expect(notifications.items).toEqual([expect.objectContaining({ description: '120 of 240 files' })]);
+    expect(notifications.items).toEqual([expect.objectContaining({ description: '120 of 240 files indexed in api.' })]);
 
     notifications.leaveProjects(null);
     store.handle(build({ phase: 'ready', filesDone: 240 }));
 
-    expect(notifications.items).toEqual([expect.objectContaining({ title: 'Code graph ready', description: '240 files indexed in api', tone: 'success' })]);
+    expect(notifications.items).toEqual([expect.objectContaining({ title: 'Code graph ready', description: '240 files indexed in api.', tone: 'success' })]);
   });
 
   it('shows a build that writes again after going stale as one toast', () => {
@@ -276,7 +294,7 @@ describe('the build toasts of the store', () => {
     store.handle(build({ filesDone: 96 }));
     store.handle(build({ filesDone: 120 }));
 
-    expect(notifications.items).toEqual([expect.objectContaining({ description: '120 of 240 files' })]);
+    expect(notifications.items).toEqual([expect.objectContaining({ description: '120 of 240 files indexed in api.' })]);
   });
 
   it('removes the toast of a build that was cancelled', () => {

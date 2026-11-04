@@ -1,9 +1,11 @@
 <script lang="ts">
   import HighlightedText from '$lib/components/HighlightedText.svelte';
+  import { ipc } from '$lib/ipc/client';
   import { matchIndices } from '$lib/components/config-tree';
   import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
+  import { HarnessModels } from '../routines/harness-models.svelte';
   import RolePicker from './RolePicker.svelte';
   import type { RoleEditing } from './role-edit';
   import { meterBars, METER_SIZE, type RoleRow } from './structured';
@@ -20,15 +22,18 @@
 
   let { rows, editing, label, needle = '' }: Props = $props();
 
+  // The models the harness offers, asked once while the table is shown and shared by every row's picker.
+  const catalog = new HarnessModels(ipc);
   const BAR_HEIGHTS = ['h-[4px]', 'h-[7px]', 'h-[10px]', 'h-[12px]'];
   // The models the roles already use, offered when mapping or changing one.
   const inUse = $derived([...new Set(rows.map((row) => row.text))]);
   // Change and Map share one right-aligned actions column.
   const actions = $derived(Boolean(editing?.change || editing?.map));
   // One height for every row, a mapped one, one with a Change button and one with a Map button, so none of them moves the table.
-  // The rule above a row is a shadow, not a border: a border would add to the height of the rows that hold a button.
+  // It leaves a gap around the button, which never touches the rules. The rule above a row is a shadow, not a border: a
+  // border would add to the height of the rows that hold a button.
   const ROW_CLASS = '[&>*]:shadow-[inset_0_1px_0_0_var(--color-line)]';
-  const ROLE_CLASS = 'h-control truncate pr-3 text-left font-normal text-fg-2';
+  const ROLE_CLASS = 'h-row-action truncate pr-3 text-left font-normal text-fg-2';
   const HEAD_CLASS = 'h-[24px] text-left text-[11px] leading-[16px] font-medium tracking-wide text-fg-3 uppercase';
 </script>
 
@@ -73,7 +78,7 @@
           <td>
             {#if editing?.change}
               <div class="flex justify-end">
-                <RolePicker kind="change" role={row.role} rules={editing.rules} current={row.text} suggestions={inUse} onpick={editing.change} />
+                <RolePicker kind="change" role={row.role} harness={editing.harness} {catalog} rules={editing.rules} current={row.text} suggestions={inUse} onpick={editing.change} />
               </div>
             {/if}
           </td>
@@ -93,7 +98,7 @@
           <td>
             {#if editing?.map}
               <div class="flex justify-end">
-                <RolePicker kind="map" role={item.role} rules={editing.rules} suggestions={inUse} onpick={editing.map} />
+                <RolePicker kind="map" role={item.role} harness={editing.harness} {catalog} rules={editing.rules} suggestions={inUse} onpick={editing.map} />
               </div>
             {/if}
           </td>

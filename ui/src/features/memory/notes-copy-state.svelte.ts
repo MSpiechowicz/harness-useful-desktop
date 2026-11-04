@@ -251,8 +251,8 @@ export class NotesCopyFlow {
     const text = COPY_TEXT[this.kind];
 
     toasts.push({
-      title: tn(text.toastDone, copiedCount(result)),
-      description: stays > 0 ? tn(text.toastStays, stays) : undefined,
+      title: t(text.toastDone),
+      description: [tn(text.toastDoneBody, copiedCount(result)), stays > 0 ? tn(text.toastStays, stays) : ''].filter(Boolean).join(' '),
       tone: result.failed.length > 0 ? 'warning' : 'success',
     });
   }

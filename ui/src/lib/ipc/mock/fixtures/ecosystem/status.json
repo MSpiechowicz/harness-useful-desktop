@@ -22,7 +22,7 @@
         }
       ],
       "notes": [
-        "Data comes from the local process `harness-dashboard mcp`; nothing is sent over the network.",
+        "Data comes from the local process `harness-dashboard mcp`. Nothing is sent over the network.",
         "Run `harness-dashboard` now and then so its database stays current."
       ]
     },
@@ -48,7 +48,7 @@
         }
       ],
       "notes": [
-        "Runs locally as `harness-memory mcp`; nothing is sent over the network.",
+        "Runs locally as `harness-memory mcp`. Nothing is sent over the network.",
         "Turn it on or off for every harness in Settings, under Project memory."
       ]
     },

@@ -49,7 +49,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.aiNames.off': 'Wyłączone: nazwą są pierwsze wpisane słowa i nic nie jest wysyłane.',
 
   'settings.motion.title': 'Animacje',
-  'settings.motion.description': 'Ograniczone zostawia proste zanikanie; Wyłączone wyłącza wszystkie animacje. Ustawienie ograniczenia ruchu w systemie zawsze ma pierwszeństwo.',
+  'settings.motion.description': 'Ograniczone zostawia proste zanikanie. Wyłączone wyłącza wszystkie animacje. Ustawienie ograniczenia ruchu w systemie zawsze ma pierwszeństwo.',
   'settings.motion.full': 'Pełne',
   'settings.motion.reduced': 'Ograniczone',
   'settings.motion.off': 'Wyłączone',
@@ -59,7 +59,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.sound.title': 'Dźwięk intro',
   'settings.sound.description': 'Dźwięk logo podczas intro. Nie jest odtwarzany, gdy intro jest wyłączone lub pominięte.',
   'settings.replay.title': 'Odtwórz intro ponownie',
-  'settings.replay.motionOff': 'Animacje są wyłączone; włącz je, aby odtworzyć intro ponownie.',
+  'settings.replay.motionOff': 'Animacje są wyłączone. Włącz je, aby odtworzyć intro ponownie.',
   'settings.replay.ready': 'Obejrzyj je jeszcze raz.',
 
   'settings.harness.binary': 'Plik wykonywalny {name}',
@@ -206,12 +206,12 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Wartości konfiguracji wyglądające na sekrety są ukryte: klucze API i tokeny, zmienne środowiskowe i nagłówki serwerów MCP, pola uwierzytelniania i OAuth, wartości !command (nigdy nie uruchamiane) oraz dane logowania w adresach URL. Odwołania do środowiska, takie jak $NAME, pokazują tylko nazwę. Komunikaty błędów agentów i wyjście powłoki są zamazywane, zanim trafią na ekran.',
   'settings.privacy.network.title': 'Sieć',
   'settings.privacy.network.text':
-    'Sama aplikacja wysyła trzy rodzaje zapytań. Dwa idą do GitHuba i oba można wyłączyć. Sprawdzanie aktualizacji pobiera plik wydania latest.json; dzieje się to tylko wtedy, gdy ta kompilacja ma klucz aktualizacji, i zależy od Twojego ustawienia aktualizacji. Sprawdzanie rodziny Harness pyta GitHuba o numer najnowszego wydania Harness Dashboard, Skills, Memory i Sidebar po otwarciu Ecosystem, najwyżej co sześć godzin, gdy aplikacja działa (nieudane sprawdzenie jest ponawiane po kilku minutach). Zawsze pyta o wszystkie cztery, więc nie zdradza, których używasz; GitHub widzi tylko Twój adres IP i wersję aplikacji. Trzecie to git rozmawiający ze zdalnymi repozytoriami Twojego projektu: otwarty projekt jest pobierany w tle co pięć minut, gdy okno jest widoczne (wyłączysz to w Ustawieniach, w sekcji Projekty), a push lub pull zdarza się tylko po kliknięciu. Pobieranie w tle nigdy nie pyta o hasło ani o klucz hosta. Linki otwierają się w przeglądarce tylko po kliknięciu i tylko dla stron projektów i harnessów, chyba że poniżej zezwolisz na każdy link https. Widżety Harness Dashboard korzystają z lokalnego procesu przez stdio, bez sieci. CLI harnessów łączą się z ich dostawcami tak jak w Twoim terminalu, a akcje rozszerzeń uruchamiają CLI, które może pobierać pakiety, dopiero po Twoim potwierdzeniu.',
+    'Sama aplikacja wysyła trzy rodzaje zapytań. Dwa idą do GitHuba i oba można wyłączyć. Sprawdzanie aktualizacji pobiera plik wydania latest.json. Dzieje się to tylko wtedy, gdy ta kompilacja ma klucz aktualizacji, i zależy od Twojego ustawienia aktualizacji. Sprawdzanie rodziny Harness pyta GitHuba o numer najnowszego wydania Harness Dashboard, Skills, Memory i Sidebar po otwarciu Ecosystem, najwyżej co sześć godzin, gdy aplikacja działa (nieudane sprawdzenie jest ponawiane po kilku minutach). Zawsze pyta o wszystkie cztery, więc nie zdradza, których używasz. GitHub widzi tylko Twój adres IP i wersję aplikacji. Trzecie to git rozmawiający ze zdalnymi repozytoriami Twojego projektu: otwarty projekt jest pobierany w tle co pięć minut, gdy okno jest widoczne (wyłączysz to w Ustawieniach, w sekcji Projekty), a push lub pull zdarza się tylko po kliknięciu. Pobieranie w tle nigdy nie pyta o hasło ani o klucz hosta. Linki otwierają się w przeglądarce tylko po kliknięciu i tylko dla stron projektów i harnessów, chyba że poniżej zezwolisz na każdy link https. Widżety Harness Dashboard korzystają z lokalnego procesu przez stdio, bez sieci. CLI harnessów łączą się z ich dostawcami tak jak w Twoim terminalu, a akcje rozszerzeń uruchamiają CLI, które może pobierać pakiety, dopiero po Twoim potwierdzeniu.',
   'settings.privacy.telemetry.title': 'Bez telemetrii',
   'settings.privacy.telemetry.text': 'Bez analityki, bez śledzenia, bez kont, bez logowania.',
   'settings.privacy.agents.title': 'Agenci',
   'settings.privacy.agents.text':
-    'Agenci działają na Twoim komputerze, z Twoim środowiskiem i konfiguracją. Harness Desktop nigdy nie zmienia ustawień Twojego harnessa; wybór zatwierdzania dla czatu dotyczy tylko tego czatu, a aktywny tryb widać w nagłówku czatu, jeśli harness go ma. Polecenia powłoki z pola wiadomości zawsze wymagają potwierdzenia. Ta aplikacja niczego nie wysyła.',
+    'Agenci działają na Twoim komputerze, z Twoim środowiskiem i konfiguracją. Harness Desktop nigdy nie zmienia ustawień Twojego harnessa. Wybór zatwierdzania dla czatu dotyczy tylko tego czatu, a aktywny tryb widać w nagłówku czatu, jeśli harness go ma. Polecenia powłoki z pola wiadomości zawsze wymagają potwierdzenia. Ta aplikacja niczego nie wysyła.',
   'settings.privacy.git.title': 'Git',
   'settings.privacy.git.text':
     'Git działa z wyłączonymi pagerami, zewnętrznymi programami diff i monitorami systemu plików oraz z wyłączonymi pytaniami o dane logowania. Widok Zmiany tylko czyta (status, diff, lista gałęzi). Menu gałęzi dodatkowo pobiera zmiany w tle i zmienia Twoje repozytorium tylko po kliknięciu: push, publikacja, pull, rebase, merge, przerwanie, kontynuacja, przełączenie, nowa gałąź i stash. Hooki Twojego repozytorium działają przy tych akcjach tak jak w terminalu. Teksty błędów są zamazywane, zanim je pokażemy.',
@@ -229,6 +229,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.privacy.recents.confirmDescription': 'Każdy zapamiętany folder zostanie zapomniany. Jeśli otwarty projekt jest na liście, zostanie też zamknięty. Twoje pliki nie są ruszane.',
   'settings.privacy.recents.confirmLabel': 'Wyczyść listę',
   'settings.privacy.recents.cleared': 'Wyczyszczono ostatnie projekty',
+  'settings.privacy.recents.clearedBody': 'Każdy zapamiętany folder został zapomniany. Twoje pliki nie są ruszane.',
   'settings.privacy.diagnostics.title': 'Diagnostyka',
   'settings.privacy.diagnostics.description': 'Kopiuje wersję aplikacji, systemu i harnessów do zgłoszenia błędu. Bez ścieżek, projektów i treści.',
   'settings.privacy.diagnostics.copy': 'Kopiuj diagnostykę',

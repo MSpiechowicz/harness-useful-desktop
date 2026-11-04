@@ -8,7 +8,12 @@ export interface SelectorRules {
   invalid: MessageKey;
   /** Values every file takes besides a model, offered as suggestions. */
   aliases: readonly string[];
+  /** How a model the harness offers is written in a role row. */
+  selectorOf: (model: { provider: string; id: string }) => string;
 }
+
+const withProvider = (model: { provider: string; id: string }): string => `${model.provider}/${model.id}`;
+const bareId = (model: { provider: string; id: string }): string => model.id;
 
 const CLAUDE_MODEL = /^(inherit|opus|sonnet|haiku|fable|claude-[a-z0-9][a-z0-9.-]{0,80})$/;
 const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
@@ -54,24 +59,28 @@ const RULES: Partial<Record<HarnessId, SelectorRules>> = {
     placeholder: 'components.configView.roles.placeholderOmp',
     invalid: 'components.configView.roles.invalidOmp',
     aliases: [],
+    selectorOf: withProvider,
   },
   claude: {
     isValid: isClaude,
     placeholder: 'components.configView.roles.placeholderClaude',
     invalid: 'components.configView.roles.invalidClaude',
     aliases: ['opus', 'sonnet', 'haiku', 'fable', 'inherit'],
+    selectorOf: bareId,
   },
   opencode: {
     isValid: isOpenCode,
     placeholder: 'components.configView.roles.placeholderOpenCode',
     invalid: 'components.configView.roles.invalidOpenCode',
     aliases: ['inherit'],
+    selectorOf: withProvider,
   },
   codex: {
     isValid: isCodex,
     placeholder: 'components.configView.roles.placeholderCodex',
     invalid: 'components.configView.roles.invalidCodex',
     aliases: ['inherit'],
+    selectorOf: bareId,
   },
 };
 

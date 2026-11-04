@@ -22,14 +22,19 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.hero.looking': 'Suche nach der Harness-Familie…',
   'ecosystem.setup.run': 'Empfohlene Einrichtung ausführen',
 
-  'ecosystem.autoUpdate.done': '{name} auf {version} aktualisiert',
+  'ecosystem.autoUpdate.done': '{name} aktualisiert',
+  'ecosystem.autoUpdate.doneBody': 'Jetzt auf Version {version}.',
+  'ecosystem.autoUpdate.doneBodyLatest': 'Jetzt auf der neuesten Version.',
   'ecosystem.autoUpdate.failed': 'Aktualisierung von {name} fehlgeschlagen',
   'ecosystem.autoUpdate.noReason': 'Der Installer hat keinen Grund genannt.',
-  'ecosystem.autoInstall.done': '{name} installiert, damit der Code-Graph weiter funktioniert',
+  'ecosystem.autoInstall.done': '{name} installiert',
+  'ecosystem.autoInstall.doneBody': 'Der Code-Graph funktioniert weiter.',
   'ecosystem.autoInstall.failed': 'Installation von {name} fehlgeschlagen',
 
-  'ecosystem.skillsMigration.done': 'Harness Skills in {harnesses} umbenannt',
-  'ecosystem.skillsMigration.failed': 'Harness Skills konnten in {harnesses} nicht umbenannt werden',
+  'ecosystem.skillsMigration.done': 'Harness Skills umbenannt',
+  'ecosystem.skillsMigration.doneBody': 'Umbenannt in {harnesses}.',
+  'ecosystem.skillsMigration.failed': 'Harness Skills nicht umbenannt',
+  'ecosystem.skillsMigration.partial': 'Harness Skills teilweise umbenannt',
   'ecosystem.skillsMigration.reason': '{harness}: {reason}',
   'ecosystem.skillsMigration.noReason': 'Der Installer hat keinen Grund genannt.',
 
@@ -209,7 +214,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.tips.showFewer': 'Weniger anzeigen',
   'ecosystem.tips.showAll': 'Alle {count} anzeigen',
 
-  'ecosystem.chart.donut': '{label}: {total} {caption}; {summary}',
+  'ecosystem.chart.donut': '{label}: {total} {caption}. {summary}',
   'ecosystem.chart.segment': '{label} {value} ({share})',
   'ecosystem.chart.waffle': '{label}: {summary}',
   'ecosystem.chart.share': '{label} {share}',
@@ -228,14 +233,14 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.dashboard.tagline': 'Token-Nutzung all deiner KI-Coding-Tools, in einer lokalen App.',
   'ecosystem.product.dashboard.description':
     'Liest die Sitzungen, die Claude Code, Codex, OMP, PI und andere Agenten auf die Festplatte schreiben, und zeigt Kosten, Tokens, Plan-Limits und Budgets. Die App liest sie über ihren lokalen, schreibgeschützten MCP-Server.',
-  'ecosystem.product.dashboard.note.0': 'Die Daten kommen vom lokalen Prozess `harness-dashboard mcp`; es wird nichts über das Netzwerk gesendet.',
+  'ecosystem.product.dashboard.note.0': 'Die Daten kommen vom lokalen Prozess `harness-dashboard mcp`. Es wird nichts über das Netzwerk gesendet.',
   'ecosystem.product.dashboard.note.1': 'Starte `harness-dashboard` ab und zu, damit seine Datenbank aktuell bleibt.',
   'ecosystem.product.dashboard.step.0.title': 'Das Programm installieren',
 
   'ecosystem.product.memory.tagline': 'Ein Projektgedächtnis für jeden Coding-Agenten, auf diesem Rechner gespeichert.',
   'ecosystem.product.memory.description':
     'Ein lokaler MCP-Server, der pro Projekt Notizen und ihre Zusammenhänge festhält, damit der nächste Agent findet, was der vorige gelernt hat. Die App trägt ihn in jedes erkannte Harness ein, solange das Projektgedächtnis aktiv ist, und fügt passende Notizen zur ersten Nachricht eines neuen Chats hinzu.',
-  'ecosystem.product.memory.note.0': 'Läuft lokal als `harness-memory mcp`; es wird nichts über das Netzwerk gesendet.',
+  'ecosystem.product.memory.note.0': 'Läuft lokal als `harness-memory mcp`. Es wird nichts über das Netzwerk gesendet.',
   'ecosystem.product.memory.note.1': 'Schalte es für alle Harnesses in den Einstellungen unter Projektgedächtnis ein oder aus.',
   'ecosystem.product.memory.step.0.title': 'Das Programm installieren',
 

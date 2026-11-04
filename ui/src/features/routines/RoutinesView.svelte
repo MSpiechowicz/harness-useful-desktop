@@ -223,7 +223,7 @@
     if (created && routine) {
       toasts.push({ title: t('routines.toast.added', { name: routineTitle(view) }), description: t('routines.panel.status.active', { when: whenText(routine.when) }), tone: 'success' });
     } else if (routine) {
-      toasts.push({ title: t('routines.toast.saved', { name: routineTitle(view) }), tone: 'success' });
+      toasts.push({ title: t('routines.toast.saved'), description: t('routines.toast.savedBody', { name: routineTitle(view) }), tone: 'success' });
     }
 
     viewState.routineId = viewKey(view);

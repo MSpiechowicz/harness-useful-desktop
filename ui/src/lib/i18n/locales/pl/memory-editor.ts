@@ -101,7 +101,7 @@ export const memoryEditor: AreaMessages<typeof enMemoryEditor> = {
   'memory.editor.script.changed.reload': 'Wczytaj ponownie',
   'memory.editor.script.gone': 'Ten skrypt już nie istnieje. Został usunięty od otwarcia edytora.',
   'memory.editor.script.gone.close': 'Zamknij',
-  'memory.editor.script.reload.failed': 'Nie udało się ponownie wczytać skryptu',
+  'memory.editor.script.reload.failed': 'Nie udało się wczytać skryptu',
   'memory.editor.script.toast.created': 'Dodano skrypt',
   'memory.editor.script.toast.saved': 'Zapisano skrypt',
   'memory.editor.script.toast.notTrusted.title': 'Zapisano skrypt, ale nie jest zaufany',

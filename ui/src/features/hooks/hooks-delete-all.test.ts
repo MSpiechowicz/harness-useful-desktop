@@ -38,7 +38,7 @@ describe('deleting all hooks', () => {
     expect(calls(invoke, 'hooks_delete_all')).toEqual([{ project: PROJECT }]);
     expect(viewState.hookId).toBeNull();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(toasts.items.at(-1)).toMatchObject({ title: '4 hooks deleted', tone: 'success' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Hooks deleted', description: '4 hooks deleted.', tone: 'success' });
   });
 
   it('keeps everything when it is cancelled', async () => {

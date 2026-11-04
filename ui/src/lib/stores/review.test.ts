@@ -56,7 +56,7 @@ describe('pending comments', () => {
 
     expect(review.add(PROJECT, COMMENT)).toBe(false);
     expect(review.commentsFor(PROJECT)).toHaveLength(MAX_COMMENTS);
-    expect(notifications.items.at(-1)?.title).toContain('at most');
+    expect(notifications.items.at(-1)).toMatchObject({ title: 'Comment limit reached', description: expect.stringContaining('at most') });
   });
 
   it('builds the request grouped by file in a stable order, without ids', () => {

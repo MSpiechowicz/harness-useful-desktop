@@ -8,7 +8,8 @@ import { toasts } from './toasts.svelte';
 export interface DocOutcome {
   /** The toast title of a failure: "Could not delete the hook". The reason the backend gave is its description. */
   failed: MessageKey;
-  /** The toast of a conflict: someone (an agent) rewrote the file since the user looked. */
+  /** The toast of a conflict: someone (an agent) rewrote the file since the user looked. Its title is short, `conflict` and `conflictHint` make its description. */
+  conflictTitle: MessageKey;
   conflict: MessageKey;
   conflictHint: MessageKey;
   /** Reads the list again, whatever happened. */
@@ -31,7 +32,7 @@ export class DocBusy {
       const cause = IpcFailure.from(error);
 
       if (cause.code === 'conflict') {
-        toasts.push({ title: t(outcome.conflict), description: t(outcome.conflictHint), tone: 'warning' });
+        toasts.push({ title: t(outcome.conflictTitle), description: `${t(outcome.conflict)} ${t(outcome.conflictHint)}`, tone: 'warning' });
       } else {
         toasts.push({ title: t(outcome.failed), description: cause.message, tone: 'danger' });
       }

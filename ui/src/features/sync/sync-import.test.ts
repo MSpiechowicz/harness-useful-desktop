@@ -197,7 +197,7 @@ describe('Import', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Import finished' });
 
-    expect(within(dialog).getByText('Some items were not set up. What worked stays; nothing is rolled back.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Some items were not set up. What worked stays. Nothing is rolled back.')).toBeInTheDocument();
     expect(within(dialog).getByText('Failed')).toBeInTheDocument();
     expect(within(dialog).getByText('Could not clone the repository: exit code 128.')).toBeInTheDocument();
     expect(within(dialog).getByText('omp plugin marketplace add MSpiechowicz/harness-useful-skills')).toBeInTheDocument();
@@ -304,7 +304,7 @@ describe('Import', () => {
       expect(row.getByText('Conflict')).toBeInTheDocument();
       expect(row.getByText('Something with this name but a different definition exists here. It is left alone.')).toBeInTheDocument();
       expect(within(dialog).queryByText('Failed')).not.toBeInTheDocument();
-      expect(within(dialog).getByText('Some items were not set up. What worked stays; nothing is rolled back.')).toBeInTheDocument();
+      expect(within(dialog).getByText('Some items were not set up. What worked stays. Nothing is rolled back.')).toBeInTheDocument();
     });
 
     it('says a config file could not be read on the review row instead of calling it a different definition', async () => {

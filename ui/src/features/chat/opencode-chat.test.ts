@@ -181,7 +181,7 @@ describe('the /agent command', () => {
     await runSlash(session, { type: 'gui', target: 'agentPicker' });
 
     expect(session.ui.agentPicker).toBe(false);
-    expect(toasts.items.at(-1)).toMatchObject({ title: 'The agent can be switched once the current reply is done' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Agent locked', description: 'The agent can be switched once the current reply is done.' });
   });
 
   it('says it is not available in a chat without an agent picker', async () => {
@@ -190,7 +190,7 @@ describe('the /agent command', () => {
     await runSlash(session, { type: 'gui', target: 'agentPicker' });
 
     expect(session.ui.agentPicker).toBe(false);
-    expect(toasts.items.at(-1)).toMatchObject({ title: 'Not available in the desktop app' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Not available', description: 'This chat has no agent picker.' });
   });
 });
 

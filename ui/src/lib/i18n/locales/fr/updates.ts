@@ -12,7 +12,7 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.progress.of': '{downloaded} sur {total}',
 
   'updates.failure.network.check': 'Impossible de joindre le serveur de mises à jour. Vérifiez votre connexion et réessayez.',
-  'updates.failure.network.install': 'Le téléchargement a été interrompu. Rien n’a été modifié ; réessayez.',
+  'updates.failure.network.install': 'Le téléchargement a été interrompu. Rien n’a été modifié. Réessayez.',
   'updates.failure.verification': 'La mise à jour n’a pas pu être vérifiée et n’a pas été installée.',
   'updates.failure.manifest': 'Les informations de mise à jour étaient incomplètes ou ne contiennent rien pour ce système. Réessayez plus tard.',
   'updates.failure.installer': 'Le programme d’installation ne s’est pas terminé, ou la demande d’autorisation a été annulée. Rien n’a été modifié.',

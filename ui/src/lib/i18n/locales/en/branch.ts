@@ -62,7 +62,8 @@ export const branch = {
   'branch.conflict.outside': 'Outside this project folder',
   'branch.conflict.ask': 'Ask {harness}',
   'branch.conflict.askHint': 'Sends the conflicts to this chat',
-  'branch.conflict.askFailed': 'Couldn’t send to {harness}',
+  'branch.conflict.askFailed': 'Couldn’t send',
+  'branch.conflict.askFailedBody': 'The conflicts did not reach {harness}. Try asking again.',
   'branch.conflict.abort.rebase': 'Abort rebase',
   'branch.conflict.abort.merge': 'Abort merge',
   'branch.conflict.continue.rebase': 'Continue rebase',
@@ -117,6 +118,7 @@ export const branch = {
   'branch.note.pulled.detail.one': '{count} new commit came in',
   'branch.note.pulled.detail.other': '{count} new commits came in',
   'branch.note.stashDropped': 'Copy dropped',
+  'branch.note.stashDroppedBody': 'The copy of your changes in the stash is gone. The changes in your files stay as they are.',
 
   'branch.failed.push': 'Couldn’t push',
   'branch.failed.publish': 'Couldn’t publish the branch',

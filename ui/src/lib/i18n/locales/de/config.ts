@@ -38,6 +38,7 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.collapseAll': 'Alle einklappen',
   'config.menu.expandAll': 'Alle ausklappen',
   'config.menu.copyPath': 'Pfad kopieren',
+  'config.menu.pathCopied': 'Der Dateipfad liegt in der Zwischenablage.',
 
   'config.overview.title': 'Überblick',
   'config.overview.entries': 'Einträge auf oberster Ebene',

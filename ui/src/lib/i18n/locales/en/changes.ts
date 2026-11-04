@@ -126,8 +126,8 @@ export const changes = {
   'changes.send.cancel': 'Cancel',
   'changes.send.submit': 'Send to agent',
 
-  'changes.toast.limit.title': 'A review holds at most {max} comments',
-  'changes.toast.limit.description': 'Send or discard the current ones first.',
+  'changes.toast.limit.title': 'Comment limit reached',
+  'changes.toast.limit.description': 'A review holds at most {max} comments. Send or discard the current ones first.',
   'changes.toast.closed.title': 'That chat is no longer open',
   'changes.toast.closed.description': 'Pick another chat, or start a new one.',
 } satisfies Record<string, string>;

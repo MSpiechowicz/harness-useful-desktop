@@ -79,10 +79,10 @@ describe('Changing the model of a Harness Skills role', () => {
     await openChange(table, 'research');
 
     for (const name of ['opus', 'sonnet', 'haiku', 'fable', 'inherit', 'claude-haiku-5-5:high']) {
-      expect(screen.getByRole('menuitemradio', { name })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
 
-    await fireEvent.click(screen.getByRole('menuitemradio', { name: 'haiku' }));
+    await fireEvent.click(screen.getByRole('button', { name: 'haiku' }));
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('skills_set_role', { harness: 'claude', scope: 'user', project: null, role: 'research', selector: 'haiku' }));
     await waitFor(() => expect(within(rowOf(table, 'research')).getByText('haiku')).toBeInTheDocument());

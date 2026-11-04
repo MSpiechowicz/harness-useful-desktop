@@ -123,7 +123,7 @@ const PLUGIN_CHANGES = new Set(['pluginInstall', 'pluginUpgrade', 'pluginUninsta
 /** Restarts the harness's idle chats so they load changed plugins, and says so when any were. */
 export async function reloadChatsAfterPluginChange(harness: HarnessId): Promise<void> {
   if ((await agentSessions.reloadIdle(harness)) > 0) {
-    toasts.push({ title: t('extensions.toast.chatsReloaded'), tone: 'info' });
+    toasts.push({ title: t('extensions.toast.chatsReloaded'), description: t('extensions.toast.chatsReloadedBody'), tone: 'info' });
   }
 }
 

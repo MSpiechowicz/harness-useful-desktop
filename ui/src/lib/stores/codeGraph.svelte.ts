@@ -50,25 +50,33 @@ function number(count: number): string {
   return new Intl.NumberFormat(i18n.locale).format(count);
 }
 
-/** "12 of 240 files". Nothing while the files are not counted yet: there is no number to show. */
-function progressText(event: CodeBuildEvent): string | undefined {
-  return event.filesTotal > 0 ? tn('shell.toast.codeGraph.progress', event.filesTotal, { done: number(event.filesDone) }) : undefined;
+/** "12 of 240 files of api are indexed." While the files are not counted yet there is no number to show, so the line says what is going on. */
+function progressText(event: CodeBuildEvent): string {
+  if (event.filesTotal <= 0) {
+    return t('shell.toast.codeGraph.counting', { repo: event.repoName });
+  }
+
+  return tn('shell.toast.codeGraph.progress', event.filesTotal, { done: number(event.filesDone), repo: event.repoName });
 }
 
-/** "25 files indexed in my-repo". Nothing while the files are not counted: there is no number to show. */
-function readyText(event: CodeBuildEvent): string | undefined {
-  return event.filesTotal > 0 ? tn('shell.toast.codeGraph.indexed', event.filesTotal, { repo: event.repoName }) : undefined;
+/** "25 files indexed in my-repo." Without a file count the line only says the repository is indexed. */
+function readyText(event: CodeBuildEvent): string {
+  if (event.filesTotal <= 0) {
+    return t('shell.toast.codeGraph.indexedNone', { repo: event.repoName });
+  }
+
+  return tn('shell.toast.codeGraph.indexed', event.filesTotal, { repo: event.repoName });
 }
 
 /** The toast a build is shown as in its phase, or null for a phase that has none (the build is dropped). */
 function shownAs(event: CodeBuildEvent): ToastInput | null {
   switch (event.phase) {
     case 'building':
-      return { title: t('shell.toast.codeGraph.building', { repo: event.repoName }), description: progressText(event), duration: 0 };
+      return { title: t('shell.toast.codeGraph.building'), description: progressText(event), duration: 0 };
     case 'ready':
       return { title: t('shell.toast.codeGraph.readyPlain'), description: readyText(event), tone: 'success', duration: READY_TOAST_MS };
     case 'error':
-      return { title: t('shell.toast.codeGraph.error'), description: event.error ?? undefined, tone: 'danger', duration: 0 };
+      return { title: t('shell.toast.codeGraph.error'), description: event.error || t('shell.toast.codeGraph.errorUnknown'), tone: 'danger', duration: 0 };
     default:
       return null;
   }
@@ -130,8 +138,8 @@ function goOn(event: CodeBuildEvent, state: BuildToastState, now: number): Build
 
   const finished = event.phase !== 'building';
 
-  // The same toast changes in place: what a phase does not say is cleared, so no text of an earlier phase stays.
-  return { action: 'update', toast: { description: undefined, ...toast }, state: remember(state, event, finished ? 'closed' : 'open', now, true) };
+  // The same toast changes in place: every phase brings its own title and description, so no text of an earlier phase stays.
+  return { action: 'update', toast, state: remember(state, event, finished ? 'closed' : 'open', now, true) };
 }
 
 /**

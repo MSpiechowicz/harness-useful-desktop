@@ -68,8 +68,8 @@ describe('a toast about a folder to trust', () => {
 
     render(Shell);
     await waitFor(() => expect(project.active?.path).toBe(first));
-    toasts.push({ title: 'Claude Code does not trust this folder yet', project: first, duration: 0 });
-    toasts.push({ title: 'Something else', duration: 0 });
+    toasts.push({ title: 'Folder not trusted', description: 'Claude Code does not trust this folder yet.', project: first, duration: 0 });
+    toasts.push({ title: 'Something else', description: 'Nothing to do with the folder.', duration: 0 });
 
     await project.open(second);
 

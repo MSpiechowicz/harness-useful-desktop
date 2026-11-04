@@ -321,7 +321,7 @@ export class ChatSession {
     }
 
     if (!reply.removed) {
-      this.notifications.push({ title: t('chat.toast.alreadySent') });
+      this.notifications.push({ title: t('chat.toast.alreadySent'), description: t('chat.toast.alreadySentBody') });
     }
 
     return reply.removed;

@@ -226,16 +226,16 @@ export async function trustScripts(scripts: ReviewedScript[], reach: Reach): Pro
   }
 
   if (trusted > 0) {
-    toasts.push({ title: tn('memory.scripts.trust.done', trusted), tone: 'success' });
+    toasts.push({ title: t('memory.scripts.trust.done'), description: tn('memory.scripts.trust.doneBody', trusted), tone: 'success' });
   }
 
   for (const script of changed) {
-    toasts.push({ title: t('memory.scripts.trust.changed', { name: script.name }), description: t('memory.scripts.trust.changedHint'), tone: 'warning' });
+    toasts.push({ title: t('memory.scripts.trust.changed'), description: t('memory.scripts.trust.changedBody', { name: script.name }), tone: 'warning' });
   }
 
   // A conflict that names no script (the list could not be read again) is still said, not swallowed.
   if (failure !== null || (refused.length > 0 && changed.length === 0)) {
-    toasts.push({ title: t('memory.scripts.trust.failed'), description: failure?.message, tone: 'danger' });
+    toasts.push({ title: t('memory.scripts.trust.failed'), description: failure?.message || t('memory.scripts.trust.failedUnknown'), tone: 'danger' });
   }
 
   return failure === null && changed.length === 0 && refused.length === 0;

@@ -259,9 +259,9 @@ export async function cleanUpCopies(agents: AgentSessionsStore, copies: SessionS
 
   const keptNote = kept > 0 ? tn('sessions.cleanup.keptOpen', kept) : undefined;
   if (deleted > 0) {
-    toasts.push({ title: tn('sessions.cleanup.done', deleted), description: keptNote, tone: 'success' });
+    toasts.push({ title: t('sessions.cleanup.done'), description: [tn('sessions.cleanup.doneBody', deleted), keptNote].filter(Boolean).join(' '), tone: 'success' });
   } else if (keptNote && !failed) {
-    toasts.push({ title: keptNote, tone: 'warning' });
+    toasts.push({ title: t('sessions.cleanup.nothing'), description: keptNote, tone: 'warning' });
   }
 
   return deleted;

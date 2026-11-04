@@ -28,11 +28,11 @@ export const memoryGuards = {
   'memory.guards.ask.off': 'The agent saves on its own',
   'memory.guards.check': 'Check again',
   'memory.guards.checking': 'Checking…',
-  'memory.guards.check.failed': 'Could not ask the agent to check',
+  'memory.guards.check.failed': 'Could not ask the agent',
   'memory.guards.pause': 'Pause',
   'memory.guards.resume': 'Resume',
   'memory.guards.pausedNote': 'Nothing is saved in this chat until you resume. Agents still read notes and scripts.',
-  'memory.guards.toast.failed': 'Could not change what agents may save',
+  'memory.guards.toast.failed': 'Could not change the setting',
 
   'memory.guards.waiting.label': 'Saves waiting for your review',
   'memory.guards.waiting.notes.one': '{count} note',

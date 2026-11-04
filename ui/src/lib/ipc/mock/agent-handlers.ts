@@ -63,6 +63,8 @@ export function agentHandlers(
   state: MockState,
   pace: () => number,
   sessionContext: (project: string | null) => string,
+  /** The routines' own folder, where an agent may start too (as the backend's `authorized_dir` allows). */
+  workspace: () => string | null = () => null,
 ): Pick<Handlers, AgentCommands> & { attach: (info: AgentSessionInfo, onEvent: EventSink<AgentEnvelope>, chat: { prompt: string; asks: boolean }) => AgentSessionInfo } {
   const sessions = new Map<string, MockSession>();
 
@@ -238,7 +240,9 @@ export function agentHandlers(
         throw IpcFailure.from({ code: 'unsupported', message: `Chat with ${name} is coming soon.` });
       }
 
-      state.requireKnown(request.project);
+      if (request.project !== workspace()) {
+        state.requireKnown(request.project);
+      }
       if (sessions.size >= MAX_SESSIONS) {
         throw IpcFailure.from({ code: 'unsupported', message: `At most ${MAX_SESSIONS} agent sessions can run at once.` });
       }

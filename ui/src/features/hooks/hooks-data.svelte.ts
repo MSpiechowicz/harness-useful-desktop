@@ -210,7 +210,11 @@ export class HooksStore {
     const done = await this.run(viewKey(view), 'hooks.toast.rejectFailed', () => ipc.invoke('hook_reject', { id: view.id, sha256: view.sha256 }));
 
     if (done) {
-      toasts.push({ title: t(restores ? 'hooks.toast.rejected.restored' : 'hooks.toast.rejected.removed'), tone: 'success' });
+      toasts.push({
+        title: t(restores ? 'hooks.toast.rejected.restored' : 'hooks.toast.rejected.removed'),
+        description: t(restores ? 'hooks.toast.rejected.restoredBody' : 'hooks.toast.rejected.removedBody'),
+        tone: 'success',
+      });
     }
 
     return done;
@@ -220,7 +224,7 @@ export class HooksStore {
     const done = await this.run(viewKey(view), 'hooks.toast.deleteFailed', () => ipc.invoke('hook_delete', { id: view.id, sha256: view.sha256 }));
 
     if (done) {
-      toasts.push({ title: t('hooks.toast.deleted', { name: hookTitle(view) }), tone: 'success' });
+      toasts.push({ title: t('hooks.toast.deleted'), description: t('hooks.toast.deletedBody', { name: hookTitle(view) }), tone: 'success' });
     }
 
     return done;
@@ -231,7 +235,7 @@ export class HooksStore {
     const done = await this.run(viewKey(view), 'hooks.toast.shareFailed', () => ipc.invoke('hooks_share', { id: view.id, sha256: view.sha256 }));
 
     if (done) {
-      toasts.push({ title: t('hooks.toast.shared', { name: hookTitle(view) }), tone: 'success' });
+      toasts.push({ title: t('hooks.toast.shared'), description: t('hooks.toast.sharedBody', { name: hookTitle(view) }), tone: 'success' });
     }
 
     return done;
@@ -248,7 +252,7 @@ export class HooksStore {
     const done = await this.run(viewKey(team), 'hooks.toast.teamUpdateFailed', () => ipc.invoke('hooks_share', { id: original.id, sha256: original.sha256 }));
 
     if (done) {
-      toasts.push({ title: t('hooks.toast.teamUpdated', { name: hookTitle(original) }), tone: 'success' });
+      toasts.push({ title: t('hooks.toast.teamUpdated'), description: t('hooks.toast.teamUpdatedBody', { name: hookTitle(original) }), tone: 'success' });
     }
 
     return done;
@@ -259,7 +263,7 @@ export class HooksStore {
     const done = await this.run(viewKey(team), 'hooks.toast.teamRemoveFailed', () => ipc.invoke('hooks_team_remove', { id: team.id, sha256: team.sha256 }));
 
     if (done) {
-      toasts.push({ title: t('hooks.toast.teamRemoved', { name: hookTitle(team) }), tone: 'success' });
+      toasts.push({ title: t('hooks.toast.teamRemoved'), description: t('hooks.toast.teamRemovedBody', { name: hookTitle(team) }), tone: 'success' });
     }
 
     return done;
@@ -273,7 +277,7 @@ export class HooksStore {
     });
 
     if (done) {
-      toasts.push({ title: t('hooks.toast.copied', { name: hookTitle(team) }), tone: 'success' });
+      toasts.push({ title: t('hooks.toast.copied'), description: t('hooks.toast.copiedBody', { name: hookTitle(team) }), tone: 'success' });
     }
 
     return copy;
@@ -284,7 +288,7 @@ export class HooksStore {
     try {
       const { deleted } = await ipc.invoke('hooks_delete_all', { project: projectPath });
 
-      toasts.push({ title: tn('hooks.deleteAll.done', deleted), tone: 'success' });
+      toasts.push({ title: t('hooks.deleteAll.done'), description: tn('hooks.deleteAll.doneBody', deleted), tone: 'success' });
 
       return deleted;
     } finally {
@@ -328,14 +332,14 @@ export class HooksStore {
     }
 
     await this.refresh();
-    toasts.push({ title: tn('hooks.toast.family', seeds.length), tone: 'success' });
+    toasts.push({ title: t('hooks.toast.family'), description: tn('hooks.toast.familyBody', seeds.length), tone: 'success' });
 
     return true;
   }
 
   /** Runs one change on a hook: marks it busy, then reads the list again whatever happened. */
   private run(key: string, failed: MessageKey, change: () => Promise<unknown>): Promise<boolean> {
-    return this.work.run(key, change, { failed, conflict: 'hooks.toast.conflict', conflictHint: 'hooks.toast.conflictHint', refresh: () => this.refresh() });
+    return this.work.run(key, change, { failed, conflictTitle: 'hooks.toast.conflictTitle', conflict: 'hooks.toast.conflict', conflictHint: 'hooks.toast.conflictHint', refresh: () => this.refresh() });
   }
 
   /** Forgets everything read, for tests and a fresh start. */

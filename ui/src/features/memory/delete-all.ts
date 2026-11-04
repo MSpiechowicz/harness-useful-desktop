@@ -12,9 +12,9 @@ import { viewState } from '$lib/stores/view-state.svelte';
 export type MemorySection = 'notes' | 'scripts';
 
 /** What each section says about the remote entries that "delete all" leaves where they are: they can only be hidden. */
-export const STAY_TEXT: Record<MemorySection, { stay: PluralBase; maybe: MessageKey; onlyTeam: PluralBase }> = {
-  notes: { stay: 'memory.deleteAll.stay', maybe: 'memory.deleteAll.stay.maybe', onlyTeam: 'memory.deleteAll.onlyTeam' },
-  scripts: { stay: 'memory.deleteAll.scripts.stay', maybe: 'memory.deleteAll.scripts.stay.maybe', onlyTeam: 'memory.deleteAll.scripts.onlyTeam' },
+export const STAY_TEXT: Record<MemorySection, { stay: PluralBase; maybe: MessageKey }> = {
+  notes: { stay: 'memory.deleteAll.stay', maybe: 'memory.deleteAll.stay.maybe' },
+  scripts: { stay: 'memory.deleteAll.scripts.stay', maybe: 'memory.deleteAll.scripts.stay.maybe' },
 };
 
 /** The most entries one list call returns, and so the most whose place can be told before the question is asked. */
@@ -82,8 +82,14 @@ export async function deleteAll(section: MemorySection, reach: Reach): Promise<v
   const kept = result.kept ?? 0;
 
   toasts.push({
-    title: tn(section === 'notes' ? 'memory.deleteAll.notes.done' : 'memory.deleteAll.scripts.done', result.deleted),
-    description: [lost > 0 ? tn('memory.deleteAll.done.team', lost) : '', kept > 0 ? tn(STAY_TEXT[section].stay, kept) : ''].filter(Boolean).join(' ') || undefined,
+    title: t(section === 'notes' ? 'memory.deleteAll.notes.done' : 'memory.deleteAll.scripts.done'),
+    description: [
+      tn(section === 'notes' ? 'memory.deleteAll.notes.doneBody' : 'memory.deleteAll.scripts.doneBody', result.deleted),
+      lost > 0 ? tn('memory.deleteAll.done.team', lost) : '',
+      kept > 0 ? tn(STAY_TEXT[section].stay, kept) : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
     tone: 'success',
   });
 

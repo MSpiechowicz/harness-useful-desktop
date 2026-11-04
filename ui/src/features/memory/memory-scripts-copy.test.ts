@@ -96,7 +96,7 @@ describe('the banner for scripts saved on this computer', () => {
 
     await waitFor(() => expect(calls(invoke, 'memory_scripts_discard_local')).toEqual([{ ids: 'all' }]));
     expect(calls(invoke, 'memory_notes_discard_local')).toHaveLength(0);
-    expect(toasts.items.at(-1)).toMatchObject({ title: '6 scripts deleted from this computer', tone: 'success' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Scripts deleted', description: '6 scripts deleted from this computer.', tone: 'success' });
     await waitFor(() => expect(screen.queryByText(/not in the remote database/)).toBeNull());
   });
 
@@ -171,7 +171,7 @@ describe('copying the scripts to the remote database', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Copy finished' });
     const stays = within(dialog).getByText('Stay on this computer').nextElementSibling?.textContent;
     expect(Number(stays)).toBeGreaterThan(0);
-    expect(toasts.items.at(-1)).toMatchObject({ tone: 'success', description: `${stays} scripts stay on this computer.` });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Scripts copied', tone: 'success', description: expect.stringMatching(new RegExp(`copied\\. ${stays} scripts stay on this computer\\.$`)) });
 
     const leftover = ((await invoke.mock.results.find((_, index) => invoke.mock.calls[index][0] === 'memory_notes_copy_apply')?.value) as NotesCopyResult).leftover;
     expect(leftover).toHaveLength(Number(stays));
@@ -189,7 +189,7 @@ describe('copying the scripts to the remote database', () => {
     await waitFor(() => expect(calls(invoke, 'memory_scripts_discard_local')).toEqual([{ ids: leftover }]));
     expect(calls(invoke, 'memory_notes_discard_local')).toHaveLength(0);
     expect(leftover).not.toContain((saved as { id: number }).id);
-    expect(toasts.items.at(-1)).toMatchObject({ title: `${stays} scripts deleted from this computer` });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Scripts deleted', description: `${stays} scripts deleted from this computer.` });
   });
 
   it('copies the notes with the kind of the notes', async () => {

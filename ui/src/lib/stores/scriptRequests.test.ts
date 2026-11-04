@@ -208,7 +208,7 @@ describe('script run requests', () => {
     await store.decide(true);
 
     expect(store.current).toBeNull();
-    expect(toasts.items).toMatchObject([{ title: 'This request ended', tone: 'neutral' }]);
+    expect(toasts.items).toMatchObject([{ title: 'Request ended', description: 'The agent stopped waiting, so your answer is no longer needed.', tone: 'neutral' }]);
   });
 
   it('says so when the answer could not be sent, and still moves on', async () => {
@@ -219,7 +219,7 @@ describe('script run requests', () => {
     await store.decide(true);
 
     expect(store.current).toBeNull();
-    expect(toasts.items).toMatchObject([{ title: 'Could not send your answer for deploy-check', description: 'the server did not answer', tone: 'danger' }]);
+    expect(toasts.items).toMatchObject([{ title: 'Answer not sent', description: 'Your answer for deploy-check was not sent. the server did not answer', tone: 'danger' }]);
   });
 
   it('drops a request the agent stopped waiting for, with a quiet note, and ignores one it does not know', () => {
@@ -234,7 +234,7 @@ describe('script run requests', () => {
     store.ended(first.requestId);
 
     expect(store.current?.requestId).toBe(second.requestId);
-    expect(toasts.items).toMatchObject([{ title: 'The request to run deploy-check ended', description: 'The agent stopped waiting for an answer.', tone: 'neutral' }]);
+    expect(toasts.items).toMatchObject([{ title: 'Request ended', description: 'The request to run deploy-check ended. The agent stopped waiting for an answer.', tone: 'neutral' }]);
   });
 
   it('gives a request up itself when the server never reports it gone', () => {

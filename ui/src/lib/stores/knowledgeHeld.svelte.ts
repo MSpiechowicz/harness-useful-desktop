@@ -100,7 +100,7 @@ export class KnowledgeHeldStore {
 
         return;
       case 'changed':
-        toasts.push({ title: t('knowledge.held.toast.changed'), description: item.title, tone: 'warning' });
+        toasts.push({ title: t('knowledge.held.toast.changed'), description: t('knowledge.held.toast.changedBody', { title: item.title }), tone: 'warning' });
 
         return;
       case 'refused':

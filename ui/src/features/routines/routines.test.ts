@@ -293,7 +293,7 @@ describe('Running a routine', () => {
 
     await waitFor(() => expect(within(rowOf(MORNING)).getByText('Running')).toBeInTheDocument());
     expect(calls(invoke, 'routine_run_now')).toEqual([{ id: expect.stringMatching(/^[0-9a-f]{32}$/) }]);
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain(`${MORNING} is running.`));
+    await waitFor(() => expect(toasts.items).toContainEqual(expect.objectContaining({ title: 'Routine started', description: `${MORNING} is running.` })));
 
     await fireEvent.click(await within(screen.getByRole('region', { name: MORNING })).findByRole('button', { name: 'Stop' }));
 
@@ -343,7 +343,7 @@ describe('A routine that waits for a free place', () => {
 
     expect(await routines.runNow(view)).toBe(false);
 
-    expect(toasts.items.at(-1)).toMatchObject({ title: 'Already waiting for a free place', description: MORNING, tone: 'info' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Already queued', description: `${MORNING} already waits for a free place.`, tone: 'info' });
     expect(calls(invoke, 'routine_run_now')).toHaveLength(0);
   });
 });
@@ -366,8 +366,8 @@ describe('Asking to run a routine that started waiting meanwhile', () => {
 
     await fireEvent.click(within(await screen.findByRole('region', { name: MORNING })).getByRole('button', { name: 'Run now' }));
 
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('Already waiting for a free place'));
-    expect(toasts.items.map((toast) => toast.title)).not.toContain('This routine changed in the meantime.');
+    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('Already queued'));
+    expect(toasts.items.map((toast) => toast.title)).not.toContain('Routine changed');
     expect(calls(invoke, 'routine_run_now')).toHaveLength(1);
     await waitFor(() => expect(within(rowOf(MORNING)).getByText('Waiting')).toBeInTheDocument());
   });
@@ -379,7 +379,7 @@ describe('Asking to run a routine that started waiting meanwhile', () => {
 
     await fireEvent.click(within(await screen.findByRole('region', { name: MORNING })).getByRole('button', { name: 'Run now' }));
 
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('This routine changed in the meantime.'));
+    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('Routine changed'));
     expect(toasts.items.map((toast) => toast.title)).not.toContain('Already waiting for a free place');
   });
 });

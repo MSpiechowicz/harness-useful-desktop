@@ -17,7 +17,7 @@
     await branchSync.run('dropStash');
 
     if (branchSync.state?.stashKept === false) {
-      toasts.push({ title: t('branch.note.stashDropped'), tone: 'success' });
+      toasts.push({ title: t('branch.note.stashDropped'), description: t('branch.note.stashDroppedBody'), tone: 'success' });
     }
   }
 </script>

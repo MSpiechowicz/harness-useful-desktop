@@ -16,18 +16,18 @@ describe('ToastsStore.update', () => {
     expect(store.items).toEqual([{ id, title: 'Ready', description: '5 of 9', tone: 'success', duration: 4000, action: undefined, project: '/p' }]);
   });
 
-  it('clears the description when it is passed as undefined', () => {
+  it('keeps the description when it is passed as undefined, so a toast never ends up without one', () => {
     const store = new ToastsStore();
     const id = store.push({ title: 'Ready', description: 'old' });
 
     store.update(id, { description: undefined });
 
-    expect(store.items[0].description).toBeUndefined();
+    expect(store.items[0].description).toBe('old');
   });
 
   it('does nothing for a toast that is gone', () => {
     const store = new ToastsStore();
-    const id = store.push({ title: 'Gone' });
+    const id = store.push({ title: 'Gone', description: 'It went away.' });
 
     store.dismiss(id);
     store.update(id, { title: 'Back' });
@@ -48,7 +48,7 @@ describe('a toast whose duration is updated', () => {
 
   it('stays while it has no duration and leaves after the new one', async () => {
     const view = render(ToastHost);
-    const id = toasts.push({ title: 'Building', duration: 0 });
+    const id = toasts.push({ title: 'Building', description: 'Please wait.', duration: 0 });
 
     await vi.advanceTimersByTimeAsync(60_000);
     expect(toasts.items.map((item) => item.id)).toEqual([id]);

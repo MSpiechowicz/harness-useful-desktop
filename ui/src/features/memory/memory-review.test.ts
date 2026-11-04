@@ -120,7 +120,7 @@ describe('trusting one script', () => {
     await waitFor(() => expect(screen.queryByText('Not approved on this computer')).toBeNull());
     expect(within(await panelOf('disk-hogs')).getByText('Approved')).toBeInTheDocument();
     expect(rowOf('disk-hogs').getByText('Approved')).toBeInTheDocument();
-    expect(toasts.items.at(-1)).toMatchObject({ title: '1 script trusted', tone: 'success' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Scripts trusted', description: '1 script can now run on this computer.', tone: 'success' });
   });
 
   it('offers no Trust for a script that is already trusted', async () => {
@@ -163,7 +163,7 @@ describe('trusting every script shown', () => {
     await waitFor(() => expect(calls(invoke, 'memory_scripts_trust')).toEqual([{ items: [itemOf('deploy-check'), itemOf('disk-hogs')], ...ALL }]));
     await waitFor(() => expect(rowOf('deploy-check').getByText('Approved')).toBeInTheDocument());
     expect(rowOf('disk-hogs').getByText('Approved')).toBeInTheDocument();
-    expect(toasts.items.at(-1)).toMatchObject({ title: '2 scripts trusted' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Scripts trusted', description: '2 scripts can now run on this computer.' });
   });
 
   it('trusts nothing when the question is declined', async () => {
@@ -278,8 +278,8 @@ describe('trusting pins the version that was read', () => {
     }
     await fireEvent.click(screen.getByRole('button', { name: 'Trust' }));
 
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('disk-hogs changed since you looked at it'));
-    expect(toasts.items.find((toast) => toast.title.startsWith('disk-hogs changed'))).toMatchObject({ description: 'Review it again.', tone: 'warning' });
+    await waitFor(() => expect(toasts.items.map((toast) => toast.description)).toContain('disk-hogs changed since you looked at it. Review it again.'));
+    expect(toasts.items.find((toast) => toast.description.startsWith('disk-hogs changed'))).toMatchObject({ title: 'Script changed', tone: 'warning' });
     expect(rowOf('disk-hogs').getByText('Needs review')).toBeInTheDocument();
     await waitFor(() => expect(document.body.textContent).toContain('evil.example'));
     expect(toasts.items.some((toast) => toast.tone === 'danger')).toBe(false);
@@ -298,8 +298,8 @@ describe('trusting pins the version that was read', () => {
     }
     await fireEvent.click(screen.getByRole('button', { name: 'Trust 2 scripts' }));
 
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('deploy-check changed since you looked at it'));
-    expect(toasts.items.map((toast) => toast.title)).toContain('1 script trusted');
+    await waitFor(() => expect(toasts.items.map((toast) => toast.description)).toContain('deploy-check changed since you looked at it. Review it again.'));
+    expect(toasts.items.map((toast) => toast.description)).toContain('1 script can now run on this computer.');
     await waitFor(() => expect(rowOf('disk-hogs').getByText('Approved')).toBeInTheDocument());
     expect(rowOf('deploy-check').getByText('Needs review')).toBeInTheDocument();
   });

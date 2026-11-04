@@ -35,6 +35,7 @@ export const config = {
   'config.menu.collapseAll': 'Collapse all',
   'config.menu.expandAll': 'Expand all',
   'config.menu.copyPath': 'Copy path',
+  'config.menu.pathCopied': 'The file path is on the clipboard.',
 
   'config.overview.title': 'Overview',
   'config.overview.entries': 'top-level entries',

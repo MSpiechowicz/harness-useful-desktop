@@ -152,7 +152,7 @@ export class KnowledgeReplaceStore {
     const [row] = run.rows;
 
     if (run.failure !== null || row === undefined || row.status === 'failed' || row.status === 'skipped') {
-      toasts.push({ title: t('knowledge.toast.replaceFailed'), description: run.failure ?? row?.reason ?? title, tone: 'danger' });
+      toasts.push({ title: t('knowledge.toast.replaceFailed'), description: run.failure || row?.reason || title, tone: 'danger' });
 
       return false;
     }

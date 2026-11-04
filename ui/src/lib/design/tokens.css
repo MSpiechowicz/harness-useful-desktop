@@ -14,6 +14,8 @@
 
   /* The one height of every control: buttons, icon buttons, fields, pickers, strips and the tiles in a view's top bar. */
   --control-h: 36px;
+  /* A table row that holds a control: the control plus a 4px gap above and below, so the button never touches the rules between rows. */
+  --row-action-h: calc(var(--control-h) + 8px);
   /* A segmented group (Structured / Source, the layout switch): the padding between its frame and the segments, and the gap between two segments. */
   --segment-pad: 2px;
   --segment-gap: 4px;

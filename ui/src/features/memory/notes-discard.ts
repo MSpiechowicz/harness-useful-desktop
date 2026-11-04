@@ -49,7 +49,9 @@ export async function discardLocal(kind: MemoryCopyKind, target: DiscardTarget, 
   const text = COPY_TEXT[kind];
 
   try {
-    toasts.push({ title: tn(text.discardDone, await discard(kind, target)), tone: 'success' });
+    const deleted = await discard(kind, target);
+
+    toasts.push({ title: t(text.discardDone), description: tn(text.discardDoneBody, deleted), tone: 'success' });
   } catch (error) {
     toasts.push({ title: t(text.discardFailed), description: IpcFailure.from(error).message, tone: 'danger' });
 

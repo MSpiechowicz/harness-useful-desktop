@@ -90,7 +90,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.project.selected': 'Ausgewählt',
   'onboarding.project.change': 'Ändern…',
   'onboarding.project.none': 'Noch kein Projekt',
-  'onboarding.project.noneHint': 'Jeder Ordner funktioniert; ein Git-Repository schaltet zusätzlich „Änderungen“ frei.',
+  'onboarding.project.noneHint': 'Jeder Ordner funktioniert. Ein Git-Repository schaltet zusätzlich „Änderungen“ frei.',
   'onboarding.project.reopen': 'Oder erneut öffnen',
   'onboarding.project.openFolder': 'Ordner öffnen…',
   'onboarding.project.tiles': 'In diesem Projekt',
@@ -131,7 +131,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.approval.default': 'OMP-Standard',
   'onboarding.approval.alwaysAsk.when': 'Jeder Tool-Aufruf wartet auf dich. Am sichersten, am langsamsten.',
   'onboarding.approval.alwaysAsk.good': 'Gut für unbekannte Projekte und sensible Rechner.',
-  'onboarding.approval.write.when': 'Lesen ist frei; Dateien ändern oder Befehle ausführen wartet auf dich.',
+  'onboarding.approval.write.when': 'Lesen ist frei. Dateien ändern oder Befehle ausführen wartet auf dich.',
   'onboarding.approval.write.good': 'Gut für die tägliche Arbeit, wenn du vor Änderungen mitreden willst.',
   'onboarding.approval.yolo.when': 'Nichts wartet. Am schnellsten, und genau so läuft OMP in deinem Terminal.',
   'onboarding.approval.yolo.good': 'Gut für vertrauenswürdige Projekte, Sandboxes und schnelle Iteration.',
@@ -238,7 +238,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.mcp.title': 'Harness Dashboard MCP',
   'onboarding.setup.mcp.body': 'Lässt deine Agenten ihren eigenen Verbrauch und ihre Kosten abfragen, indem das Dashboard als MCP-Server registriert wird.',
   'onboarding.setup.mcp.note':
-    'Es wird nur der Eintrag harness-dashboard hinzugefügt; alle anderen Server in der Datei bleiben unverändert. Eine Datei, die die App nicht sicher bearbeiten kann, bleibt unangetastet.',
+    'Es wird nur der Eintrag harness-dashboard hinzugefügt. Alle anderen Server in der Datei bleiben unverändert. Eine Datei, die die App nicht sicher bearbeiten kann, bleibt unangetastet.',
   'onboarding.setup.mcp.noFile': 'Keine MCP-Datei zum Bearbeiten',
   'onboarding.setup.mcp.refused': '{reason} Füge dies bei Bedarf selbst in die Datei ein:',
   'onboarding.setup.mcp.manualEdit': 'Die Datei {file} enthält Kommentare, die beim Umschreiben verloren gingen. Deshalb lässt die App sie unangetastet. Füge diesen Eintrag selbst hinzu:',
@@ -249,7 +249,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.memoryMcp.body':
     'Lässt deine Agenten Notizen zu deinem Projekt nachschlagen und ergänzen, indem Harness Memory als MCP-Server registriert wird.',
   'onboarding.setup.memoryMcp.note':
-    'Es wird nur der Eintrag harness-memory hinzugefügt, der den installierten Server startet; dabei wird „Projektgedächtnis“ in den Einstellungen eingeschaltet. Eine Datei, die die App nicht sicher bearbeiten kann, bleibt unangetastet.',
+    'Es wird nur der Eintrag harness-memory hinzugefügt, der den installierten Server startet. Dabei wird „Projektgedächtnis“ in den Einstellungen eingeschaltet. Eine Datei, die die App nicht sicher bearbeiten kann, bleibt unangetastet.',
   'onboarding.setup.memoryMcp.needsMemory': 'Braucht Harness Memory. Wähle oben seine Installation aus oder installiere es vorher selbst.',
   'onboarding.setup.desktopMcp.title': 'Harness Desktop MCP',
   'onboarding.setup.desktopMcp.body': 'Lässt deine Agenten Hooks und Routinen anlegen und ändern, indem Harness Desktop als MCP-Server registriert wird.',
@@ -332,5 +332,5 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.done.tip.changes.title': 'Änderungen',
   'onboarding.done.tip.changes.body': 'Prüfe den Diff des Agenten und schick Zeilenkommentare an ihn zurück.',
   'onboarding.done.tip.shortcuts.title': 'Alle Tastenkürzel',
-  'onboarding.done.tip.shortcuts.body': 'Alles hat ein Kürzel; hier siehst du die ganze Liste.',
+  'onboarding.done.tip.shortcuts.body': 'Alles hat ein Kürzel. Hier siehst du die ganze Liste.',
 };

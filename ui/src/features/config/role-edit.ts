@@ -22,6 +22,8 @@ const SKILLS_HARNESSES: readonly HarnessId[] = ['claude', 'opencode', 'codex'];
 
 /** What a Model roles card offers to do with its roles. */
 export interface RoleEditing {
+  /** The harness whose models the picker offers. */
+  harness: HarnessId;
   rules: SelectorRules;
   /** The Harness Skills roles the file does not map yet, listed after the rows. */
   unmapped: UnmappedRole[];
@@ -45,7 +47,7 @@ export function roleEditingIn(view: ConfigView, section: ConfigSection): RoleEdi
   }
 
   if (view.harness === 'omp') {
-    return { rules, unmapped: unmappedIn(view, section.id), map: mapRole };
+    return { harness: view.harness, rules, unmapped: unmappedIn(view, section.id), map: mapRole };
   }
 
   const editable = SKILLS_HARNESSES.includes(view.harness) && SKILLS_MODELS_SECTIONS.includes(section.id) && section.error === null;
@@ -54,7 +56,7 @@ export function roleEditingIn(view: ConfigView, section: ConfigSection): RoleEdi
     return undefined;
   }
 
-  return { rules, unmapped: [], change: (role, selector) => changeRole(view.harness, section.source.layer, role, selector) };
+  return { harness: view.harness, rules, unmapped: [], change: (role, selector) => changeRole(view.harness, section.source.layer, role, selector) };
 }
 
 function fail(title: string, error: unknown): false {

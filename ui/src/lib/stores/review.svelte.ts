@@ -101,7 +101,7 @@ export class ReviewStore {
   add(project: string, comment: ReviewComment): boolean {
     const current = this.of(project);
     if (current.comments.length >= MAX_COMMENTS) {
-      this.notifications.push({ title: t('changes.toast.limit.title', { max: MAX_COMMENTS }), description: t('changes.toast.limit.description'), tone: 'warning' });
+      this.notifications.push({ title: t('changes.toast.limit.title'), description: t('changes.toast.limit.description', { max: MAX_COMMENTS }), tone: 'warning' });
 
       return false;
     }

@@ -14,7 +14,7 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.progress.of': '{downloaded} z {total}',
 
   'updates.failure.network.check': 'Nie można połączyć się z serwerem aktualizacji. Sprawdź połączenie i spróbuj ponownie.',
-  'updates.failure.network.install': 'Pobieranie zostało przerwane. Nic nie zmieniono; spróbuj ponownie.',
+  'updates.failure.network.install': 'Pobieranie zostało przerwane. Nic nie zmieniono. Spróbuj ponownie.',
   'updates.failure.verification': 'Nie udało się zweryfikować aktualizacji i nie została zainstalowana.',
   'updates.failure.manifest': 'Informacje o aktualizacji były niepełne albo nie zawierają niczego dla tego systemu. Spróbuj ponownie później.',
   'updates.failure.installer': 'Instalator nie zakończył pracy albo prośba o uprawnienia została anulowana. Nic nie zmieniono.',

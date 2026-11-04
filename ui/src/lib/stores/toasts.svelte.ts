@@ -1,8 +1,10 @@
 export type ToastTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
 export interface ToastInput {
+  /** A short, small heading. */
   title: string;
-  description?: string;
+  /** The line under the title that says what happened or what to do next: every toast has one. */
+  description: string;
   tone?: ToastTone;
   /** Milliseconds before auto-dismiss; 0 keeps the toast until dismissed. */
   duration?: number;
@@ -20,7 +22,7 @@ export interface ToastAction {
 export interface ToastItem {
   id: number;
   title: string;
-  description?: string;
+  description: string;
   tone: ToastTone;
   duration: number;
   action?: ToastAction;
@@ -55,8 +57,8 @@ export class ToastsStore {
   }
 
   /**
-   * Changes a toast that is still shown, e.g. the progress of a long task. A key left out stays as it was, `description`, `action` and
-   * `project` can be cleared with `undefined`. A toast that is gone stays gone. Auto-dismiss starts over when `duration` changes.
+   * Changes a toast that is still shown, e.g. the progress of a long task. A key left out stays as it was, `action` and `project` can be
+   * cleared with `undefined`. A toast that is gone stays gone. Auto-dismiss starts over when `duration` changes.
    */
   update(id: number, patch: Partial<ToastInput>): void {
     const item = this.items.find((each) => each.id === id);
@@ -69,7 +71,7 @@ export class ToastsStore {
       item.title = patch.title;
     }
 
-    if ('description' in patch) {
+    if (patch.description !== undefined) {
       item.description = patch.description;
     }
 

@@ -99,7 +99,7 @@ export const memoryEditor: AreaMessages<typeof enMemoryEditor> = {
   'memory.editor.script.changed.reload': 'Recarregar',
   'memory.editor.script.gone': 'Este script não existe mais. Ele foi excluído desde que você o abriu.',
   'memory.editor.script.gone.close': 'Fechar',
-  'memory.editor.script.reload.failed': 'Não foi possível ler o script de novo',
+  'memory.editor.script.reload.failed': 'Não foi possível recarregar o script',
   'memory.editor.script.toast.created': 'Script adicionado',
   'memory.editor.script.toast.saved': 'Script salvo',
   'memory.editor.script.toast.notTrusted.title': 'Script salvo, mas sem confiança',

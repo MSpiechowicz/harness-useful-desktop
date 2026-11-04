@@ -90,7 +90,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.project.selected': 'Seleccionado',
   'onboarding.project.change': 'Cambiar…',
   'onboarding.project.none': 'Aún no hay proyecto',
-  'onboarding.project.noneHint': 'Sirve cualquier carpeta; un repositorio Git además activa Cambios.',
+  'onboarding.project.noneHint': 'Sirve cualquier carpeta. Un repositorio Git además activa Cambios.',
   'onboarding.project.reopen': 'O reabre',
   'onboarding.project.openFolder': 'Abrir una carpeta…',
   'onboarding.project.tiles': 'En este proyecto',
@@ -131,7 +131,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.approval.default': 'Predeterminado de OMP',
   'onboarding.approval.alwaysAsk.when': 'Cada llamada a una herramienta espera tu respuesta. Lo más seguro, lo más lento.',
   'onboarding.approval.alwaysAsk.good': 'Ideal para proyectos desconocidos y equipos sensibles.',
-  'onboarding.approval.write.when': 'Leer es libre; editar archivos o ejecutar comandos espera tu respuesta.',
+  'onboarding.approval.write.when': 'Leer es libre. Editar archivos o ejecutar comandos espera tu respuesta.',
   'onboarding.approval.write.good': 'Ideal para el trabajo diario, cuando quieres opinar antes de los cambios.',
   'onboarding.approval.yolo.when': 'Nada espera. Lo más rápido, y justo como se ejecuta OMP en tu terminal.',
   'onboarding.approval.yolo.good': 'Ideal para proyectos de confianza, entornos aislados e iteraciones rápidas.',
@@ -238,7 +238,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.mcp.title': 'Harness Dashboard MCP',
   'onboarding.setup.mcp.body': 'Permite que tus agentes consulten su propio uso y coste, registrando el dashboard como servidor MCP.',
   'onboarding.setup.mcp.note':
-    'Solo se añade la entrada harness-dashboard; los demás servidores del archivo se quedan como están. Un archivo que la app no puede editar con seguridad se deja intacto.',
+    'Solo se añade la entrada harness-dashboard. Los demás servidores del archivo se quedan como están. Un archivo que la app no puede editar con seguridad se deja intacto.',
   'onboarding.setup.mcp.noFile': 'No hay archivo MCP que editar',
   'onboarding.setup.mcp.refused': '{reason} Si quieres, añade esto al archivo tú mismo:',
   'onboarding.setup.mcp.manualEdit': '{file} tiene comentarios que se perderían al reescribirlo, así que la app lo deja como está. Añade tú mismo esta entrada:',
@@ -249,7 +249,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.memoryMcp.body':
     'Permite que tus agentes consulten y añadan notas sobre tu proyecto, registrando Harness Memory como servidor MCP.',
   'onboarding.setup.memoryMcp.note':
-    'Solo se añade la entrada harness-memory, que ejecuta el servidor instalado; al añadirla se activa «Memoria del proyecto» en Ajustes. Un archivo que la app no puede editar con seguridad se deja intacto.',
+    'Solo se añade la entrada harness-memory, que ejecuta el servidor instalado. Al añadirla se activa «Memoria del proyecto» en Ajustes. Un archivo que la app no puede editar con seguridad se deja intacto.',
   'onboarding.setup.memoryMcp.needsMemory': 'Necesita Harness Memory. Incluye su instalación arriba o instálalo antes tú mismo.',
   'onboarding.setup.desktopMcp.title': 'Harness Desktop MCP',
   'onboarding.setup.desktopMcp.body': 'Permite que tus agentes añadan y cambien hooks y rutinas, registrando Harness Desktop como servidor MCP.',
@@ -332,5 +332,5 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.done.tip.changes.title': 'Cambios',
   'onboarding.done.tip.changes.body': 'Revisa el diff del agente y devuélvele comentarios por línea.',
   'onboarding.done.tip.shortcuts.title': 'Todos los atajos',
-  'onboarding.done.tip.shortcuts.body': 'Todo tiene su tecla; aquí ves la lista completa.',
+  'onboarding.done.tip.shortcuts.body': 'Todo tiene su tecla. Aquí ves la lista completa.',
 };

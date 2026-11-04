@@ -59,7 +59,7 @@ describe('deleting sessions', () => {
 
     expect(confirm).not.toHaveBeenCalled();
     expect(deletes(invoke)).toHaveLength(0);
-    expect(toasts.items.at(-1)?.title).toBe('This session is open in a chat');
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Session is open', description: expect.stringContaining('This session is open in a chat.') });
   });
 
   it('explains a refusal of the backend, which knows agents this window does not', async () => {
@@ -68,7 +68,7 @@ describe('deleting sessions', () => {
 
     expect(await deleteSession(store, REF, PROJECT, () => Promise.resolve(true))).toBe(false);
 
-    expect(toasts.items.at(-1)?.title).toBe('This session is open in a chat');
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Session is open', description: expect.stringContaining('This session is open in a chat.') });
   });
 
   it('says to delete the forks first when Codex refuses a session others were forked from', async () => {
@@ -106,7 +106,7 @@ describe('deleting sessions', () => {
       { session: { harness: 'omp', id: 'copy-a' }, project: PROJECT, emptyCopyOnly: true },
       { session: { harness: 'omp', id: 'copy-b' }, project: PROJECT, emptyCopyOnly: true },
     ]);
-    expect(toasts.items.at(-1)).toMatchObject({ title: 'Deleted 2 empty copies', description: '1 copy kept: it is open in a chat' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Copies deleted', description: 'Deleted 2 empty copies. 1 copy kept: it is open in a chat.' });
   });
 
   it('skips copies that are gone or held by an agent, deletes the rest, and says how many an agent kept', async () => {
@@ -125,7 +125,7 @@ describe('deleting sessions', () => {
 
     expect(deletes(invoke)).toHaveLength(4);
     expect(toasts.items).toHaveLength(1);
-    expect(toasts.items[0]).toMatchObject({ title: 'Deleted 2 empty copies', tone: 'success', description: '1 copy kept: it is open in a chat' });
+    expect(toasts.items[0]).toMatchObject({ title: 'Copies deleted', tone: 'success', description: 'Deleted 2 empty copies. 1 copy kept: it is open in a chat.' });
   });
 
   it('says so when every copy that is left is held by an agent', async () => {
@@ -134,7 +134,7 @@ describe('deleting sessions', () => {
 
     expect(await cleanUpCopies(store, [copy('copy-a'), copy('copy-b')], PROJECT, () => Promise.resolve(true))).toBe(0);
 
-    expect(toasts.items).toMatchObject([{ title: '2 copies kept: they are open in a chat', tone: 'warning' }]);
+    expect(toasts.items).toMatchObject([{ title: 'Nothing deleted', description: '2 copies kept: they are open in a chat.', tone: 'warning' }]);
   });
 
   it('stops cleaning up at the first copy that cannot be deleted', async () => {
@@ -187,7 +187,7 @@ describe('deleting sessions', () => {
     expect(await cleanUpCopies(store, [copy('copy-a'), copy('copy-b')], PROJECT, () => Promise.resolve(true))).toBe(1);
 
     expect(deletes(invoke)).toHaveLength(2);
-    expect(toasts.items.map((toast) => toast.title)).toEqual(['Deleted 1 empty copy']);
+    expect(toasts.items.map((toast) => toast.description)).toEqual(['Deleted 1 empty copy.']);
   });
 
   it('drops the row of a session whose deletion failed after the file was already gone', async () => {

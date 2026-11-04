@@ -38,6 +38,7 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.collapseAll': 'Recolher tudo',
   'config.menu.expandAll': 'Expandir tudo',
   'config.menu.copyPath': 'Copiar caminho',
+  'config.menu.pathCopied': 'O caminho do arquivo está na área de transferência.',
 
   'config.overview.title': 'Visão geral',
   'config.overview.entries': 'entradas de nível superior',

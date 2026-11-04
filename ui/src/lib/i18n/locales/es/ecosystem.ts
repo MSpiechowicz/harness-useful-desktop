@@ -22,14 +22,19 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.hero.looking': 'Buscando la familia Harness…',
   'ecosystem.setup.run': 'Ejecutar la configuración recomendada',
 
-  'ecosystem.autoUpdate.done': '{name} actualizado a {version}',
+  'ecosystem.autoUpdate.done': '{name} actualizado',
+  'ecosystem.autoUpdate.doneBody': 'Ahora en la versión {version}.',
+  'ecosystem.autoUpdate.doneBodyLatest': 'Ahora en la última versión.',
   'ecosystem.autoUpdate.failed': 'Falló la actualización de {name}',
   'ecosystem.autoUpdate.noReason': 'El instalador no indicó el motivo.',
-  'ecosystem.autoInstall.done': '{name} instalado para que el grafo de código siga funcionando',
+  'ecosystem.autoInstall.done': '{name} instalado',
+  'ecosystem.autoInstall.doneBody': 'El grafo de código sigue funcionando.',
   'ecosystem.autoInstall.failed': 'Falló la instalación de {name}',
 
-  'ecosystem.skillsMigration.done': 'Harness Skills renombrado en {harnesses}',
-  'ecosystem.skillsMigration.failed': 'No se pudo renombrar Harness Skills en {harnesses}',
+  'ecosystem.skillsMigration.done': 'Harness Skills renombrado',
+  'ecosystem.skillsMigration.doneBody': 'Renombrado en {harnesses}.',
+  'ecosystem.skillsMigration.failed': 'Harness Skills no renombrado',
+  'ecosystem.skillsMigration.partial': 'Harness Skills renombrado en parte',
   'ecosystem.skillsMigration.reason': '{harness}: {reason}',
   'ecosystem.skillsMigration.noReason': 'El instalador no dijo el motivo.',
 
@@ -209,7 +214,7 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.tips.showFewer': 'Mostrar menos',
   'ecosystem.tips.showAll': 'Mostrar las {count}',
 
-  'ecosystem.chart.donut': '{label}: {total} {caption}; {summary}',
+  'ecosystem.chart.donut': '{label}: {total} {caption}. {summary}',
   'ecosystem.chart.segment': '{label} {value} ({share})',
   'ecosystem.chart.waffle': '{label}: {summary}',
   'ecosystem.chart.share': '{label} {share}',
@@ -228,14 +233,14 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.product.dashboard.tagline': 'El uso de tokens de todas tus herramientas de programación con IA, en una app local.',
   'ecosystem.product.dashboard.description':
     'Lee las sesiones que Claude Code, Codex, OMP, PI y otros agentes escriben en disco y muestra coste, tokens, límites del plan y presupuestos. La app lo lee a través de su servidor MCP local de solo lectura.',
-  'ecosystem.product.dashboard.note.0': 'Los datos vienen del proceso local `harness-dashboard mcp`; no se envía nada por la red.',
+  'ecosystem.product.dashboard.note.0': 'Los datos vienen del proceso local `harness-dashboard mcp`. No se envía nada por la red.',
   'ecosystem.product.dashboard.note.1': 'Ejecuta `harness-dashboard` de vez en cuando para que su base de datos esté al día.',
   'ecosystem.product.dashboard.step.0.title': 'Instalar el ejecutable',
 
   'ecosystem.product.memory.tagline': 'Una memoria de proyecto para cada agente de programación, guardada en este equipo.',
   'ecosystem.product.memory.description':
     'Un servidor MCP local que guarda notas y cómo se relacionan, por proyecto, para que lo que aprende un agente lo encuentre el siguiente. La app lo registra en cada harness detectado mientras la memoria del proyecto esté activada, y añade las notas relevantes al primer mensaje de un chat nuevo.',
-  'ecosystem.product.memory.note.0': 'Se ejecuta en local como `harness-memory mcp`; no se envía nada por la red.',
+  'ecosystem.product.memory.note.0': 'Se ejecuta en local como `harness-memory mcp`. No se envía nada por la red.',
   'ecosystem.product.memory.note.1': 'Actívala o desactívala para todos los harnesses en Ajustes, en Memoria del proyecto.',
   'ecosystem.product.memory.step.0.title': 'Instalar el ejecutable',
 

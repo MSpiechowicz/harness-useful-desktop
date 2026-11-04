@@ -121,7 +121,7 @@ export class ScriptRequestsStore {
     }
 
     this.remove(requestId);
-    this.notices.push({ title: t('memory.request.gone.title', { name: request.script.name }), description: t('memory.request.gone.body'), tone: 'neutral' });
+    this.notices.push({ title: t('memory.request.gone.title'), description: t('memory.request.gone.body', { name: request.script.name }), tone: 'neutral' });
   }
 
   /** Sends the user's answer for the current request and moves on to the next one. */
@@ -142,9 +142,9 @@ export class ScriptRequestsStore {
 
       // The agent gave up before the answer arrived: nothing went wrong, so nothing alarming is said.
       if (failure.code === 'notFound') {
-        this.notices.push({ title: t('memory.request.ended'), tone: 'neutral' });
+        this.notices.push({ title: t('memory.request.ended'), description: t('memory.request.endedBody'), tone: 'neutral' });
       } else {
-        this.notices.push({ title: t('memory.request.failed', { name: request.script.name }), description: failure.message, tone: 'danger' });
+        this.notices.push({ title: t('memory.request.failed'), description: `${t('memory.request.failedBody', { name: request.script.name })} ${failure.message}`.trim(), tone: 'danger' });
       }
     } finally {
       this.answering = false;

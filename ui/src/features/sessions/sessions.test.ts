@@ -289,7 +289,7 @@ describe('deleting sessions', () => {
     await fireEvent.click(within(rowOf(ROOT.ref.id)).getByRole('button', { name: 'Session actions' }));
     await fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
 
-    expect(toasts.items.at(-1)?.title).toBe('This session is open in a chat');
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Session is open', description: expect.stringContaining('This session is open in a chat.') });
     expect(screen.queryByRole('button', { name: 'Delete session' })).toBeNull();
     expect(deleteCalls(invoke)).toHaveLength(0);
   });
@@ -362,7 +362,7 @@ describe('deleting sessions', () => {
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Clean up' })).toBeNull());
     expect(deleteCalls(invoke)).toEqual([{ session: COPY.ref, project: PROJECT, emptyCopyOnly: true }]);
-    expect(toasts.items.at(-1)?.title).toBe('Deleted 1 empty copy');
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Copies deleted', description: 'Deleted 1 empty copy.' });
     expect(within(rowOf(ROOT.ref.id)).queryByRole('button', { name: /cop/ })).toBeNull();
   });
 });

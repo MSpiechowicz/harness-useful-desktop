@@ -126,7 +126,7 @@ describe('chats go to a harness that can chat', () => {
 
     expect(started).toBeNull();
     expect(backend.calls('agent_start')).toHaveLength(0);
-    expect(toasts.items.find((item) => item.title === 'Chat with OpenCode is coming soon')).toMatchObject({ tone: 'info' });
+    expect(toasts.items.find((item) => item.title === 'Coming soon')).toMatchObject({ description: expect.stringContaining('Chat with OpenCode is coming soon.'), tone: 'info' });
   });
 });
 
@@ -140,6 +140,6 @@ describe('resuming the newest session', () => {
     await resumeLastSession();
 
     expect(backend.calls('agent_start')).toHaveLength(0);
-    expect(toasts.items[0]).toMatchObject({ title: 'Sessions of OpenCode cannot be resumed yet' });
+    expect(toasts.items[0]).toMatchObject({ title: 'Can’t resume yet', description: 'Sessions of OpenCode cannot be resumed yet.' });
   });
 });

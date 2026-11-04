@@ -22,14 +22,19 @@ export const ecosystem: AreaMessages<typeof enEcosystem> = {
   'ecosystem.hero.looking': 'Procurando a família Harness…',
   'ecosystem.setup.run': 'Executar a configuração recomendada',
 
-  'ecosystem.autoUpdate.done': '{name} atualizado para a {version}',
+  'ecosystem.autoUpdate.done': '{name} atualizado',
+  'ecosystem.autoUpdate.doneBody': 'Agora na versão {version}.',
+  'ecosystem.autoUpdate.doneBodyLatest': 'Agora na versão mais recente.',
   'ecosystem.autoUpdate.failed': 'Falha na atualização de {name}',
   'ecosystem.autoUpdate.noReason': 'O instalador não disse o motivo.',
-  'ecosystem.autoInstall.done': '{name} instalado para o grafo de código continuar a funcionar',
+  'ecosystem.autoInstall.done': '{name} instalado',
+  'ecosystem.autoInstall.doneBody': 'O grafo de código continua a funcionar.',
   'ecosystem.autoInstall.failed': 'Falha na instalação de {name}',
 
-  'ecosystem.skillsMigration.done': 'Harness Skills renomeado em {harnesses}',
-  'ecosystem.skillsMigration.failed': 'Não foi possível renomear o Harness Skills em {harnesses}',
+  'ecosystem.skillsMigration.done': 'Harness Skills renomeado',
+  'ecosystem.skillsMigration.doneBody': 'Renomeado em {harnesses}.',
+  'ecosystem.skillsMigration.failed': 'Harness Skills não renomeado',
+  'ecosystem.skillsMigration.partial': 'Harness Skills renomeado em parte',
   'ecosystem.skillsMigration.reason': '{harness}: {reason}',
   'ecosystem.skillsMigration.noReason': 'O instalador não disse o motivo.',
 

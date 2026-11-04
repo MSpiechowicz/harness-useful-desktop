@@ -128,8 +128,8 @@ export const changes: AreaMessages<typeof enChanges> = {
   'changes.send.cancel': 'Cancelar',
   'changes.send.submit': 'Enviar ao agente',
 
-  'changes.toast.limit.title': 'Uma revisão comporta no máximo {max} comentários',
-  'changes.toast.limit.description': 'Envie ou descarte os atuais primeiro.',
+  'changes.toast.limit.title': 'Limite de comentários atingido',
+  'changes.toast.limit.description': 'Uma revisão comporta no máximo {max} comentários. Envie ou descarte os atuais primeiro.',
   'changes.toast.closed.title': 'Esse chat não está mais aberto',
   'changes.toast.closed.description': 'Escolha outro chat ou inicie um novo.',
 };

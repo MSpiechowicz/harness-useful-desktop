@@ -71,7 +71,8 @@ describe('"Trust once" runs the whole flow that was refused again', () => {
 
     expect(await store.create('claude', PROJECT)).toBeNull();
     expect(store.starting).toHaveLength(0);
-    expect(notifications.items[0].title).toMatch(new RegExp(` does not trust ${PROJECT.split('/').at(-1)} yet$`));
+    expect(notifications.items[0].title).toBe('Folder not trusted');
+    expect(notifications.items[0].description).toContain(`does not trust ${PROJECT.split('/').at(-1)} yet.`);
     expect(notifications.items[0].project).toBe(PROJECT);
 
     trustOnce();
@@ -212,8 +213,8 @@ describe('the toast of a folder to trust', () => {
 
   it('goes away when another project becomes the active one', () => {
     const notifications = new ToastsStore();
-    notifications.push({ title: 'About this project', project: PROJECT });
-    notifications.push({ title: 'About nothing in particular' });
+    notifications.push({ title: 'About this project', description: 'It only matters here.', project: PROJECT });
+    notifications.push({ title: 'About nothing in particular', description: 'It matters everywhere.' });
 
     notifications.leaveProjects(PROJECT);
     expect(notifications.items).toHaveLength(2);

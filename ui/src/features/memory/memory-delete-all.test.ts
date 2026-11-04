@@ -65,7 +65,7 @@ describe('deleting all scripts', () => {
     expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([REPO_ARGS]);
     expect(viewState.scriptId).toBeNull();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(toasts.items.at(-1)).toMatchObject({ title: `${mine.length} scripts deleted`, description: `${mine.filter((script) => script.place === 'team').length} of them were in the remote database.`, tone: 'success' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Scripts deleted', description: `${mine.length} scripts deleted. ${mine.filter((script) => script.place === 'team').length} of them were in the remote database.`, tone: 'success' });
   });
 
   it('leaves the read-only remote scripts out, says they stay and can be hidden, and tells how many stayed', async () => {
@@ -84,7 +84,7 @@ describe('deleting all scripts', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all scripts' }));
 
     await waitFor(() => expect(calls(invoke, 'memory_scripts_delete_all')).toEqual([REPO_ARGS]));
-    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: '1 script deleted', description: `${stay} remote scripts stay, you can hide them.` }));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: 'Scripts deleted', description: `1 script deleted. ${stay} remote scripts stay, you can hide them.` }));
   });
 
   it('says so instead of asking when only read-only remote scripts are left', async () => {
@@ -94,7 +94,7 @@ describe('deleting all scripts', () => {
 
     await chooseDeleteAll('Delete all scripts…');
 
-    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${own(scripts).length} remote scripts stay, you can hide them.`, tone: 'info' }));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: 'Nothing to delete here', description: `${own(scripts).length} remote scripts stay, you can hide them.`, tone: 'info' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(calls(invoke, 'memory_scripts_delete_all')).toHaveLength(0);
   });
@@ -170,7 +170,7 @@ describe('deleting all notes', () => {
 
     await waitFor(() => expect(screen.getByText('No notes match these filters.')).toBeInTheDocument());
     expect(calls(invoke, 'memory_notes_delete_all')).toEqual([REPO_ARGS]);
-    expect(toasts.items.at(-1)).toMatchObject({ title: `${all.length} notes deleted` });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Notes deleted', description: expect.stringContaining(`${all.length} notes deleted.`) });
   });
 
   it('says only that some may be the team when the list is longer than one read shows', async () => {
@@ -210,7 +210,7 @@ describe('deleting all notes', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Delete all notes' }));
 
     await waitFor(() => expect(calls(invoke, 'memory_notes_delete_all')).toEqual([REPO_ARGS]));
-    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `${own(notes).length - stay} notes deleted`, description: `${stay} remote notes stay, you can hide them.` }));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: 'Notes deleted', description: `${own(notes).length - stay} notes deleted. ${stay} remote notes stay, you can hide them.` }));
   });
 
   it('says so instead of asking when only read-only remote notes are left', async () => {
@@ -220,7 +220,7 @@ describe('deleting all notes', () => {
 
     await chooseDeleteAll('Delete all notes…');
 
-    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: `Nothing to delete here. The ${own(notes).length} remote notes stay, you can hide them.`, tone: 'info' }));
+    await waitFor(() => expect(toasts.items.at(-1)).toMatchObject({ title: 'Nothing to delete here', description: `${own(notes).length} remote notes stay, you can hide them.`, tone: 'info' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(calls(invoke, 'memory_notes_delete_all')).toHaveLength(0);
   });

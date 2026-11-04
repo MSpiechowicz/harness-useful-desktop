@@ -30,17 +30,17 @@
   let closing = $state<ChatSession | null>(null);
   let confirmOpen = $state(false);
 
-  /** Closing a chat that is still working loses the turn in progress, so it asks first. */
+  /**
+   * Closing always asks first: the rows below move up into the gap, so a second click would otherwise close the next
+   * chat. A chat that is still working says it loses the turn in progress.
+   */
   function close(session: ChatSession): void {
-    if (session.streaming) {
-      closing = session;
-      confirmOpen = true;
-
-      return;
-    }
-
-    void agentSessions.stop(session.key);
+    closing = session;
+    confirmOpen = true;
   }
+
+  const closingName = $derived(closing ? agentSessions.title(closing.key) : t('chat.tabs.stop.thisChat'));
+  const closingBusy = $derived(closing?.streaming ?? false);
 
   function show(key: string): void {
     agentSessions.select(key);
@@ -155,9 +155,9 @@
 
 <ConfirmDialog
   bind:open={confirmOpen}
-  title={t('chat.tabs.stop.title')}
-  description={t('chat.tabs.stop.description', { name: closing ? agentSessions.title(closing.key) : t('chat.tabs.stop.thisChat') })}
-  confirmLabel={t('chat.tabs.stop.confirm')}
-  cancelLabel={t('chat.tabs.stop.cancel')}
+  title={closingBusy ? t('chat.tabs.stop.title') : t('chat.tabs.closeConfirm.title')}
+  description={closingBusy ? t('chat.tabs.stop.description', { name: closingName }) : t('chat.tabs.closeConfirm.description', { name: closingName })}
+  confirmLabel={closingBusy ? t('chat.tabs.stop.confirm') : t('chat.tabs.closeConfirm.confirm')}
+  cancelLabel={closingBusy ? t('chat.tabs.stop.cancel') : t('chat.tabs.closeConfirm.cancel')}
   onconfirm={() => closing && void agentSessions.stop(closing.key)}
 />

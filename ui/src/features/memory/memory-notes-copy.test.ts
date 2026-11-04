@@ -125,7 +125,7 @@ describe('the banner for notes saved on this computer', () => {
 
     await waitFor(() => expect(calls(invoke, 'memory_notes_discard_local')).toEqual([{ ids: 'all' }]));
     await waitFor(() => expect(screen.queryByText(/not in the remote database/)).toBeNull());
-    expect(toasts.items.at(-1)).toMatchObject({ title: `${stranded} notes deleted from this computer`, tone: 'success' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Notes deleted', description: `${stranded} notes deleted from this computer.`, tone: 'success' });
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
@@ -229,7 +229,7 @@ describe('copying the notes to the remote database', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Copy finished' });
     const stays = within(dialog).getByText('Stay on this computer').nextElementSibling?.textContent;
     expect(Number(stays)).toBeGreaterThan(0);
-    expect(toasts.items.at(-1)).toMatchObject({ tone: 'success', description: `${stays} notes stay on this computer.` });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Notes copied', tone: 'success', description: expect.stringMatching(new RegExp(`copied\\. ${stays} notes stay on this computer\\.$`)) });
 
     // An agent saves a note after the comparison: the copy did not leave it, so the dialog must not delete it.
     const leftover = ((await invoke.mock.results.find((_, index) => invoke.mock.calls[index][0] === 'memory_notes_copy_apply')?.value) as NotesCopyResult).leftover;
@@ -241,7 +241,7 @@ describe('copying the notes to the remote database', () => {
 
     await waitFor(() => expect(calls(invoke, 'memory_notes_discard_local')).toEqual([{ ids: leftover }]));
     expect(leftover).not.toContain((saved as { id: number }).id);
-    expect(toasts.items.at(-1)).toMatchObject({ title: `${stays} notes deleted from this computer` });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Notes deleted', description: `${stays} notes deleted from this computer.` });
     await waitFor(() => expect(within(dialog).queryByRole('button', { name: /from this computer…/ })).toBeNull());
   });
 
@@ -273,7 +273,7 @@ describe('copying the notes to the remote database', () => {
     expect(stat('Failed')).toBe('0');
     expect(within(dialog).getByText(/Some notes could not be copied/)).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: /from this computer…/ })).toBeNull();
-    expect(toasts.items.at(-1)).toMatchObject({ title: '7 notes copied', tone: 'warning' });
+    expect(toasts.items.at(-1)).toMatchObject({ title: 'Notes copied', description: '7 notes copied. 4 notes stay on this computer.', tone: 'warning' });
   });
 
   it('counts a failed note once however many of its relations failed with it', async () => {

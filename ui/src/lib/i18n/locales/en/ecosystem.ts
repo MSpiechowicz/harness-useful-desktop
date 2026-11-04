@@ -19,14 +19,19 @@ export const ecosystem = {
   'ecosystem.hero.looking': 'Looking for the Harness family…',
   'ecosystem.setup.run': 'Run recommended setup',
 
-  'ecosystem.autoUpdate.done': '{name} updated to {version}',
+  'ecosystem.autoUpdate.done': '{name} updated',
+  'ecosystem.autoUpdate.doneBody': 'Now on version {version}.',
+  'ecosystem.autoUpdate.doneBodyLatest': 'Now on the latest version.',
   'ecosystem.autoUpdate.failed': '{name} update failed',
   'ecosystem.autoUpdate.noReason': 'The installer did not say why.',
-  'ecosystem.autoInstall.done': '{name} installed, so the code graph keeps working',
+  'ecosystem.autoInstall.done': '{name} installed',
+  'ecosystem.autoInstall.doneBody': 'The code graph keeps working.',
   'ecosystem.autoInstall.failed': '{name} install failed',
 
-  'ecosystem.skillsMigration.done': 'Harness Skills renamed in {harnesses}',
-  'ecosystem.skillsMigration.failed': 'Harness Skills could not be renamed in {harnesses}',
+  'ecosystem.skillsMigration.done': 'Harness Skills renamed',
+  'ecosystem.skillsMigration.doneBody': 'Renamed in {harnesses}.',
+  'ecosystem.skillsMigration.failed': 'Harness Skills not renamed',
+  'ecosystem.skillsMigration.partial': 'Harness Skills partly renamed',
   'ecosystem.skillsMigration.reason': '{harness}: {reason}',
   'ecosystem.skillsMigration.noReason': 'The installer did not say why.',
 
@@ -206,7 +211,7 @@ export const ecosystem = {
   'ecosystem.tips.showFewer': 'Show fewer',
   'ecosystem.tips.showAll': 'Show all {count}',
 
-  'ecosystem.chart.donut': '{label}: {total} {caption}; {summary}',
+  'ecosystem.chart.donut': '{label}: {total} {caption}. {summary}',
   'ecosystem.chart.segment': '{label} {value} ({share})',
   'ecosystem.chart.waffle': '{label}: {summary}',
   'ecosystem.chart.share': '{label} {share}',
@@ -225,14 +230,14 @@ export const ecosystem = {
   'ecosystem.product.dashboard.tagline': 'Token usage across your AI coding tools, in one local app.',
   'ecosystem.product.dashboard.description':
     'Reads the sessions Claude Code, Codex, OMP, PI and other agents write to disk and shows cost, tokens, plan limits and budgets. The app reads it through its local, read-only MCP server.',
-  'ecosystem.product.dashboard.note.0': 'Data comes from the local process `harness-dashboard mcp`; nothing is sent over the network.',
+  'ecosystem.product.dashboard.note.0': 'Data comes from the local process `harness-dashboard mcp`. Nothing is sent over the network.',
   'ecosystem.product.dashboard.note.1': 'Run `harness-dashboard` now and then so its database stays current.',
   'ecosystem.product.dashboard.step.0.title': 'Install the binary',
 
   'ecosystem.product.memory.tagline': 'One project memory for every coding agent, kept on this machine.',
   'ecosystem.product.memory.description':
     'A local MCP server that keeps notes and how they relate per project, so what one agent learns the next one finds. The app registers it with each detected harness while Project memory is on, and adds matching notes to the first message of a new chat.',
-  'ecosystem.product.memory.note.0': 'Runs locally as `harness-memory mcp`; nothing is sent over the network.',
+  'ecosystem.product.memory.note.0': 'Runs locally as `harness-memory mcp`. Nothing is sent over the network.',
   'ecosystem.product.memory.note.1': 'Turn it on or off for every harness in Settings, under Project memory.',
   'ecosystem.product.memory.step.0.title': 'Install the binary',
 

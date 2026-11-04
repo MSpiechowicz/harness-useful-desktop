@@ -179,7 +179,11 @@ export async function resumeLastSession(): Promise<void> {
     const blocked = sessionList.data?.[0];
     const name = blocked ? harness.get(blocked.ref.harness)?.info.name : undefined;
 
-    toasts.push(name ? { title: t('shell.toast.resumeSoon', { harness: name }), tone: 'info' } : { title: t('shell.toast.noSession'), tone: 'info' });
+    toasts.push(
+      name
+        ? { title: t('shell.toast.resumeSoon'), description: t('shell.toast.resumeSoonBody', { harness: name }), tone: 'info' }
+        : { title: t('shell.toast.noSession'), description: t('shell.toast.noSessionBody'), tone: 'info' },
+    );
 
     return;
   }

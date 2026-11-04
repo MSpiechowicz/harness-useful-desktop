@@ -202,7 +202,8 @@ export const extensions: AreaMessages<typeof enExtensions> = {
   'extensions.dialog.close': 'Schließen',
   'extensions.dialog.cancel': 'Abbrechen',
 
-  'extensions.toast.chatsReloaded': 'Offene Chats wurden neu gestartet, um die Änderung zu laden',
+  'extensions.toast.chatsReloaded': 'Chats neu gestartet',
+  'extensions.toast.chatsReloadedBody': 'Offene Chats wurden neu gestartet, um die Änderung zu laden.',
   'extensions.autoUpdate.installing': 'Erweiterungs-Updates werden installiert',
   'extensions.autoUpdate.done': 'Erweiterungen aktualisiert',
   'extensions.autoUpdate.failed': 'Ein Erweiterungs-Update ist fehlgeschlagen',

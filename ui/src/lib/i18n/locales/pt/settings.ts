@@ -229,6 +229,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.privacy.recents.confirmDescription': 'Todas as pastas lembradas são esquecidas. Se o seu projeto aberto estiver na lista, ele também é fechado. Seus arquivos não são afetados.',
   'settings.privacy.recents.confirmLabel': 'Limpar lista',
   'settings.privacy.recents.cleared': 'Projetos recentes limpos',
+  'settings.privacy.recents.clearedBody': 'Todas as pastas lembradas foram esquecidas. Seus arquivos não são afetados.',
   'settings.privacy.diagnostics.title': 'Diagnóstico',
   'settings.privacy.diagnostics.description': 'Copia a versão do app, o sistema e as versões dos harnesses para um relato de bug. Sem caminhos, projetos nem conteúdo.',
   'settings.privacy.diagnostics.copy': 'Copiar diagnóstico',

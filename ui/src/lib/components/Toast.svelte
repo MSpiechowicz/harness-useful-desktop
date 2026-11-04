@@ -56,19 +56,18 @@
   class="pointer-events-auto flex w-80 items-start gap-3 rounded-lg border border-line-strong bg-glass p-3.5 shadow-pop backdrop-blur-xl"
 >
   <!-- The icon and the close button sit on the optical middle of the title's letters, one pixel under the middle of its
-       21px line box; the button's negative margins keep the 36px control from making the toast taller. -->
-  <Icon class={cx(tone.color, 'mt-[2.5px] shrink-0')} size={18} aria-hidden="true" />
+       20px line box; the button's negative margins keep the 36px control from making the toast taller. -->
+  <Icon class={cx(tone.color, 'mt-[2px] shrink-0')} size={18} aria-hidden="true" />
 
   <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-    <p class="text-base font-medium text-fg">{toast.title}</p>
-    {#if toast.description}
-      <p class="text-sm break-words text-fg-2">{toast.description}</p>
-    {/if}
+    <!-- Every toast is a small title with a line that says more under it. -->
+    <p class="text-sm leading-[20px] font-medium text-fg">{toast.title}</p>
+    <p class="text-sm break-words text-fg-2">{toast.description.trim() || t('components.toast.noDetails')}</p>
     {#if toast.action}
       {@const action = toast.action}
       <Button class="mt-1.5 self-start" onclick={() => { action.run(); ondismiss(toast.id); }}>{action.label}</Button>
     {/if}
   </div>
 
-  <IconButton icon={X} label={t('components.toast.dismiss')} class="-mt-[6.5px] -mb-[8.5px] -mr-1.5 shrink-0" onclick={() => ondismiss(toast.id)} />
+  <IconButton icon={X} label={t('components.toast.dismiss')} class="-mt-[7px] -mb-[9px] -mr-1.5 shrink-0" onclick={() => ondismiss(toast.id)} />
 </div>

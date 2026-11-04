@@ -132,7 +132,7 @@ describe('Sharing a local hook', () => {
 
     await waitFor(() => expect(within(teamRowOf('Summarize the diff')).getByText('Overridden')).toBeInTheDocument());
     expect(calls(invoke, 'hooks_share')).toEqual([{ id: summarize.id, sha256: summarize.sha256 }]);
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('Summarize the diff shared with the team.'));
+    await waitFor(() => expect(toasts.items).toContainEqual(expect.objectContaining({ title: 'Hook shared', description: 'Summarize the diff is now shared with the team.' })));
     expect(within(screen.getByRole('region', { name: 'Summarize the diff' })).getByRole('button', { name: 'Share with team' })).toBeDisabled();
   });
 
@@ -234,7 +234,7 @@ describe('A remote hook', () => {
 
     await waitFor(() => expect(document.querySelector('[data-row^="team:"]')?.textContent).not.toContain(COMMITS));
     expect(calls(invoke, 'hooks_team_remove')).toEqual([{ id: team.id, sha256: team.sha256 }]);
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain(`${COMMITS} removed from remote.`));
+    await waitFor(() => expect(toasts.items).toContainEqual(expect.objectContaining({ title: 'Removed from remote', description: `${COMMITS} is no longer in the remote database.` })));
   });
 
   it('offers to update its remote copy from the original when the original changed since it was shared', async () => {
@@ -247,7 +247,7 @@ describe('A remote hook', () => {
 
     await waitFor(() => expect(within(screen.getByRole('region', { name: SMALL })).queryByRole('button', { name: 'Update remote copy' })).not.toBeInTheDocument());
     expect(calls(invoke, 'hooks_share')).toEqual([{ id: original.id, sha256: original.sha256 }]);
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain(`Remote copy of ${SMALL} updated.`));
+    await waitFor(() => expect(toasts.items).toContainEqual(expect.objectContaining({ title: 'Remote copy updated', description: `The remote copy of ${SMALL} was updated.` })));
   });
 
   it('has no update while the original is as it was shared', async () => {

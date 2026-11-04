@@ -109,10 +109,19 @@ describe('Mapping a Harness Skills role in OMP', () => {
     const table = await openTable();
 
     await fireEvent.click(within(rowOf(table, 'review')).getByRole('button', { name: 'Map review to a model' }));
-    await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'anthropic/claude-haiku-4-5' }));
+    await fireEvent.click(await screen.findByRole('button', { name: 'anthropic/claude-haiku-4-5' }));
 
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('omp_map_role', { role: 'review', selector: 'anthropic/claude-haiku-4-5' }));
     await waitFor(() => expect(within(rowOf(table, 'review')).getByText('claude-haiku-4-5')).toBeInTheDocument());
+  });
+
+  it('offers every model the harness has, asked of it while the picker is open', async () => {
+    renderCard();
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Map assess to a model' }));
+
+    expect(await screen.findByRole('button', { name: 'openai/gpt-5' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'anthropic/claude-sonnet-4-5' })).toBeInTheDocument();
   });
 
   it('does not ask the backend for a model that is no provider and model', async () => {

@@ -115,7 +115,7 @@ export class FamilyUpdater {
     try {
       const result = await this.install('code');
 
-      failure = result.ok ? null : (result.summary ?? t('ecosystem.autoUpdate.noReason'));
+      failure = result.ok ? null : (result.summary || t('ecosystem.autoUpdate.noReason'));
     } catch (error) {
       const reason = IpcFailure.from(error);
 
@@ -124,11 +124,11 @@ export class FamilyUpdater {
         return;
       }
 
-      failure = reason.message;
+      failure = reason.message || t('ecosystem.autoUpdate.noReason');
     }
 
     if (failure === null) {
-      this.deps.notifications.push({ title: t('ecosystem.autoInstall.done', { name }), tone: 'success' });
+      this.deps.notifications.push({ title: t('ecosystem.autoInstall.done', { name }), description: t('ecosystem.autoInstall.doneBody'), tone: 'success' });
       await this.deps.updated('code');
     } else {
       this.deps.notifications.push({ title: t('ecosystem.autoInstall.failed', { name }), description: failure, tone: 'danger' });
@@ -156,7 +156,7 @@ export class FamilyUpdater {
     try {
       const result = await this.install(item.id);
 
-      failure = result.ok ? null : (result.summary ?? t('ecosystem.autoUpdate.noReason'));
+      failure = result.ok ? null : (result.summary || t('ecosystem.autoUpdate.noReason'));
       version = result.version ?? version;
     } catch (error) {
       const reason = IpcFailure.from(error);
@@ -166,13 +166,13 @@ export class FamilyUpdater {
         return;
       }
 
-      failure = reason.message;
+      failure = reason.message || t('ecosystem.autoUpdate.noReason');
     }
 
     this.attempted.add(key);
 
     if (failure === null) {
-      this.deps.notifications.push({ title: t('ecosystem.autoUpdate.done', { name, version: version ?? '' }), tone: 'success' });
+      this.deps.notifications.push({ title: t('ecosystem.autoUpdate.done', { name }), description: version ? t('ecosystem.autoUpdate.doneBody', { version }) : t('ecosystem.autoUpdate.doneBodyLatest'), tone: 'success' });
       await this.deps.updated(item.id);
     } else {
       this.deps.notifications.push({ title: t('ecosystem.autoUpdate.failed', { name }), description: failure, tone: 'danger' });

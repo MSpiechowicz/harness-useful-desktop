@@ -90,7 +90,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.project.selected': 'Sélectionné',
   'onboarding.project.change': 'Changer…',
   'onboarding.project.none': 'Aucun projet pour l’instant',
-  'onboarding.project.noneHint': 'Tout dossier convient ; un dépôt Git débloque aussi Modifications.',
+  'onboarding.project.noneHint': 'Tout dossier convient. Un dépôt Git débloque aussi Modifications.',
   'onboarding.project.reopen': 'Ou rouvrir',
   'onboarding.project.openFolder': 'Ouvrir un dossier…',
   'onboarding.project.tiles': 'Dans ce projet',
@@ -131,7 +131,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.approval.default': 'Par défaut dans OMP',
   'onboarding.approval.alwaysAsk.when': 'Chaque appel d’outil attend votre réponse. Le plus sûr, le plus lent.',
   'onboarding.approval.alwaysAsk.good': 'Idéal pour les projets inconnus et les machines sensibles.',
-  'onboarding.approval.write.when': 'La lecture est libre ; modifier des fichiers ou lancer des commandes attend votre réponse.',
+  'onboarding.approval.write.when': 'La lecture est libre. Modifier des fichiers ou lancer des commandes attend votre réponse.',
   'onboarding.approval.write.good': 'Idéal pour le travail quotidien, quand vous voulez avoir votre mot à dire avant les modifications.',
   'onboarding.approval.yolo.when': 'Rien n’attend. Le plus rapide, et exactement comme OMP s’exécute dans votre terminal.',
   'onboarding.approval.yolo.good': 'Idéal pour les projets de confiance, les bacs à sable et les itérations rapides.',
@@ -238,7 +238,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.mcp.title': 'Harness Dashboard MCP',
   'onboarding.setup.mcp.body': 'Permet à vos agents de consulter leur propre consommation et leur coût, en enregistrant le dashboard comme serveur MCP.',
   'onboarding.setup.mcp.note':
-    'Seule l’entrée harness-dashboard est ajoutée ; tous les autres serveurs du fichier restent tels quels. Un fichier que l’application ne peut pas modifier en sécurité est laissé intact.',
+    'Seule l’entrée harness-dashboard est ajoutée. Tous les autres serveurs du fichier restent tels quels. Un fichier que l’application ne peut pas modifier en sécurité est laissé intact.',
   'onboarding.setup.mcp.noFile': 'Aucun fichier MCP à modifier',
   'onboarding.setup.mcp.refused': '{reason} Si vous le souhaitez, ajoutez ceci vous-même au fichier :',
   'onboarding.setup.mcp.manualEdit': '{file} contient des commentaires qu’une réécriture ferait perdre, donc l’app laisse le fichier tel quel. Ajoutez cette entrée vous-même :',
@@ -249,7 +249,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.setup.memoryMcp.body':
     'Permet à vos agents de consulter et d’ajouter des notes sur votre projet, en enregistrant Harness Memory comme serveur MCP.',
   'onboarding.setup.memoryMcp.note':
-    'Seule l’entrée harness-memory est ajoutée, qui lance le serveur installé ; l’ajouter active « Mémoire du projet » dans les Paramètres. Un fichier que l’application ne peut pas modifier en sécurité est laissé intact.',
+    'Seule l’entrée harness-memory est ajoutée, qui lance le serveur installé. L’ajouter active « Mémoire du projet » dans les Paramètres. Un fichier que l’application ne peut pas modifier en sécurité est laissé intact.',
   'onboarding.setup.memoryMcp.needsMemory': 'Nécessite Harness Memory. Incluez son installation ci-dessus ou installez-le d’abord vous-même.',
   'onboarding.setup.desktopMcp.title': 'Harness Desktop MCP',
   'onboarding.setup.desktopMcp.body': 'Permet à vos agents d’ajouter et de modifier des hooks et des routines, en enregistrant Harness Desktop comme serveur MCP.',
@@ -332,5 +332,5 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.done.tip.changes.title': 'Modifications',
   'onboarding.done.tip.changes.body': 'Relire le diff de l’agent et lui renvoyer des commentaires ligne par ligne.',
   'onboarding.done.tip.shortcuts.title': 'Tous les raccourcis',
-  'onboarding.done.tip.shortcuts.body': 'Tout a sa touche ; voici la liste complète.',
+  'onboarding.done.tip.shortcuts.body': 'Tout a sa touche. Voici la liste complète.',
 };

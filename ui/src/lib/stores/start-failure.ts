@@ -38,8 +38,8 @@ export function startFailureToast(error: unknown, request: AgentStartRequest, tr
     const binary = info?.binaryName ?? request.harness;
 
     return {
-      title: t('chat.toast.untrusted', { harness: name, folder: folderName(request.project) }),
-      description: failure.code === 'untrustedUnreadable' ? t('chat.toast.untrustedUnreadableBody', { harness: name }) : t('chat.toast.untrustedBody', { binary }),
+      title: t('chat.toast.untrusted'),
+      description: `${t('chat.toast.untrustedLead', { harness: name, folder: folderName(request.project) })} ${failure.code === 'untrustedUnreadable' ? t('chat.toast.untrustedUnreadableBody', { harness: name }) : t('chat.toast.untrustedBody', { binary })}`,
       tone: 'warning',
       duration: 0,
       project: request.project,

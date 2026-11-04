@@ -57,7 +57,7 @@ export function defaultScenario(): Scenario {
   // `?routines=team|teamTrusted|teamNoOrigin|teamProblem` shares routines with a team, as `?hooks=` does for hooks.
   const routines = new MockRoutines(routineScenarioFromLocation);
 
-  const { attach, ...agentCommands } = agentHandlers(state, agentPace, (project) => hooks.sessionContext(project));
+  const { attach, ...agentCommands } = agentHandlers(state, agentPace, (project) => hooks.sessionContext(project), () => routines.workspace());
   // `?held=empty` starts without held saves; by default the first chat with a memory identity has three waiting for review.
   const guards = new MockMemoryGuards();
   let memoryInstalled = false;

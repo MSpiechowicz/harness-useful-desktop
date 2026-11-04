@@ -147,8 +147,8 @@ export const changes: AreaMessages<typeof enChanges> = {
   'changes.send.cancel': 'Anuluj',
   'changes.send.submit': 'Wyślij do agenta',
 
-  'changes.toast.limit.title': 'Przegląd może zawierać najwyżej {max} komentarzy',
-  'changes.toast.limit.description': 'Najpierw wyślij lub odrzuć obecne.',
+  'changes.toast.limit.title': 'Limit komentarzy osiągnięty',
+  'changes.toast.limit.description': 'Przegląd może zawierać najwyżej {max} komentarzy. Najpierw wyślij lub odrzuć obecne.',
   'changes.toast.closed.title': 'Ten czat nie jest już otwarty',
   'changes.toast.closed.description': 'Wybierz inny czat lub rozpocznij nowy.',
 };

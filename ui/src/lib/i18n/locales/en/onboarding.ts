@@ -87,7 +87,7 @@ export const onboarding = {
   'onboarding.project.selected': 'Selected',
   'onboarding.project.change': 'Change…',
   'onboarding.project.none': 'No project yet',
-  'onboarding.project.noneHint': 'Any folder works; a git repository also unlocks Changes.',
+  'onboarding.project.noneHint': 'Any folder works. A git repository also unlocks Changes.',
   'onboarding.project.reopen': 'Or reopen',
   'onboarding.project.openFolder': 'Open a folder…',
   'onboarding.project.tiles': 'In this project',
@@ -128,7 +128,7 @@ export const onboarding = {
   'onboarding.approval.default': 'OMP default',
   'onboarding.approval.alwaysAsk.when': 'Every tool call waits for you. Safest, slowest.',
   'onboarding.approval.alwaysAsk.good': 'Good for unfamiliar projects and sensitive machines.',
-  'onboarding.approval.write.when': 'Reading is free; editing files or running commands waits for you.',
+  'onboarding.approval.write.when': 'Reading is free. Editing files or running commands waits for you.',
   'onboarding.approval.write.good': 'Good for day-to-day work where you want a say before changes.',
   'onboarding.approval.yolo.when': 'Nothing waits. Fastest, and exactly how OMP runs in your terminal.',
   'onboarding.approval.yolo.good': 'Good for trusted projects, sandboxes and quick iteration.',
@@ -234,7 +234,7 @@ export const onboarding = {
   'onboarding.setup.mcp.title': 'Harness Dashboard MCP',
   'onboarding.setup.mcp.body': 'Lets your agents look up their own usage and cost, by registering the dashboard as an MCP server.',
   'onboarding.setup.mcp.note':
-    'Only the harness-dashboard entry is added; every other server in the file stays as it is. A file the app cannot edit safely is left alone.',
+    'Only the harness-dashboard entry is added. Every other server in the file stays as it is. A file the app cannot edit safely is left alone.',
   'onboarding.setup.mcp.noFile': 'No MCP file to edit',
   'onboarding.setup.mcp.refused': '{reason} Add this to the file yourself if you want it:',
   'onboarding.setup.mcp.manualEdit': '{file} has comments that rewriting would lose, so the app leaves the file alone. Add this entry yourself:',
@@ -245,7 +245,7 @@ export const onboarding = {
   'onboarding.setup.memoryMcp.body':
     'Lets your agents look up and add notes about your project, by registering Harness Memory as an MCP server.',
   'onboarding.setup.memoryMcp.note':
-    'Only the harness-memory entry is added, running the installed server; adding it turns Project memory on in Settings. A file the app cannot edit safely is left alone.',
+    'Only the harness-memory entry is added, running the installed server. Adding it turns Project memory on in Settings. A file the app cannot edit safely is left alone.',
   'onboarding.setup.memoryMcp.needsMemory': 'Needs Harness Memory. Include its install above, or install it yourself first.',
   'onboarding.setup.desktopMcp.title': 'Harness Desktop MCP',
   'onboarding.setup.desktopMcp.body': 'Lets your agents add and change hooks and routines, by registering Harness Desktop as an MCP server.',
@@ -328,5 +328,5 @@ export const onboarding = {
   'onboarding.done.tip.changes.title': 'Changes',
   'onboarding.done.tip.changes.body': 'Review the agent’s diff and send line comments back to it.',
   'onboarding.done.tip.shortcuts.title': 'All shortcuts',
-  'onboarding.done.tip.shortcuts.body': 'Everything has a key; this shows the full list.',
+  'onboarding.done.tip.shortcuts.body': 'Everything has a key. This shows the full list.',
 } satisfies Record<string, string>;

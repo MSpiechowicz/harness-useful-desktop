@@ -97,7 +97,7 @@ describe('the chat tab of a routine run', () => {
 
     expect(session).toBeNull();
     expect(backend.store.sessions).toHaveLength(0);
-    expect(backend.notifications.items.at(-1)).toMatchObject({ title: 'Could not open the chat of the run', tone: 'danger' });
+    expect(backend.notifications.items.at(-1)).toMatchObject({ title: 'Could not open the chat', tone: 'danger' });
   });
 
   it('opens a run that ended quietly, for the caller to fall back to the saved session', async () => {

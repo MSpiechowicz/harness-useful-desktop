@@ -49,7 +49,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.aiNames.off': 'Désactivé : le nom reprend les premiers mots que vous tapez et rien n’est envoyé.',
 
   'settings.motion.title': 'Animations',
-  'settings.motion.description': 'Réduites garde de simples fondus ; Désactivées coupe toute animation. Le réglage de mouvement réduit de votre système s’applique toujours.',
+  'settings.motion.description': 'Réduites garde de simples fondus. Désactivées coupe toute animation. Le réglage de mouvement réduit de votre système s’applique toujours.',
   'settings.motion.full': 'Complètes',
   'settings.motion.reduced': 'Réduites',
   'settings.motion.off': 'Désactivées',
@@ -59,7 +59,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.sound.title': 'Son de l’intro',
   'settings.sound.description': 'Le son du logo pendant l’intro. Il n’est jamais joué quand l’intro est désactivée ou passée.',
   'settings.replay.title': 'Revoir l’intro',
-  'settings.replay.motionOff': 'Les animations sont désactivées ; activez-les pour revoir l’intro.',
+  'settings.replay.motionOff': 'Les animations sont désactivées. Activez-les pour revoir l’intro.',
   'settings.replay.ready': 'La regarder encore une fois.',
 
   'settings.harness.binary': 'Exécutable de {name}',
@@ -206,12 +206,12 @@ export const settings: AreaMessages<typeof enSettings> = {
     'Les valeurs de configuration qui ressemblent à des secrets apparaissent masquées : clés d’API et jetons, variables d’environnement et en-têtes des serveurs MCP, champs d’authentification et OAuth, valeurs !command (jamais exécutées) et identifiants dans les URL. Les références d’environnement comme $NAME n’affichent que le nom. La sortie d’erreur des agents et la sortie du shell sont masquées avant d’arriver à l’écran.',
   'settings.privacy.network.title': 'Réseau',
   'settings.privacy.network.text':
-    'L’application elle-même fait trois types de requêtes. Deux vont vers GitHub et les deux peuvent être désactivées. La recherche de mises à jour récupère le fichier de version latest.json ; elle n’a lieu que si cette version contient une clé de mise à jour et suit votre réglage de mise à jour. La vérification de la famille Harness demande à GitHub le numéro de la dernière version de Harness Dashboard, Skills, Memory et Sidebar à l’ouverture d’Ecosystem, au plus toutes les six heures tant que l’application tourne (une vérification échouée est retentée après quelques minutes). Elle interroge toujours les quatre, donc elle ne révèle pas lesquels vous avez ; GitHub ne voit que votre adresse IP et la version de l’application. La troisième est Git qui parle aux dépôts distants de votre propre projet : le projet ouvert est récupéré en arrière-plan toutes les cinq minutes tant que la fenêtre est visible (à désactiver dans Paramètres, Projets), et un push ou un pull n’a lieu que si vous cliquez dessus. La récupération en arrière-plan ne demande jamais de mot de passe ni de clé d’hôte. Les liens ne s’ouvrent dans votre navigateur que lorsque vous cliquez dessus, et seulement pour les sites de projets et de harnesses, sauf si vous autorisez ci-dessous tous les liens https. Les widgets de Harness Dashboard utilisent un processus local via stdio, sans réseau. Les CLI des harnesses communiquent avec leurs fournisseurs comme dans votre terminal, et les actions des extensions lancent la CLI, qui peut télécharger des paquets, seulement après votre confirmation.',
+    'L’application elle-même fait trois types de requêtes. Deux vont vers GitHub et les deux peuvent être désactivées. La recherche de mises à jour récupère le fichier de version latest.json. Elle n’a lieu que si cette version contient une clé de mise à jour et suit votre réglage de mise à jour. La vérification de la famille Harness demande à GitHub le numéro de la dernière version de Harness Dashboard, Skills, Memory et Sidebar à l’ouverture d’Ecosystem, au plus toutes les six heures tant que l’application tourne (une vérification échouée est retentée après quelques minutes). Elle interroge toujours les quatre, donc elle ne révèle pas lesquels vous avez. GitHub ne voit que votre adresse IP et la version de l’application. La troisième est Git qui parle aux dépôts distants de votre propre projet : le projet ouvert est récupéré en arrière-plan toutes les cinq minutes tant que la fenêtre est visible (à désactiver dans Paramètres, Projets), et un push ou un pull n’a lieu que si vous cliquez dessus. La récupération en arrière-plan ne demande jamais de mot de passe ni de clé d’hôte. Les liens ne s’ouvrent dans votre navigateur que lorsque vous cliquez dessus, et seulement pour les sites de projets et de harnesses, sauf si vous autorisez ci-dessous tous les liens https. Les widgets de Harness Dashboard utilisent un processus local via stdio, sans réseau. Les CLI des harnesses communiquent avec leurs fournisseurs comme dans votre terminal, et les actions des extensions lancent la CLI, qui peut télécharger des paquets, seulement après votre confirmation.',
   'settings.privacy.telemetry.title': 'Aucune télémétrie',
   'settings.privacy.telemetry.text': 'Aucune analyse, aucun suivi, aucun compte, aucune connexion.',
   'settings.privacy.agents.title': 'Agents',
   'settings.privacy.agents.text':
-    'Les agents s’exécutent sur votre machine avec votre environnement et votre configuration. Harness Desktop ne modifie jamais les réglages de votre harness ; un choix d’approbation fait pour un chat ne vaut que pour ce chat, et le mode actif s’affiche dans l’en-tête du chat lorsque le harness en a un. Les commandes shell saisies dans le chat demandent toujours une confirmation. Cette application n’envoie rien.',
+    'Les agents s’exécutent sur votre machine avec votre environnement et votre configuration. Harness Desktop ne modifie jamais les réglages de votre harness. Un choix d’approbation fait pour un chat ne vaut que pour ce chat, et le mode actif s’affiche dans l’en-tête du chat lorsque le harness en a un. Les commandes shell saisies dans le chat demandent toujours une confirmation. Cette application n’envoie rien.',
   'settings.privacy.git.title': 'Git',
   'settings.privacy.git.text':
     'Git s’exécute sans paginateurs, sans programmes de diff externes et sans moniteurs du système de fichiers, et avec les demandes d’identifiants désactivées. La vue Modifications lit seulement (état, diff, liste des branches). Le menu des branches récupère aussi en arrière-plan et ne modifie votre dépôt que lorsque vous cliquez : push, publication, pull, rebase, merge, abandon, poursuite, changement de branche, nouvelle branche et stash. Les hooks de votre dépôt s’exécutent pour ces actions, comme dans un terminal. Les messages d’erreur sont masqués avant d’être affichés.',
@@ -229,6 +229,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.privacy.recents.confirmDescription': 'Chaque dossier mémorisé est oublié. Si votre projet ouvert figure dans la liste, il est aussi fermé. Vos fichiers ne sont pas touchés.',
   'settings.privacy.recents.confirmLabel': 'Effacer la liste',
   'settings.privacy.recents.cleared': 'Projets récents effacés',
+  'settings.privacy.recents.clearedBody': 'Chaque dossier mémorisé a été oublié. Vos fichiers ne sont pas touchés.',
   'settings.privacy.diagnostics.title': 'Diagnostic',
   'settings.privacy.diagnostics.description': 'Copie la version de l’application, du système et des harnesses pour un rapport de bug. Aucun chemin, projet ni contenu.',
   'settings.privacy.diagnostics.copy': 'Copier le diagnostic',

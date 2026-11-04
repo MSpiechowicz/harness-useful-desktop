@@ -40,6 +40,7 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.collapseAll': 'Zwiń wszystko',
   'config.menu.expandAll': 'Rozwiń wszystko',
   'config.menu.copyPath': 'Kopiuj ścieżkę',
+  'config.menu.pathCopied': 'Ścieżka pliku jest w schowku.',
 
   'config.overview.title': 'Przegląd',
   'config.overview.entries': 'wpisów najwyższego poziomu',

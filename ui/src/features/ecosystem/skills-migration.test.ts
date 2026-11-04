@@ -43,7 +43,7 @@ describe('Harness Skills names migration', () => {
 
     await migration.run();
 
-    expect(toasts).toEqual([{ title: 'Harness Skills renamed in Claude Code, Codex', tone: 'success' }]);
+    expect(toasts).toEqual([{ title: 'Harness Skills renamed', description: 'Renamed in Claude Code, Codex.', tone: 'success' }]);
     expect(migrated).toHaveBeenCalledTimes(1);
   });
 
@@ -52,7 +52,7 @@ describe('Harness Skills names migration', () => {
 
     await migration.run();
 
-    expect(toasts).toEqual([{ title: 'Harness Skills renamed in OMP', description: 'Codex: the codex command was not found', tone: 'warning' }]);
+    expect(toasts).toEqual([{ title: 'Harness Skills partly renamed', description: 'Renamed in OMP.\nCodex: the codex command was not found', tone: 'warning' }]);
   });
 
   it('reports a failure alone, with a fallback for a missing reason', async () => {
@@ -60,7 +60,7 @@ describe('Harness Skills names migration', () => {
 
     await migration.run();
 
-    expect(toasts).toEqual([{ title: 'Harness Skills could not be renamed in OpenCode', description: 'OpenCode: The installer did not say why.', tone: 'warning' }]);
+    expect(toasts).toEqual([{ title: 'Harness Skills not renamed', description: 'OpenCode: The installer did not say why.', tone: 'warning' }]);
     expect(migrated).not.toHaveBeenCalled();
   });
 

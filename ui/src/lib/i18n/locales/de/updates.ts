@@ -12,7 +12,7 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.progress.of': '{downloaded} von {total}',
 
   'updates.failure.network.check': 'Der Update-Server ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.',
-  'updates.failure.network.install': 'Der Download wurde unterbrochen. Es wurde nichts geändert; versuche es erneut.',
+  'updates.failure.network.install': 'Der Download wurde unterbrochen. Es wurde nichts geändert. Versuche es erneut.',
   'updates.failure.verification': 'Das Update konnte nicht verifiziert werden und wurde nicht installiert.',
   'updates.failure.manifest': 'Die Update-Informationen waren unvollständig oder enthalten nichts für dieses System. Versuche es später erneut.',
   'updates.failure.installer': 'Das Installationsprogramm wurde nicht fertig, oder die Berechtigungsabfrage wurde abgebrochen. Es wurde nichts geändert.',

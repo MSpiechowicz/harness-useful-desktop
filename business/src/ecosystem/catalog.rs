@@ -243,7 +243,7 @@ fn dashboard(os: OsKind) -> EcosystemItem {
          plan limits and budgets. The app reads it through its local, read-only MCP server.",
         vec![step("Install the binary", install)],
         &[
-            "Data comes from the local process `harness-dashboard mcp`; nothing is sent over the network.",
+            "Data comes from the local process `harness-dashboard mcp`. Nothing is sent over the network.",
             "Run `harness-dashboard` now and then so its database stays current.",
         ],
     )
@@ -264,7 +264,7 @@ fn memory(os: OsKind) -> EcosystemItem {
          matching notes to the first message of a new chat.",
         vec![step("Install the binary", install)],
         &[
-            "Runs locally as `harness-memory mcp`; nothing is sent over the network.",
+            "Runs locally as `harness-memory mcp`. Nothing is sent over the network.",
             "Turn it on or off for every harness in Settings, under Project memory.",
         ],
     )

@@ -12,7 +12,7 @@ export const updates: AreaMessages<typeof enUpdates> = {
   'updates.progress.of': '{downloaded} de {total}',
 
   'updates.failure.network.check': 'No se pudo conectar con el servidor de actualizaciones. Comprueba tu conexión e inténtalo de nuevo.',
-  'updates.failure.network.install': 'La descarga se interrumpió. No se cambió nada; inténtalo de nuevo.',
+  'updates.failure.network.install': 'La descarga se interrumpió. No se cambió nada. Inténtalo de nuevo.',
   'updates.failure.verification': 'No se pudo verificar la actualización y no se instaló.',
   'updates.failure.manifest': 'La información de la actualización estaba incompleta o no incluye nada para este sistema. Inténtalo más tarde.',
   'updates.failure.installer': 'El instalador no terminó, o se canceló la solicitud de permiso. No se cambió nada.',

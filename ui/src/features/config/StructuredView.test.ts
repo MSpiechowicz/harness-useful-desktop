@@ -166,7 +166,7 @@ describe('StructuredView', () => {
 });
 
 describe('StructuredView unmapped roles', () => {
-  const roleEditing = { rules: selectorRules('omp')!, unmapped: [{ role: 'assess', inheritsSessionModel: true }] };
+  const roleEditing = { harness: 'omp' as const, rules: selectorRules('omp')!, unmapped: [{ role: 'assess', inheritsSessionModel: true }] };
 
   it('shows them after the mapped roles and finds them by name', () => {
     const { unmount } = render(StructuredView, { props: { fields: FIELDS, query: '', label: 'Settings', format: 'yaml', roleEditing } });

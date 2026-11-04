@@ -31,11 +31,11 @@ export const memoryGuards: AreaMessages<typeof enMemoryGuards> = {
   'memory.guards.ask.off': 'El agente guarda por su cuenta',
   'memory.guards.check': 'Comprobar de nuevo',
   'memory.guards.checking': 'Comprobando…',
-  'memory.guards.check.failed': 'No se pudo pedir al agente que compruebe',
+  'memory.guards.check.failed': 'No se pudo pedir al agente',
   'memory.guards.pause': 'Pausar',
   'memory.guards.resume': 'Reanudar',
   'memory.guards.pausedNote': 'No se guarda nada en este chat hasta que reanudes. Los agentes siguen leyendo notas y scripts.',
-  'memory.guards.toast.failed': 'No se pudo cambiar lo que los agentes pueden guardar',
+  'memory.guards.toast.failed': 'No se pudo cambiar el ajuste',
 
   'memory.guards.waiting.label': 'Guardados que esperan tu revisión',
   'memory.guards.waiting.notes.one': '{count} nota',

@@ -65,7 +65,7 @@
     if (sent) {
       close();
     } else {
-      toasts.push({ title: t('branch.conflict.askFailed', { harness: harnessName }), tone: 'warning' });
+      toasts.push({ title: t('branch.conflict.askFailed'), description: t('branch.conflict.askFailedBody', { harness: harnessName }), tone: 'warning' });
     }
   }
 </script>

@@ -69,6 +69,7 @@
 
   /* h-control / size-control / min-w-control: the one control height (the root font is 14px, so rem steps drift). */
   --spacing-control: var(--control-h);
+  --spacing-row-action: var(--row-action-h);
 
   --radius-sm: 8px;
   --radius-md: 12px;

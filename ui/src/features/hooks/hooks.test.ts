@@ -270,7 +270,7 @@ describe('Reviewing a hook an agent wrote', () => {
     await waitFor(() => expect(within(rowOf(LINT)).getByText('Active')).toBeInTheDocument());
     expect(within(rowOf(LINT)).getByText('edit')).toBeInTheDocument();
     expect(within(rowOf(LINT)).queryByText('edit|write')).not.toBeInTheDocument();
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('Rejected. The hook is back as you approved it.'));
+    await waitFor(() => expect(toasts.items).toContainEqual(expect.objectContaining({ title: 'Change rejected', description: 'The hook is back as you approved it.' })));
   });
 
   it('removes a hook that was never approved when the user rejects it', async () => {
@@ -304,7 +304,7 @@ describe('Reviewing a hook an agent wrote', () => {
 
     await fireEvent.click(within(panel).getByRole('button', { name: 'Approve' }));
 
-    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('This hook changed in the meantime.'));
+    await waitFor(() => expect(toasts.items.map((toast) => toast.title)).toContain('Hook changed'));
   });
 });
 

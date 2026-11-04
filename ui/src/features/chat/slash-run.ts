@@ -38,13 +38,13 @@ function openGui(session: ChatSession, target: GuiTarget): void {
 /** Opens the agent picker, or says why it cannot open: no agent picker in this chat, or a reply still running. */
 function openAgentPicker(session: ChatSession): void {
   if (!hasAgentPicker(session)) {
-    toasts.push({ title: t('chat.toast.unsupported'), tone: 'info' });
+    toasts.push({ title: t('chat.toast.unsupported'), description: t('chat.toast.noAgentPicker'), tone: 'info' });
 
     return;
   }
 
   if (session.streaming) {
-    toasts.push({ title: t('chat.agent.locked'), tone: 'info' });
+    toasts.push({ title: t('chat.toast.agentLocked'), description: t('chat.toast.agentLockedBody'), tone: 'info' });
 
     return;
   }
@@ -61,7 +61,7 @@ async function copyLastReply(text: string | null): Promise<void> {
 
   try {
     await navigator.clipboard.writeText(text);
-    toasts.push({ title: t('chat.toast.copied'), tone: 'success' });
+    toasts.push({ title: t('chat.toast.copied'), description: t('chat.toast.copiedBody'), tone: 'success' });
   } catch {
     toasts.push({ title: t('chat.toast.copyFailed'), description: t('chat.toast.copyFailedBody'), tone: 'warning' });
   }
@@ -108,7 +108,7 @@ export async function runSlash(session: ChatSession, outcome: SlashOutcome): Pro
       return;
 
     case 'unsupported':
-      toasts.push({ title: t('chat.toast.unsupported'), description: outcome.reason, tone: 'info' });
+      toasts.push({ title: t('chat.toast.unsupported'), description: outcome.reason.trim() || t('chat.toast.unsupportedBody'), tone: 'info' });
 
       return;
 

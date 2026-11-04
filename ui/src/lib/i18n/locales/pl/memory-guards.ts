@@ -33,11 +33,11 @@ export const memoryGuards: AreaMessages<typeof enMemoryGuards> = {
   'memory.guards.ask.off': 'Agent zapisuje sam',
   'memory.guards.check': 'Sprawdź ponownie',
   'memory.guards.checking': 'Sprawdzanie…',
-  'memory.guards.check.failed': 'Nie udało się poprosić agenta o sprawdzenie',
+  'memory.guards.check.failed': 'Nie udało się poprosić agenta',
   'memory.guards.pause': 'Wstrzymaj',
   'memory.guards.resume': 'Wznów',
   'memory.guards.pausedNote': 'W tym czacie nic nie jest zapisywane, dopóki nie wznowisz. Agenci nadal czytają notatki i skrypty.',
-  'memory.guards.toast.failed': 'Nie udało się zmienić tego, co agenci mogą zapisywać',
+  'memory.guards.toast.failed': 'Nie udało się zmienić ustawienia',
 
   'memory.guards.waiting.label': 'Zapisy czekające na twoją decyzję',
   'memory.guards.waiting.notes.one': '{count} notatkę',

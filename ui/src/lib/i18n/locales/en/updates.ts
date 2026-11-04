@@ -9,7 +9,7 @@ export const updates = {
   'updates.progress.of': '{downloaded} of {total}',
 
   'updates.failure.network.check': 'Could not reach the update server. Check your connection and try again.',
-  'updates.failure.network.install': 'The download was interrupted. Nothing was changed; try again.',
+  'updates.failure.network.install': 'The download was interrupted. Nothing was changed. Try again.',
   'updates.failure.verification': 'The update could not be verified and was not installed.',
   'updates.failure.manifest': 'The update information was incomplete or has nothing for this system. Try again later.',
   'updates.failure.installer': 'The installer did not finish, or the permission prompt was cancelled. Nothing was changed.',

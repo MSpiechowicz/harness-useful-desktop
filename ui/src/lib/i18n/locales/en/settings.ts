@@ -47,7 +47,7 @@ export const settings = {
   'settings.aiNames.off': 'Off: the name is the first words you type, and nothing is sent.',
 
   'settings.motion.title': 'Motion',
-  'settings.motion.description': 'Reduced keeps simple fades; Off disables all animation. Your OS reduced-motion setting always applies.',
+  'settings.motion.description': 'Reduced keeps simple fades. Off disables all animation. Your OS reduced-motion setting always applies.',
   'settings.motion.full': 'Full',
   'settings.motion.reduced': 'Reduced',
   'settings.motion.off': 'Off',
@@ -57,7 +57,7 @@ export const settings = {
   'settings.sound.title': 'Intro sound',
   'settings.sound.description': "The logo's sound while the intro plays. It is never played when the intro is off or skipped.",
   'settings.replay.title': 'Replay intro',
-  'settings.replay.motionOff': 'Motion is off; turn it on to replay the intro.',
+  'settings.replay.motionOff': 'Motion is off. Turn it on to replay the intro.',
   'settings.replay.ready': 'Watch it once more.',
 
   'settings.harness.binary': '{name} binary',
@@ -204,12 +204,12 @@ export const settings = {
     'Secret-looking configuration values appear hidden: API keys and tokens, MCP server env and headers, auth and OAuth fields, !command values (never run) and credentials inside URLs. Environment references like $NAME show the name only. Agent error output and shell output are redacted before they reach the screen.',
   'settings.privacy.network.title': 'Network',
   'settings.privacy.network.text':
-    'The app itself makes three kinds of request. Two go to GitHub and both can be turned off. The update check fetches the release file latest.json; it happens only when this build has an update key and follows your update setting. The Harness family check asks GitHub for the latest release number of Harness Dashboard, Skills, Memory and Sidebar when you open Ecosystem, at most every six hours while the app runs (a failed check retries after a few minutes). It always asks about all four, so it does not reveal which ones you have; GitHub sees only your IP address and the app version. The third is git talking to the remotes of your own project: the open project is fetched in the background every five minutes while the window is visible (turn it off in Settings, under Projects), and a push or pull happens only when you click it. The background fetch never asks for a password or host key. Links open in your browser only when you click them, and only for project and harness sites unless you allow every https link below. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
+    'The app itself makes three kinds of request. Two go to GitHub and both can be turned off. The update check fetches the release file latest.json. It happens only when this build has an update key and follows your update setting. The Harness family check asks GitHub for the latest release number of Harness Dashboard, Skills, Memory and Sidebar when you open Ecosystem, at most every six hours while the app runs (a failed check retries after a few minutes). It always asks about all four, so it does not reveal which ones you have. GitHub sees only your IP address and the app version. The third is git talking to the remotes of your own project: the open project is fetched in the background every five minutes while the window is visible (turn it off in Settings, under Projects), and a push or pull happens only when you click it. The background fetch never asks for a password or host key. Links open in your browser only when you click them, and only for project and harness sites unless you allow every https link below. The Harness Dashboard widgets use a local process over stdio, with no network. Harness CLIs talk to their providers as in your terminal, and extension actions run the CLI, which may download packages, only after you confirm.',
   'settings.privacy.telemetry.title': 'No telemetry',
   'settings.privacy.telemetry.text': 'No analytics, no tracking, no accounts, no sign-in.',
   'settings.privacy.agents.title': 'Agents',
   'settings.privacy.agents.text':
-    'Agents run on your machine with your environment and configuration. Harness Desktop never edits your harness’s settings; an approval choice you make for a chat applies to that chat only, and the active mode shows in the chat header when the harness has one. Shell commands from the composer always ask for confirmation. This app uploads nothing.',
+    'Agents run on your machine with your environment and configuration. Harness Desktop never edits your harness’s settings. An approval choice you make for a chat applies to that chat only, and the active mode shows in the chat header when the harness has one. Shell commands from the composer always ask for confirmation. This app uploads nothing.',
   'settings.privacy.git.title': 'Git',
   'settings.privacy.git.text':
     'Git runs with pagers, external diff programs and filesystem monitors off, and with credential prompts disabled. The Changes view only reads (status, diff, branch list). The branch menu also fetches in the background, and changes your repository only when you click: push, publish, pull, rebase, merge, abort, continue, switch, new branch and stash. Your repository’s own hooks run for those, as in a terminal. Error text is redacted before it is shown.',
@@ -227,6 +227,7 @@ export const settings = {
   'settings.privacy.recents.confirmDescription': 'Every remembered folder is forgotten. If your open project is on the list, it is closed too. Your files are not touched.',
   'settings.privacy.recents.confirmLabel': 'Clear list',
   'settings.privacy.recents.cleared': 'Recent projects cleared',
+  'settings.privacy.recents.clearedBody': 'Every remembered folder was forgotten. Your files are not touched.',
   'settings.privacy.diagnostics.title': 'Diagnostics',
   'settings.privacy.diagnostics.description': 'Copies the app version, OS and harness versions for a bug report. No paths, projects or content.',
   'settings.privacy.diagnostics.copy': 'Copy diagnostics',

@@ -106,7 +106,7 @@
       return;
     }
 
-    toasts.push({ title: t('components.copy.copied'), tone: 'success' });
+    toasts.push({ title: t('components.copy.copied'), description: t('config.menu.pathCopied'), tone: 'success' });
   }
 
   // A search that leaves the chosen file out of the list moves the detail to the first file that is still in it.

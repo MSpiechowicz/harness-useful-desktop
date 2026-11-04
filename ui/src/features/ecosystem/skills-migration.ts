@@ -56,7 +56,11 @@ export class SkillsNamesMigration {
     const names = (ids: readonly HarnessId[]) => ids.map((id) => HARNESS_NAMES[id]).join(', ');
 
     if (report.failed.length === 0) {
-      this.deps.notifications.push({ title: t('ecosystem.skillsMigration.done', { harnesses: names(report.migrated) }), tone: 'success' });
+      this.deps.notifications.push({
+        title: t('ecosystem.skillsMigration.done'),
+        description: t('ecosystem.skillsMigration.doneBody', { harnesses: names(report.migrated) }),
+        tone: 'success',
+      });
 
       return;
     }
@@ -70,12 +74,16 @@ export class SkillsNamesMigration {
       )
       .join('\n');
 
-    const title =
-      report.migrated.length > 0
-        ? t('ecosystem.skillsMigration.done', { harnesses: names(report.migrated) })
-        : t('ecosystem.skillsMigration.failed', { harnesses: names(report.failed.map((failure) => failure.harness)) });
+    // Some harnesses were renamed: the line says where, and the reasons say where not.
+    if (report.migrated.length > 0) {
+      const renamed = t('ecosystem.skillsMigration.doneBody', { harnesses: names(report.migrated) });
 
-    this.deps.notifications.push({ title, description: reasons, tone: 'warning' });
+      this.deps.notifications.push({ title: t('ecosystem.skillsMigration.partial'), description: `${renamed}\n${reasons}`, tone: 'warning' });
+
+      return;
+    }
+
+    this.deps.notifications.push({ title: t('ecosystem.skillsMigration.failed'), description: reasons, tone: 'warning' });
   }
 }
 

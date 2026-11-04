@@ -38,6 +38,7 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.collapseAll': 'Contraer todo',
   'config.menu.expandAll': 'Expandir todo',
   'config.menu.copyPath': 'Copiar ruta',
+  'config.menu.pathCopied': 'La ruta del archivo está en el portapapeles.',
 
   'config.overview.title': 'Resumen',
   'config.overview.entries': 'entradas de primer nivel',

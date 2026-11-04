@@ -317,7 +317,9 @@ export class RoutinesStore {
     const done = await this.run(viewKey(view), 'routines.toast.rejectFailed', () => ipc.invoke('routine_reject', { id: view.id, sha256: view.sha256 }));
 
     if (done) {
-      toasts.push({ title: t(restores ? 'routines.toast.rejected.restored' : 'routines.toast.rejected.removed'), tone: 'success' });
+      const [title, description] = restores ? (['routines.toast.rejected.restored', 'routines.toast.rejected.restoredBody'] as const) : (['routines.toast.rejected.removed', 'routines.toast.rejected.removedBody'] as const);
+
+      toasts.push({ title: t(title), description: t(description), tone: 'success' });
     }
 
     return done;
@@ -327,7 +329,7 @@ export class RoutinesStore {
     const done = await this.run(viewKey(view), 'routines.toast.deleteFailed', () => ipc.invoke('routine_delete', { id: view.id, sha256: view.sha256 }));
 
     if (done) {
-      toasts.push({ title: t('routines.toast.deleted', { name: routineTitle(view) }), tone: 'success' });
+      toasts.push({ title: t('routines.toast.deleted'), description: t('routines.toast.deletedBody', { name: routineTitle(view) }), tone: 'success' });
     }
 
     return done;
@@ -369,14 +371,18 @@ export class RoutinesStore {
     }
 
     if (done) {
-      toasts.push({ title: t(started === null ? 'routines.toast.queued' : 'routines.toast.started', { name: routineTitle(view) }), tone: 'success' });
+      toasts.push({
+        title: t(started === null ? 'routines.toast.queued' : 'routines.toast.started'),
+        description: t(started === null ? 'routines.toast.queuedBody' : 'routines.toast.startedBody', { name: routineTitle(view) }),
+        tone: 'success',
+      });
     }
 
     return done;
   }
 
   private sayQueued(view: RoutineView): void {
-    toasts.push({ title: t('routines.toast.alreadyQueued'), description: routineTitle(view), tone: 'info' });
+    toasts.push({ title: t('routines.toast.alreadyQueued'), description: t('routines.toast.alreadyQueuedBody', { name: routineTitle(view) }), tone: 'info' });
   }
 
   /** Stops a run that is going on. */
@@ -389,7 +395,7 @@ export class RoutinesStore {
     const done = await this.run(viewKey(view), 'routines.toast.shareFailed', () => ipc.invoke('routines_share', { id: view.id, sha256: view.sha256 }));
 
     if (done) {
-      toasts.push({ title: t('routines.toast.shared', { name: routineTitle(view) }), tone: 'success' });
+      toasts.push({ title: t('routines.toast.shared'), description: t('routines.toast.sharedBody', { name: routineTitle(view) }), tone: 'success' });
     }
 
     return done;
@@ -406,7 +412,7 @@ export class RoutinesStore {
     const done = await this.run(viewKey(team), 'routines.toast.teamUpdateFailed', () => ipc.invoke('routines_share', { id: original.id, sha256: original.sha256 }));
 
     if (done) {
-      toasts.push({ title: t('routines.toast.teamUpdated', { name: routineTitle(original) }), tone: 'success' });
+      toasts.push({ title: t('routines.toast.teamUpdated'), description: t('routines.toast.teamUpdatedBody', { name: routineTitle(original) }), tone: 'success' });
     }
 
     return done;
@@ -417,7 +423,7 @@ export class RoutinesStore {
     const done = await this.run(viewKey(team), 'routines.toast.teamRemoveFailed', () => ipc.invoke('routines_team_remove', { id: team.id, sha256: team.sha256 }));
 
     if (done) {
-      toasts.push({ title: t('routines.toast.teamRemoved', { name: routineTitle(team) }), tone: 'success' });
+      toasts.push({ title: t('routines.toast.teamRemoved'), description: t('routines.toast.teamRemovedBody', { name: routineTitle(team) }), tone: 'success' });
     }
 
     return done;
@@ -431,7 +437,7 @@ export class RoutinesStore {
     });
 
     if (done) {
-      toasts.push({ title: t('routines.toast.copied', { name: routineTitle(team) }), tone: 'success' });
+      toasts.push({ title: t('routines.toast.copied'), description: t('routines.toast.copiedBody', { name: routineTitle(team) }), tone: 'success' });
     }
 
     return copy;
@@ -442,7 +448,7 @@ export class RoutinesStore {
     try {
       const { deleted } = await ipc.invoke('routines_delete_all', { project: projectPath });
 
-      toasts.push({ title: tn('routines.deleteAll.done', deleted), tone: 'success' });
+      toasts.push({ title: t('routines.deleteAll.done'), description: tn('routines.deleteAll.doneBody', deleted), tone: 'success' });
 
       return deleted;
     } finally {
@@ -455,7 +461,7 @@ export class RoutinesStore {
     try {
       const { deleted } = await ipc.invoke('routines_team_remove_mine', undefined);
 
-      toasts.push({ title: tn('routines.removeMine.done', deleted), tone: 'success' });
+      toasts.push({ title: t('routines.removeMine.done'), description: tn('routines.removeMine.doneBody', deleted), tone: 'success' });
 
       return deleted;
     } finally {
@@ -465,7 +471,7 @@ export class RoutinesStore {
 
   /** Runs one change on a routine: marks it busy, then reads the list again whatever happened. */
   private run(key: string, failed: MessageKey, change: () => Promise<unknown>): Promise<boolean> {
-    return this.work.run(key, change, { failed, conflict: 'routines.toast.conflict', conflictHint: 'routines.toast.conflictHint', refresh: () => this.refresh() });
+    return this.work.run(key, change, { failed, conflictTitle: 'routines.toast.conflictTitle', conflict: 'routines.toast.conflict', conflictHint: 'routines.toast.conflictHint', refresh: () => this.refresh() });
   }
 
   /** Forgets everything read, for tests and a fresh start. */

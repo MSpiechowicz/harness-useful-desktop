@@ -62,7 +62,7 @@ export class AgentSessionsStore extends ChatTabs {
 
     if (launched.kind === 'unsupported') {
       const name = harness.get(request.harness)?.info.name ?? request.harness;
-      this.notifications.push({ title: t('chat.toast.comingSoon', { harness: name }), description: t('chat.toast.comingSoonBody'), tone: 'info' });
+      this.notifications.push({ title: t('chat.toast.comingSoon'), description: t('chat.toast.comingSoonBody', { harness: name }), tone: 'info' });
 
       return null;
     }

@@ -79,7 +79,7 @@ describe('Harness family hooks', () => {
     await waitFor(() => expect(within(rowIn(dialog, 'Harness Dashboard')).getByText('Installed')).toBeInTheDocument());
     expect(calls(invoke, 'hooks_family_apply')).toEqual([{ seeds: ['dashboard-limits'] }]);
     expect(within(rowOf('Harness Dashboard')).getByText('Active')).toBeInTheDocument();
-    expect(toasts.items.map((toast) => toast.title)).toContain('1 family hook ready');
+    expect(toasts.items).toContainEqual(expect.objectContaining({ title: 'Family hooks ready', description: '1 Harness family hook added.' }));
     await waitFor(() => expect(within(dialog).getAllByRole('button', { name: /^Install / })).toHaveLength(4));
   });
 

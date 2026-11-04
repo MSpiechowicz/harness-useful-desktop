@@ -22,13 +22,15 @@ export interface CopyText {
   columnTitle: MessageKey;
   groupGlobal: MessageKey;
   failedHelp: MessageKey;
-  toastDone: PluralBase;
+  toastDone: MessageKey;
+  toastDoneBody: PluralBase;
   toastStays: PluralBase;
   leftover: PluralBase;
   discardTitle: PluralBase;
   discardBody: MessageKey;
   discardBodyAll: MessageKey;
-  discardDone: PluralBase;
+  discardDone: MessageKey;
+  discardDoneBody: PluralBase;
   discardFailed: MessageKey;
 }
 
@@ -54,12 +56,14 @@ export const COPY_TEXT: Record<MemoryCopyKind, CopyText> = {
     groupGlobal: 'memory.copy.group.global',
     failedHelp: 'memory.copy.result.failedHelp',
     toastDone: 'memory.copy.toast.done',
+    toastDoneBody: 'memory.copy.toast.doneBody',
     toastStays: 'memory.copy.toast.stays',
     leftover: 'memory.copy.leftover',
     discardTitle: 'memory.copy.discard.title',
     discardBody: 'memory.copy.discard.body',
     discardBodyAll: 'memory.copy.discard.bodyAll',
     discardDone: 'memory.copy.discard.done',
+    discardDoneBody: 'memory.copy.discard.doneBody',
     discardFailed: 'memory.copy.discard.failed',
   },
   scripts: {
@@ -82,12 +86,14 @@ export const COPY_TEXT: Record<MemoryCopyKind, CopyText> = {
     groupGlobal: 'memory.copy.scripts.group.global',
     failedHelp: 'memory.copy.scripts.result.failedHelp',
     toastDone: 'memory.copy.scripts.toast.done',
+    toastDoneBody: 'memory.copy.scripts.toast.doneBody',
     toastStays: 'memory.copy.scripts.toast.stays',
     leftover: 'memory.copy.scripts.leftover',
     discardTitle: 'memory.copy.scripts.discard.title',
     discardBody: 'memory.copy.scripts.discard.body',
     discardBodyAll: 'memory.copy.scripts.discard.bodyAll',
     discardDone: 'memory.copy.scripts.discard.done',
+    discardDoneBody: 'memory.copy.scripts.discard.doneBody',
     discardFailed: 'memory.copy.scripts.discard.failed',
   },
 };
