@@ -97,13 +97,12 @@ pub async fn code_builds_listen(state: State<'_, AppState>, on_event: Channel<Co
 /// `code_builds_listen`. It does nothing when the Code graph setting or the code index is off, the installed Harness
 /// Code lacks `code-prepare` or is not installed, the project path does not resolve in a few
 /// seconds, the project is already waiting for or running its build, too many projects wait, or off
-/// Linux. Builds run one at a time: a project opened while another builds waits its turn. A failed build is logged and never an error, because nobody is waiting to read it.
+/// Linux and macOS. Builds run one at a time: a project opened while another builds waits its turn. A failed build is logged and never an error, because nobody is waiting to read it.
 #[tauri::command]
 pub async fn code_prepare(state: State<'_, AppState>, project: String) -> CommandResult<()> {
-    // The build on open runs only where the worker's memory cap holds: Windows has none and macOS
-    // does not reliably enforce it. Elsewhere the index is built on the first code tool call of an
-    // agent.
-    if !cfg!(target_os = "linux") {
+    // The build on open runs on Linux and macOS. Windows has no worker memory cap, so there the
+    // index is built on the first code tool call of an agent.
+    if !cfg!(any(target_os = "linux", target_os = "macos")) {
         return Ok(());
     }
 
