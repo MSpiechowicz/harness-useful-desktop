@@ -1,3 +1,10 @@
+# [0.56.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.55.1...v0.56.0) (2026-11-04)
+
+
+### Features
+
+* **knowledge:** drafts, team approval and PR-like review of knowledge documents ([a34dd8f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a34dd8f4e3363fb29bdf76f9e17073bc2447cec4))
+
 ## [0.55.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.55.0...v0.55.1) (2026-11-04)
 
 
