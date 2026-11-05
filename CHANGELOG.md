@@ -1,3 +1,10 @@
+## [0.57.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.1...v0.57.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* **ui:** say why a team database cannot be reached ([d52008a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d52008a02e8d4bbabaa1fd17f48cc167115439d7))
+
 ## [0.57.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.0...v0.57.1) (2026-11-05)
 
 
