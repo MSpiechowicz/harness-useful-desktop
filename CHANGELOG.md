@@ -1,3 +1,15 @@
+# [0.59.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.58.0...v0.59.0) (2026-11-05)
+
+
+### Bug Fixes
+
+* **chat:** show family tool titles with their product name ([a561d3c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a561d3ca90cc903fa9ee88096c60429ac548b2d2))
+
+
+### Features
+
+* **hooks:** clearer status labels in a table, with a Scripts line ([9ed46b3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9ed46b3f241ce0f02607e2be08c36ac2bb1a11d2))
+
 # [0.58.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.4...v0.58.0) (2026-11-05)
 
 
