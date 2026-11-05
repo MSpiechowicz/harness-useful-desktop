@@ -72,5 +72,10 @@ pub async fn knowledge_remote_test(
     url: Option<String>,
     token: Option<String>,
 ) -> CommandResult<KnowledgeCheck> {
-    Ok(run_test(&state.env, &state.runner, kind, url, token).await)
+    let check = run_test(&state.env, &state.runner, kind, url, token).await;
+
+    // The server took note of what the test found, so a banner on screen follows it at once.
+    state.knowledge_pulse.wake();
+
+    Ok(check)
 }

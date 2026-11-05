@@ -42,6 +42,10 @@ pub struct KnowledgeStats {
     /// The remote database cannot be reached: the counts are this computer's.
     #[serde(default)]
     pub offline: bool,
+    /// Why it cannot be reached, as the server says it, when it says.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub offline_reason: Option<String>,
     /// Whether the user may change the remote place: `Some(false)` for a read-only role, `None`
     /// while unknown (no remote, a remote that is down, a store that cannot tell, a server
     /// that does not say). Actions stay enabled while unknown.

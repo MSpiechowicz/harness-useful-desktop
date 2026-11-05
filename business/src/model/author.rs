@@ -29,6 +29,16 @@ pub struct AuthorRef {
     pub via: Option<String>,
 }
 
+/// The most characters of a server's reason for a database it cannot reach that are shown.
+pub const MAX_OFFLINE_REASON_CHARS: usize = 300;
+
+/// A server's `offlineReason` as it may be shown: cleaned and bounded, none when blank.
+pub fn offline_reason_text(reason: &str) -> Option<String> {
+    let text = display_text(reason, MAX_OFFLINE_REASON_CHARS);
+
+    (!text.is_empty()).then_some(text)
+}
+
 /// `text` without control characters and characters that draw nothing or reorder the text around
 /// them, trimmed, at most `max_chars` long. For text of another program that is shown as it is.
 pub fn display_text(text: &str, max_chars: usize) -> String {

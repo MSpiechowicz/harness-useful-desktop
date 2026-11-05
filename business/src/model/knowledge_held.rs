@@ -195,6 +195,10 @@ pub struct KnowledgePulse {
     /// remote are paused.
     #[serde(default)]
     pub offline: bool,
+    /// Why it cannot be reached, as the server says it, when it says.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub offline_reason: Option<String>,
     /// How many documents wait for THIS person's approval in every place (the rail badge): the ones
     /// they did not write and did not ask for. `0` from a server that does not say who could
     /// approve (so nobody is badged for their own documents), none from a server without

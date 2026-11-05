@@ -8,4 +8,4 @@
   const offline = $derived(knowledgeChanges.pulse?.offline ?? knowledgeDocs.list.data?.offline ?? false);
 </script>
 
-<OfflineBanner {offline} message={t('knowledge.offline.title')} detail={t('knowledge.offline.paused')} />
+<OfflineBanner {offline} message={t('knowledge.offline.title')} detail={t('knowledge.offline.paused')} reason={knowledgeChanges.pulse?.offlineReason} />

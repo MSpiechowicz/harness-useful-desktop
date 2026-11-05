@@ -87,8 +87,11 @@ pub(crate) trait ListPage: Serialize + DeserializeOwned {
     /// Whether the page came from this computer's copy, with no team entries.
     fn offline(&self) -> bool;
 
+    /// Why the team database could not be reached, for a page read while it could not.
+    fn offline_reason(&self) -> Option<String>;
+
     /// Makes this the copy read at `saved_at` while the database is unreachable.
-    fn into_cached(self, saved_at: String) -> Self;
+    fn into_cached(self, saved_at: String, reason: Option<String>) -> Self;
 }
 
 /// `ListPage` for a page type with `availability`, `offline` and `cached_at` fields.
@@ -105,9 +108,14 @@ macro_rules! list_page {
                 self.offline
             }
 
-            fn into_cached(self, saved_at: String) -> Self {
+            fn offline_reason(&self) -> Option<String> {
+                self.offline_reason.clone()
+            }
+
+            fn into_cached(self, saved_at: String, reason: Option<String>) -> Self {
                 Self {
                     offline: true,
+                    offline_reason: reason,
                     cached_at: Some(saved_at),
                     ..self
                 }
@@ -126,7 +134,7 @@ list_page!(MemoryScriptsPage, "scripts");
 pub(crate) fn settle<P: ListPage>(config_dir: &Path, request: &str, page: P) -> P {
     if page.offline() {
         return match recall::<P>(config_dir, P::KIND, request) {
-            Some((copy, saved_at)) => copy.into_cached(saved_at),
+            Some((copy, saved_at)) => copy.into_cached(saved_at, page.offline_reason()),
             None => page,
         };
     }

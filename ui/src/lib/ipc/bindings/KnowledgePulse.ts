@@ -23,6 +23,10 @@ held: number | null,
  */
 offline: boolean, 
 /**
+ * Why it cannot be reached, as the server says it, when it says.
+ */
+offlineReason?: string | null, 
+/**
  * How many documents wait for THIS person's approval in every place (the rail badge): the ones
  * they did not write and did not ask for. `0` from a server that does not say who could
  * approve (so nobody is badged for their own documents), none from a server without

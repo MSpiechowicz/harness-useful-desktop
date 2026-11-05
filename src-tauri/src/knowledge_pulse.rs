@@ -81,6 +81,11 @@ impl PulseWatch {
         self.wake.notify_one();
     }
 
+    /// Reads the counts at once: a connection test just said whether the remote can be reached.
+    pub fn wake(&self) {
+        self.wake.notify_one();
+    }
+
     /// Tells that the Knowledge view opened or closed: the counts are read at once and then at the
     /// interval that fits.
     pub fn set_watching(&self, watching: bool) {
@@ -157,6 +162,7 @@ async fn read(state: &AppState, notice: &KnowledgeUpgradeNotice) -> Option<Knowl
             generation: 0,
             held: Some(0),
             offline: false,
+            offline_reason: None,
             waiting: Some(0),
             waiting_all: Some(0),
             approval: None,

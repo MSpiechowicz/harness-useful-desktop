@@ -67,8 +67,8 @@ pub use agent_action::{
 };
 pub use agent_event::{AgentEnvelope, AgentEvent};
 pub use app::AppInfo;
-pub use author::display_text;
 pub use author::{AuthorRef, MAX_AUTHOR_NAME_CHARS, MAX_AUTHOR_VIA_CHARS, lenient_author, lenient_name, lenient_names};
+pub use author::{display_text, offline_reason_text};
 pub use chat::{
     AgentOption, ChatBlock, ChatMessage, ContextUsage, MessageRole, ModelOption, PromptStatus, SessionState,
     SessionStats, TokenUsage,

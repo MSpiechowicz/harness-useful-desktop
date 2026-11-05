@@ -143,6 +143,7 @@ fn counts_and_the_pulse_carry_the_offline_flag() {
         answers(json!({
             "documents": 2, "chunks": 9, "embeddedChunks": 9, "bytes": 1200, "globalDocuments": 1,
             "repositories": 1, "generation": 5, "schema": 1, "model": null, "held": 0, "offline": true,
+            "offlineReason": "  cannot reach\u{202e} the database  ",
             "places": { "remote": { "offline": true }, "local": { "documents": 2, "chunks": 9 } }
         })),
     );
@@ -154,6 +155,11 @@ fn counts_and_the_pulse_carry_the_offline_flag() {
 
     let pulse = wait(knowledge_pulse(&env, &server_cli, &probe)).expect("the counts");
     assert_eq!((pulse.documents, pulse.offline), (2, true));
+    assert_eq!(
+        pulse.offline_reason.as_deref(),
+        Some("cannot reach the database"),
+        "shown clean"
+    );
 }
 
 #[test]

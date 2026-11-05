@@ -9,9 +9,11 @@
     message: string;
     /** A second line under it, for what else follows. */
     detail?: string;
+    /** Why it cannot be reached, as the server says it (not translated), when it says. */
+    reason?: string | null;
   }
 
-  let { offline, message, detail }: Props = $props();
+  let { offline, message, detail, reason }: Props = $props();
 
   const look = NOTICE_LOOKS.warning;
 </script>
@@ -23,6 +25,7 @@
     <div class="min-w-0 flex-1">
       <p class="text-sm text-fg">{message}</p>
       {#if detail}<p class="text-xs text-fg-3">{detail}</p>{/if}
+      {#if reason}<p class="text-xs break-words text-fg-3">{reason}</p>{/if}
     </div>
   </div>
 {/if}

@@ -13,7 +13,9 @@ use super::knowledge_held::knowledge_held_server;
 use super::knowledge_upgrade::{KnowledgeUpgradeNotice, is_not_upgraded, read_stats_upgrading};
 use crate::env::Env;
 use crate::error::BusinessError;
-use crate::model::{KnowledgePlaceStats, KnowledgePulse, KnowledgeStats, MAX_AUTHOR_NAME_CHARS, display_text};
+use crate::model::{
+    KnowledgePlaceStats, KnowledgePulse, KnowledgeStats, MAX_AUTHOR_NAME_CHARS, display_text, offline_reason_text,
+};
 use crate::process::ProcessRunner;
 
 /// The bits of the combined generation that are kept: a JavaScript number holds 53 exactly.
@@ -105,6 +107,7 @@ async fn pulse_of(
         generation,
         held,
         offline: stats.offline,
+        offline_reason: stats.offline_reason.as_deref().and_then(offline_reason_text),
         waiting: waiting_for_you(&stats),
         waiting_all: waiting_total(&stats),
         approval: stats.approval,
@@ -120,6 +123,7 @@ fn empty_pulse() -> KnowledgePulse {
         generation: 0,
         held: None,
         offline: false,
+        offline_reason: None,
         waiting: None,
         waiting_all: None,
         approval: None,

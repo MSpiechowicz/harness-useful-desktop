@@ -55,6 +55,10 @@ places?: KnowledgeStatsPlaces,
  */
 offline: boolean, 
 /**
+ * Why it cannot be reached, as the server says it, when it says.
+ */
+offlineReason?: string | null, 
+/**
  * Whether the user may change the remote place: `Some(false)` for a read-only role, `None`
  * while unknown (no remote, a remote that is down, a store that cannot tell, a server
  * that does not say). Actions stay enabled while unknown.

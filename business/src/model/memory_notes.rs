@@ -270,6 +270,10 @@ pub struct MemoryNotesPage {
     /// The server could not reach the team database and answered from the notes on this
     /// computer instead, so a team's notes are missing from this page: it is not what is kept.
     pub offline: bool,
+    /// Why it cannot be reached, as the server says it, when it says.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub offline_reason: Option<String>,
     /// With `offline`, when this page was last read from the team database and kept on this
     /// computer; the page is that copy. `None` when no copy of this page was kept (the page is
     /// empty) or the page is live.

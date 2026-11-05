@@ -64,6 +64,10 @@ localCounts: MemoryScopeCounts | null,
  */
 offline: boolean, 
 /**
+ * Why it cannot be reached, as the server says it, when it says.
+ */
+offlineReason?: string | null, 
+/**
  * With `offline`, when this page was last read from the team database and kept on this
  * computer; the page is that copy. `None` when no copy of this page was kept (the page is
  * empty) or the page is live.

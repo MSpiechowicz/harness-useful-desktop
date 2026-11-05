@@ -92,3 +92,18 @@ fn only_the_newest_files_stay() {
 
     assert_eq!(kept, MAX_FILES);
 }
+
+#[test]
+fn a_cached_page_says_why_the_team_database_cannot_be_reached_now() {
+    let dir = tempdir().unwrap();
+    settle(dir.path(), "request", page(2, false));
+
+    let offline = MemoryNotesPage {
+        offline_reason: Some("no route to host".to_owned()),
+        ..page(0, true)
+    };
+    let shown = settle(dir.path(), "request", offline);
+
+    assert_eq!(shown.total, 2);
+    assert_eq!(shown.offline_reason.as_deref(), Some("no route to host"));
+}

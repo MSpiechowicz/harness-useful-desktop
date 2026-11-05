@@ -18,7 +18,7 @@ use serde_json::Value;
 use super::memory_cli::{CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, count_of, run_json};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryPlaceCounts, ScriptPlace};
+use crate::model::{MemoryPlaceCounts, ScriptPlace, offline_reason_text};
 use crate::process::ProcessRunner;
 
 /// One option of a list command and its value (`("--kind", "fix")`).
@@ -114,6 +114,13 @@ pub(crate) async fn run_list(
 /// missing from it, so it must not stand for what is kept.
 pub(crate) fn offline(data: &Value) -> bool {
     data.get("offline").and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// Why the team database could not be reached (`"offlineReason"`), when the server says.
+pub(crate) fn offline_reason(data: &Value) -> Option<String> {
+    data.get("offlineReason")
+        .and_then(Value::as_str)
+        .and_then(offline_reason_text)
 }
 
 /// The `places` counts of a list answer; `None` when the server does not send them.
