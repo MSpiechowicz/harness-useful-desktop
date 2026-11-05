@@ -19,6 +19,16 @@ describe('Markdown', () => {
     expect(container.textContent).toContain('<script>alert(2)</script>');
   });
 
+  it('renders the steps status of a reply as a table with the answer after it', () => {
+    const { container } = render(Markdown, {
+      source: '| Step | Status |\n| --- | --- |\n| Complexity | small, a one-line fix |\n| Notes | opened #12, #15 |\n\nDone.',
+    });
+
+    const rows = [...container.querySelectorAll('tr')].map((row) => [...row.children].map((cell) => cell.textContent));
+    expect(rows).toEqual([['Step', 'Status'], ['Complexity', 'small, a one-line fix'], ['Notes', 'opened #12, #15']]);
+    expect(container.querySelector('table + p')?.textContent).toBe('Done.');
+  });
+
   it('opens web links through the backend and never navigates', async () => {
     render(Markdown, { source: 'Read [the book](https://doc.rust-lang.org/book/).' });
 

@@ -255,13 +255,14 @@ fn intro(elements: &[ResolvedPart]) -> Option<ResolvedPart> {
     let mut text = format!(
         "Work through these {} steps in order, then do the request below. Write the status each step asks for \
          once, after you did the steps, at the start of your final answer and never before your first tool call: \
-         a Markdown list, one bullet per step in step order with its label in bold (for example \"- **Lane:** \
-         small, a one-line fix\"), also for a small request. Then leave a blank line and answer.",
+         a Markdown table with the header \"| Step | Status |\" and one row per status line in step order, the label \
+         without its colon in the first column (for example \"| Complexity | small, a one-line fix |\"), also for a \
+         small request. Never put a | inside a cell. Then leave a blank line and answer.",
         elements.len()
     );
 
     if skills {
-        text.push_str(" The steps after Harness Skills feed the lane you pick.");
+        text.push_str(" The steps after Harness Skills feed the complexity you pick.");
     }
 
     text.push_str(
