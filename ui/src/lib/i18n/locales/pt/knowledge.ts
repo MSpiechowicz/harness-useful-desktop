@@ -103,6 +103,7 @@ export const knowledge: AreaMessages<typeof enKnowledge> = {
   'knowledge.column.title': 'Título',
   'knowledge.column.format': 'Formato',
   'knowledge.column.repos': 'Projetos',
+  'knowledge.column.paths': 'Caminhos',
   'knowledge.column.chunks': 'Trechos',
   'knowledge.column.updated': 'Atualizado',
   'knowledge.column.proposal': 'Proposta',

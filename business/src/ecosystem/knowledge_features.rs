@@ -19,7 +19,8 @@
 //! - `docs-drafts`: document states (`live`, `draft`, `waiting`, `changesRequested`), `--status`,
 //!   `--draft`, history, compare, ask and go live, reviews with comments, the stored original
 //!   (download), the draft counts of `stats` and `upgrade`;
-//! - `docs-approval`: team approval (`approval get|set`), approve and request changes.
+//! - `docs-approval`: team approval (`approval get|set`), approve and request changes;
+//! - `docs-sort-paths`: `docs list --sort paths`.
 //!
 //! An older server does not know the command and exits 2. [`KnowledgeFeatures::support`] asks once
 //! per binary through a [`LineProbe`] (cached per binary, an older server cached as one without
@@ -76,6 +77,9 @@ const DOCS_AUTHORS: &str = "docs-authors";
 
 /// The line for drafts, their review and `upgrade`.
 const DOCS_DRAFTS: &str = "docs-drafts";
+
+/// The line for the sort by how many paths a document is narrowed to.
+const DOCS_SORT_PATHS: &str = "docs-sort-paths";
 
 /// The line for team approval.
 const DOCS_APPROVAL: &str = "docs-approval";
@@ -232,6 +236,7 @@ impl KnowledgeFeatures {
                 docs_authors: answer.lists(DOCS_AUTHORS),
                 docs_drafts: answer.lists(DOCS_DRAFTS),
                 docs_approval: answer.lists(DOCS_APPROVAL),
+                docs_sort_paths: answer.lists(DOCS_SORT_PATHS),
             }),
             LineAnswer::Unsupported => KnowledgeSupport::Unsupported,
             LineAnswer::NotInstalled => KnowledgeSupport::NotInstalled,

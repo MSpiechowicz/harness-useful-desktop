@@ -80,7 +80,7 @@ function database(options: { value?: KnowledgeTeamApproval; set?: 'done' | 'read
 }
 
 function features(overrides: Partial<KnowledgeFeatures>): KnowledgeStatus {
-  const all = { docs: true, import: true, embedder: true, search: true, recall: true, held: true, mcp: true, routing: true, docMatches: true, offlineFallback: true, docsUseful: true, docsSimilar: true, docsAuthors: true, docsDrafts: true, docsApproval: true };
+  const all = { docs: true, import: true, embedder: true, search: true, recall: true, held: true, mcp: true, routing: true, docMatches: true, offlineFallback: true, docsUseful: true, docsSimilar: true, docsAuthors: true, docsDrafts: true, docsApproval: true, docsSortPaths: true };
 
   return { availability: { type: 'ready' }, features: { ...all, ...overrides } } as unknown as KnowledgeStatus;
 }

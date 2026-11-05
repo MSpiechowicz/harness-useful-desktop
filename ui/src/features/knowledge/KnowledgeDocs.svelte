@@ -43,7 +43,7 @@
   import { usefulCounts } from '../memory/note-format';
   import SessionConfirm from '../sessions/SessionConfirm.svelte';
   import DocumentPanel from './DocumentPanel.svelte';
-  import { docColumns, docSubtitle, formatKey, formatLabel, formatTone, KNOWLEDGE_FORMATS, linksText, pathCount, pathsText, placeLabel, repoLabel } from './knowledge-format';
+  import { docColumns, docSubtitle, formatKey, formatLabel, formatTone, KNOWLEDGE_FORMATS, linksText, pathCount, placeLabel, repoLabel } from './knowledge-format';
   import { keptRemote } from './knowledge-replace';
   import { lookOf, STATUS_CHOICE_LABELS, STATUS_CHOICES } from './knowledge-status';
   import { knowledgeScopeOptions } from './knowledge-repos';
@@ -357,7 +357,7 @@
   {filters}
   tableLabel={t('knowledge.table.label')}
   tableId="knowledge-docs"
-  columns={docColumns(usefulListed, authorsListed, draftsListed)}
+  columns={docColumns(usefulListed, authorsListed, draftsListed, features?.docsSortPaths === true)}
   {rows}
   sort={viewState.knowledgeSort}
   onsort={(next) => choose(() => {
@@ -383,6 +383,8 @@
       <Badge tone={look.tone} outline={look.outline} size="lg"><look.icon size={ICON.sm} aria-hidden="true" />{look.label}</Badge>
     {:else if column.key === 'repos'}
       {@render repos(doc.links)}
+    {:else if column.key === 'paths'}
+      <span class="tabular text-fg-2">{pathCount(doc.links)}</span>
     {:else if column.key === 'chunks'}
       <span class="tabular text-fg-2">{doc.chunkCount}</span>
     {:else if column.key === 'useful'}
@@ -431,17 +433,15 @@
 
 <SessionConfirm bind:this={confirmer} />
 
-<!-- Where a document applies: Global, or the first repository with how many more and how many paths it is narrowed to. -->
+<!-- Where a document applies: Global, or the first repository with how many more. -->
 {#snippet repos(links: KnowledgeLink[])}
   {#if links.length === 0}
     <span class="flex items-center gap-2 text-fg-2"><Globe size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />{t('knowledge.repos.global')}</span>
   {:else}
-    {@const paths = pathsText(pathCount(links))}
     <span class="flex min-w-0 items-center gap-2 text-fg-2" title={linksText(links)}>
       <GitBranch size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />
       <span class="truncate">{repoLabel(links[0].repo)}</span>
       {#if links.length > 1}<span class="shrink-0 text-xs text-fg-3">{t('knowledge.repos.more', { count: links.length - 1 })}</span>{/if}
-      {#if paths}<span class="shrink-0 text-xs text-fg-3">{paths}</span>{/if}
     </span>
   {/if}
 {/snippet}

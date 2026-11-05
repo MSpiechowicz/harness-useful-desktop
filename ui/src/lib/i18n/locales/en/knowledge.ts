@@ -109,6 +109,7 @@ export const knowledge = {
   'knowledge.column.title': 'Title',
   'knowledge.column.format': 'Format',
   'knowledge.column.repos': 'Projects',
+  'knowledge.column.paths': 'Paths',
   'knowledge.column.chunks': 'Chunks',
   'knowledge.column.updated': 'Updated',
   'knowledge.column.proposal': 'Proposal',

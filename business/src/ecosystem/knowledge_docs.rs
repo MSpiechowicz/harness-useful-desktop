@@ -50,10 +50,11 @@ const MAX_MATCHES: u32 = 50;
 const MAX_DELETE_IDS: usize = 1000;
 
 /// The sorts that go largest, most or newest first unless asked otherwise.
-const DESCENDING_SORTS: [KnowledgeSort; 5] = [
+const DESCENDING_SORTS: [KnowledgeSort; 6] = [
     KnowledgeSort::Updated,
     KnowledgeSort::Size,
     KnowledgeSort::Chunks,
+    KnowledgeSort::Paths,
     KnowledgeSort::Useful,
     KnowledgeSort::LastUseful,
 ];
@@ -173,7 +174,9 @@ fn list_args(
 
     let sort = filter
         .sort
-        .filter(|sort| features.docs_useful || !sort.needs_useful())
+        .filter(|sort| {
+            (features.docs_useful || !sort.needs_useful()) && (features.docs_sort_paths || !sort.needs_paths())
+        })
         .unwrap_or(KnowledgeSort::Updated);
     args.extend(["--sort".into(), sort_name(sort).into()]);
 
@@ -207,6 +210,7 @@ fn sort_name(sort: KnowledgeSort) -> &'static str {
         KnowledgeSort::Size => "size",
         KnowledgeSort::Format => "format",
         KnowledgeSort::Chunks => "chunks",
+        KnowledgeSort::Paths => "paths",
         KnowledgeSort::Repos => "repos",
         KnowledgeSort::Useful => "useful",
         KnowledgeSort::LastUseful => "lastUseful",

@@ -37,6 +37,9 @@ pub enum KnowledgeSort {
     Format,
     /// By chunk count, most first unless reversed.
     Chunks,
+    /// By how many paths the links narrow to together, most first unless reversed. Asked of a
+    /// server that lists `docs-sort-paths` only.
+    Paths,
     /// By the first linked repository, global documents first unless reversed.
     Repos,
     /// By how often an agent found the document useful, most first unless reversed. Asked of a
@@ -52,6 +55,12 @@ impl KnowledgeSort {
     #[must_use]
     pub fn needs_useful(self) -> bool {
         matches!(self, Self::Useful | Self::LastUseful)
+    }
+
+    /// Whether the sort counts the paths, which a server lists as `docs-sort-paths` only.
+    #[must_use]
+    pub fn needs_paths(self) -> bool {
+        self == Self::Paths
     }
 }
 

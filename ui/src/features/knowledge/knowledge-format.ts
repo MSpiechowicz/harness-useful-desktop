@@ -66,10 +66,17 @@ export function pathCount(links: readonly KnowledgeLink[]): number {
 /** The columns the server sorts the documents by. A key that is not one (a state left by an older version) sorts by time. */
 const SORTS: Record<string, KnowledgeSort> = { title: 'title', format: 'format', repos: 'repos', chunks: 'chunks', updated: 'updated' };
 
+/** The column only a Harness Knowledge that counts the paths sorts by. */
+export const PATHS_SORT = 'paths';
+
 /** The two columns of usefulness, which only a Harness Knowledge that counts it sorts by. */
 export const USEFUL_SORTS: readonly string[] = ['useful', 'lastUseful'];
 
-export function sortOf(key: string, usefulKnown = true): KnowledgeSort {
+export function sortOf(key: string, usefulKnown = true, pathsSortable = true): KnowledgeSort {
+  if (pathsSortable && key === PATHS_SORT) {
+    return key;
+  }
+
   if (usefulKnown && (key === 'useful' || key === 'lastUseful')) {
     return key;
   }
@@ -79,9 +86,9 @@ export function sortOf(key: string, usefulKnown = true): KnowledgeSort {
 
 /**
  * The columns of the documents table. The two of usefulness exist only for a Harness Knowledge that counts it, "Added by" only for one that tells who added a
- * document, and "Status" only for one that keeps drafts: an older one has nothing to show in them. Who added a document and its state are not sortable, the server has no sort by them.
+ * document, and "Status" only for one that keeps drafts: an older one has nothing to show in them. Who added a document and its state are not sortable, the server has no sort by them, and "Paths" only for one that has that sort.
  */
-export function docColumns(usefulness = false, authors = false, states = false): Column[] {
+export function docColumns(usefulness = false, authors = false, states = false, pathsSortable = false): Column[] {
   const useful: Column[] = [
     { key: 'useful', label: t('knowledge.column.useful'), width: COLUMN_WIDTH.useful, sortable: true, descFirst: true },
     { key: 'lastUseful', label: t('knowledge.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, sortable: true, descFirst: true },
@@ -92,6 +99,7 @@ export function docColumns(usefulness = false, authors = false, states = false):
     { key: 'format', label: t('knowledge.column.format'), width: '8.5rem', sortable: true },
     ...(states ? [{ key: 'status', label: t('knowledge.column.status'), width: '14.5rem' } satisfies Column] : []),
     { key: 'repos', label: t('knowledge.column.repos'), width: COLUMN_WIDTH.project, sortable: true },
+    { key: 'paths', label: t('knowledge.column.paths'), width: '6rem', align: 'end', sortable: pathsSortable, descFirst: true },
     { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', sortable: true, descFirst: true },
     ...(usefulness ? useful : []),
     ...(authors ? [{ key: 'addedBy', label: t('knowledge.column.addedBy'), width: COLUMN_WIDTH.author } satisfies Column] : []),

@@ -152,6 +152,9 @@ pub struct KnowledgeFeatures {
     /// `docs-approval`: team approval (`approval get|set`), approve and request changes.
     #[serde(default)]
     pub docs_approval: bool,
+    /// `docs-sort-paths`: `docs list --sort paths`.
+    #[serde(default)]
+    pub docs_sort_paths: bool,
 }
 
 /// What `knowledge_status` says: whether the server is there and what it can do.

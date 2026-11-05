@@ -41,7 +41,7 @@ export function visibleDocuments(documents: KnowledgeDocument[], filter: Knowled
   });
 }
 
-/** The sort of a list: newest first unless asked, the title, format and repository from A, the size, chunks and usefulness from the largest (a document nobody rated counts 0, ties go by id the way the sort goes). */
+/** The sort of a list: newest first unless asked, the title, format and repository from A, the size, chunks, paths and usefulness from the largest (a document nobody rated counts 0, ties go by id the way the sort goes). */
 export function sortDocuments(documents: KnowledgeDocument[], filter: KnowledgeListFilter | null): KnowledgeDocument[] {
   const sort = filter?.sort ?? 'updated';
   const natural = sort === 'title' || sort === 'format' || sort === 'repos' ? 'asc' : 'desc';
@@ -59,6 +59,8 @@ export function sortDocuments(documents: KnowledgeDocument[], filter: KnowledgeL
         return doc.format;
       case 'chunks':
         return doc.chunkCount;
+      case 'paths':
+        return doc.links.reduce((sum, link) => sum + link.globs.length, 0);
       case 'repos':
         return doc.links.map((link) => link.repo).sort()[0] ?? '';
       case 'useful':

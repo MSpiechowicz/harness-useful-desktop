@@ -230,7 +230,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
 
       const newer = on && !older();
 
-      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on, offlineFallback: on, docsUseful: newer, docsSimilar: newer, docsAuthors: newer, docsDrafts: newer, docsApproval: newer } };
+      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on, offlineFallback: on, docsUseful: newer, docsSimilar: newer, docsAuthors: newer, docsDrafts: newer, docsApproval: newer, docsSortPaths: newer } };
     },
 
     knowledge_docs_list: ({ filter, offset, limit, query }) => {
@@ -238,8 +238,8 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
         return { availability: availability(), items: [], total: 0, offline: false };
       }
 
-      // The app drops the filter and the two sorts a server without `docs-useful` would refuse, and reads the default order instead.
-      const asked = older() && filter ? { ...filter, useful: null, status: null, sort: filter.sort === 'useful' || filter.sort === 'lastUseful' ? null : filter.sort } : filter;
+      // The app drops the filter and the sorts a server without `docs-useful` or `docs-sort-paths` would refuse, and reads the default order instead.
+      const asked = older() && filter ? { ...filter, useful: null, status: null, sort: filter.sort === 'useful' || filter.sort === 'lastUseful' || filter.sort === 'paths' ? null : filter.sort } : filter;
       const matching = sortDocuments(visibleDocuments(store.reachable(), asked, query, (doc) => store.pendingOf(doc)), asked);
       const size = limit ?? DEFAULT_LIMIT;
       const items = matching.slice(offset ?? 0, (offset ?? 0) + size).map((doc) => store.view(doc));

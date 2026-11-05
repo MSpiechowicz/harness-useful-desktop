@@ -21,7 +21,7 @@ use crate::setup_support::play;
 use crate::team_support::{Cli, exits};
 
 /// What a current server lists.
-pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\ndocs-drafts\ndocs-approval\n";
+pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\ndocs-drafts\ndocs-approval\ndocs-sort-paths\n";
 
 /// What a server lists with drafts but before team approval: no `docs-approval`.
 pub const BEFORE_APPROVAL: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\ndocs-drafts\n";

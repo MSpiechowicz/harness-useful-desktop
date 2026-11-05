@@ -15,11 +15,11 @@ import { viewState } from '$lib/stores/view-state.svelte';
 import { autoRefresh } from '$lib/utils/auto-refresh';
 
 import { settled } from '../memory/memory-data.svelte';
-import { USEFUL_SORTS, sortOf } from './knowledge-format';
+import { PATHS_SORT, USEFUL_SORTS, sortOf } from './knowledge-format';
 import { liveIdOf, versionOf } from './review-model';
 
-/** The request the documents table makes under what the view state holds. `usefulKnown` is false for a server that does not count usefulness: it has no such filter or sort. `draftsKnown` is false for one that keeps no drafts. */
-export function docsRequest(query: string, usefulKnown = true, draftsKnown = true): DocsRequest {
+/** The request the documents table makes under what the view state holds. `usefulKnown` is false for a server that does not count usefulness: it has no such filter or sort. `draftsKnown` is false for one that keeps no drafts, `pathsSortable` for one that cannot sort by paths. */
+export function docsRequest(query: string, usefulKnown = true, draftsKnown = true, pathsSortable = true): DocsRequest {
   return {
     query,
     scope: viewState.knowledgeScope,
@@ -27,7 +27,7 @@ export function docsRequest(query: string, usefulKnown = true, draftsKnown = tru
     place: viewState.knowledgePlace,
     useful: usefulKnown ? viewState.knowledgeUseful : null,
     status: draftsKnown ? viewState.knowledgeStatus : null,
-    sort: sortOf(viewState.knowledgeSort.key, usefulKnown),
+    sort: sortOf(viewState.knowledgeSort.key, usefulKnown, pathsSortable),
     order: viewState.knowledgeSort.desc ? 'desc' : 'asc',
     page: viewState.knowledgePage,
   };
@@ -69,7 +69,16 @@ export function useKnowledgeData(): void {
     }
   });
 
-  const documents = $derived<DocsRequest>(docsRequest(docsQuery.value, !usefulUnsupported, !draftsUnsupported));
+  // A server that cannot sort by paths would refuse the whole list.
+  const pathsUnsupported = $derived(knowledgeStatus.value?.features.docsSortPaths === false);
+
+  $effect(() => {
+    if (pathsUnsupported && viewState.knowledgeSort.key === PATHS_SORT) {
+      viewState.knowledgeSort = { key: 'updated', desc: true };
+    }
+  });
+
+  const documents = $derived<DocsRequest>(docsRequest(docsQuery.value, !usefulUnsupported, !draftsUnsupported, !pathsUnsupported));
   const proposals = $derived<HeldRequest>({ query: heldQuery.value, page: viewState.heldPage, scope: viewState.heldScope, sort: viewState.heldSort });
 
   // Opening the view (or a change of the search, the filters, the sort or the page) reads again; a list already read is quietly refreshed.

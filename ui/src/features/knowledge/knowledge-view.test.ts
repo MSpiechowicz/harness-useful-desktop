@@ -39,7 +39,12 @@ describe('the documents table', () => {
     expect(within(row).getByText('Standup 28 October (transcript)')).toBeInTheDocument();
     expect(within(row).getByText('Transcript')).toBeInTheDocument();
     expect(within(row).getByText('Global')).toBeInTheDocument();
-    expect(within(document.querySelector<HTMLElement>('[data-row="2"]') as HTMLElement).getByText('2 paths')).toBeInTheDocument();
+
+    const narrowed = document.querySelector<HTMLElement>('[data-row="2"]') as HTMLElement;
+
+    expect(screen.getByRole('columnheader', { name: 'Paths' })).toBeInTheDocument();
+    expect(within(narrowed).getByText('2')).toBeInTheDocument();
+    expect(within(narrowed).queryByText('2 paths')).not.toBeInTheDocument();
   });
 
   it('shows what changed in the database by itself, with no refresh button', async () => {
@@ -81,6 +86,26 @@ describe('the documents table', () => {
 
     viewState.knowledgeQuery = 'zzzz-no-such';
     expect(await screen.findByText('No document matches your search.')).toBeInTheDocument();
+  });
+
+  it('sorts by the paths, most first', async () => {
+    const { invoke } = fakeKnowledge();
+    await show();
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Paths' }));
+    await waitFor(() => expect(calls(invoke, 'knowledge_docs_list').at(-1)).toMatchObject({ filter: { sort: 'paths', order: 'desc' } }));
+    await waitFor(() => expect(document.querySelector('[data-row]')).toHaveAttribute('data-row', '2'));
+  });
+
+  it('keeps the column but offers no sort by paths on an older server, and leaves a sort it cannot do', async () => {
+    viewState.knowledgeSort = { key: 'paths', desc: true };
+    const { invoke } = fakeKnowledge('older');
+    await show();
+
+    expect(screen.getByRole('columnheader', { name: 'Paths' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Paths' })).not.toBeInTheDocument();
+    await waitFor(() => expect(viewState.knowledgeSort).toEqual({ key: 'updated', desc: true }));
+    expect(calls(invoke, 'knowledge_docs_list').at(-1)).toMatchObject({ filter: { sort: 'updated' } });
   });
 
   it('offers to add the first documents when there are none', async () => {

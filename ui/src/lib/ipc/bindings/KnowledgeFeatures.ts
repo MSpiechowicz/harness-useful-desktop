@@ -67,4 +67,8 @@ docsDrafts: boolean,
 /**
  * `docs-approval`: team approval (`approval get|set`), approve and request changes.
  */
-docsApproval: boolean, };
+docsApproval: boolean, 
+/**
+ * `docs-sort-paths`: `docs list --sort paths`.
+ */
+docsSortPaths: boolean, };

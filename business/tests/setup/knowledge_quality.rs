@@ -103,6 +103,27 @@ fn the_useful_filter_and_sorts_go_to_a_server_that_lists_them() {
 }
 
 #[test]
+fn the_sort_by_paths_goes_only_to_a_server_that_lists_it() {
+    let filter = KnowledgeListFilter {
+        sort: Some(KnowledgeSort::Paths),
+        ..KnowledgeListFilter::default()
+    };
+
+    let server_cli = page_cli(ALL_FEATURES, vec![document(7, "guide")]);
+    let args = list_with(&server_cli, &filter, None);
+    assert_eq!(value_of(&args, "--sort"), Some("paths"));
+    assert!(args.contains(&"--desc".to_owned()), "most paths first by default");
+    assert!(!list_with(&server_cli, &filter, Some(SortOrder::Asc)).contains(&"--desc".to_owned()));
+
+    // Everything but this sort: the server of the last release would refuse the whole list.
+    let without = ALL_FEATURES.replace("docs-sort-paths\n", "");
+    let server_cli = page_cli(&without, vec![document(7, "guide")]);
+    let args = list_with(&server_cli, &filter, None);
+    assert_eq!(value_of(&args, "--sort"), Some("updated"), "the default order");
+    assert!(args.contains(&"--desc".to_owned()));
+}
+
+#[test]
 fn a_server_without_docs_useful_is_never_asked_for_the_filter_or_the_sorts() {
     for sort in [KnowledgeSort::Useful, KnowledgeSort::LastUseful] {
         let server_cli = page_cli(BEFORE, vec![document(7, "guide")]);
