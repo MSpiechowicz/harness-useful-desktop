@@ -235,6 +235,8 @@
   --part-thumb-hover-h: 10px;
   /* The icon tile of a step (28px) and of the live card of a subagent (36px, the control height). */
   --tile-md: 28px;
+  /* The label column of the rows of the Status report card. */
+  --status-label-w: 104px;
   --tile-lg: var(--control-h);
   --tile-lg-radius: 10px;
   /* The line heights of the subagent panel's rows: a step's detail, the field of the message box and the lines of a terminal (20px), and the two-line captions of a card header (18px). */

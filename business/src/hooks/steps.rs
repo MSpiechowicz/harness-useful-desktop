@@ -267,7 +267,9 @@ fn intro(elements: &[ResolvedPart]) -> Option<ResolvedPart> {
 
     text.push_str(
         " Harness tools may be listed under a prefix (for example mcp__harness_memory_note_search) or as \
-         deferred tools: load them (for example with ToolSearch) before use, and say once if one is missing.",
+         deferred tools: load them (for example with ToolSearch) before use, and say once if one is missing. \
+         When you run them from a script, print the text of each reply and not the whole result (print(result[\"text\"])), \
+         because long output lines get cut, and when a script makes several calls print a line \"RESULT n:\" before each reply.",
     );
 
     Some(ResolvedPart::new(STEPS_INTRO_ID, STEPS_INTRO_NAME, text))

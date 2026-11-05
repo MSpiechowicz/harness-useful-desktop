@@ -4,8 +4,8 @@ import { displayText } from '$lib/utils/display-text';
 
 import { isJsonObject } from './tools';
 
-/** The harness family servers whose tools get cards of their own. */
-export type FamilyServer = 'memory' | 'knowledge';
+/** The harness family servers whose tools the chat reads. */
+export type FamilyServer = 'memory' | 'knowledge' | 'code';
 
 /**
  * The tool a call name is of one harness family server, whatever the harness calls it: Claude Code and Codex

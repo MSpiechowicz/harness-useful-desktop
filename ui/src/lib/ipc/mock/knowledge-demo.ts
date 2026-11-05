@@ -27,7 +27,39 @@ const DOCS = [
 
 type Call = { id: string; name: string; args: Record<string, unknown>; reply: string };
 
+const CODE_MAP = [
+  'centred on billing: ui/src/features/billing/Charges.svelte',
+  'ui/src/features/billing/Charges.svelte',
+  '  <Charges>',
+  'ui/src/lib/billing/retry.ts',
+  '  function retryDelay(attempt: number): number',
+  'business/src/billing/charges.rs',
+  '  pub fn retry_charge(charge: &Charge) -> Result<()>',
+].join('\n');
+
+const CODE_PATH = [
+  '`Charges` → `retryDelay`: 1 hop',
+  '    Charges  ui/src/features/billing/Charges.svelte:1',
+  '  → retryDelay  ui/src/lib/billing/retry.ts:12',
+  '        at ui/src/features/billing/Charges.svelte:40',
+].join('\n');
+
+/** What the agent reports about the reply: the Status report card of the chat. */
+const STATUS = [
+  '| Step | Status |',
+  '| --- | --- |',
+  '| Limits | none close |',
+  '| Branch | merged 3 commits |',
+  '| Complexity | medium — a billing question across the UI and the service |',
+  '| Notes | opened #12 |',
+  '| Scripts | none fit |',
+  '| Knowledge | opened 1:12 |',
+  '| Code Graph | code_map ui/src/features/billing |',
+].join('\n');
+
 const CALLS: readonly Call[] = [
+  { id: 'c1', name: 'mcp__harness-code__code_map', args: { focus: 'ui/src/features/billing' }, reply: CODE_MAP },
+  { id: 'c2', name: 'mcp__harness-code__code_path', args: { from: 'Charges', to: 'retryDelay' }, reply: CODE_PATH },
   { id: 'n1', name: 'mcp__harness-memory__note_search', args: { query: 'billing retries' }, reply: NOTES },
   { id: 'k1', name: 'mcp__harness-knowledge__knowledge_search', args: { query: 'billing charge retries' }, reply: DOCS },
   { id: 'k2', name: 'mcp__harness-knowledge__knowledge_get', args: { id: '2' }, reply: '<knowledge-doc id="2" title="Billing API" format="openapi" chunks="64" updated="2026-10-14" repos="git:github.com/acme/desktop">\nbody\n</knowledge-doc>' },
@@ -59,7 +91,7 @@ export function knowledgeDemo(prompt: string): AgentEvent[] {
     );
   });
 
-  const closing = 'A failed charge is retried three times, one hour apart.';
+  const closing = `${STATUS}\n\nA failed charge is retried three times, one hour apart.`;
 
   return [
     ...events,

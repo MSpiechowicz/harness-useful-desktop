@@ -32,7 +32,7 @@
   {#if item.role === 'user'}
     <UserMessage {item} images={sentImages?.[item.key] ?? (item.send ? sentImages?.[pendingKey(item.send.id)] : undefined)} {memoryUse} {knowledgeUse} {onUseAgain} />
   {:else if item.role === 'assistant'}
-    <AssistantMessage {item} toolCalls={chat.toolCalls} {active} subagents={chat.subagents} {memoryUse} {knowledgeUse} />
+    <AssistantMessage {item} toolCalls={chat.toolCalls} {active} subagents={chat.subagents} {memoryUse} {knowledgeUse} items={chat.items} />
   {:else}
     <SystemMessage {item} />
   {/if}

@@ -1,3 +1,4 @@
+import { expandWrapped } from './wrapped-calls';
 import { reasonArg } from './harness-tools';
 import { isSteer, recallCallId } from './recall-rows';
 import type { ChatState, MessageItem, ToolCallState } from './types';
@@ -94,7 +95,7 @@ export function buildUseIndex<K, Hit extends { id: K }, Use extends BaseUse<K>>(
   const index = Object.assign(new Map<string, Use>(), { rated });
 
   // A reply with no call of the family (a run of a script included) has nothing to say about the rows of a search, the app's own included.
-  if (!Object.values(chat.toolCalls).some((call) => adapter.tool(call.name) !== null)) {
+  if (!Object.values(chat.toolCalls).some((call) => expandWrapped(call).some((one) => adapter.tool(one.name) !== null))) {
     return index;
   }
 
@@ -123,7 +124,7 @@ export function buildUseIndex<K, Hit extends { id: K }, Use extends BaseUse<K>>(
     for (const id of ids) {
       const call = chat.toolCalls[id];
       if (call) {
-        absorb(adapter, call, reply, index, rated);
+        expandWrapped(call).forEach((one) => absorb(adapter, one, reply, index, rated));
       }
     }
   }

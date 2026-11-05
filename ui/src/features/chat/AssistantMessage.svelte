@@ -4,13 +4,15 @@
   import Markdown from '$lib/components/Markdown.svelte';
   import type { KnowledgeUseIndex } from '$lib/chat/knowledge-use';
   import type { MemoryUseIndex } from '$lib/chat/memory-use';
-  import type { MessageItem, ToolCallState } from '$lib/chat/types';
+  import { splitStepStatus } from '$lib/chat/step-status';
+  import type { MessageItem, ToolCallState, TranscriptItem } from '$lib/chat/types';
   import type { Subagent } from '$lib/ipc/bindings/Subagent';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
 
   import ChatToolCard from './ChatToolCard.svelte';
   import MessageMeta from './MessageMeta.svelte';
+  import StepStatusCard from './StepStatusCard.svelte';
   import ThinkingBlock from './ThinkingBlock.svelte';
 
   interface Props {
@@ -23,9 +25,11 @@
     /** What each reply did with the notes and documents its searches found, for the project-memory and project-documentation cards. */
     memoryUse?: MemoryUseIndex;
     knowledgeUse?: KnowledgeUseIndex;
+    /** The transcript around the message, for what its status card reports. Just the message when it is shown alone. */
+    items?: TranscriptItem[];
   }
 
-  let { item, toolCalls, active, subagents = {}, memoryUse, knowledgeUse }: Props = $props();
+  let { item, toolCalls, active, subagents = {}, memoryUse, knowledgeUse, items }: Props = $props();
 
   const lastIndex = $derived(item.blocks.length - 1);
   const empty = $derived(item.blocks.length === 0);
@@ -39,10 +43,23 @@
     {#if block.type === 'thinking'}
       {#if showThinking}<ThinkingBlock text={block.text} redacted={block.redacted} streaming={item.streaming && index === lastIndex} />{/if}
     {:else if block.type === 'text'}
-      <div>
-        <Markdown source={block.text} streaming={item.streaming && index === lastIndex} />
-        {#if item.streaming && index === lastIndex}<span class="caret" aria-hidden="true"></span>{/if}
-      </div>
+      {@const live = item.streaming && index === lastIndex}
+      {@const status = splitStepStatus(block.text, live)}
+      {#if status}
+        {#if status.before}<div><Markdown source={status.before} /></div>{/if}
+        {#if status.table}<StepStatusCard table={status.table} messageKey={item.key} items={items ?? [item]} {toolCalls} {memoryUse} {knowledgeUse} />{/if}
+        {#if status.after || live}
+          <div>
+            <Markdown source={status.after} streaming={live} />
+            {#if live}<span class="caret" aria-hidden="true"></span>{/if}
+          </div>
+        {/if}
+      {:else}
+        <div>
+          <Markdown source={block.text} streaming={live} />
+          {#if live}<span class="caret" aria-hidden="true"></span>{/if}
+        </div>
+      {/if}
     {:else if block.type === 'tool'}
       {@const call = toolCalls[block.toolCallId]}
       {#if call}

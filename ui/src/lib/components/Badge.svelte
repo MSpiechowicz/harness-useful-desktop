@@ -13,8 +13,8 @@
     dot?: boolean;
     /** Quieter than the filled badge: no background, a thin ring and the tone's text. For a state that is the same as another one seen from a different side. Harness badges stay filled. */
     outline?: boolean;
-    /** `lg` is for a card's own status row, where the default reads too small beside body text. */
-    size?: 'md' | 'lg';
+    /** `lg` is for a card's own status row, where the default reads too small beside body text. `row` is for a row of a list inside a card, one step under `lg`. */
+    size?: 'md' | 'row' | 'lg';
     class?: string;
     children: Snippet;
   }
@@ -47,6 +47,7 @@
 
   const SIZES = {
     md: 'gap-1.5 px-2 py-0.5 text-xs leading-4',
+    row: 'h-6 gap-1.5 px-2.5 text-sm leading-5',
     lg: 'h-7 gap-2 px-3 text-sm leading-5',
   } as const;
 
