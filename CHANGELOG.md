@@ -1,3 +1,10 @@
+## [0.57.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.2...v0.57.3) (2026-11-05)
+
+
+### Bug Fixes
+
+* **ui:** show a spinner, not a skeleton, while a view loads ([4a1f344](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4a1f344a1d48f6f46f394f6b9d3badee0624b8bd))
+
 ## [0.57.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.1...v0.57.2) (2026-11-05)
 
 
