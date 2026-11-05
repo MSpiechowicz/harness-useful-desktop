@@ -1,4 +1,5 @@
-// A started OpenCode 2 chat whose server crashes right away (exit 1, the event stream ends with it).
+// A started OpenCode 2 chat whose server crashes (exit 1, the event stream ends with it) at the request
+// the test sends once the chat has started: a crash on a timer can beat a slow startup, which then fails.
 {"include":"opencode2_startup.jsonl"}
-{"sleep":200}
+{"expect":"GET /api/session/*/message","reply":{"data":[],"cursor":{}}}
 {"crash":"opencode crashed"}

@@ -1,4 +1,5 @@
-// A started OpenCode chat whose server exits with code 3 right away.
+// A started OpenCode chat whose server exits with code 3 at the request the test sends once the chat has
+// started: an exit on a timer can beat a slow startup, which then fails.
 {"include":"opencode_startup.jsonl"}
-{"sleep":200}
+{"expect":"GET /session/*/message","reply":{"body":[]}}
 {"exit":3}

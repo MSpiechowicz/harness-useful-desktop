@@ -259,6 +259,11 @@ async fn a_server_without_a_listening_line_times_out() {
 async fn a_crashed_server_ends_the_chat_without_a_lost_stream_notice() {
     let chat = start("opencode2_crash.jsonl").await;
 
+    // The server goes down at this request, whether or not its answer gets here first.
+    chat.wait("catalog", |event| matches!(event, AgentEvent::CommandsUpdated { .. }))
+        .await;
+    let _ = chat.session().send(AgentAction::GetSessionStats).await;
+
     chat.wait("exit", |event| matches!(event, AgentEvent::Exited { .. }))
         .await;
     let events = chat.events();
