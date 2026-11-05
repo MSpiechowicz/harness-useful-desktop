@@ -1,3 +1,10 @@
+## [0.59.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.59.0...v0.59.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **chat:** keep one gap between message cards ([aae23ac](https://github.com/MSpiechowicz/harness-useful-desktop/commit/aae23ac4144f07bb8779ef84b21dbb7eb0672753))
+
 # [0.59.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.58.0...v0.59.0) (2026-11-05)
 
 
