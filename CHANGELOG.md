@@ -1,3 +1,10 @@
+## [0.57.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.0...v0.57.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **ui:** stop the second scrollbar flashing when a page slides in ([3c67e64](https://github.com/MSpiechowicz/harness-useful-desktop/commit/3c67e64db38afcd3999ab57b1e6499637f98d874))
+
 # [0.57.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.56.0...v0.57.0) (2026-11-05)
 
 
