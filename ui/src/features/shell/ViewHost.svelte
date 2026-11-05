@@ -27,8 +27,11 @@
 <!-- Stacked grid cell so the outgoing and incoming views crossfade in place. -->
 <div class="grid size-full min-h-0 *:col-start-1 *:row-start-1">
   {#key nav.current}
+    <!-- Clips, never scrolls: every view scrolls itself. While rise's transform runs, this element is the containing block
+         of absolutely positioned content inside a view's scroller (sr-only text), which would overflow it and show a
+         second scrollbar that narrows the view for the length of the animation. -->
     <div
-      class="size-full min-h-0 overflow-auto"
+      class="size-full min-h-0 overflow-clip"
       in:rise={{ y: 10 * nav.direction, delay: 80, duration: 320 }}
       out:fade={{ duration: scaled(120) }}
     >
