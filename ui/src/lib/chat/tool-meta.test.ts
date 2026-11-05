@@ -4,8 +4,16 @@ import { humanToolName } from './tool-meta';
 
 describe('humanToolName', () => {
   it.each([
-    ['mcp__harness_memory_note_search', 'Harness memory note search'],
-    ['mcp__harness-dashboard__usage_summary', 'Harness dashboard · Usage summary'],
+    ['mcp__harness-code__code_map', 'Harness Code · Code map'],
+    ['harness-code_code_map', 'Harness Code · Code map'],
+    ['mcp__harness_code_code_map', 'Harness Code · Code map'],
+    ['mcp__harness_memory_note_save', 'Harness Memory · Note save'],
+    ['mcp__plugin_some-plugin_harness-memory__note_save', 'Harness Memory · Note save'],
+    ['harness-knowledge_knowledge_get', 'Harness Knowledge · Knowledge get'],
+    ['mcp__harness-dashboard__usage_summary', 'Harness Dashboard · Usage summary'],
+    ['mcp__harness-desktop__hook_add', 'Harness Desktop · Hook add'],
+    ['mcp__evil_harness_memory__note_save', 'Evil harness memory · Note save'],
+    ['mcp__harness-other__do_thing', 'Harness other · Do thing'],
     ['web_search', 'Web search'],
     ['bash', 'Bash'],
     ['mcp__', 'mcp__'],

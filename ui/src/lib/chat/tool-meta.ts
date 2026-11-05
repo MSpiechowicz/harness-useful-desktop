@@ -8,6 +8,7 @@ import Search from '@lucide/svelte/icons/search';
 import Terminal from '@lucide/svelte/icons/terminal';
 import Wrench from '@lucide/svelte/icons/wrench';
 
+import { FAMILY_NAMES, type FamilyProduct } from '$lib/brand/family';
 import type { IconComponent } from '$lib/components/icon';
 import type { JsonValue } from '$lib/ipc/bindings/serde_json/JsonValue';
 
@@ -89,9 +90,12 @@ export function commandOf(call: ToolCallState): string | null {
   return typeof command === 'string' ? command : null;
 }
 
+/** A family member's tool under any harness's naming, the same forms as `harnessToolName`: the member, then the tool. */
+const FAMILY_TOOL = new RegExp(`^(?:mcp__)?(?:plugin_[A-Za-z0-9-]+_)?harness[-_](${Object.keys(FAMILY_NAMES).join('|')})(?:__|_)([a-z][a-z0-9_]*)$`);
+
 /**
- * A tool name for people: `mcp__harness_memory_note_search` → "Harness memory note search",
- * `mcp__server__tool_name` → "Server · Tool name", `web_search` → "Web search".
+ * A tool name for people: `mcp__server__tool_name` → "Server · Tool name", `web_search` → "Web search". A family member keeps its
+ * product name whatever the harness calls the tool: `harness-code_code_map` and `mcp__harness-code__code_map` → "Harness Code · Code map".
  */
 export function humanToolName(name: string): string {
   const words = (part: string) => {
@@ -99,6 +103,11 @@ export function humanToolName(name: string): string {
 
     return spaced.charAt(0).toUpperCase() + spaced.slice(1);
   };
+
+  const family = FAMILY_TOOL.exec(name);
+  if (family) {
+    return `${FAMILY_NAMES[family[1] as FamilyProduct]} · ${words(family[2])}`;
+  }
 
   const parts = name.split('__').filter((part) => part !== '' && part !== 'mcp');
   const shown = parts.map(words).filter((part) => part !== '');
