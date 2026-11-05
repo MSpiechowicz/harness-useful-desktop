@@ -58,7 +58,7 @@ export const sessions = {
   'sessions.details.empty': 'Choose a session to see its totals, models and files.',
   'sessions.missing.title': 'This session was not found',
   'sessions.missing.body': 'It may have been deleted, or it belongs to another harness or project. Choose one from the list.',
-  'sessions.details.overview': 'Overview',
+  'sessions.details.overview': 'Numbers',
   'sessions.details.overview.hint': 'Totals for this session.',
   'sessions.details.messages': 'messages',
   'sessions.details.toolCalls': 'tool calls',

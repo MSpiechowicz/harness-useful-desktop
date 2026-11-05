@@ -40,7 +40,7 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.copyPath': 'Copiar caminho',
   'config.menu.pathCopied': 'O caminho do arquivo está na área de transferência.',
 
-  'config.overview.title': 'Visão geral',
+  'config.overview.title': 'Números',
   'config.overview.title.hint': 'Quanto esta seção contém.',
   'config.overview.entries': 'entradas de nível superior',
   'config.overview.values': 'valores',

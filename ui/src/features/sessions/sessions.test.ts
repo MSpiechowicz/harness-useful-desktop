@@ -209,7 +209,7 @@ describe('session details', () => {
     await waitFor(() => expect(within(details).getByText(String(STATS?.messages))).toBeInTheDocument());
     await waitFor(() => expect(within(details).getByRole('button', { name: fixtures.sessions.filesTouched[0] })).toBeInTheDocument());
 
-    expect([...details.querySelectorAll('h3')].map((heading) => heading.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Overview', 'Models', 'Session', `Files touched · ${fixtures.sessions.filesTouched.length}`]);
+    expect([...details.querySelectorAll('h3')].map((heading) => heading.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['Numbers', 'Models', 'Session', `Files touched · ${fixtures.sessions.filesTouched.length}`]);
     expect(within(details).getByText(String(STATS?.toolCalls))).toBeInTheDocument();
     expect(within(details).getByText('12.8K')).toBeInTheDocument();
     expect(within(details).getByText('$0.0750')).toBeInTheDocument();

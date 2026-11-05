@@ -238,7 +238,7 @@ describe('ConfigViewer', () => {
     ]);
 
     const aside = await details();
-    const overview = within(aside).getByRole('heading', { name: 'Overview' }).closest('section')!;
+    const overview = within(aside).getByRole('heading', { name: 'Numbers' }).closest('section')!;
 
     for (const [label, value] of [['top-level entries', '2'], ['values', '3'], ['levels deep', '2'], ['secrets masked', '1']]) {
       expect(within(overview).getByText(label).nextElementSibling).toHaveTextContent(value);

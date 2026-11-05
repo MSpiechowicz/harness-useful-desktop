@@ -127,7 +127,7 @@ export const memory: AreaMessages<typeof enMemory> = {
   'memory.panel.actions': 'Acciones',
   'memory.panel.actions.hint': 'Edítalo, ocúltalo o elimínalo.',
   'memory.panel.delete': 'Eliminar',
-  'memory.panel.details': 'Detalles',
+  'memory.panel.details': 'Información',
   'memory.panel.details.hint': 'Dónde se guarda y cómo se ha usado.',
   'memory.detail.created': 'Creación',
   'memory.detail.updated': 'Actualización',

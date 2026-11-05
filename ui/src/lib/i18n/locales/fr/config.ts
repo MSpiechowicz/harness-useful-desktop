@@ -40,7 +40,7 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.copyPath': 'Copier le chemin',
   'config.menu.pathCopied': 'Le chemin du fichier est dans le presse-papiers.',
 
-  'config.overview.title': 'Aperçu',
+  'config.overview.title': 'Chiffres',
   'config.overview.title.hint': 'Ce que contient cette section, en chiffres.',
   'config.overview.entries': 'entrées de premier niveau',
   'config.overview.values': 'valeurs',

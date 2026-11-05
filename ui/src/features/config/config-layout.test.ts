@@ -43,7 +43,7 @@ describe('the Configuration layout on a wide window', () => {
     expect(screen.getByRole('region', { name: 'Details' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Files' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Details' })).toHaveAttribute('aria-pressed', 'true');
-    expect(within(screen.getByRole('region', { name: 'Details' })).getByText('Overview')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Details' })).getByText('Numbers')).toBeInTheDocument();
   });
 
   it('puts the toggles between the view switch and the menu', async () => {

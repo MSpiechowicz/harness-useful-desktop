@@ -133,7 +133,7 @@ export const knowledge: AreaMessages<typeof enKnowledge> = {
   'knowledge.docs.empty.folder': 'Ordner hinzufügen',
   'knowledge.panel.links': 'Verknüpfungen',
   'knowledge.panel.sections': 'Abschnitte',
-  'knowledge.panel.details': 'Details',
+  'knowledge.panel.details': 'Info',
   'knowledge.panel.actions': 'Aktionen',
   'knowledge.panel.delete': 'Dokument löschen',
   'knowledge.panel.deleteShort': 'Löschen',

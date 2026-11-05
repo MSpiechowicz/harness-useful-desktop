@@ -139,7 +139,7 @@ describe('note panel', () => {
     expect(within(panel).getByText('Fix · github.com/useful/harness-desktop')).toBeInTheDocument();
     expect(await within(panel).findByText(/WebKitGTK renders into a DMA buffer/)).toBeInTheDocument();
     expect(noteReads(invoke, 4)[0]).toEqual({ id: 4, ...ALL });
-    for (const heading of ['Content', 'Tags & entities', 'Linked notes', 'Actions', 'Details']) {
+    for (const heading of ['Content', 'Tags & entities', 'Linked notes', 'Actions', 'About']) {
       expect(within(panel).getByRole('heading', { level: 3, name: heading })).toBeInTheDocument();
     }
 

@@ -174,7 +174,7 @@ describe('A remote hook', () => {
     await showHooks();
 
     const panel = await open(teamRowOf(COMMITS), COMMITS);
-    const details = within(panel).getByText('Details').closest('section') as HTMLElement;
+    const details = within(panel).getByText('About').closest('section') as HTMLElement;
 
     expect(within(details).getByText('Shared by')).toBeInTheDocument();
     expect(within(details).getByText('Anna Kowalska')).toBeInTheDocument();
@@ -281,7 +281,7 @@ describe('A remote hook', () => {
     await showHooks();
 
     const panel = await open(teamRowOf(SMALL), SMALL);
-    const details = within(panel).getByText('Details').closest('section') as HTMLElement;
+    const details = within(panel).getByText('About').closest('section') as HTMLElement;
 
     expect(within(details).getByText('Your hook')).toBeInTheDocument();
     expect(within(details).getByText('Changed since you shared it')).toBeInTheDocument();

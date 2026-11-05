@@ -124,7 +124,7 @@ export const memory = {
   'memory.panel.actions': 'Actions',
   'memory.panel.actions.hint': 'Edit, hide or delete it.',
   'memory.panel.delete': 'Delete',
-  'memory.panel.details': 'Details',
+  'memory.panel.details': 'About',
   'memory.panel.details.hint': 'Where it is stored and how it has been used.',
   'memory.detail.created': 'Created',
   'memory.detail.updated': 'Updated',

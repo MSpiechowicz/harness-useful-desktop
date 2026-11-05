@@ -139,7 +139,7 @@ export const knowledge = {
   'knowledge.docs.empty.folder': 'Add a folder',
   'knowledge.panel.links': 'Links',
   'knowledge.panel.sections': 'Sections',
-  'knowledge.panel.details': 'Details',
+  'knowledge.panel.details': 'About',
   'knowledge.panel.actions': 'Actions',
   'knowledge.panel.delete': 'Delete document',
   'knowledge.panel.deleteShort': 'Delete',

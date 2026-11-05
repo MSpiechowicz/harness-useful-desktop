@@ -164,7 +164,7 @@ export const routines: AreaMessages<typeof enRoutines> = {
   'routines.panel.team.enabledLabel': 'Exécuter {name} sur cet ordinateur',
   'routines.panel.review': 'Révision',
   'routines.panel.review.hint': 'Lisez ce que fait cette routine avant de la laisser s’exécuter.',
-  'routines.panel.details': 'Détails',
+  'routines.panel.details': 'Infos',
   'routines.panel.details.hint': 'Quand elle s’exécute, où elle s’exécute et qui l’a ajoutée.',
   'routines.panel.actions': 'Actions',
   'routines.panel.actions.hint': 'Exécutez-la maintenant ou modifiez, partagez ou retirez cette routine.',

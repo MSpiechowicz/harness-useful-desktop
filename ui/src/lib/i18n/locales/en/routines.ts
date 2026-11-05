@@ -161,7 +161,7 @@ export const routines = {
   'routines.panel.team.enabledLabel': 'Run {name} on this computer',
   'routines.panel.review': 'Review',
   'routines.panel.review.hint': 'Read what this routine does before you let it run.',
-  'routines.panel.details': 'Details',
+  'routines.panel.details': 'About',
   'routines.panel.details.hint': 'When it runs, where it runs and who added it.',
   'routines.panel.actions': 'Actions',
   'routines.panel.actions.hint': 'Run it now or change, share or remove this routine.',

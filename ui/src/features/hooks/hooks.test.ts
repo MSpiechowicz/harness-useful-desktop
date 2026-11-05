@@ -179,7 +179,7 @@ describe('Hook details', () => {
     await showHooks();
     await fireEvent.click(rowOf(LINT));
 
-    const details = within(await screen.findByRole('region', { name: LINT })).getByText('Details').closest('section') as HTMLElement;
+    const details = within(await screen.findByRole('region', { name: LINT })).getByText('About').closest('section') as HTMLElement;
 
     expect(within(details).getByText('Project')).toBeInTheDocument();
     expect(within(details).getByText(PROJECT)).toBeInTheDocument();

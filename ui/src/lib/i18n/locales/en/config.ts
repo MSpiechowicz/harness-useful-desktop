@@ -37,7 +37,7 @@ export const config = {
   'config.menu.copyPath': 'Copy path',
   'config.menu.pathCopied': 'The file path is on the clipboard.',
 
-  'config.overview.title': 'Overview',
+  'config.overview.title': 'Numbers',
   'config.overview.title.hint': 'How much this section holds.',
   'config.overview.entries': 'top-level entries',
   'config.overview.values': 'values',

@@ -42,7 +42,7 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.copyPath': 'Kopiuj ścieżkę',
   'config.menu.pathCopied': 'Ścieżka pliku jest w schowku.',
 
-  'config.overview.title': 'Przegląd',
+  'config.overview.title': 'Liczby',
   'config.overview.title.hint': 'Ile zawiera ta sekcja.',
   'config.overview.entries': 'wpisów najwyższego poziomu',
   'config.overview.values': 'wartości',

@@ -182,7 +182,7 @@ describe('The hooks of a project that is not open', () => {
     const panel = await screen.findByRole('region', { name: 'Notes for research' });
 
     expect(within(panel).getByText('Session start · research')).toBeInTheDocument();
-    expect(within(within(panel).getByRole('heading', { name: 'Details' }).closest('section') as HTMLElement).getByText('research')).toBeInTheDocument();
+    expect(within(within(panel).getByRole('heading', { name: 'About' }).closest('section') as HTMLElement).getByText('research')).toBeInTheDocument();
     expect(within(panel).queryByText(/This project/)).not.toBeInTheDocument();
 
     await fireEvent.click(within(panel).getByRole('button', { name: 'Delete' }));

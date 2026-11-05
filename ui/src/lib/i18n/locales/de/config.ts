@@ -40,7 +40,7 @@ export const config: AreaMessages<typeof enConfig> = {
   'config.menu.copyPath': 'Pfad kopieren',
   'config.menu.pathCopied': 'Der Dateipfad liegt in der Zwischenablage.',
 
-  'config.overview.title': 'Überblick',
+  'config.overview.title': 'Zahlen',
   'config.overview.title.hint': 'Wie viel dieser Abschnitt enthält.',
   'config.overview.entries': 'Einträge auf oberster Ebene',
   'config.overview.values': 'Werte',

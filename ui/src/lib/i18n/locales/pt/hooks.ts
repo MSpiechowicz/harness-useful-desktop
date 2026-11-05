@@ -95,7 +95,7 @@ export const hooks: AreaMessages<typeof enHooks> = {
   'hooks.panel.status.invalid': 'Precisa de uma correção antes de poder rodar.',
   'hooks.panel.review': 'Revisar',
   'hooks.panel.review.hint': 'Leia o que este hook faz antes de deixá-lo rodar.',
-  'hooks.panel.details': 'Detalhes',
+  'hooks.panel.details': 'Informações',
   'hooks.panel.details.hint': 'Quando roda, onde vale e quem adicionou.',
   'hooks.panel.actions': 'Ações',
   'hooks.panel.actions.hint': 'Altere, compartilhe ou remova este hook.',

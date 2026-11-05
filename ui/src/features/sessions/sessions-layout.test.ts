@@ -72,7 +72,7 @@ describe('a wide sessions view', () => {
 
     expect(sessionButton(SESSIONS[0].ref.id)).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Session transcript' })).toBeInTheDocument();
-    expect(within(screen.getByRole('region', { name: 'Details' })).getByText('Overview')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Details' })).getByText('Numbers')).toBeInTheDocument();
     expect(listToggle()).toHaveAttribute('aria-pressed', 'true');
     expect(detailsToggle()).toHaveAttribute('aria-pressed', 'true');
 
@@ -129,7 +129,7 @@ describe('a middle-width sessions view', () => {
     await fireEvent.click(detailsToggle());
 
     const details = await screen.findByRole('region', { name: 'Details' });
-    expect(within(details).getByText('Overview')).toBeInTheDocument();
+    expect(within(details).getByText('Numbers')).toBeInTheDocument();
     expect(detailsToggle()).toHaveAttribute('aria-pressed', 'true');
 
     within(details).getByRole('button', { name: 'Close' }).focus();

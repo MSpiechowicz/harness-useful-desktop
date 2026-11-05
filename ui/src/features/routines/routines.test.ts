@@ -150,7 +150,7 @@ describe('Opening a routine', () => {
     await showRoutines();
     await fireEvent.click(rowOf('Run the tests'));
 
-    const details = within(await screen.findByRole('region', { name: 'Run the tests' })).getByText('Details').closest('section') as HTMLElement;
+    const details = within(await screen.findByRole('region', { name: 'Run the tests' })).getByText('About').closest('section') as HTMLElement;
 
     expect(within(details).getByText('Project')).toBeInTheDocument();
     expect(within(details).getByText('/home/demo/Projects/demo')).toBeInTheDocument();

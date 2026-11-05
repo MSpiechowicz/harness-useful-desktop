@@ -103,7 +103,7 @@ describe('script panel', () => {
     expect(within(panel).getByText('Bash · github.com/useful/harness-desktop')).toBeInTheDocument();
     expect(await within(panel).findByText(/gh pr list --state open/)).toBeInTheDocument();
     expect(calls(invoke, 'memory_script_get')[0]).toEqual({ id: 12, ...ALL });
-    for (const heading of ['Description', 'Code', 'Actions', 'Details']) {
+    for (const heading of ['Description', 'Code', 'Actions', 'About']) {
       expect(within(panel).getByRole('heading', { level: 3, name: heading })).toBeInTheDocument();
     }
     expect(within(panel).getByText('14')).toBeInTheDocument();

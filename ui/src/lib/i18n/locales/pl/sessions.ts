@@ -63,7 +63,7 @@ export const sessions: AreaMessages<typeof enSessions> = {
   'sessions.details.empty': 'Wybierz sesję, aby zobaczyć jej sumy, modele i pliki.',
   'sessions.missing.title': 'Nie znaleziono tej sesji',
   'sessions.missing.body': 'Mogła zostać usunięta albo należy do innego harnessu lub projektu. Wybierz sesję z listy.',
-  'sessions.details.overview': 'Przegląd',
+  'sessions.details.overview': 'Liczby',
   'sessions.details.overview.hint': 'Sumy dla tej sesji.',
   'sessions.details.messages': 'wiadomości',
   'sessions.details.toolCalls': 'wywołania narzędzi',

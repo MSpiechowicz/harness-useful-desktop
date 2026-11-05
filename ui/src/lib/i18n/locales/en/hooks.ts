@@ -92,7 +92,7 @@ export const hooks = {
   'hooks.panel.status.invalid': 'Needs a fix before it can run.',
   'hooks.panel.review': 'Review',
   'hooks.panel.review.hint': 'Read what this hook does before you let it run.',
-  'hooks.panel.details': 'Details',
+  'hooks.panel.details': 'About',
   'hooks.panel.details.hint': 'When it runs, where it applies and who added it.',
   'hooks.panel.actions': 'Actions',
   'hooks.panel.actions.hint': 'Change, share or remove this hook.',
