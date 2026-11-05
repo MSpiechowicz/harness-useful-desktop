@@ -1,3 +1,10 @@
+# [0.60.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.59.1...v0.60.0) (2026-11-05)
+
+
+### Features
+
+* **chat:** show the steps status as a Status report card ([f3fbfcb](https://github.com/MSpiechowicz/harness-useful-desktop/commit/f3fbfcba053bc844f9ae192603905b6e23175768))
+
 ## [0.59.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.59.0...v0.59.1) (2026-11-05)
 
 
