@@ -1,3 +1,15 @@
+# [0.58.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.4...v0.58.0) (2026-11-05)
+
+
+### Bug Fixes
+
+* **ui:** name detail panel sections the same way everywhere ([404c8b9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/404c8b94c4af81e2310498c6eabcb31432803a92))
+
+
+### Features
+
+* **knowledge:** redesign document sections for long documents ([fd9d703](https://github.com/MSpiechowicz/harness-useful-desktop/commit/fd9d7033f24eb92295a3c3a3660624cf3024f1ac))
+
 ## [0.57.4](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.3...v0.57.4) (2026-11-05)
 
 
