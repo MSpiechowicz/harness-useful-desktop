@@ -1,48 +1,75 @@
 <script lang="ts">
-  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
-  import ChevronRight from '@lucide/svelte/icons/chevron-right';
+  import { untrack } from 'svelte';
 
-  import Badge from '$lib/components/Badge.svelte';
-  import IconButton from '$lib/components/IconButton.svelte';
+  import { ICON } from '$lib/components/icon';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+  import { LOADING_DELAY_MS } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeId } from '$lib/ipc/knowledge-id';
 
   import type { ChunkTexts } from './chunk-texts.svelte';
   import ChunkPart from './ChunkPart.svelte';
+  import PartTrack from './PartTrack.svelte';
 
   interface Props {
     texts: ChunkTexts;
     /** The chunks one section is cut into, in order. */
     chunkIds: KnowledgeId[];
+    /** The part on screen, kept by the list so a row that scrolls off a page comes back on the same part. */
+    index?: number;
   }
 
-  let { texts, chunkIds }: Props = $props();
-
-  /** The part on screen: one at a time, so a section cut into many parts never becomes a long scroll. */
-  let index = $state(0);
+  let { texts, chunkIds, index = $bindable(0) }: Props = $props();
 
   const current = $derived(chunkIds[Math.min(index, chunkIds.length - 1)]);
-  const many = $derived(chunkIds.length > 1);
+
+  /** The part whose text is on screen. It stays until the next part is read, so the block never collapses in between. */
+  let shown = $state(untrack(() => current));
+
+  const waiting = $derived(shown !== current);
+
+  // Read once per part: this must not follow the status, or a part that fails would be read again for ever.
+  $effect(() => {
+    const id = current;
+
+    untrack(() => void texts.show(id));
+  });
+
+  $effect(() => {
+    const status = texts.stateOf(current)?.status;
+
+    if (status === 'ready' || status === 'error') {
+      shown = current;
+    }
+  });
 </script>
 
-<!-- The text of a section: its one part, or the parts a long section is cut into, one at a time with a pager. -->
-{#if many}
-  <div class="flex flex-col gap-3 rounded-md border border-line px-4 pt-2.5 pb-4">
-    <div class="flex items-center justify-between gap-2">
-      <Badge tone="accent" size="lg">{t('knowledge.chunk.partOf', { number: index + 1, total: chunkIds.length })}</Badge>
+<!-- The text of a section, one part at a time, so a section cut into many parts never becomes a long scroll. -->
+{#if chunkIds.length > 1}
+  <PartTrack index={Math.min(index, chunkIds.length - 1)} total={chunkIds.length} onpick={(part) => (index = part)} />
+{/if}
 
-      <div class="flex items-center gap-1">
-        <IconButton icon={ChevronLeft} label={t('knowledge.chunk.previous')} disabled={index === 0} onclick={() => (index -= 1)} />
-        <IconButton icon={ChevronRight} label={t('knowledge.chunk.next')} disabled={index >= chunkIds.length - 1} onclick={() => (index += 1)} />
-      </div>
+{#if shown !== undefined}
+  <!-- A quick read swaps the text in place. A slow one fades it out and shows a small spinner in the same space. -->
+  <div class="relative">
+    <div class={waiting ? 'part-waiting keep-motion' : ''} style:animation-delay={waiting ? `${LOADING_DELAY_MS}ms` : undefined}>
+      <ChunkPart {texts} chunkId={shown} inset />
     </div>
 
-    {#key current}
-      <ChunkPart {texts} chunkId={current} inset />
-    {/key}
-
-    <p class="text-xs text-fg-3">{t('knowledge.chunk.overlap')}</p>
+    {#if waiting}
+      <LoadingSpinner size={ICON.sm} class="absolute inset-0" label={t('knowledge.chunk.loading')} />
+    {/if}
   </div>
-{:else if current !== undefined}
-  <ChunkPart {texts} chunkId={current} inset />
 {/if}
+
+<style>
+  .part-waiting {
+    animation: part-fade var(--dur-base) var(--ease-in-out) both;
+  }
+
+  @keyframes part-fade {
+    to {
+      opacity: 0;
+    }
+  }
+</style>

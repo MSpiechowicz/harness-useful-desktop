@@ -2,7 +2,8 @@
   import { untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+  import { ICON } from '$lib/components/icon';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { KnowledgeId } from '$lib/ipc/knowledge-id';
 
@@ -14,7 +15,7 @@
     chunkId: KnowledgeId;
     /** The words of the search to mark in the text. */
     query?: string;
-    /** Inside an open row card: the card is the box, so the text has none of its own. */
+    /** Under an open row: the panel scrolls it, so the text has no box and no scroll of its own. */
     inset?: boolean;
   }
 
@@ -26,7 +27,7 @@
   $effect(() => {
     const id = chunkId;
 
-    untrack(() => void texts.load(id));
+    untrack(() => void texts.show(id));
   });
 </script>
 
@@ -37,7 +38,7 @@
 {#if chunk?.status === 'ready'}
   {@const blocks = blocksOf(chunk.text)}
 
-  <div class="flex max-h-72 flex-col gap-2 overflow-y-auto overscroll-contain text-sm text-fg-2 {inset ? 'pr-3' : 'rounded-md bg-surface-2 px-3 py-2'}">
+  <div class="flex flex-col gap-2 text-sm text-fg-2 {inset ? '' : 'max-h-72 overflow-y-auto overscroll-contain rounded-md bg-surface-2 px-3 py-2'}">
     {#each blocks as block, index (index)}
       {#if block.kind === 'code'}
         <pre class="overflow-x-auto rounded-sm bg-surface-3 px-2 py-1.5 font-mono text-xs text-fg">{@render marked(block.text)}</pre>
@@ -54,9 +55,5 @@
     <Button onclick={() => void texts.load(chunkId)}>{t('memory.tryAgain')}</Button>
   </div>
 {:else}
-  <div class="flex flex-col gap-2" role="status" aria-label={t('knowledge.chunk.loading')}>
-    <Skeleton height="1rem" width="60%" />
-    <Skeleton height="1rem" />
-    <Skeleton height="1rem" width="80%" />
-  </div>
+  <LoadingSpinner size={ICON.sm} class="h-control" label={t('knowledge.chunk.loading')} />
 {/if}

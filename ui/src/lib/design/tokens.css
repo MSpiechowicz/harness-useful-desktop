@@ -225,6 +225,14 @@
   --panel-close-inset: 9px;
   /* The space between the blocks of a side panel that lays itself out (the subagent panel): the cards, the tabs and the first block. */
   --panel-block-gap: 12px;
+  /* The text under an open outline row: the line sits under the middle of the row's chevron, and the text starts where the row's title does. */
+  --outline-rail-x: 15px;
+  --outline-rail-pad: 12px;
+  /* The part track of a section: one segment a part, then one bar with a handle. */
+  --part-track-h: 6px;
+  --part-segment-gap: 3px;
+  --part-thumb-w: 16px;
+  --part-thumb-hover-h: 10px;
   /* The icon tile of a step (28px) and of the live card of a subagent (36px, the control height). */
   --tile-md: 28px;
   --tile-lg: var(--control-h);

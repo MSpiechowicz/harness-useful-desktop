@@ -177,6 +177,8 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.pagination.range': '{from}–{to} de {total}',
   'components.pagination.previous': 'Anterior',
   'components.pagination.next': 'Siguiente',
+  'components.pagination.first': 'Esta es la primera página',
+  'components.pagination.last': 'Esta es la última página',
   'components.pagination.page': 'Página {page}',
   'components.panel.close': 'Cerrar',
   'components.workspace.details': 'Detalles',

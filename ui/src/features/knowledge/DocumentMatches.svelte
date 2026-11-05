@@ -17,6 +17,7 @@
 
   import type { ChunkTexts } from './chunk-texts.svelte';
   import ChunkPart from './ChunkPart.svelte';
+  import OutlineRail from './OutlineRail.svelte';
   import { headingLevel } from './knowledge-format';
   import { highlightPieces } from './knowledge-text';
 
@@ -99,10 +100,22 @@
     };
   });
 
-  function toggle(chunkId: KnowledgeId): void {
-    const key = idKey(chunkId);
+  /** The matches whose text has been read, or has waited long enough: the row slides open to the height of what it holds. */
+  let revealed = $state.raw<Record<string, boolean>>({});
 
-    open = { ...open, [key]: !open[key] };
+  async function toggle(chunkId: KnowledgeId): Promise<void> {
+    const key = idKey(chunkId);
+    const opening = !open[key];
+
+    open = { ...open, [key]: opening };
+
+    if (opening) {
+      await texts.settle(chunkId);
+    }
+
+    if (open[key] === opening) {
+      revealed = { ...revealed, [key]: opening };
+    }
   }
 </script>
 
@@ -127,14 +140,14 @@
   <ul class="-mx-2 flex flex-col gap-0.5">
     {#each hits as hit (idKey(hit.chunkId))}
       {@const key = idKey(hit.chunkId)}
-      <li class="rounded-md transition-colors duration-[var(--dur-fast)] {open[key] ? 'bg-surface-2' : ''}">
+      <li>
         <button
           type="button"
           aria-expanded={open[key] === true}
           aria-controls="{prefix}-{key}"
           title={hit.section}
-          class="flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors duration-[var(--dur-fast)] {open[key] ? '' : 'hover:bg-surface-2'}"
-          onclick={() => toggle(hit.chunkId)}
+          class="flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors duration-[var(--dur-fast)] hover:bg-surface-2"
+          onclick={() => void toggle(hit.chunkId)}
         >
           <ChevronRight size={ICON.sm} aria-hidden="true" class="mt-0.5 shrink-0 text-fg-3 transition-transform duration-[var(--dur-fast)] {open[key] ? 'rotate-90' : ''}" />
           <span class="flex min-w-0 flex-col gap-0.5">
@@ -146,9 +159,9 @@
         </button>
 
         <div id="{prefix}-{key}">
-          {#if open[key]}
+          {#if open[key] && revealed[key]}
             <div transition:slide={{ duration: scaled(200) }} class="overflow-hidden">
-              <div class="pt-1.5 pr-3 pb-3 pl-7.5"><ChunkPart {texts} chunkId={hit.chunkId} {query} inset /></div>
+              <OutlineRail><ChunkPart {texts} chunkId={hit.chunkId} {query} inset /></OutlineRail>
             </div>
           {/if}
         </div>

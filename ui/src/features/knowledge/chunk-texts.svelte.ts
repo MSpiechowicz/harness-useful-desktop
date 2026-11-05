@@ -1,3 +1,4 @@
+import { LOADING_DELAY_MS } from '$lib/design/motion';
 import { t } from '$lib/i18n/i18n.svelte';
 import { ipc } from '$lib/ipc/client';
 import { idKey, type KnowledgeId } from '$lib/ipc/knowledge-id';
@@ -40,6 +41,18 @@ export class ChunkTexts {
     } catch (error) {
       this.set(chunkId, { status: 'error', message: readFailureText(error) });
     }
+  }
+
+  /** Reads the chunk unless it was asked for before. A failed one stays failed until the user tries again, or opens its row again. */
+  async show(chunkId: KnowledgeId): Promise<void> {
+    if (this.stateOf(chunkId) === undefined) {
+      await this.load(chunkId);
+    }
+  }
+
+  /** Reads the chunk, for at most the delay a spinner waits. A row that opens on its text animates to the text's own height, not the spinner's. */
+  async settle(chunkId: KnowledgeId): Promise<void> {
+    await Promise.race([this.load(chunkId), new Promise((resolve) => setTimeout(resolve, LOADING_DELAY_MS))]);
   }
 
   private set(chunkId: KnowledgeId, state: ChunkState): void {

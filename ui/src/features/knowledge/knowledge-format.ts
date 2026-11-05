@@ -218,6 +218,27 @@ export function outlineGroups(sections: readonly { headingPath: string; chunkId:
   return groups;
 }
 
+/** What the sections are for. The overlap is only said for a document where a section has parts. */
+export function sectionsHint(sections: readonly { headingPath: string; chunkId: KnowledgeId }[]): string {
+  const hint = t('knowledge.sections.hint');
+
+  return outlineGroups(sections).some((group) => group.chunkIds.length > 1) ? `${hint} ${t('knowledge.chunk.overlap')}` : hint;
+}
+
+/** Up to this many parts a section shows one segment a part. Past it a segment is too narrow to click, so the track is one bar with a handle. */
+export const PART_SEGMENTS_MAX = 24;
+
+/** The headings whose path or own title holds the words typed, whatever their case. */
+export function filterOutline(groups: readonly OutlineGroup[], query: string): OutlineGroup[] {
+  const words = query.trim().toLocaleLowerCase();
+
+  if (words === '') {
+    return [...groups];
+  }
+
+  return groups.filter((group) => `${group.headingPath} ${headingLevel(group.headingPath).title}`.toLocaleLowerCase().includes(words));
+}
+
 /** A heading path as the levels it has and its own title: `Guide > Install > Linux` is the third level, "Linux". */
 export function headingLevel(headingPath: string): { depth: number; title: string } {
   const parts = headingPath.split('>').map((part) => part.trim()).filter(Boolean);

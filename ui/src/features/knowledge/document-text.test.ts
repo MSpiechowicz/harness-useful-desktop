@@ -84,13 +84,13 @@ describe('the sections of an open document', () => {
 
     expect(await within(panel).findByText('Part 1 of 2')).toBeInTheDocument();
     expect(within(panel).getByText(/Parts overlap a little/)).toBeInTheDocument();
-    expect(within(panel).getByRole('button', { name: 'Previous part' })).toBeDisabled();
+    expect(within(panel).getByRole('button', { name: 'This is the first part' })).toBeDisabled();
     await waitFor(() => expect(textReads(invoke)).toHaveLength(2));
 
     await fireEvent.click(within(panel).getByRole('button', { name: 'Next part' }));
 
     expect(await within(panel).findByText('Part 2 of 2')).toBeInTheDocument();
-    expect(within(panel).getByRole('button', { name: 'Next part' })).toBeDisabled();
+    expect(within(panel).getByRole('button', { name: 'This is the last part' })).toBeDisabled();
     await waitFor(() => expect(textReads(invoke)).toHaveLength(3));
   });
 

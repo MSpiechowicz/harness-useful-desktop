@@ -174,6 +174,8 @@ export const components = {
   'components.pagination.range': '{from}–{to} of {total}',
   'components.pagination.previous': 'Previous',
   'components.pagination.next': 'Next',
+  'components.pagination.first': 'This is the first page',
+  'components.pagination.last': 'This is the last page',
   'components.pagination.page': 'Page {page}',
   'components.panel.close': 'Close',
   'components.workspace.details': 'Details',

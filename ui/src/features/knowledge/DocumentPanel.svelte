@@ -37,7 +37,7 @@
   import DocumentSections from './DocumentSections.svelte';
   import DocumentTitle from './DocumentTitle.svelte';
   import DropVeil from './DropVeil.svelte';
-  import { docFacts, docSubtitle, outlineOf } from './knowledge-format';
+  import { docFacts, docSubtitle, outlineOf, sectionsHint } from './knowledge-format';
   import { inTeamDatabase } from './knowledge-repos';
   import { lookOf } from './knowledge-status';
   import LinksEditor from './LinksEditor.svelte';
@@ -286,9 +286,9 @@
       <LinksEditor links={draft ?? doc.links} onchange={(next) => void change(next)} {options} team={inTeam} {readOnly} />
     </SectionCard>
 
-    <SectionCard flat heading={t('knowledge.panel.sections')} hint={t('knowledge.sections.hint')}>
+    <SectionCard flat heading={t('knowledge.panel.sections')} hint={sectionsHint(detail?.sections ?? [])}>
       <BodyState loaded={detail !== null} {status} {error} failed={t('knowledge.panel.sections.failed')} loading={t('knowledge.panel.sections.loading')} {onretry}>
-        {#if texts}<DocumentSections sections={detail?.sections ?? []} {texts} />{/if}
+        {#if texts}{#key texts}<DocumentSections sections={detail?.sections ?? []} {texts} />{/key}{/if}
       </BodyState>
     </SectionCard>
 
