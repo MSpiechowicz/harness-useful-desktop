@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import StatusDot from '$lib/components/StatusDot.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
@@ -55,12 +55,7 @@
 
   <HarnessScan>
     {#snippet loading()}
-      <div class={PICKER.frame}>
-        <div class={PICKER.columns}>
-          <Skeleton height="12rem" />
-          <Skeleton height="20rem" />
-        </div>
-      </div>
+      <LoadingSpinner label={t('onboarding.harnesses.looking')} class="h-80" />
     {/snippet}
 
     <!-- The strip and the picker belong together: the picker's own gap apart, not the step's. -->

@@ -3,7 +3,7 @@
   import type { Snippet } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import { rise } from '$lib/design/motion';
   import { i18n, t } from '$lib/i18n/i18n.svelte';
   import type { QuerySlot } from '$lib/stores/dashboard.svelte';
@@ -47,7 +47,7 @@
   </header>
 
   {#if slot.data !== null}
-    <!-- Reloading keeps the old numbers on screen, dimmed, instead of flashing a skeleton. -->
+    <!-- Reloading keeps the old numbers on screen, dimmed, instead of flashing a spinner. -->
     <div class={cx('transition-opacity duration-[var(--dur-base)]', slot.stale && 'opacity-60')}>
       {@render children(slot.data)}
     </div>
@@ -60,10 +60,7 @@
       </div>
     </div>
   {:else}
-    <div class="flex flex-col gap-3" role="status" aria-label={t('ecosystem.slot.loading', { title: named })}>
-      <Skeleton height="1.25rem" />
-      <Skeleton height="1.25rem" width="85%" />
-      <Skeleton height="1.25rem" width="70%" />
-    </div>
+    <!-- About the height of the shortest card's content, so a slow card moves its row as little as it can. -->
+    <LoadingSpinner label={t('ecosystem.slot.loading', { title: named })} class="h-48" />
   {/if}
 </section>

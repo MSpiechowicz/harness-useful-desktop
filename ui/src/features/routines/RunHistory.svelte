@@ -11,8 +11,8 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FilterRow from '$lib/components/FilterRow.svelte';
   import { ICON } from '$lib/components/icon';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { RoutineRun } from '$lib/ipc/bindings/RoutineRun';
@@ -120,11 +120,7 @@
       <EmptyState icon={History} title={t('routines.runs.error.title')} body={routines.runs.error?.message} />
     </div>
   {:else if page === null}
-    <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('routines.runs.loading')}>
-      <Skeleton width="14rem" height="1.75rem" />
-      <Skeleton height="2.5rem" />
-      <Skeleton height="2.5rem" />
-    </div>
+    <LoadingSpinner label={t('routines.runs.loading')} />
   {:else if none}
     <div class="grid size-full place-items-center">
       <EmptyState icon={History} title={t('routines.runs.empty.title')} body={t('routines.runs.empty.body')} />

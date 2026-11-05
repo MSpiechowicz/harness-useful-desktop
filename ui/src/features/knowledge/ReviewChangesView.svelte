@@ -17,9 +17,9 @@
   import FinishReviewDialog, { type FinishLabels } from '$lib/components/FinishReviewDialog.svelte';
   import { ICON } from '$lib/components/icon';
   import IconButton from '$lib/components/IconButton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import WorkspaceLayout from '$lib/components/WorkspaceLayout.svelte';
@@ -320,11 +320,7 @@
 
 <div class="relative min-h-0 flex-1">
   {#if shown === null && !(version && knowledgeReview.compareFailed(version.id)) && wholeOutcome?.type !== 'refused'}
-    <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('knowledge.drafts.changes.loading')}>
-      <Skeleton width="14rem" height="1.75rem" />
-      <Skeleton height="2.5rem" />
-      <Skeleton height="2.5rem" />
-    </div>
+    <LoadingSpinner label={t('knowledge.drafts.changes.loading')} />
   {:else if shown === null || sections.length === 0}
     <div class="grid size-full place-items-center">
       <EmptyState icon={GitPullRequest} title={t('knowledge.drafts.review.nothing')} body={t('knowledge.drafts.review.nothing.body')}>

@@ -20,9 +20,7 @@
 </script>
 
 {#if harness.status === 'loading' || harness.status === 'idle'}
-  <div role="status" aria-label={t('onboarding.harnesses.looking')}>
-    {@render loading()}
-  </div>
+  {@render loading()}
 {:else if harness.status === 'error'}
   <p class="rounded-md border border-line bg-danger-wash p-4 text-sm text-fg" role="alert">
     {t('onboarding.harnesses.error', { message: harness.error?.message })}

@@ -8,7 +8,7 @@
   import Button from '$lib/components/Button.svelte';
   import Dialog from '$lib/components/Dialog.svelte';
   import { ICON } from '$lib/components/icon';
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import { scaled } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HookFamilyEntry } from '$lib/ipc/bindings/HookFamilyEntry';
@@ -78,11 +78,7 @@
   {#if hooks.familyError && rows === null}
     <p class="text-sm text-danger" role="alert">{t('hooks.family.loadFailed', { reason: hooks.familyError })}</p>
   {:else if rows === null}
-    <div class="flex flex-col gap-3 py-2" role="status" aria-label={t('hooks.family.loading')}>
-      <Skeleton height="2.75rem" />
-      <Skeleton height="2.75rem" />
-      <Skeleton height="2.75rem" />
-    </div>
+    <LoadingSpinner label={t('hooks.family.loading')} class="h-40" />
   {:else}
     <div in:fade={{ duration: scaled(160) }} class="-my-4 divide-y divide-line">
       {#each rows as row (row.seed)}

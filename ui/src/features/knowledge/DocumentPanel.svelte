@@ -7,6 +7,7 @@
   import FactsCard from '$lib/components/FactsCard.svelte';
   import { ICON } from '$lib/components/icon';
   import IconButton from '$lib/components/IconButton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import type { ScopeOption } from '$lib/components/scope/scope-options';
   import SectionCard from '$lib/components/SectionCard.svelte';
   import SidePanel from '$lib/components/SidePanel.svelte';
@@ -42,7 +43,6 @@
   import LinksEditor from './LinksEditor.svelte';
   import { joinHistory } from './history-entries';
   import { useReveal } from './panel-reveal.svelte';
-  import PanelSpinner from './PanelSpinner.svelte';
   import { decisionPin, liveIdOf, mineOf, reviewModel, type ReviewStep, versionOf } from './review-model';
 
   interface Props {
@@ -254,7 +254,8 @@
   {onclose}
 >
   {#if doc && !reveal.shown}
-    <PanelSpinner label={t('knowledge.panel.loading')} />
+    <!-- `useReveal` already holds this spinner for its least time, so it needs no delay of its own. -->
+    <LoadingSpinner label={t('knowledge.panel.loading')} delay={0} class="flex-1 py-16" />
   {:else if doc}
     {#if doc.warnings.length > 0}
       <ul class="flex flex-col gap-1 rounded-md bg-warning-wash px-3 py-2 text-sm text-warning" role="status">

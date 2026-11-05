@@ -6,6 +6,7 @@
   import Button from '$lib/components/Button.svelte';
   import FactsCard from '$lib/components/FactsCard.svelte';
   import { ICON } from '$lib/components/icon';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import SectionCard from '$lib/components/SectionCard.svelte';
   import SidePanel from '$lib/components/SidePanel.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
@@ -18,7 +19,6 @@
   import HeldDecide from './HeldDecide.svelte';
   import { heldFacts, heldSubtitle, pathsBadge, repoLabel } from './knowledge-format';
   import { useReveal } from './panel-reveal.svelte';
-  import PanelSpinner from './PanelSpinner.svelte';
 
   interface Props {
     open: boolean;
@@ -60,7 +60,8 @@
 
 <SidePanel {open} title={item?.title ?? ''} subtitle={item ? heldSubtitle(item) : ''} status={item?.status === 'changesRequested' ? statusRow : undefined} {onclose}>
   {#if item && !reveal.shown}
-    <PanelSpinner label={t('knowledge.held.body.loading')} />
+    <!-- `useReveal` already holds this spinner for its least time, so it needs no delay of its own. -->
+    <LoadingSpinner label={t('knowledge.held.body.loading')} delay={0} class="flex-1 py-16" />
   {:else if item && shown}
     <SectionCard flat heading={t('knowledge.held.content')} hint={t('knowledge.held.content.hint')}>
       {#if hidden > 0}

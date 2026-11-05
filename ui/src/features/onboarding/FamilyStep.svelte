@@ -22,7 +22,7 @@
     <StepHeader eyebrow={t('onboarding.family.eyebrow')} title={t('onboarding.family.title')} body={t('onboarding.family.body')} />
   </div>
 
-  <SetupStatus placeholder="24rem">
+  <SetupStatus placeholder="h-96">
     {#snippet children(data)}
       <!-- Every member in the same card, in the order the next step installs them. -->
       <CompanionCard companion="dashboard" server={data.dashboard} />

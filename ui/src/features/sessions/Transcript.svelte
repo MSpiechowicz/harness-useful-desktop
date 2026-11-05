@@ -7,8 +7,8 @@
   import { buildMemoryUse, type MemoryUseIndex } from '$lib/chat/memory-use';
   import { provideToolContext } from '$lib/chat/tool-context';
   import Button from '$lib/components/Button.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import NoticeBanner from '$lib/components/NoticeBanner.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import VirtualList from '$lib/components/VirtualList.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
   import type { SessionDetail } from '$lib/stores/sessions.svelte';
@@ -55,11 +55,7 @@
 
 <div class="flex size-full min-h-0 flex-col">
   {#if detail.transcriptStatus === 'loading'}
-    <div class="flex flex-col gap-3 p-6" role="status" aria-label={t('sessions.transcript.loading')}>
-      <Skeleton width="60%" height="2.5rem" />
-      <Skeleton height="4rem" />
-      <Skeleton width="80%" height="2.5rem" />
-    </div>
+    <LoadingSpinner label={t('sessions.transcript.loading')} />
   {:else if detail.transcriptStatus === 'error'}
     <div class="flex flex-col items-center gap-3 p-8 text-center" role="alert">
       <CircleAlert size={24} class="text-danger" aria-hidden="true" />

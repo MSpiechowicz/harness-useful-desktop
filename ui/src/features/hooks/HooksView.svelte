@@ -21,12 +21,12 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import { ICON } from '$lib/components/icon';
   import FilterRow from '$lib/components/FilterRow.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import MenuItem from '$lib/components/MenuItem.svelte';
   import MoreMenu from '$lib/components/MoreMenu.svelte';
   import ScopeFilter from '$lib/components/scope/ScopeFilter.svelte';
   import type { ScopeChoice } from '$lib/components/scope/scope-options';
   import SearchField from '$lib/components/SearchField.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { rise } from '$lib/design/motion';
   import { t, tn } from '$lib/i18n/i18n.svelte';
@@ -342,11 +342,7 @@
         </EmptyState>
       </div>
     {:else if !loaded}
-      <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('hooks.loading')}>
-        <Skeleton width="14rem" height="1.75rem" />
-        <Skeleton height="2.5rem" />
-        <Skeleton height="2.5rem" />
-      </div>
+      <LoadingSpinner label={t('hooks.loading')} />
     {:else if folderProblem}
       <div class="grid size-full place-items-center">
         <EmptyState icon={CircleAlert} title={t('hooks.folderProblem.title')} body={t('hooks.folderProblem.body', { reason: folderProblem })}>

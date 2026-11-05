@@ -8,7 +8,6 @@
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
@@ -83,11 +82,8 @@
               </EmptyState>
             </div>
           {:else}
-            <div class="grid gap-4 @3xl:grid-cols-2 @6xl:grid-cols-1" role="status" aria-label={t('ecosystem.companions.looking')}>
-              {#each [0, 1, 2, 3] as placeholder (placeholder)}
-                <Skeleton height="14rem" class="rounded-lg" />
-              {/each}
-            </div>
+            <!-- The hero's spinner speaks for this list until the family is read. -->
+            <div class="h-56"></div>
           {/if}
         </section>
       </div>

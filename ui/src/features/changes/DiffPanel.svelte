@@ -7,8 +7,8 @@
   import Button from '$lib/components/Button.svelte';
   import IconButton from '$lib/components/IconButton.svelte';
   import DiffView from '$lib/components/DiffView.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import PaneHeader from '$lib/components/PaneHeader.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import type { RangeTarget } from '$lib/git/comment-range';
   import { statusName, statusTone } from '$lib/git/entries';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -73,12 +73,7 @@
 
   <div class="flex min-h-0 flex-1 flex-col">
     {#if !loaded || loaded.status === 'loading'}
-      <div class="flex flex-col gap-2 p-4" role="status" aria-label={t('changes.diff.loading')}>
-        <Skeleton width="40%" height="1rem" />
-        <Skeleton height="1rem" />
-        <Skeleton height="1rem" />
-        <Skeleton width="70%" height="1rem" />
-      </div>
+      <LoadingSpinner label={t('changes.diff.loading')} class="flex-1" />
     {:else if loaded.status === 'error'}
       <div class="flex flex-col items-center gap-3 p-8 text-center" role="alert">
         <CircleAlert size={24} class="text-danger" aria-hidden="true" />

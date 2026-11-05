@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { project } from '$lib/stores/project.svelte';
@@ -27,11 +27,7 @@
 
   <HarnessScan>
     {#snippet loading()}
-      <div class={HARNESS_GRID}>
-        <Skeleton height="12rem" />
-        <Skeleton height="12rem" />
-        <Skeleton height="12rem" />
-      </div>
+      <LoadingSpinner label={t('onboarding.harnesses.looking')} class="h-48" />
     {/snippet}
 
     <div class={HARNESS_GRID}>

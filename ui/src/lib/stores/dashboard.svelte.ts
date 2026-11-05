@@ -43,7 +43,7 @@ export type SlotStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
  * One query of the panel. While it reloads (another range, a refresh) it keeps the previous data,
- * so the panel dims instead of flashing skeletons. A slow answer for a request that was superseded
+ * so the panel dims instead of flashing a spinner. A slow answer for a request that was superseded
  * never overwrites a newer one.
  */
 export class QuerySlot<T> {
@@ -127,6 +127,11 @@ export class DashboardStore {
     private readonly transport: Transport,
     private readonly now: () => number = Date.now,
   ) {}
+
+  /** No query of the panel has answered yet, not even with a failure. */
+  get firstRead(): boolean {
+    return [this.usage, this.byModel, this.byProvider, this.failures, this.tips, this.limits, this.budgets].every((slot) => slot.data === null && slot.status !== 'error');
+  }
 
   /** Whether the dashboard answers. Positive answers are trusted for minutes, negative ones for seconds. */
   async ensureAvailability(force = false): Promise<DashboardAvailability> {

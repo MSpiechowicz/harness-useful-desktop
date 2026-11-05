@@ -4,7 +4,7 @@
 
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
@@ -18,6 +18,8 @@
 
   const availability = $derived(dashboard.availability);
   const item = $derived(ecosystem.status?.items.find((candidate) => candidate.id === 'dashboard'));
+  // The hero's spinner speaks for the whole page until the family is read.
+  const familyPending = $derived(ecosystem.status === null && ecosystem.state !== 'error');
 
   async function recheck(): Promise<void> {
     if (checking) {
@@ -43,14 +45,11 @@
 </script>
 
 {#if availability === null}
-  <div class="flex flex-col gap-4" role="status" aria-label={t('ecosystem.section.checking')}>
-    <Skeleton width="12rem" height="1.75rem" />
-    <div class="grid gap-3 @xl:grid-cols-2">
-      <Skeleton height="7.5rem" class="rounded-lg" />
-      <Skeleton height="7.5rem" class="rounded-lg" />
-    </div>
-    <Skeleton height="14rem" class="rounded-lg" />
-  </div>
+  {#if familyPending}
+    <div class="h-56"></div>
+  {:else}
+    <LoadingSpinner label={t('ecosystem.section.checking')} class="h-56" />
+  {/if}
 {:else if availability.type === 'notInstalled'}
   <DashboardInstallCard {item} />
 {:else if availability.type === 'failed'}

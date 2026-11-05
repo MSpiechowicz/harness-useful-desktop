@@ -7,8 +7,8 @@ import { motion } from '$lib/stores/motion.svelte';
 /** Millisecond durations mirroring the CSS tokens in motion.css. */
 export const DURATION = { fast: 120, base: 200, slow: 320, enter: 480 } as const;
 
-/** How long a read may take before its loading skeleton shows: a quick answer (a filter, a sort, a scope) swaps in without a flash. */
-export const SKELETON_DELAY_MS = 250;
+/** How long a read may take before its loading state shows: a quick answer (opening a view, a filter, a sort) swaps in without a flash. */
+export const LOADING_DELAY_MS = 250;
 
 /** Scales a duration to the effective motion level: full as-is, reduced shortened, off zero. */
 export function scaled(ms: number): number {

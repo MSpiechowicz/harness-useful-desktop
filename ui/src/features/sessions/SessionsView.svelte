@@ -13,7 +13,7 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FilterMenu from '$lib/components/FilterMenu.svelte';
   import { ICON } from '$lib/components/icon';
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import WorkspaceLayout from '$lib/components/WorkspaceLayout.svelte';
   import WorkspaceToggles from '$lib/components/WorkspaceToggles.svelte';
   import { WorkspaceState } from '$lib/components/workspace.svelte';
@@ -266,11 +266,7 @@
 
   <div class="relative min-h-0 flex-1">
     {#if harness.status === 'idle' || harness.status === 'loading'}
-      <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('sessions.loading')}>
-        <Skeleton width="14rem" height="1.75rem" />
-        <Skeleton height="2.5rem" />
-        <Skeleton height="2.5rem" />
-      </div>
+      <LoadingSpinner label={t('sessions.loading')} />
     {:else if !active || (!active.detection.installed && !active.detection.configDirExists)}
       <div class="grid size-full place-items-center">
         <EmptyState icon={PackageOpen} title={t('sessions.empty.noHarness.title')} body={t('sessions.empty.noHarness.body')}>
@@ -280,10 +276,7 @@
         </EmptyState>
       </div>
     {:else if awaitingRoutines}
-      <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('sessions.loading')}>
-        <Skeleton width="14rem" height="1.75rem" />
-        <Skeleton height="2.5rem" />
-      </div>
+      <LoadingSpinner label={t('sessions.loading')} />
     {:else if !folder}
       <div class="grid size-full place-items-center">
         <EmptyState icon={FolderOpen} title={t('sessions.empty.noProject.title')} body={t('sessions.empty.noProject.body')}>
@@ -333,11 +326,7 @@
         <Button onclick={() => sessionList.refresh()}>{t('sessions.tryAgain')}</Button>
       </div>
     {:else if sessionList.status === 'loading' && !sessionList.data}
-      <div class="flex flex-col gap-2 p-3" role="status" aria-label={t('sessions.loading')}>
-        <Skeleton height="3.5rem" />
-        <Skeleton height="3.5rem" />
-        <Skeleton height="3.5rem" />
-      </div>
+      <LoadingSpinner label={t('sessions.loading')} />
     {:else}
       <SessionList {groups} selectedId={selected?.ref.id ?? null} onselect={choose} ondelete={remove} oncleanup={cleanUp} />
     {/if}
@@ -350,10 +339,7 @@
       <SessionPane summary={selected} project={project.path} {resuming} />
     {/key}
   {:else if looking}
-    <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('sessions.loading')}>
-      <Skeleton width="14rem" height="1.75rem" />
-      <Skeleton height="2.5rem" />
-    </div>
+    <LoadingSpinner label={t('sessions.loading')} />
   {:else if missing}
     <div class="grid min-h-0 flex-1 place-items-center">
       <EmptyState icon={GitBranch} title={t('sessions.missing.title')} body={t('sessions.missing.body')} />

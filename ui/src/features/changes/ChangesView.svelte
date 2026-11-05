@@ -9,6 +9,7 @@
   import { untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import SearchField from '$lib/components/SearchField.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
@@ -17,7 +18,6 @@
   import Columns2 from '@lucide/svelte/icons/columns-2';
   import Rows2 from '@lucide/svelte/icons/rows-2';
   import { ICON } from '$lib/components/icon';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import WorkspaceLayout from '$lib/components/WorkspaceLayout.svelte';
   import WorkspaceToggles from '$lib/components/WorkspaceToggles.svelte';
@@ -139,11 +139,7 @@
         </EmptyState>
       </div>
     {:else if !git.status}
-      <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('changes.loading')}>
-        <Skeleton width="14rem" height="1.75rem" />
-        <Skeleton height="2.5rem" />
-        <Skeleton height="2.5rem" />
-      </div>
+      <LoadingSpinner label={t('changes.loading')} />
     {:else if !git.status.isRepo}
       <div class="grid size-full place-items-center">
         <EmptyState icon={GitCompare} title={t('changes.empty.notRepo.title', { name: active.name })} body={t('changes.empty.notRepo.body')} />

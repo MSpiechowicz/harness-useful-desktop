@@ -11,7 +11,7 @@
 
   import Button from '$lib/components/Button.svelte';
   import { ICON, type IconComponent } from '$lib/components/icon';
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import { formatChange, formatPercent, formatTokens, formatUsd } from '$lib/dashboard/format';
   import type { UsageSummary } from '$lib/dashboard/models';
   import { rise } from '$lib/design/motion';
@@ -34,7 +34,7 @@
   const phrase = $derived(phraseOf(slot.data?.range, range));
 
   // Every tile has the same four slots at fixed heights (label, value, detail), so no range, state
-  // or number length can resize one. The grid, the skeleton and the error box all rely on these.
+  // or number length can resize one. The grid and the error box all rely on these.
   const GRID = 'grid auto-rows-fr gap-3 @xl:grid-cols-2';
   const TILE = 'flex min-w-0 flex-col gap-2 rounded-lg border border-line bg-surface-1 p-4';
   const DETAIL = 'h-12';
@@ -111,20 +111,14 @@
     </div>
   </div>
 {:else}
-  <div class={GRID} role="status" aria-label={t('ecosystem.usage.loading')}>
-    {#each [0, 1, 2, 3] as placeholder (placeholder)}
-      <div class={cx(TILE, 'shadow-raised')}>
-        <div class="flex h-7 items-center gap-2">
-          <Skeleton width="1.75rem" height="1.75rem" class="rounded-sm" />
-          <Skeleton width="30%" height="0.875rem" />
-        </div>
-        <div class="flex h-9 items-center"><Skeleton width="55%" height="1.75rem" /></div>
-        <div class={cx(DETAIL, 'flex flex-col gap-2')}>
-          <Skeleton width="80%" height="1rem" />
-          <Skeleton width="50%" height="0.75rem" />
-        </div>
-      </div>
-    {/each}
+  <!-- Empty tiles keep the grid's exact height, so nothing moves when the numbers arrive. -->
+  <div class="relative">
+    <div class={cx(GRID, 'invisible')} aria-hidden="true">
+      {#each [0, 1, 2, 3] as placeholder (placeholder)}
+        <div class={TILE}><div class="h-7"></div><div class="h-9"></div><div class={DETAIL}></div></div>
+      {/each}
+    </div>
+    <LoadingSpinner label={t('ecosystem.usage.loading')} class="absolute inset-0" />
   </div>
 {/if}
 

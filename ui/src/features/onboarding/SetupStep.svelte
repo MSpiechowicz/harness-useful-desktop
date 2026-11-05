@@ -56,7 +56,7 @@
     {/if}
   </div>
 
-  <SetupStatus placeholder="18rem">
+  <SetupStatus placeholder="h-72">
     {#snippet children(data)}
       <!-- The family's installers and skills run first, so they come first, with their output; the table of MCP servers per harness follows. One card for every harness, however many there are: the rows grow, the layout does not. -->
       <SetupInstallers {data} />

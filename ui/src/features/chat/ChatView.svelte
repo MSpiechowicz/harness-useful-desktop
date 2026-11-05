@@ -7,7 +7,7 @@
 
   import Button from '$lib/components/Button.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
   import { harness } from '$lib/stores/harness.svelte';
@@ -87,10 +87,7 @@
 
   <div class="min-h-0 flex-1">
     {#if harness.status === 'idle' || harness.status === 'loading'}
-      <div class="flex flex-col gap-3 p-8" role="status" aria-label={t('chat.view.loading')}>
-        <Skeleton width="14rem" height="1.75rem" />
-        <Skeleton height="6rem" />
-      </div>
+      <LoadingSpinner label={t('chat.view.loading')} />
     {:else if agentSessions.sessions.length === 0}
       <div class="grid size-full place-items-center">
         {#if comingSoon}

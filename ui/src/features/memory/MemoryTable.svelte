@@ -9,10 +9,10 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import type { IconComponent } from '$lib/components/icon';
   import FilterRow from '$lib/components/FilterRow.svelte';
+  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
-  import Skeleton from '$lib/components/Skeleton.svelte';
   import type { Column, Sort } from '$lib/components/table';
-  import { SKELETON_DELAY_MS } from '$lib/design/motion';
+  import { LOADING_DELAY_MS } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { MemoryScriptsAvailability } from '$lib/ipc/bindings/MemoryScriptsAvailability';
   import type { IpcFailure } from '$lib/ipc/transport';
@@ -101,7 +101,7 @@
 
   /**
    * A read for a changed search or filter is under way. The page still on screen answers the old one, so when it is empty, "nothing found"
-   * would be a stale claim. The skeleton waits SKELETON_DELAY_MS first: a quick answer swaps in without the table blinking.
+   * would be a stale claim. The spinner waits LOADING_DELAY_MS first: a quick answer swaps in without the table blinking.
    */
   const reading = $derived(loader.status === 'loading' && rows.length === 0);
   let slow = $state(false);
@@ -114,7 +114,7 @@
       return;
     }
 
-    const timer = setTimeout(() => (slow = true), SKELETON_DELAY_MS);
+    const timer = setTimeout(() => (slow = true), LOADING_DELAY_MS);
 
     return () => clearTimeout(timer);
   });
@@ -139,11 +139,7 @@
       </EmptyState>
     </div>
   {:else if !loaded}
-    <div class="flex flex-col gap-3 p-8" role="status" aria-label={loadingLabel}>
-      <Skeleton width="14rem" height="1.75rem" />
-      <Skeleton height="2.5rem" />
-      <Skeleton height="2.5rem" />
-    </div>
+    <LoadingSpinner label={loadingLabel} />
   {:else if availability && availability.kind !== 'available'}
     <MemoryUnavailable {availability} onretry={() => void loader.refresh()} onrefresh={() => loader.refresh({ quiet: true })} />
   {:else if none && !stale}
@@ -156,11 +152,7 @@
         <FilterRow {count} trailing={hint}>{@render filters()}</FilterRow>
 
         {#if stale}
-          <div class="flex flex-col gap-3 p-4" role="status" aria-label={loadingLabel}>
-            <Skeleton height="2.5rem" />
-            <Skeleton height="2.5rem" />
-            <Skeleton height="2.5rem" />
-          </div>
+          <LoadingSpinner label={loadingLabel} delay={0} class="flex-1" />
         {:else if noMatch}
           <p class="min-h-0 flex-1 px-4 py-10 text-center text-sm text-fg-3" role="status">{noMatch}</p>
         {:else}
