@@ -96,7 +96,7 @@ pub const FAMILY: [FamilyHook; 9] = [
         seed: HookSeed::CodeGraphFirst,
         member: HookRequirement::HarnessCode,
         name: "Harness Code",
-        description: "Every message: the agent answers code-structure questions with the Harness Code tools before grep.",
+        description: "Every message: the agent starts with the Harness Code tools before grep or file reads.",
         event: HookEvent::PromptSubmit,
         text: SEED_CODE_GRAPH_FIRST_TEXT,
         step: Some(FamilyStep {

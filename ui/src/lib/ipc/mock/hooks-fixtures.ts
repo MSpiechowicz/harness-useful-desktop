@@ -81,7 +81,7 @@ export const CATALOG: readonly CatalogEntry[] = [
     event: 'promptSubmit',
     type: 'addContext',
     step: 60,
-    text: 'For questions about code structure, call the Harness Code tools before grep or file reads, with project_path: code_map for an area (focus = the path the request names), code_symbol for a name, code_impact before changing a signature or behaviour, code_path for how A reaches B. Use grep and file reads for literal text and for details the graph does not show. Status line: "Code: code_map ui/src/hooks" or "Code: no code question".',
+    text: 'Your first tool call on every message MUST be a Harness Code tool, before any grep, find, ls or file read, with project_path (the repository root): code_map for an area (focus = the path the request names), code_symbol when you know a name. Memory and knowledge searches go in that same first batch. Then use code_impact before changing a signature or behaviour and code_path for how A reaches B. Use grep and file reads only for literal text and for details the graph does not show. Status line: "Code: code_map ui/src/hooks".',
   },
   {
     seed: 'memory-save',

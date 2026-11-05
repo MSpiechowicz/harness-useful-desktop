@@ -145,7 +145,15 @@ const CODE_GRAPH_FIRST_STEP_V1: &str = "For questions about code structure, call
      code_impact before changing a signature or behaviour, code_path for how A reaches B. Use grep and file \
      reads for literal text and for details the graph does not show.";
 
+/// The step version released with the numbered steps (#30), before the first-call wording.
+const CODE_GRAPH_FIRST_STEP_V2: &str = "For questions about code structure, call the Harness Code tools before grep or file reads, with \
+     project_path: code_map for an area (focus = the path the request names), code_symbol for a name, \
+     code_impact before changing a signature or behaviour, code_path for how A reaches B. Use grep and file \
+     reads for literal text and for details the graph does not show. Status line: \"Code: code_map ui/src/hooks\" \
+     or \"Code: no code question\".";
+
 pub(super) const CODE_GRAPH_FIRST: &[&str] = &[
+    CODE_GRAPH_FIRST_STEP_V2,
     CODE_GRAPH_FIRST_STEP_V1,
     CODE_GRAPH_FIRST_V4,
     earlier_code_graph_first_text!("Harness Memory code tool"),
