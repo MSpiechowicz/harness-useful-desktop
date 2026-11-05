@@ -1,3 +1,10 @@
+## [0.57.4](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.3...v0.57.4) (2026-11-05)
+
+
+### Bug Fixes
+
+* **hooks:** make a Harness Code tool the agent's first call ([4d88a45](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4d88a45d1cbc6add96c3e20a35b201710af26e6a))
+
 ## [0.57.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.57.2...v0.57.3) (2026-11-05)
 
 
