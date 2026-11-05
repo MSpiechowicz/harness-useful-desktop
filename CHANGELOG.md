@@ -1,3 +1,10 @@
+# [0.57.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.56.0...v0.57.0) (2026-11-05)
+
+
+### Features
+
+* **knowledge:** show paths in their own sortable table column ([29d91d3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/29d91d3902cfd82126d1acd5394e893bf71eb35a))
+
 # [0.56.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.55.1...v0.56.0) (2026-11-04)
 
 
