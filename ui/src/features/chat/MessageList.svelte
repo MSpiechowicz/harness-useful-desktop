@@ -194,7 +194,7 @@
     class="size-full [scrollbar-gutter:stable_both-edges]"
   >
     {#snippet row(item, index)}
-      <div class={cx('chat-col py-2', index === 0 && 'pt-4', index === rows.length - 1 && 'pb-4')} in:rise|global={{ y: 8, duration: entrance(item) }}>
+      <div class={cx('chat-col py-1.5', index === 0 && 'pt-4', index === rows.length - 1 && 'pb-4')} in:rise|global={{ y: 8, duration: entrance(item) }}>
         {#if index === 0 && session.hasEarlier}
           <div class="mb-3 flex justify-center">
             <Button variant="ghost" loading={loadingEarlier} onclick={loadEarlier}>

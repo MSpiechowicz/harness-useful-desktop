@@ -71,7 +71,7 @@
     <VirtualList items={chat.items} variable estimate={ESTIMATED_ROW_PX} overscan={10} label={t('sessions.transcript.label')} key={(item) => item.key} class="min-h-0 flex-1">
       {#snippet row(item, index)}
         {@const userId = onfork ? userMessageId(index) : null}
-        <div class={cx('chat-col py-2', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
+        <div class={cx('chat-col py-1.5', index === 0 && 'pt-6', index === chat.items.length - 1 && 'pb-8')}>
           {#if userId !== null}
             <!-- Every user message has the same labelled button under it, always visible: the new chat keeps the conversation
                  up to and including this message; everything after it is left out (the original session stays as it was). -->
