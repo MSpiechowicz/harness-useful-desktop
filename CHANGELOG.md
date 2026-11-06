@@ -1,3 +1,29 @@
+# [0.62.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.61.1...v0.62.0) (2026-11-06)
+
+
+### Bug Fixes
+
+* **chat:** clean, redact and label agent dialogs, and mask secret inputs ([71f569e](https://github.com/MSpiechowicz/harness-useful-desktop/commit/71f569e0cc028a16cd65cc27dd40b7bc0dc145af))
+* **chat:** keep the spaces in a subagent approval's input ([29d0bfc](https://github.com/MSpiechowicz/harness-useful-desktop/commit/29d0bfc088f22ded2e62e7342bdb5a1f69cf3c92))
+* **chat:** launch OMP chats in rpc-ui so agents can ask with dialogs ([92cca07](https://github.com/MSpiechowicz/harness-useful-desktop/commit/92cca0770f8aeced88b733631f8d782bd83920f3))
+* **chat:** never show an OMP ask question as an approval card ([266fc01](https://github.com/MSpiechowicz/harness-useful-desktop/commit/266fc01ab2850734752e4019e3af500b71ae3dce))
+* **chat:** never show another parallel call's command on an approval card ([0b3ab46](https://github.com/MSpiechowicz/harness-useful-desktop/commit/0b3ab465e38178099b3378ead6127fe0494bf14c))
+* **chat:** restore a brace lost in the merge ([c4f21a0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c4f21a0a134e74491177f447d64af92c397f2c81))
+* **chat:** show a skill's arguments on its approval ([c529675](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c529675614274032d08ed66fa3a8171004a9bd23))
+* **chat:** show an approval's input unmasked and mark hidden characters ([6de41de](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6de41de75d20acb23dc0fc9fff7621e28dc42874))
+* **chat:** show an OpenCode 2 subagent ask's metadata and its command as sent ([66b6096](https://github.com/MSpiechowicz/harness-useful-desktop/commit/66b6096e5ebba46ab33c3fdeefa43dcb1fa60d7b))
+* **chat:** show every approval's real input, on OpenCode too ([802db5f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/802db5fdf8509d38fe63f0e43f27ac4390379782))
+* **chat:** show the full skill name on approvals and read the argument each harness runs ([0576835](https://github.com/MSpiechowicz/harness-useful-desktop/commit/05768351ae8e857986753869dd50352f9dcd093f))
+* **chat:** show what an approval covers when the agent names no call ([05d4773](https://github.com/MSpiechowicz/harness-useful-desktop/commit/05d47739e1273eb9328ba57c996f02d91153e910))
+
+
+### Features
+
+* **chat:** answer an agent's questions in one dialog with Back and Submit ([2bddf40](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2bddf40bf71911a3358b0b4b88fc2c5eac5acf13))
+* **chat:** name the skill on skill cards and approvals ([eb21054](https://github.com/MSpiechowicz/harness-useful-desktop/commit/eb210548113648cc5b83a75913179eb03b5d084e))
+* **hooks:** ask for short prose in the steps intro ([4f75bd7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/4f75bd7758628e56da977af1cc9d656c7fb793f6))
+* **hooks:** ask the user's open choices first and show them on the Status report ([030bfc9](https://github.com/MSpiechowicz/harness-useful-desktop/commit/030bfc9fca639d482714a52811d014658fcef66c))
+
 ## [0.61.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.61.0...v0.61.1) (2026-11-06)
 
 
