@@ -139,7 +139,7 @@ impl Asks {
         };
         let asker = if subagent { " for a subagent" } else { "" };
         let subject = if subagent {
-            self.subagent_input(action, permission, input)
+            self.subagent_input(action, permission)
         } else {
             self.subject(action, permission, input)
         };
@@ -278,26 +278,29 @@ impl Asks {
 
     /// What a permission request is about, in full on one redacted line (see the module docs).
     /// What a subagent's ask covers, exactly as sent. Its call is not in the transcript, so the title is the only
-    /// place to judge it, and a mask or a flattened line there could hide part of a command.
-    fn subagent_input(&self, action: &str, permission: &PermissionRequest, input: Option<&Value>) -> Option<String> {
-        let input = input.filter(|input| input.as_object().is_some_and(|fields| !fields.is_empty()));
+    /// place to judge it, and a mask, a flattened line or a shortened path there could hide part of a command.
+    fn subagent_input(&self, action: &str, permission: &PermissionRequest) -> Option<String> {
+        let resources: Vec<String> = permission
+            .resources
+            .iter()
+            .filter(|resource| resource.as_str() != "*")
+            .map(|resource| {
+                if action == "shell" {
+                    resource.clone()
+                } else {
+                    self.relative(resource)
+                }
+            })
+            .collect();
+        let mut shown = resources.join(", ");
 
-        if action == "shell"
-            && let Some(command) = input.and_then(|input| text(input, "command"))
-        {
-            return Some(command);
+        if permission.metadata.as_object().is_some_and(|fields| !fields.is_empty()) {
+            if !shown.is_empty() {
+                shown.push(' ');
+            }
+
+            shown.push_str(&permission.metadata.to_string());
         }
-
-        let shown = input.map(Value::to_string).unwrap_or_else(|| {
-            let resources: Vec<String> = permission
-                .resources
-                .iter()
-                .filter(|resource| resource.as_str() != "*")
-                .map(|resource| self.relative(resource))
-                .collect();
-
-            resources.join(", ")
-        });
 
         (!shown.is_empty()).then_some(shown)
     }

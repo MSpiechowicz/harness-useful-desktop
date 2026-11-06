@@ -27,24 +27,38 @@ fn asked(id: &str, session: &str, action: &str, extra: Value) -> harness_busines
     event("permission.asked", data)
 }
 
-#[test]
-fn a_subagent_ask_shows_what_it_covers_unmasked() {
+/// The title of the ask `action` of a subagent with `extra`, in a chat whose directory is `/work/proj/sub`.
+fn subagent_title(action: &str, extra: Value) -> String {
     let mut mapper = mapper();
     let envelope = json!({ "id": "evt_c", "type": "session.created",
         "data": { "sessionID": "ses_child", "parentID": SESSION },
         "location": { "directory": "/work/proj/sub" } });
     let child = harness_business::opencode_server_v2::events::parse(&envelope.to_string()).expect("event");
-    let resource = "echo -----BEGIN X-----; touch /tmp/marker";
 
-    let out = events(feed(
-        &mut mapper,
-        &[
-            child,
-            asked("per_s", "ses_child", "shell", json!({ "resources": [resource] })),
-        ],
-    ));
-
+    let out = events(feed(&mut mapper, &[child, asked("per_s", "ses_child", action, extra)]));
     let dialogs = requests(&out);
-    let (title, _, _) = select(&dialogs[0].kind);
-    assert!(title.contains(resource), "{title}");
+
+    select(&dialogs[0].kind).0.to_owned()
+}
+
+#[test]
+fn a_subagent_shell_ask_shows_its_command_as_sent() {
+    for command in [
+        "echo -----BEGIN X-----; touch /tmp/marker",
+        "/work/proj/sub/clean.sh /",
+        "/work/proj/sub/run a\\ b",
+    ] {
+        let title = subagent_title("shell", json!({ "resources": [command] }));
+
+        assert!(title.contains(command), "{title}");
+    }
+}
+
+#[test]
+fn a_subagent_edit_ask_shows_what_it_changes() {
+    let extra =
+        json!({ "resources": ["notes.txt"], "metadata": { "files": [{ "file": "notes.txt", "patch": "+new line" }] } });
+    let title = subagent_title("edit", extra);
+
+    assert!(title.contains("notes.txt") && title.contains("+new line"), "{title}");
 }
