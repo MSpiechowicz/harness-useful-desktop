@@ -6,7 +6,7 @@
   import Button from '$lib/components/Button.svelte';
   import CodeBlock from '$lib/components/CodeBlock.svelte';
   import Spinner from '$lib/components/Spinner.svelte';
-  import { changesFiles, commandOf, primaryArg, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
+  import { changesFiles, commandOf, primaryArg, skillOf, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
   import { isDockedCall, spawnedBy } from '$lib/chat/subagents';
   import { toolContext } from '$lib/chat/tool-context';
   import type { Subagent } from '$lib/ipc/bindings/Subagent';
@@ -39,7 +39,7 @@
 
   const kind = $derived(toolKind(call.name));
   const Icon = $derived(TOOL_ICONS[kind]);
-  const summary = $derived(primaryArg(call.args));
+  const summary = $derived(skillOf(call) ?? primaryArg(call.args));
   const command = $derived(commandOf(call));
   // A `task` call lists what it spawned, but only once none of its subagents runs: while one is active the docked list
   // above the composer shows that call's rows, and repeating them in the card doubles the rows.

@@ -79,6 +79,17 @@ export function fullPrimaryArg(args: JsonValue | null): string | null {
   return null;
 }
 
+/** The skill a call loads, when it is a skill call: Claude Code names it in `skill` with its plugin in front, OpenCode in `name`. */
+export function skillOf(call: ToolCallState): string | null {
+  if (call.name.toLowerCase() !== 'skill' || !isJsonObject(call.args)) {
+    return null;
+  }
+
+  const skill = call.args.skill ?? call.args.name;
+
+  return typeof skill === 'string' && skill.trim() !== '' ? (skill.trim().split(':').pop() ?? null) : null;
+}
+
 /** The shell command a bash-like call runs, when it has one. */
 export function commandOf(call: ToolCallState): string | null {
   if (toolKind(call.name) !== 'bash' || !isJsonObject(call.args)) {

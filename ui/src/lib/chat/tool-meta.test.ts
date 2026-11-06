@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { humanToolName } from './tool-meta';
+import { humanToolName, skillOf } from './tool-meta';
+import type { ToolCallState } from './types';
 
 describe('humanToolName', () => {
   it.each([
@@ -19,5 +20,20 @@ describe('humanToolName', () => {
     ['mcp__', 'mcp__'],
   ])('%s → %s', (name, expected) => {
     expect(humanToolName(name)).toBe(expected);
+  });
+});
+
+describe('skillOf', () => {
+  const call = (name: string, args: ToolCallState['args']) => ({ name, args }) as ToolCallState;
+
+  it('names the skill without its plugin, under each harness', () => {
+    expect(skillOf(call('Skill', { skill: 'harness-useful-skills:us-grill-me' }))).toBe('us-grill-me');
+    expect(skillOf(call('skill', { name: 'us-grill-me' }))).toBe('us-grill-me');
+  });
+
+  it('leaves other tools and a call that names nothing alone', () => {
+    expect(skillOf(call('Read', { name: 'a.ts' }))).toBeNull();
+    expect(skillOf(call('Skill', {}))).toBeNull();
+    expect(skillOf(call('Skill', null))).toBeNull();
   });
 });
