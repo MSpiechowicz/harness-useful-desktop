@@ -27,6 +27,7 @@ const EVERY_FEATURE: Features = Features {
     offline_fallback: true,
     docs_useful: true,
     docs_sort_paths: true,
+    docs_author_filter: true,
     docs_similar: true,
     docs_authors: true,
     docs_drafts: true,

@@ -35,7 +35,7 @@ describe('who added the notes', () => {
     await showNotes();
 
     expect(await screen.findByRole('columnheader', { name: 'Added by' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Added by' })).not.toHaveAttribute('aria-sort');
+    expect(screen.getByRole('columnheader', { name: 'Added by' })).toHaveAttribute('aria-sort', 'none');
     expect(within(noteRow(6) as HTMLElement).getByText('Ada Lovelace')).toHaveTextContent('Ada Lovelace via claude-code');
     expect(within(noteRow(3) as HTMLElement).getByText('Ada Lovelace')).toHaveTextContent(/^Ada Lovelace$/);
     expect(within(noteRow(4) as HTMLElement).queryByText(/Ada|Grace|via/)).toBeNull();
@@ -80,11 +80,11 @@ describe('who added the notes', () => {
 });
 
 describe('who added the scripts', () => {
-  it('adds the Added by column only for a server that tells who wrote a script', async () => {
+  it('adds the sortable Added by column only for a server that tells who wrote a script', async () => {
     fakeMemory();
     await showMemory();
 
-    expect(await screen.findByRole('columnheader', { name: 'Added by' })).not.toHaveAttribute('aria-sort');
+    expect(await screen.findByRole('columnheader', { name: 'Added by' })).toHaveAttribute('aria-sort', 'none');
     await waitFor(() => expect(within(rowButton('lint-changed') as HTMLElement).getByText('Ada Lovelace')).toHaveTextContent('Ada Lovelace via claude-code'));
     expect(within(rowButton('ci-status') as HTMLElement).getByText('Ada Lovelace')).toHaveTextContent(/^Ada Lovelace$/);
     expect(within(rowButton('open-prs') as HTMLElement).queryByText(/Ada|Grace|via/)).toBeNull();

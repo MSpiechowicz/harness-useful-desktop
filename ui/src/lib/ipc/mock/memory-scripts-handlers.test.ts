@@ -22,6 +22,42 @@ describe('mock scripts', () => {
     expect('addedBy' in old.memory_script_get({ id: 12, project: '/work/app' })).toBe(false);
   });
 
+  it('filters by author and counts the authors under every other filter, not the author one', () => {
+    const handlers = memoryScriptsHandlers(() => 'ok');
+    const asked = { project: '/work/app', offset: 0 };
+
+    const everyone = handlers.memory_scripts_list(asked);
+    const ada = handlers.memory_scripts_list({ ...asked, author: { kind: 'name', name: 'Ada Lovelace' } });
+    const nobody = handlers.memory_scripts_list({ ...asked, author: { kind: 'unknown' } });
+
+    expect(ada.scripts.length).toBeGreaterThan(0);
+    expect(ada.scripts.every((script) => script.addedBy?.name === 'Ada Lovelace')).toBe(true);
+    expect(nobody.scripts.map((script) => script.name)).toEqual(['open-prs']);
+    expect(ada.authors).toEqual(everyone.authors);
+    expect(handlers.memory_scripts_list({ ...asked, review: 'needed' }).authors).not.toEqual(everyone.authors);
+
+    const old = memoryScriptsHandlers(() => 'ok', undefined, undefined, undefined, () => false).memory_scripts_list({ ...asked, author: { kind: 'unknown' }, sort: 'addedBy' });
+    expect(old.authors).toBeNull();
+    expect(old.total).toBe(everyone.total);
+  });
+
+  it('sorts by author from A or from Z, with the scripts nobody added last and the ties by id the way the sort goes', () => {
+    const handlers = memoryScriptsHandlers(() => 'ok');
+
+    for (const order of ['asc', 'desc'] as const) {
+      const rows = handlers.memory_scripts_list({ project: '/work/app', offset: 0, sort: 'addedBy', order }).scripts;
+      const named = rows.filter((script) => script.addedBy);
+      const unknown = rows.filter((script) => !script.addedBy);
+      const sign = order === 'asc' ? 1 : -1;
+      const nameOf = (script: (typeof rows)[number]) => script.addedBy?.name.toLowerCase() ?? '';
+      const expected = [...named].sort((a, b) => sign * ((nameOf(a) < nameOf(b) ? -1 : nameOf(a) > nameOf(b) ? 1 : 0) || a.id - b.id));
+
+      expect(unknown.length).toBeGreaterThan(0);
+      expect(rows.slice(named.length)).toEqual(unknown);
+      expect(named.map((script) => script.id)).toEqual(expected.map((script) => script.id));
+    }
+  });
+
   it('lists the global scripts without a project and the repository ones with it, and never sends a body in the list', () => {
     const handlers = memoryScriptsHandlers(() => 'ok');
 

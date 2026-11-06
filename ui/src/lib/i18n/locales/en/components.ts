@@ -194,4 +194,11 @@ export const components = {
   'components.scope.appliesTo': 'Applies to',
   'components.scope.unknown': 'Unknown',
   'components.scope.remote': 'Remote',
+
+  'components.addedBy.label': 'Added by',
+  'components.addedBy.unknown': 'Unknown',
+  'components.addedBy.clear': 'Clear the Added by filter',
+  'components.addedBy.search': 'Search people',
+  'components.addedBy.search.placeholder': 'Search people…',
+  'components.addedBy.search.empty': 'No person matches',
 } satisfies Record<string, string>;

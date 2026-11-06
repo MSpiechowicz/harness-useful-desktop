@@ -18,6 +18,9 @@
 //!   last in `lastUseful`). Without it the notes carry none and the option and the sorts are usage
 //!   errors (`FAKE_MEMORY_FEATURES=notes-lang,...` is an older server). With `notes-authors` listed
 //!   notes and scripts carry `addedBy` and `updatedBy` (see [`crate::memory_cli_notes::with_authors`]).
+//!   With `notes-author-filter` listed both lists take `--author NAME` or `--author-unknown` (never
+//!   both), `--sort addedBy` and answer the `authors` facet, all usage errors without it (see
+//!   [`crate::memory_cli_authors`]).
 //! - `notes get <id> --json [--project P]` prints `{"note", "links"}`; `notes delete <id>
 //!   [--project P]` prints `deleted note <id> <title>`. A note not visible from the arguments exits
 //!   1 with `harness-memory: note <id> not found`; id [`FAILING_ID`] exits 1 with a URL with a
@@ -48,6 +51,8 @@ use std::cmp::Ordering;
 
 use serde_json::{Value, json};
 
+use crate::memory_cli_authors as authors;
+use crate::memory_cli_counts::{group_counts, in_group, kind_counts, review_of, scope_counts};
 use crate::memory_cli_notes::{LINKS, link, note_fixtures, with_usefulness};
 
 /// The id whose `notes get` and `notes delete` fail as a broken team database would.
@@ -72,6 +77,10 @@ struct Options {
     lang: Option<String>,
     /// `--useful`, taken only when the stand-in lists `notes-useful`.
     useful: Option<String>,
+    /// `--author`, taken only when the stand-in lists `notes-author-filter`.
+    author: Option<String>,
+    /// `--author-unknown`, taken as `--author` is.
+    author_unknown: bool,
     sort: Option<String>,
     order: Option<String>,
     project: bool,
@@ -168,7 +177,7 @@ fn without_bodies(entries: Vec<Value>) -> Vec<Value> {
         .collect()
 }
 
-fn usage() -> ! {
+pub fn usage() -> ! {
     eprintln!("usage: harness-memory [notes list --json | scripts list --json] [--offset N --limit N]");
     std::process::exit(2);
 }
@@ -219,10 +228,16 @@ fn parse(args: &[String], filter: &str, with_id: bool) -> Options {
                     usage();
                 }
             }
+            "--author" if authors::listed() => options.author = Some(authors::checked_name(value())),
+            "--author-unknown" if authors::listed() => options.author_unknown = true,
             "--review" if options.combines && filter == "--group" => options.review = Some(value()),
             other if !filter.is_empty() && other == filter => options.filter = Some(value()),
             _ => usage(),
         }
+    }
+
+    if options.author.is_some() && options.author_unknown {
+        usage();
     }
 
     options
@@ -290,6 +305,10 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
 
     matching.retain(|entry| keeps_place(entry) && keeps_lang(entry) && keeps_useful(entry));
 
+    // The facet counts who wrote what every filter but the author keeps.
+    let unauthored = matching.clone();
+    matching.retain(|entry| authors::keeps(entry, options.author.as_deref(), options.author_unknown));
+
     let counts = if notes {
         let in_scope: Vec<Value> = matching.iter().filter(|entry| keeps_scope(entry)).cloned().collect();
         let of_kind: Vec<&Value> = matching.iter().filter(|entry| keeps_filter(entry)).collect();
@@ -317,9 +336,17 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
         Some("lastRun") => "lastRunAt",
         Some("useful") if notes && crate::memory_push::lists("notes-useful") => "useful",
         Some("lastUseful") if notes && crate::memory_push::lists("notes-useful") => "lastUsefulAt",
+        Some("addedBy") if authors::listed() => "addedBy",
         _ => usage(),
     };
-    matching.sort_by(|a, b| compare(&a[key], &b[key]));
+    let sorted_by = |entry: &Value| -> Value {
+        if key == "addedBy" {
+            authors::sort_value(entry).clone()
+        } else {
+            entry[key].clone()
+        }
+    };
+    matching.sort_by(|a, b| compare(&sorted_by(a), &sorted_by(b)));
 
     match options.order.as_deref() {
         Some("asc") => {}
@@ -329,7 +356,7 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
 
     // A script never run (or a note never used, for `lastUseful`) comes last whichever the order,
     // as the real server lists it.
-    matching.sort_by_key(|entry| entry[key].is_null());
+    matching.sort_by_key(|entry| sorted_by(entry).is_null());
 
     let total = matching.len();
     let page: Vec<Value> = matching
@@ -350,6 +377,15 @@ fn list(field: &str, entries: Vec<Value>, options: &Options) -> ! {
         answer["places"] = places;
     }
 
+    if authors::listed() {
+        let kept: Vec<&Value> = unauthored
+            .iter()
+            .filter(|entry| keeps_filter(entry) && keeps_scope(entry) && keeps_review(entry))
+            .collect();
+
+        answer["authors"] = authors::facet(&kept);
+    }
+
     for (name, count) in counts.as_object().into_iter().flatten() {
         let combined_only = name == "scopes" || name == "review";
 
@@ -368,45 +404,6 @@ fn compare(a: &Value, b: &Value) -> Ordering {
         (Some(a), Some(b)) => a.cmp(&b),
         _ => a.as_str().unwrap_or_default().cmp(b.as_str().unwrap_or_default()),
     }
-}
-
-/// Whether `entry` is of note kind or script group `filter`. Script groups are disjoint: `repo` and `global` hold only trusted scripts.
-fn in_group(entry: &Value, filter: &str) -> bool {
-    match filter {
-        "needsReview" => entry["trusted"] == false,
-        "repo" | "global" => entry["trusted"] != false && entry["scope"] == filter,
-        kind => entry["kind"] == kind,
-    }
-}
-
-/// `needed` for a script that needs approval, else `trusted`.
-fn review_of(entry: &Value) -> &'static str {
-    if entry["trusted"] == false { "needed" } else { "trusted" }
-}
-
-fn scope_counts(entries: &[&Value]) -> Value {
-    let count = |scope: &str| entries.iter().filter(|entry| entry["scope"] == scope).count();
-
-    json!({ "repo": count("repo"), "global": count("global") })
-}
-
-fn kind_counts(notes: &[Value]) -> Value {
-    let mut kinds: Vec<Value> = Vec::new();
-
-    for note in notes {
-        match kinds.iter_mut().find(|entry| entry["kind"] == note["kind"]) {
-            Some(entry) => entry["count"] = json!(entry["count"].as_u64().unwrap_or_default() + 1),
-            None => kinds.push(json!({ "kind": note["kind"], "count": 1 })),
-        }
-    }
-
-    json!(kinds)
-}
-
-fn group_counts(scripts: &[Value]) -> Value {
-    let count = |group: &str| scripts.iter().filter(|script| in_group(script, group)).count();
-
-    json!({ "needsReview": count("needsReview"), "repo": count("repo"), "global": count("global") })
 }
 
 /// `notes get` and `notes delete` (see the module docs).

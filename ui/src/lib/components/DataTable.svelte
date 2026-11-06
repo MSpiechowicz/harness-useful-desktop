@@ -7,7 +7,7 @@
   import ColumnHandle from './ColumnHandle.svelte';
   import { ICON } from './icon';
   import SortButton from './SortButton.svelte';
-  import { ariaSort, type Column, type ColumnWidths, MIN_COLUMN_PX, minTableWidth, nextSort, readColumnWidths, saveColumnWidths, type Sort, widthsForNewColumns } from './table';
+  import { ariaSort, type Column, type ColumnWidths, MIN_COLUMN_PX, MIN_FLEX_PX, minTableWidth, nextSort, readColumnWidths, saveColumnWidths, type Sort, widthsForNewColumns } from './table';
 
   interface Props {
     /** Accessible name of the table. */
@@ -58,17 +58,69 @@
   // One row is a tab stop: the open one, or else the first. Arrow keys move between the rows from there.
   const stopKey = $derived(rows.some((row) => rowKey(row) === selectedKey) ? selectedKey : rows[0] ? rowKey(rows[0]) : null);
 
-  /** The CSS width of a column: the one the user dragged it to, or else its own; none for the flexible column. */
+  /** The CSS width of a column: the one the user dragged it to, or else its own; none for the flexible column, which takes what the others leave. */
   function cssWidth(column: Column): string | undefined {
+    if (column.key === flexKey) {
+      return undefined;
+    }
+
     return widths[column.key] ? `${widths[column.key]}px` : column.width;
+  }
+
+  /** What a column adds to the table's least width: for the flexible column, the least width a drag held it to. */
+  function leastWidth(column: Column): string | undefined {
+    return column.key === flexKey && widths[column.key] ? `${widths[column.key]}px` : cssWidth(column);
   }
 
   function widthOf(column: Column): number {
     return cells[column.key]?.offsetWidth ?? 0;
   }
 
+  /** A drag of a left-edge divider while the flexible column has no room left: what the column on the divider's left had when it began. */
+  let tight: { ownKey: string; before: Column; start: number; least: number; saved: number | undefined } | null = null;
+
+  /**
+   * With the flexible column at its minimum, the table is what moves when a column to its right changes, so that column's left edge would stay where it is, away from the pointer.
+   * The drag then moves the edge by changing the column on its left, which the flexible column can be too: its width here is the least it is held to.
+   */
+  function startDrag(column: Column, index: number): void {
+    const flexible = columns[flexIndex];
+    const before = columns[index - 1];
+
+    tight = null;
+
+    if (!flexible || !before || !viewport || index <= flexIndex) {
+      return;
+    }
+
+    const leastFlex = widths[flexible.key] ?? MIN_FLEX_PX;
+
+    if (viewport.scrollWidth <= viewport.clientWidth && widthOf(flexible) > leastFlex) {
+      return;
+    }
+
+    const beforeIsFlex = before.key === flexible.key;
+
+    tight = { ownKey: column.key, before, start: beforeIsFlex ? leastFlex : widthOf(before), least: beforeIsFlex ? MIN_FLEX_PX : MIN_COLUMN_PX, saved: widths[before.key] };
+  }
+
   /** Gives a column a width, no narrower than allowed: a wider table scrolls sideways. Answers the width it got. */
   function resize(column: Column, px: number): number {
+    if (tight?.ownKey === column.key) {
+      const own = widthOf(column);
+      const moved = own - px;
+
+      if (moved !== 0) {
+        widths[tight.before.key] = Math.round(Math.max(tight.start + moved, tight.least));
+      } else if (tight.saved === undefined) {
+        delete widths[tight.before.key];
+      } else {
+        widths[tight.before.key] = tight.saved;
+      }
+
+      return own;
+    }
+
     const width = Math.round(Math.max(px, MIN_COLUMN_PX));
 
     widths[column.key] = width;
@@ -76,8 +128,19 @@
     return width;
   }
 
-  function resetWidth(column: Column): void {
+  function commitWidths(): void {
+    tight = null;
+    saveColumnWidths(tableId, widths, columns);
+  }
+
+  function resetWidth(column: Column, index: number): void {
     delete widths[column.key];
+
+    // The divider on its left also holds the flexible column's least width, when that is the column beside it.
+    if (columns[index - 1]?.key === flexKey && flexKey) {
+      delete widths[flexKey];
+    }
+
     saveColumnWidths(tableId, widths, columns);
   }
 
@@ -149,7 +212,7 @@
     role="grid"
     aria-label={label}
     aria-busy={busy}
-    style:min-width={minTableWidth([...columns.map(cssWidth), CHEVRON_WIDTH])}
+    style:min-width={minTableWidth([...columns.map(leastWidth), CHEVRON_WIDTH])}
     class={cx('w-full table-fixed border-separate border-spacing-0 text-sm transition-opacity duration-[var(--dur-base)]', busy && 'opacity-60')}
   >
     <thead bind:this={head} class="group/head sticky top-0 z-10 bg-surface-1">
@@ -177,9 +240,10 @@
                 column={column.label}
                 edge={flexIndex >= 0 && index > flexIndex ? 'start' : 'end'}
                 measure={() => widthOf(column)}
+                onstart={() => startDrag(column, index)}
                 onresize={(px) => resize(column, px)}
-                oncommit={() => saveColumnWidths(tableId, widths, columns)}
-                onreset={() => resetWidth(column)}
+                oncommit={commitWidths}
+                onreset={() => resetWidth(column, index)}
               />
             {/if}
           </th>

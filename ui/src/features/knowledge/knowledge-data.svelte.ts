@@ -15,11 +15,11 @@ import { viewState } from '$lib/stores/view-state.svelte';
 import { autoRefresh } from '$lib/utils/auto-refresh';
 
 import { settled } from '../memory/memory-data.svelte';
-import { PATHS_SORT, USEFUL_SORTS, sortOf } from './knowledge-format';
+import { AUTHOR_SORT, PATHS_SORT, USEFUL_SORTS, sortOf } from './knowledge-format';
 import { liveIdOf, versionOf } from './review-model';
 
-/** The request the documents table makes under what the view state holds. `usefulKnown` is false for a server that does not count usefulness: it has no such filter or sort. `draftsKnown` is false for one that keeps no drafts, `pathsSortable` for one that cannot sort by paths. */
-export function docsRequest(query: string, usefulKnown = true, draftsKnown = true, pathsSortable = true): DocsRequest {
+/** The request the documents table makes under what the view state holds. `usefulKnown` is false for a server that does not count usefulness: it has no such filter or sort. `draftsKnown` is false for one that keeps no drafts, `pathsSortable` for one that cannot sort by paths, `authorKnown` for one that cannot filter or sort by who added a document. */
+export function docsRequest(query: string, usefulKnown = true, draftsKnown = true, pathsSortable = true, authorKnown = true): DocsRequest {
   return {
     query,
     scope: viewState.knowledgeScope,
@@ -27,7 +27,8 @@ export function docsRequest(query: string, usefulKnown = true, draftsKnown = tru
     place: viewState.knowledgePlace,
     useful: usefulKnown ? viewState.knowledgeUseful : null,
     status: draftsKnown ? viewState.knowledgeStatus : null,
-    sort: sortOf(viewState.knowledgeSort.key, usefulKnown, pathsSortable),
+    author: authorKnown ? viewState.knowledgeAuthor : null,
+    sort: sortOf(viewState.knowledgeSort.key, usefulKnown, pathsSortable, authorKnown),
     order: viewState.knowledgeSort.desc ? 'desc' : 'asc',
     page: viewState.knowledgePage,
   };
@@ -78,7 +79,24 @@ export function useKnowledgeData(): void {
     }
   });
 
-  const documents = $derived<DocsRequest>(docsRequest(docsQuery.value, !usefulUnsupported, !draftsUnsupported, !pathsUnsupported));
+  // Nor can one that does not filter by author keep the Added by filter or sort.
+  const authorUnsupported = $derived(knowledgeStatus.value?.features.docsAuthorFilter === false);
+
+  $effect(() => {
+    if (!authorUnsupported) {
+      return;
+    }
+
+    if (viewState.knowledgeAuthor) {
+      viewState.knowledgeAuthor = null;
+    }
+
+    if (viewState.knowledgeSort.key === AUTHOR_SORT) {
+      viewState.knowledgeSort = { key: 'updated', desc: true };
+    }
+  });
+
+  const documents = $derived<DocsRequest>(docsRequest(docsQuery.value, !usefulUnsupported, !draftsUnsupported, !pathsUnsupported, !authorUnsupported));
   const proposals = $derived<HeldRequest>({ query: heldQuery.value, page: viewState.heldPage, scope: viewState.heldScope, sort: viewState.heldSort });
 
   // Opening the view (or a change of the search, the filters, the sort or the page) reads again; a list already read is quietly refreshed.

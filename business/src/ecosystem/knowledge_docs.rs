@@ -20,11 +20,11 @@ use super::knowledge_doc_read::{read_document, read_documents};
 use super::knowledge_features::{KnowledgeFeatures, KnowledgeSupport};
 use super::knowledge_refusal::{Answer, run_refusing};
 use super::knowledge_remote::knowledge_remote_get;
-use super::sidecar_cli::{CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListWindow, is_repo_key};
+use super::sidecar_cli::{CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, ListWindow, author_facet, is_repo_key};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches,
+    AuthorFilter, KnowledgeAvailability, KnowledgeChunk, KnowledgeDeleted, KnowledgeDetail, KnowledgeDocMatches,
     KnowledgeFeatures as FeatureSet, KnowledgeId, KnowledgeLink, KnowledgeListFilter, KnowledgeOutcome, KnowledgePage,
     KnowledgePlace, KnowledgeRepoCount, KnowledgeReposPage, KnowledgeScope, KnowledgeSort, KnowledgeStats,
     KnowledgeStatusFilter, KnowledgeUsefulFilter,
@@ -113,6 +113,7 @@ fn read_page(data: &Value) -> Result<KnowledgePage> {
         items: read_documents(data, "items", "docs list")?,
         total: count_of(data.get("total")),
         offline: is_offline(data),
+        authors: author_facet(data),
     })
 }
 
@@ -123,10 +124,13 @@ fn is_offline(data: &Value) -> bool {
 }
 
 /// `docs list --json [--repo KEY | --global] [--format F] [--place P] [--useful U] [--status S]
-/// [--query Q] --sort S [--desc] --page N --per-page N`: `--place` only of a server that lists
-/// `offline-fallback`, `--useful` and the sorts `useful` and `lastUseful` only of one that lists
-/// `docs-useful`, `--status` only of one that lists `docs-drafts` (an older one refuses them as
-/// usage errors, so they fall back to the default order and every document).
+/// [--author NAME | --author-unknown] [--query Q] --sort S [--desc] --page N --per-page N`:
+/// `--place` only of a server that lists `offline-fallback`, `--useful` and the sorts `useful` and
+/// `lastUseful` only of one that lists `docs-useful`, `--status` only of one that lists
+/// `docs-drafts`, `--author`, `--author-unknown` and the sort `addedBy` only of one that lists
+/// `docs-author-filter` (an older one refuses them as usage errors, so they fall back to the
+/// default order and every document). `invalidInput` for an author name the servers would refuse,
+/// whatever the server lists.
 fn list_args(
     filter: &KnowledgeListFilter,
     window: &ListWindow,
@@ -164,6 +168,15 @@ fn list_args(
         args.extend(["--status".into(), status_name(status).into()]);
     }
 
+    // A name the servers would refuse is the caller's mistake, whatever the server lists.
+    let author = filter.author.as_ref().map(AuthorFilter::checked).transpose()?;
+
+    match author.filter(|_| features.docs_author_filter) {
+        Some(AuthorFilter::Name { name }) => args.extend(["--author".into(), name.into()]),
+        Some(AuthorFilter::Unknown) => args.push("--author-unknown".into()),
+        None => {}
+    }
+
     if let Some(query) = window.query() {
         if query.chars().count() > MAX_QUERY_CHARS {
             return Err(invalid(&format!("a search is at most {MAX_QUERY_CHARS} characters")));
@@ -175,7 +188,9 @@ fn list_args(
     let sort = filter
         .sort
         .filter(|sort| {
-            (features.docs_useful || !sort.needs_useful()) && (features.docs_sort_paths || !sort.needs_paths())
+            (features.docs_useful || !sort.needs_useful())
+                && (features.docs_sort_paths || !sort.needs_paths())
+                && (features.docs_author_filter || !sort.needs_author_filter())
         })
         .unwrap_or(KnowledgeSort::Updated);
     args.extend(["--sort".into(), sort_name(sort).into()]);
@@ -214,6 +229,7 @@ fn sort_name(sort: KnowledgeSort) -> &'static str {
         KnowledgeSort::Repos => "repos",
         KnowledgeSort::Useful => "useful",
         KnowledgeSort::LastUseful => "lastUseful",
+        KnowledgeSort::AddedBy => "addedBy",
     }
 }
 

@@ -66,14 +66,21 @@ export function pathCount(links: readonly KnowledgeLink[]): number {
 /** The columns the server sorts the documents by. A key that is not one (a state left by an older version) sorts by time. */
 const SORTS: Record<string, KnowledgeSort> = { title: 'title', format: 'format', repos: 'repos', chunks: 'chunks', updated: 'updated' };
 
+/** The "Added by" column, which only a Harness Knowledge that filters by author sorts by. */
+export const AUTHOR_SORT = 'addedBy';
+
 /** The column only a Harness Knowledge that counts the paths sorts by. */
 export const PATHS_SORT = 'paths';
 
 /** The two columns of usefulness, which only a Harness Knowledge that counts it sorts by. */
 export const USEFUL_SORTS: readonly string[] = ['useful', 'lastUseful'];
 
-export function sortOf(key: string, usefulKnown = true, pathsSortable = true): KnowledgeSort {
+export function sortOf(key: string, usefulKnown = true, pathsSortable = true, authorSortable = true): KnowledgeSort {
   if (pathsSortable && key === PATHS_SORT) {
+    return key;
+  }
+
+  if (authorSortable && key === AUTHOR_SORT) {
     return key;
   }
 
@@ -86,9 +93,10 @@ export function sortOf(key: string, usefulKnown = true, pathsSortable = true): K
 
 /**
  * The columns of the documents table. The two of usefulness exist only for a Harness Knowledge that counts it, "Added by" only for one that tells who added a
- * document, and "Status" only for one that keeps drafts: an older one has nothing to show in them. Who added a document and its state are not sortable, the server has no sort by them, and "Paths" only for one that has that sort.
+ * document, and "Status" only for one that keeps drafts: an older one has nothing to show in them. The state is not sortable, the server has no sort by it. "Paths" and
+ * "Added by" are, only for a server that has those sorts (`authorSortable`: it filters by author).
  */
-export function docColumns(usefulness = false, authors = false, states = false, pathsSortable = false): Column[] {
+export function docColumns(usefulness = false, authors = false, states = false, pathsSortable = false, authorSortable = false): Column[] {
   const useful: Column[] = [
     { key: 'useful', label: t('knowledge.column.useful'), width: COLUMN_WIDTH.useful, sortable: true, descFirst: true },
     { key: 'lastUseful', label: t('knowledge.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, sortable: true, descFirst: true },
@@ -102,7 +110,7 @@ export function docColumns(usefulness = false, authors = false, states = false, 
     { key: 'paths', label: t('knowledge.column.paths'), width: '6rem', align: 'end', sortable: pathsSortable, descFirst: true },
     { key: 'chunks', label: t('knowledge.column.chunks'), width: '6rem', align: 'end', sortable: true, descFirst: true },
     ...(usefulness ? useful : []),
-    ...(authors ? [{ key: 'addedBy', label: t('knowledge.column.addedBy'), width: COLUMN_WIDTH.author } satisfies Column] : []),
+    ...(authors ? [{ key: 'addedBy', label: t('knowledge.column.addedBy'), width: COLUMN_WIDTH.author, sortable: authorSortable } satisfies Column] : []),
     { key: 'updated', label: t('knowledge.column.updated'), width: '8rem', sortable: true, descFirst: true },
   ];
 }

@@ -24,7 +24,7 @@ function listing(documents: KnowledgeDocument[]) {
     knowledge_docs_list: (args: { offset: number | null; limit: number | null }): KnowledgePage => {
       asked.push(args);
 
-      return { availability: { type: 'available' }, items: documents.slice(args.offset ?? 0, (args.offset ?? 0) + (args.limit ?? 50)), total: documents.length, offline: false };
+      return { availability: { type: 'available' }, items: documents.slice(args.offset ?? 0, (args.offset ?? 0) + (args.limit ?? 50)), total: documents.length, offline: false, authors: null };
     },
     knowledge_docs_delete: ({ ids }: { ids: (number | string)[] }) => {
       const before = documents.length;

@@ -3,6 +3,7 @@
   import NotebookText from '@lucide/svelte/icons/notebook-text';
   import { untrack } from 'svelte';
 
+  import AddedByFilter from '$lib/components/AddedByFilter.svelte';
   import AuthorCell from '$lib/components/AuthorCell.svelte';
   import Button from '$lib/components/Button.svelte';
   import { memoryScope } from '$lib/components/docs/doc-scope';
@@ -13,6 +14,7 @@
   import type { Column } from '$lib/components/table';
   import UsefulCell from '$lib/components/UsefulCell.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
+  import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
   import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
   import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
   import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
@@ -66,7 +68,7 @@
   // An older Harness Memory cannot combine the scope with the kind: it gets the kind only, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.notesQuery.trim() !== '');
-  const filtered = $derived(viewState.notesKind !== null || placeApplied(places, viewState.notesPlace) || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden || viewState.notesNotEnglish || viewState.notesUseful !== null);
+  const filtered = $derived(viewState.notesKind !== null || placeApplied(places, viewState.notesPlace) || viewState.memoryReach !== ALL_REPOS || notesTeam.showHidden || viewState.notesNotEnglish || viewState.notesUseful !== null || viewState.notesAuthor !== null);
   // Team notes hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // The server's `features` say whether it tells which notes are not in English. Until they are read, rows that carry a language stand in for it.
@@ -75,6 +77,8 @@
   const usefulListed = $derived(memoryRemote.value?.notesUsefulSupported ?? rows.some((row) => row.shown != null));
   // And `notesAuthorsSupported` whether it tells who wrote a note: the "Added by" column exists only then, for every row alike.
   const authorsListed = $derived(memoryRemote.value?.notesAuthorsSupported ?? rows.some((row) => row.addedBy != null));
+  // `notesAuthorFilterSupported` whether it filters by author: the Added by filter and the sort by that column exist only then. The page's facet stands in until it was read.
+  const authorFilterListed = $derived(memoryRemote.value?.notesAuthorFilterSupported ?? page?.authors != null);
   // Nothing at all is kept: no notes of any kind, and no search or filter that would explain it.
   const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
 
@@ -126,6 +130,11 @@
 
   function choosePlace(place: ScriptPlace | null): void {
     viewState.notesPlace = place;
+    viewState.notesPage = 0;
+  }
+
+  function chooseAuthor(author: AuthorFilter | null): void {
+    viewState.notesAuthor = author;
     viewState.notesPage = 0;
   }
 
@@ -292,6 +301,8 @@
       wide
     />
   {/if}
+
+  <AddedByFilter facet={page?.authors ?? null} author={viewState.notesAuthor} supported={authorFilterListed} narrowed={searching || filtered} onchange={chooseAuthor} />
 {/snippet}
 
 {#snippet hint()}
@@ -330,7 +341,7 @@
   hint={combined ? undefined : hint}
   tableLabel={t('memory.notes.table.label')}
   tableId="memory-notes"
-  columns={noteColumns(usefulListed, authorsListed)}
+  columns={noteColumns(usefulListed, authorsListed, authorFilterListed)}
   {rows}
   sort={viewState.notesSort}
   onsort={(next) => {

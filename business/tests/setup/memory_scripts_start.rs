@@ -17,6 +17,7 @@ fn query() -> ScriptsQuery {
         scope: None,
         review: None,
         place: None,
+        author: None,
         sort: None,
         hidden: false,
     }

@@ -18,11 +18,12 @@ pub const SEED_MEMORY_SAVE_TEXT: &str = "Most turns need no note: reply \"nothin
      adding a near duplicate. Write a specific title and a body that stands alone for a reader with no \
      context: what, why, and the repo-relative paths involved; no transcripts or step lists. Save as many \
      notes as clear this bar and none otherwise: one focused note per finding, repository-specific \
-     knowledge in the repository scope and knowledge useful across projects in the global scope. Write \
+     knowledge in scope repo and knowledge useful across projects in scope global. Write \
      each note in English and add 3 to 5 lowercase tags, including synonyms someone might search for. Save a \
      command sequence as a script (script_save) only when you have run it more than once and it will \
      recur. Always pass project_path (the absolute path of the repository you are working in, its git \
      root) to note_save, note_update and script_save: without it a note can land in the wrong repository. \
+     note_save needs title, body, kind (outcome, problem, fix, optimisation, location, decision or note) and project_path. \
      Reply briefly.";
 
 /// The `dashboard-limits` context: step 10, after the limits the app looked up.
@@ -66,10 +67,10 @@ pub const SEED_BRANCH_SYNC_TEXT: &str = "If the work tree is clean and the merge
 
 /// The `memory-first` context: step 40, followed by the notes the app found.
 pub const SEED_MEMORY_FIRST_TEXT: &str = "Harness Memory notes that match this request are listed below, each with a short snippet only. Before you \
-     act, open every one that fits the request with note_get. When the request reaches an area they do not cover, \
+     act, open every one that fits the request with note_get (ids: [12, 15], a list even for one note). When the request reaches an area they do not cover, \
      search with note_search (English keywords, project_path = the repository root), and check script_list before \
      you repeat a command. Notes may be outdated: check them in the code. After you used them, call note_feedback with \
-     the ids that helped (an empty list when none did). Status lines: \"Notes: opened #12, #15\" or \"Notes: none \
+     the ids that helped (ids: [12, 15], or ids: [] when none did). Status lines: \"Notes: opened #12, #15\" or \"Notes: none \
      fit\", and \"Scripts: ran build-ui\" or \"Scripts: none fit\".";
 
 /// The `code-graph-first` context: step 60.

@@ -263,9 +263,12 @@ flowchart LR
       model removal), `settings` (the English notes setting), `notes-lang` (`lang` in a note and the `--lang`
       filter, dropped from a query for a server that does not list it) and `notes-useful` (`shown`, `useful` and
       `lastUsefulAt` in a note, `--useful` and the `useful` and `lastUseful` sorts, dropped or reset to `updated` the
-      same way). A server without the line answers `unsupported`, and Harness Memory not installed answers
+      same way) and `notes-author-filter` (`--author`, `--author-unknown`, the `addedBy` sort and the `authors` facet of
+      the notes and scripts lists, dropped or reset to `updated` the same way; `notes-authors` alone only means the rows
+      carry `addedBy` and `updatedBy`, and Harness Knowledge's `docs-author-filter` does the same for documents). A
+      server without the line answers `unsupported`, and Harness Memory not installed answers
       `notFound`. The page reads the same lines from `MemoryRemote` (`embedderSupported`, `settingsSupported`,
-      `notesLangSupported`, `notesUsefulSupported`, `notesAuthorsSupported`, next to `saveGuardsSupported`) and
+      `notesLangSupported`, `notesUsefulSupported`, `notesAuthorsSupported`, `notesAuthorFilterSupported`, next to `saveGuardsSupported`) and
       falls back to a rejected call only while those are not loaded.
     - **Pref.** `vectorSearch` in `prefs.json` (default on, also for a file without the key) is server-managed:
       only `memory_set_vector_search` changes it, because it also runs `embedder enable|disable` and starts or stops the

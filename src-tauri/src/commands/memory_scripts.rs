@@ -18,9 +18,9 @@ use harness_business::ecosystem::{
     ListWindow, Repos, ScriptsQuery, discard_local, hide_entry, list_repos, trust_scripts,
 };
 use harness_business::model::{
-    LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryRepos, MemoryReposPage, MemoryScriptsPage, ScriptDetail,
-    ScriptDraft, ScriptGroup, ScriptPlace, ScriptReview, ScriptSaved, ScriptScope, ScriptSort, ScriptTrustItem,
-    SortOrder,
+    AuthorFilter, LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryRepos, MemoryReposPage, MemoryScriptsPage,
+    ScriptDetail, ScriptDraft, ScriptGroup, ScriptPlace, ScriptReview, ScriptSaved, ScriptScope, ScriptSort,
+    ScriptTrustItem, SortOrder,
 };
 use tauri::State;
 
@@ -33,8 +33,12 @@ use crate::state::AppState;
 /// missing or old server: see the page's `availability` (`scripts` is empty unless `available`);
 /// a server that does not filter by place drops `place` and answers `places: null`, one that does
 /// not combine filters drops `scope` and `review` too and answers `combinedFilters: false`. `hidden`
-/// lists the team scripts hidden on this machine instead. `invalidInput` for a limit of 0 or above 200, a query above 256 characters, or a `group` with
-/// a `scope` or `review`, `forbidden` for a project that is not open or recent.
+/// lists the team scripts hidden on this machine instead. `author` (a name, or the scripts without
+/// one) and the `addedBy` sort need `notes-author-filter`: a server without it ignores them, and
+/// its page has `authors: null`. `invalidInput` for a limit of 0 or above 200, a query above 256
+/// characters, a `group` with a `scope` or `review`, or an author name the servers would refuse
+/// (empty, over 80 characters, edge spaces, control or invisible characters), `forbidden` for a
+/// project that is not open or recent.
 #[tauri::command]
 #[expect(
     clippy::too_many_arguments,
@@ -51,6 +55,7 @@ pub async fn memory_scripts_list(
     scope: Option<ScriptScope>,
     review: Option<ScriptReview>,
     place: Option<ScriptPlace>,
+    author: Option<AuthorFilter>,
     sort: Option<ScriptSort>,
     order: Option<SortOrder>,
     hidden: Option<bool>,
@@ -58,6 +63,7 @@ pub async fn memory_scripts_list(
     let window = ListWindow::new(offset, limit, query, order)?;
     let query = ScriptsQuery {
         place,
+        author,
         hidden: hidden.unwrap_or(false),
         ..ScriptsQuery::new(window, group, scope, review, sort)?
     };
@@ -272,7 +278,17 @@ async fn list(
     repos: Option<MemoryRepos>,
     query: &ScriptsQuery,
 ) -> CommandResult<MemoryScriptsPage> {
+    query.author.as_ref().map(AuthorFilter::checked).transpose()?;
+
     let project = project_root(state, project).await?;
+
+    // A server without `notes-author-filter` would refuse the author options and the `addedBy`
+    // sort, as usage errors.
+    let query = if query.needs_features() {
+        query.for_server(state.memory_features.support(&state.env, &state.runner).await)
+    } else {
+        query.clone()
+    };
 
     Ok(harness_business::ecosystem::memory_list_cache::list_scripts_cached(
         &state.config_dir,
@@ -280,7 +296,7 @@ async fn list(
         &state.memory_scripts,
         &state.runner,
         Repos::of(project.as_deref(), repos.as_ref())?,
-        query,
+        &query,
     )
     .await)
 }
@@ -302,199 +318,4 @@ pub(super) async fn project_root(state: &AppState, project: Option<String>) -> C
 }
 
 #[cfg(test)]
-mod tests {
-    use harness_business::model::{
-        IpcErrorCode, MemoryScriptsAvailability, ScriptApproval, ScriptLanguage, ScriptSaveOutcome,
-    };
-    use tauri::async_runtime::block_on;
-
-    use super::*;
-    use crate::test_support::{ProjectHome, path_arg, place_memory_server};
-
-    fn draft(name: &str, scope: ScriptScope) -> ScriptDraft {
-        ScriptDraft {
-            name: name.to_owned(),
-            description: "Written in the app".to_owned(),
-            language: ScriptLanguage::Bash,
-            body: "echo app\n".to_owned(),
-            timeout_secs: 30,
-            scope,
-        }
-    }
-
-    fn by_name() -> ScriptsQuery {
-        let window = ListWindow::new(None, None, None, None).expect("the first page");
-
-        ScriptsQuery::new(window, None, None, None, Some(ScriptSort::Name)).expect("no filters")
-    }
-
-    #[test]
-    fn a_project_that_is_not_open_or_recent_is_refused() {
-        let setup = ProjectHome::new("scripts-stranger");
-
-        let error =
-            block_on(list(&setup.state, path_arg(&setup.stranger), None, &by_name())).expect_err("unknown project");
-        assert_eq!(error.code(), IpcErrorCode::Forbidden);
-
-        let error =
-            block_on(delete_all(&setup.state, path_arg(&setup.stranger), None, None)).expect_err("unknown project");
-        assert_eq!(error.code(), IpcErrorCode::Forbidden);
-
-        let error =
-            block_on(hide(&setup.state, 30, path_arg(&setup.stranger), None, true)).expect_err("unknown project");
-        assert_eq!(error.code(), IpcErrorCode::Forbidden);
-
-        let error = block_on(save(
-            &setup.state,
-            path_arg(&setup.stranger),
-            &draft("open-prs", ScriptScope::Repo),
-            false,
-            None,
-        ))
-        .expect_err("unknown project");
-        assert_eq!(error.code(), IpcErrorCode::Forbidden);
-    }
-
-    #[test]
-    fn trusting_checks_the_project_and_needs_the_server() {
-        let setup = ProjectHome::new("scripts-trust");
-        let state = &setup.state;
-
-        let item = || {
-            vec![ScriptTrustItem {
-                id: 12,
-                sha256: "ab".repeat(32),
-            }]
-        };
-
-        let error = block_on(trust(state, item(), path_arg(&setup.stranger), None)).expect_err("unknown project");
-        assert_eq!(error.code(), IpcErrorCode::Forbidden);
-
-        let error = block_on(trust(state, item(), path_arg(&setup.project), None)).expect_err("not installed");
-        assert_eq!(error.code(), IpcErrorCode::NotFound);
-
-        let error = block_on(trust(state, Vec::new(), None, None)).expect_err("no ids");
-        assert_eq!(error.code(), IpcErrorCode::InvalidInput);
-    }
-
-    #[test]
-    fn the_installed_server_lists_the_project_scripts_and_deletes_them_all() {
-        let setup = ProjectHome::new("scripts-list");
-        let state = &setup.state;
-
-        let page = block_on(list(state, None, None, &by_name())).expect("listed");
-        assert_eq!(page.availability, MemoryScriptsAvailability::NotInstalled);
-
-        if place_memory_server(&setup.home).is_none() {
-            return;
-        }
-
-        let page = block_on(list(state, path_arg(&setup.project), None, &by_name())).expect("listed");
-        assert_eq!(page.availability, MemoryScriptsAvailability::Available);
-
-        let names: Vec<&str> = page.scripts.iter().map(|script| script.name.as_str()).collect();
-        assert_eq!(names, ["open-prs", "release-notes"]);
-
-        let deleted = block_on(delete_all(state, path_arg(&setup.project), None, None)).expect("deleted them all");
-        assert_eq!(
-            deleted,
-            MemoryDeleteAll {
-                deleted: 3,
-                team: Some(0),
-                kept: None,
-            }
-        );
-
-        block_on(state.memory_scripts.shutdown());
-    }
-
-    #[test]
-    fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
-        let setup = ProjectHome::new("scripts-save");
-        let (state, project) = (&setup.state, &setup.project);
-
-        let error = block_on(save(
-            state,
-            path_arg(project),
-            &draft("app-script", ScriptScope::Repo),
-            false,
-            None,
-        ))
-        .expect_err("not installed");
-        assert_eq!(error.code(), IpcErrorCode::NotFound);
-
-        if place_memory_server(&setup.home).is_none() {
-            return;
-        }
-
-        let created = block_on(save(
-            state,
-            path_arg(project),
-            &draft("app-script", ScriptScope::Repo),
-            false,
-            None,
-        ))
-        .expect("created");
-        assert_eq!(created.outcome, ScriptSaveOutcome::Created);
-        let script = created.script.expect("the saved script");
-        assert_eq!((script.id, script.approval), (created.id, ScriptApproval::Local));
-
-        let exists = block_on(save(
-            state,
-            path_arg(project),
-            &draft("open-prs", ScriptScope::Repo),
-            false,
-            None,
-        ))
-        .expect("refused");
-        assert_eq!(
-            (exists.outcome, exists.id, exists.script),
-            (ScriptSaveOutcome::Exists, 12, None)
-        );
-
-        let global = block_on(save(
-            state,
-            path_arg(project),
-            &draft("open-prs", ScriptScope::Global),
-            false,
-            None,
-        ))
-        .expect("another scope");
-        assert_eq!(
-            global.outcome,
-            ScriptSaveOutcome::Created,
-            "the name is taken in the repository only"
-        );
-
-        let replaced = block_on(save(
-            state,
-            path_arg(project),
-            &draft("open-prs", ScriptScope::Repo),
-            true,
-            None,
-        ))
-        .expect("replaced");
-        assert_eq!((replaced.outcome, replaced.id), (ScriptSaveOutcome::Replaced, 12));
-        assert_eq!(replaced.script.expect("the saved script").timeout_secs, 30);
-
-        let waiting = block_on(save(
-            state,
-            path_arg(project),
-            &draft("release-notes", ScriptScope::Global),
-            true,
-            None,
-        ))
-        .expect("replaced");
-        assert_eq!(
-            (waiting.id, waiting.script.expect("the saved script").approval),
-            (7, ScriptApproval::Local),
-            "other code over a script waiting for approval is the user's, and the server trusts it as saved here"
-        );
-
-        let error = block_on(save(state, None, &draft("app-script", ScriptScope::Repo), false, None))
-            .expect_err("a repository script needs a project");
-        assert_eq!(error.code(), IpcErrorCode::InvalidInput);
-
-        block_on(state.memory_scripts.shutdown());
-    }
-}
+mod tests;

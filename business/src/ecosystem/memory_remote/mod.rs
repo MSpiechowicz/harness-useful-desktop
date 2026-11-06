@@ -211,6 +211,7 @@ fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport)
         notes_lang_supported: support.features.notes_lang(),
         notes_useful_supported: support.features.notes_useful(),
         notes_authors_supported: support.features.notes_authors(),
+        notes_author_filter_supported: support.features.notes_author_filter(),
         config_path,
         problem: config
             .status

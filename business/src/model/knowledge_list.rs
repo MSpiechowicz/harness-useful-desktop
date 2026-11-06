@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{KnowledgePlace, SortOrder};
+use super::{AuthorFilter, KnowledgePlace, SortOrder};
 
 /// Which documents a list shows by their repository links.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -48,6 +48,9 @@ pub enum KnowledgeSort {
     /// By when an agent last found the document useful, latest first unless reversed. Asked of a
     /// server that lists `docs-useful` only.
     LastUseful,
+    /// By the name of who first imported the document, A to Z unless reversed. Asked of a server
+    /// that lists `docs-author-filter` only.
+    AddedBy,
 }
 
 impl KnowledgeSort {
@@ -61,6 +64,12 @@ impl KnowledgeSort {
     #[must_use]
     pub fn needs_paths(self) -> bool {
         self == Self::Paths
+    }
+
+    /// Whether the sort reads the writer, which a server lists as `docs-author-filter` only.
+    #[must_use]
+    pub fn needs_author_filter(self) -> bool {
+        self == Self::AddedBy
     }
 }
 
@@ -121,4 +130,9 @@ pub struct KnowledgeListFilter {
     #[serde(default)]
     #[ts(optional = nullable)]
     pub status: Option<KnowledgeStatusFilter>,
+    /// By who first imported the document (every document unless given). Dropped for a server
+    /// without `docs-author-filter`. `invalidInput` for a name the servers would refuse.
+    #[serde(default)]
+    #[ts(optional = nullable)]
+    pub author: Option<AuthorFilter>,
 }

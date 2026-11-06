@@ -20,6 +20,9 @@
 //!   useful|lastUseful` and `--useful ever|never` use them;
 //! - `notes-authors`: notes and scripts carry `addedBy` and `updatedBy` (the git name of who wrote
 //!   them);
+//! - `notes-author-filter`: `notes list` and `scripts list` take `--author NAME` and
+//!   `--author-unknown`, sort by `--sort addedBy` and answer the `authors` facet (`notes-authors`
+//!   alone only means the rows carry names);
 //! - `recall`: `recall --hook`, the notes added to a prompt ([`MemoryFeatures::lists_recall`]).
 //!
 //! An older server does not know the command and exits non-zero. [`MemoryFeatures::support`] asks
@@ -67,6 +70,9 @@ const NOTES_USEFUL: &str = "notes-useful";
 /// The line for the authors of notes and scripts.
 const NOTES_AUTHORS: &str = "notes-authors";
 
+/// The line for the author filter, the `addedBy` sort and the authors facet of the lists.
+const NOTES_AUTHOR_FILTER: &str = "notes-author-filter";
+
 /// The line for `recall --hook`, the notes added to a prompt.
 const RECALL: &str = "recall";
 
@@ -99,6 +105,8 @@ pub enum FeaturesSupport {
         notes_useful: bool,
         /// `notes-authors` is listed.
         notes_authors: bool,
+        /// `notes-author-filter` is listed.
+        notes_author_filter: bool,
     },
     /// It predates `features` (or failed it): none of them.
     Unsupported,
@@ -164,6 +172,18 @@ impl FeaturesSupport {
         matches!(self, Self::Listed { notes_useful: true, .. })
     }
 
+    /// Whether `notes list` and `scripts list` filter by `--author`, sort by `addedBy` and answer
+    /// the authors facet: `notes-author-filter` is listed.
+    pub fn notes_author_filter(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                notes_author_filter: true,
+                ..
+            }
+        )
+    }
+
     /// Whether notes and scripts carry `addedBy` and `updatedBy`: `notes-authors` is listed.
     pub fn notes_authors(self) -> bool {
         matches!(
@@ -212,6 +232,7 @@ impl MemoryFeatures {
                 notes_lang: answer.lists(NOTES_LANG),
                 notes_useful: answer.lists(NOTES_USEFUL),
                 notes_authors: answer.lists(NOTES_AUTHORS),
+                notes_author_filter: answer.lists(NOTES_AUTHOR_FILTER),
             },
             LineAnswer::Unsupported => FeaturesSupport::Unsupported,
             LineAnswer::NotInstalled => FeaturesSupport::NotInstalled,

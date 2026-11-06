@@ -1,4 +1,5 @@
 import type { Sort } from '$lib/components/table';
+import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
 import type { HookEvent } from '$lib/ipc/bindings/HookEvent';
 import type { HookStatus } from '$lib/ipc/bindings/HookStatus';
 import type { KnowledgePlace } from '$lib/ipc/bindings/KnowledgePlace';
@@ -82,6 +83,8 @@ export class ViewState {
   notesNotEnglish = $state(false);
   /** Only the notes an agent found useful at least once (`ever`), or those shown often and never found useful (`never`); null for all (the Usefulness filter). */
   notesUseful = $state<NoteUsefulFilter | null>(null);
+  /** Only the notes one person first added, or those nobody is known to have added; null for all (the Added by filter). */
+  notesAuthor = $state<AuthorFilter | null>(null);
   notesSort = $state<Sort>({ key: 'updated', desc: true });
   notesPage = $state(0);
 
@@ -92,6 +95,8 @@ export class ViewState {
   scriptsGroup = $state<ScriptGroup | null>(null);
   /** Where the scripts shown are kept (the Kept in filter); null for both places. */
   scriptsPlace = $state<ScriptPlace | null>(null);
+  /** The same for who first added the scripts (the Added by filter). */
+  scriptsAuthor = $state<AuthorFilter | null>(null);
   scriptsSort = $state<Sort>({ key: 'updated', desc: true });
   scriptsPage = $state(0);
 
@@ -110,6 +115,8 @@ export class ViewState {
   knowledgeUseful = $state<KnowledgeUsefulFilter | null>(null);
   /** The State filter of the documents table: live, drafts, waiting for approval or changes requested (every state unless given). */
   knowledgeStatus = $state<KnowledgeStatusFilter | null>(null);
+  /** The same for who first added the documents (the Added by filter). */
+  knowledgeAuthor = $state<AuthorFilter | null>(null);
   /** The document whose pending changes are open in the full-width review (null: the lists). */
   knowledgeReviewId = $state<KnowledgeId | null>(null);
   /** The section (heading path) the review opens on, when the summary in the panel named one. */
@@ -235,6 +242,7 @@ export class ViewState {
       this.notesPlace = null;
       this.notesNotEnglish = false;
       this.notesUseful = null;
+      this.notesAuthor = null;
       this.notesSort = { key: 'updated', desc: true };
       this.notesPage = 0;
     } else if (view === 'knowledge') {
@@ -246,6 +254,7 @@ export class ViewState {
       this.knowledgePlace = null;
       this.knowledgeUseful = null;
       this.knowledgeStatus = null;
+      this.knowledgeAuthor = null;
       this.knowledgeReviewId = null;
       this.knowledgeReviewSection = null;
       this.knowledgeSort = { key: 'updated', desc: true };
@@ -261,6 +270,7 @@ export class ViewState {
       this.scriptsStatus = null;
       this.scriptsGroup = null;
       this.scriptsPlace = null;
+      this.scriptsAuthor = null;
       this.scriptsSort = { key: 'updated', desc: true };
       this.scriptsPage = 0;
     }

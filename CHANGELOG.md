@@ -1,3 +1,22 @@
+## [0.61.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.61.0...v0.61.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **hooks:** spell out the note tool arguments agents keep guessing ([a9c055a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a9c055acb2493b271a25e10e85dd785eddcd71a2))
+
+# [0.61.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.3...v0.61.0) (2026-11-06)
+
+
+### Bug Fixes
+
+* **ui:** keep a column's divider under the pointer in a table that overflows ([8bc726f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8bc726fd96e2a7cd9f669e5c505c9c2da3c1322f))
+
+
+### Features
+
+* **memory,knowledge:** filter and sort the tables by who added an entry ([9f77d57](https://github.com/MSpiechowicz/harness-useful-desktop/commit/9f77d57ea6d38c8745c4f8e0837741fccaf08843))
+
 ## [0.60.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.2...v0.60.3) (2026-11-06)
 
 

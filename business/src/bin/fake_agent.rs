@@ -62,6 +62,10 @@ mod codex;
 mod memory;
 #[path = "fake_agent/memory_cli.rs"]
 mod memory_cli;
+#[path = "fake_agent/memory_cli_authors.rs"]
+mod memory_cli_authors;
+#[path = "fake_agent/memory_cli_counts.rs"]
+mod memory_cli_counts;
 #[path = "fake_agent/memory_cli_notes.rs"]
 mod memory_cli_notes;
 #[path = "fake_agent/memory_embedder.rs"]

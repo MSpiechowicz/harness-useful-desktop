@@ -1,5 +1,6 @@
 import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
+import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
 import type { MemoryScriptsPage } from '$lib/ipc/bindings/MemoryScriptsPage';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
 import type { ScriptDraft } from '$lib/ipc/bindings/ScriptDraft';
@@ -37,6 +38,8 @@ export interface ScriptsRequest {
   page: number;
   /** Only the remote scripts hidden on this computer. */
   hidden: boolean;
+  /** Only the scripts one person first added, or those nobody is known to have added; null for all. */
+  author: AuthorFilter | null;
 }
 
 /** The request as the loader's key: the loader fetches again whenever any of it changes, and drops answers to older ones. */
@@ -46,7 +49,7 @@ export function scriptsKey(request: ScriptsRequest): string {
 
 /** One page of the scripts agents saved in Harness Memory that this project sees (its own and the global ones), with the size of every group, scope and approval. */
 export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, reach) => {
-  const { query, scope, review, group, place, sort, order, page, hidden } = JSON.parse(key) as ScriptsRequest;
+  const { query, scope, review, group, place, sort, order, page, hidden, author } = JSON.parse(key) as ScriptsRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_scripts_list', {
@@ -58,6 +61,7 @@ export const scriptList = new ViewLoader<MemoryScriptsPage, string>((key, reach)
     review: review ?? undefined,
     group: group ?? undefined,
     place: place ?? undefined,
+    author: author ?? undefined,
     sort,
     order,
     hidden: hidden || undefined,

@@ -11,7 +11,7 @@ import type { NotesImportResult } from '../bindings/NotesImportResult';
 import type { NotesImportRow } from '../bindings/NotesImportRow';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
-import { notesAuthorsListed, withoutAuthors } from './authors';
+import { authorFacetOf, compareAddedBy, keepAuthor, notesAuthorFilterListed, notesAuthorsListed, withoutAuthors } from './authors';
 import { deletion, requireServer } from './memory-delete-all';
 import { type Reach, reaches, reposPage } from './memory-reach';
 import { detailOf, noteSummaryOf, sampleNotes } from './memory-notes-fixtures';
@@ -147,7 +147,7 @@ function matches(found: NoteContent, query: string): boolean {
 type NoteOrder = (a: NoteContent, b: NoteContent) => number;
 
 /** How each sort orders two notes, ascending (`scope`: global first, `place`: this computer first, `useful` and `lastUseful`: the fewest and the oldest first); ties go by id. */
-const NOTE_ORDERS: Record<NoteSort, NoteOrder> = {
+const NOTE_ORDERS: Record<Exclude<NoteSort, 'addedBy'>, NoteOrder> = {
   updated: (a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt),
   title: (a, b) => a.title.localeCompare(b.title),
   kind: (a, b) => a.kind.localeCompare(b.kind),
@@ -162,27 +162,29 @@ const NOTE_ORDERS: Record<NoteSort, NoteOrder> = {
 const NEVER_USEFUL_AFTER_SHOWN = 3;
 
 /**
- * One page of notes as the server answers: filtered by the query, the scope, the place and the kind, sorted and cut. The kinds are counted under the
- * query, the scope and the place, the scopes under the query, the kind and the place, the places under the query, the kind and the scope.
+ * One page of notes as the server answers: filtered by the query, the scope, the place, the kind and the author, sorted and cut. The kinds are counted under the
+ * query, the scope and the place, the scopes under the query, the kind and the place, the places under the query, the kind and the scope, the authors under all of them but the author.
  * `combined: false` is an older server: it drops the scope and the place and counts neither.
  * A hidden note is listed only when `hidden` asks for them. `everything` is every note of the store, which the count of notes on this computer takes in.
  */
 export function pageOfNotes(
   visible: NoteContent[],
-  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, place, lang, useful, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
+  { offset, limit = DEFAULT_LIMIT, query = '', kind, scope, place, lang, useful, author, sort = 'updated', order, hidden = false }: CommandArgs<'memory_notes_list'>,
   combined = true,
   everything: NoteContent[] = visible,
 ): Omit<MemoryNotesPage, 'availability'> {
   const answering = visible.filter((found) => matches(found, query) && found.hidden === hidden);
   const onThisComputer = everything.filter((found) => found.place === 'local');
   const direction = (order ?? (sort === 'updated' || sort === 'useful' || sort === 'lastUseful' ? 'desc' : 'asc')) === 'desc' ? -1 : 1;
-  const compare = NOTE_ORDERS[sort];
+  // `addedBy` orders by the author's name and leaves the notes nobody added last either way, so it is no plain ascending order to flip.
+  const compare = sort === 'addedBy' ? null : NOTE_ORDERS[sort];
   const inKind = answering.filter((found) => kind === undefined || found.kind === kind);
   const inScope = answering.filter((found) => !combined || scope === undefined || found.scope === scope);
   const inPlace = answering.filter((found) => !combined || place === undefined || found.place === place);
   const inLang = answering.filter((found) => lang === undefined || (lang === 'unknown' ? !found.lang : found.lang === lang));
   const inUseful = answering.filter((found) => useful === undefined || (useful === 'ever' ? (found.useful ?? 0) > 0 : (found.useful ?? 0) === 0 && (found.shown ?? 0) >= NEVER_USEFUL_AFTER_SHOWN));
-  const chosen = inKind.filter((found) => inScope.includes(found) && inPlace.includes(found) && inLang.includes(found) && inUseful.includes(found));
+  const underOthers = inKind.filter((found) => inScope.includes(found) && inPlace.includes(found) && inLang.includes(found) && inUseful.includes(found));
+  const chosen = keepAuthor(underOthers, author);
   const ofKindHere = inKind.filter((found) => inPlace.includes(found));
   const ofKindInScope = inKind.filter((found) => inScope.includes(found));
 
@@ -191,8 +193,9 @@ export function pageOfNotes(
     kinds: KIND_ORDER.map((each) => ({ kind: each, count: inScope.filter((found) => found.kind === each && inPlace.includes(found)).length })),
     scopes: combined ? { repo: ofKindHere.filter((found) => found.scope === 'repo').length, global: ofKindHere.filter((found) => found.scope === 'global').length } : null,
     places: combined ? { local: ofKindInScope.filter((found) => found.place === 'local').length, team: ofKindInScope.filter((found) => found.place === 'team').length } : null,
+    authors: authorFacetOf(underOthers),
     combinedFilters: combined,
-    notes: [...chosen].sort((a, b) => direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit).map(noteSummaryOf),
+    notes: [...chosen].sort((a, b) => (compare ? direction * (compare(a, b) || a.id - b.id) : compareAddedBy(a, b, direction, (note) => note.id))).slice(offset, offset + limit).map(noteSummaryOf),
     hiddenCount: visible.filter((found) => found.hidden).length,
     localCounts: { repo: onThisComputer.filter((found) => found.scope === 'repo').length, global: onThisComputer.filter((found) => found.scope === 'global').length },
     offline: false,
@@ -216,6 +219,7 @@ export function memoryNotesHandlers(
   langListed: () => boolean = notesLangListed,
   usefulListed: () => boolean = notesUsefulListed,
   authorsListed: () => boolean = notesAuthorsListed,
+  authorFilterListed: () => boolean = notesAuthorFilterListed,
 ): NoteHandlers {
   let notes: NoteContent[] | null = null;
   const current = (): NoteContent[] =>
@@ -242,7 +246,7 @@ export function memoryNotesHandlers(
     memory_notes_list: (args: CommandArgs<'memory_notes_list'>): MemoryNotesPage => {
       const state = availability();
       if (state.kind !== 'available') {
-        return { availability: state, total: 0, kinds: [], scopes: null, places: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
+        return { availability: state, total: 0, kinds: [], scopes: null, places: null, authors: null, combinedFilters: combined(), notes: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
       }
 
       // A server without `notes-lang` ignores the filter and leaves `lang` empty. One without `notes-useful` ignores the filter and the two sorts, and counts nothing.
@@ -260,11 +264,21 @@ export function memoryNotesHandlers(
         }
       }
 
+      // One without `notes-author-filter` ignores the filter and the sort too, and sends no facet.
+      if (!authorFilterListed()) {
+        delete asked.author;
+
+        if (asked.sort === 'addedBy') {
+          delete asked.sort;
+        }
+      }
+
       const page = pageOfNotes(visible(args), asked, combined(), current());
 
       return {
         availability: state,
         ...page,
+        authors: authorFilterListed() ? page.authors : null,
         notes: page.notes.map((found) => {
           const row = {
             ...found,

@@ -9,9 +9,11 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
-use harness_business::ecosystem::{McpOptions, MemoryScripts, PoolOptions};
+use harness_business::ecosystem::{
+    McpOptions, MemoryScripts, NotesQuery, PoolOptions, Repos, ScriptsQuery, list_notes,
+};
 use harness_business::env::Env;
-use harness_business::model::{ScriptDraft, ScriptLanguage, ScriptScope};
+use harness_business::model::{MemoryNotesPage, MemoryScriptsPage, ScriptDraft, ScriptLanguage, ScriptScope};
 use harness_business::process::{
     BoxFuture, ExecOutput, ExecSpec, ProcessRunner, ProcessSpawner, SpawnedProcess, TokioRunner, TokioSpawner,
 };
@@ -224,6 +226,52 @@ impl Setup {
     pub fn project(&self) -> PathBuf {
         self.env.home.join("projects/demo")
     }
+}
+
+/// One page of the notes of the setup's project.
+pub async fn notes(setup: &Setup, query: &NotesQuery) -> MemoryNotesPage {
+    let project = setup.project();
+
+    list_notes(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        Repos::Project(Some(&project)),
+        query,
+    )
+    .await
+}
+
+/// One page of the scripts of the setup's project.
+pub async fn scripts(setup: &Setup, query: &ScriptsQuery) -> MemoryScriptsPage {
+    let project = setup.project();
+
+    setup
+        .scripts
+        .list(&setup.env, setup.runner(), Repos::Project(Some(&project)), query)
+        .await
+}
+
+/// The ids of the notes of `page`, in order.
+pub fn note_ids(page: &MemoryNotesPage) -> Vec<i64> {
+    page.notes.iter().map(|note| note.id).collect()
+}
+
+/// The ids of the scripts of `page`, in order.
+pub fn script_ids(page: &MemoryScriptsPage) -> Vec<i64> {
+    page.scripts.iter().map(|script| script.id).collect()
+}
+
+/// The arguments of the command run last.
+pub fn last_args(setup: &Setup) -> Vec<String> {
+    setup.run_args(setup.runs().len() - 1)
+}
+
+/// The value after `option` in `args`.
+pub fn value_of<'a>(args: &'a [String], option: &str) -> Option<&'a str> {
+    let at = args.iter().position(|arg| arg == option)?;
+
+    args.get(at + 1).map(String::as_str)
 }
 
 /// A repository script as the app's editor saves it.

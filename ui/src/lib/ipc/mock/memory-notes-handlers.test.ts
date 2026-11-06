@@ -287,4 +287,54 @@ describe('mock notes on the team side', () => {
     expect(old.memory_notes_list(asked).notes.every((note) => !('addedBy' in note) && !('updatedBy' in note))).toBe(true);
     expect('addedBy' in old.memory_note_get({ id: notes[0].id, project: '/work/app' }).note).toBe(false);
   });
+
+  it('filters by author and counts the authors under every other filter, not the author one', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const list = (args: Partial<Parameters<typeof handlers.memory_notes_list>[0]>) => handlers.memory_notes_list({ project: '/work/app', offset: 0, limit: 200, ...args });
+
+    const everyone = list({ kind: 'decision' });
+    const grace = list({ kind: 'decision', author: { kind: 'name', name: 'Grace Hopper' } });
+    const nobody = list({ kind: 'decision', author: { kind: 'unknown' } });
+
+    expect(everyone.authors?.people.map((person) => person.name)).toContain('Grace Hopper');
+    expect(grace.notes.length).toBeGreaterThan(0);
+    expect(grace.notes.every((note) => note.kind === 'decision' && note.addedBy?.name === 'Grace Hopper')).toBe(true);
+    expect(nobody.notes.every((note) => note.addedBy === null)).toBe(true);
+
+    // Whoever is chosen, the choices stay as the other filters leave them.
+    expect(grace.authors).toEqual(everyone.authors);
+    expect(nobody.authors).toEqual(everyone.authors);
+    expect(list({ kind: 'fix' }).authors).not.toEqual(everyone.authors);
+
+  });
+
+  it('sorts by author from A or from Z, with the notes nobody added last and the ties by id the way the sort goes', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+
+    for (const order of ['asc', 'desc'] as const) {
+      const rows = handlers.memory_notes_list({ project: '/work/app', offset: 0, limit: 200, sort: 'addedBy', order }).notes;
+      const named = rows.filter((note) => note.addedBy);
+      const unknown = rows.filter((note) => !note.addedBy);
+      const sign = order === 'asc' ? 1 : -1;
+
+      expect(unknown.length).toBeGreaterThan(0);
+      expect(rows.slice(named.length)).toEqual(unknown);
+      expect(new Set(named.map((note) => note.addedBy?.name)).size).toBeGreaterThan(1);
+
+      const nameOf = (note: (typeof rows)[number]) => note.addedBy?.name.toLowerCase() ?? '';
+      const expected = [...named].sort((a, b) => sign * ((nameOf(a) < nameOf(b) ? -1 : nameOf(a) > nameOf(b) ? 1 : 0) || a.id - b.id));
+
+      expect(named.map((note) => note.id)).toEqual(expected.map((note) => note.id));
+      expect(unknown.map((note) => note.id)).toEqual([...unknown.map((note) => note.id)].sort((a, b) => sign * (a - b)));
+    }
+  });
+
+  it('answers no facet and ignores the author and its sort for a server that cannot filter by author', () => {
+    const old = memoryNotesHandlers(AVAILABLE, () => 'ok', undefined, undefined, undefined, undefined, undefined, undefined, () => false);
+    const page = old.memory_notes_list({ project: '/work/app', offset: 0, limit: 200, author: { kind: 'unknown' }, sort: 'addedBy' });
+
+    expect(page.authors).toBeNull();
+    expect(page.notes.some((note) => note.addedBy !== null)).toBe(true);
+    expect(page.notes.map((note) => Date.parse(note.updatedAt))).toEqual([...page.notes.map((note) => Date.parse(note.updatedAt))].sort((a, b) => b - a));
+  });
 });

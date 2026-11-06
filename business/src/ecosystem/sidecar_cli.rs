@@ -19,7 +19,7 @@ use serde_json::Value;
 use super::sidecar::Sidecar;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryRepos, SortOrder};
+use crate::model::{AuthorCount, AuthorFacet, MemoryRepos, SortOrder, is_clean_author_name};
 use crate::process::{ExecSpec, ProcessRunner, launcher_search_dirs};
 use crate::security::redact_text;
 
@@ -163,6 +163,45 @@ impl ListWindow {
 /// The server's name of a direction.
 fn order_name(descending: bool) -> &'static str {
     if descending { "desc" } else { "asc" }
+}
+
+/// The most people of an authors facet that are read (the servers send at most 200).
+const MAX_FACET_PEOPLE: usize = 201;
+
+/// The authors facet of a list answer (`"authors": {"people": [{"name", "count"}], "unknown": N}`),
+/// shared by Harness Memory's and Harness Knowledge's lists. `None` when the answer has no such
+/// object, as from a server without the author filter. An entry that is not a name with a count is
+/// skipped, and so is a name that cleaning would change (a control or invisible character, an edge
+/// space, over the limit): it could not be given back as a filter. At most [`MAX_FACET_PEOPLE`]
+/// entries are read.
+pub(crate) fn author_facet(data: &Value) -> Option<AuthorFacet> {
+    let facet = data.get("authors").filter(|facet| facet.is_object())?;
+
+    let entries = facet
+        .get("people")
+        .and_then(Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+
+    let people = entries
+        .iter()
+        .take(MAX_FACET_PEOPLE)
+        .filter_map(|entry| {
+            let name = entry.get("name")?.as_str().filter(|name| is_clean_author_name(name))?;
+            let count = entry.get("count")?.as_u64()?;
+
+            Some(AuthorCount {
+                name: name.to_owned(),
+                count: u32::try_from(count).unwrap_or(u32::MAX),
+            })
+        })
+        .collect();
+
+    let unknown = facet.get("unknown").and_then(Value::as_u64).unwrap_or(0);
+
+    Some(AuthorFacet {
+        people,
+        unknown: u32::try_from(unknown).unwrap_or(u32::MAX),
+    })
 }
 
 /// The longest repository key accepted (a path or a remote; far more than any real one).

@@ -36,6 +36,12 @@ const USEFUL_SORTS: readonly NoteSort[] = ['useful', 'lastUseful'];
 /** The columns the server sorts the scripts by: all of them. */
 const SCRIPT_SORTS: readonly ScriptSort[] = ['updated', 'name', 'language', 'scope', 'place', 'runs', 'lastRun'];
 
+/** The "Added by" column, which only a Harness Memory that filters by author sorts by (notes and scripts alike). */
+const AUTHOR_SORT = 'addedBy';
+
+/** The same as a list of sorts, for the notes' and the scripts' lists alike. */
+const AUTHOR_SORTS = [AUTHOR_SORT] as const;
+
 /** The sort a column key asks for; a key that is not a column (a view state left by an older version) sorts by time. */
 function sortOf<T extends string>(allowed: readonly T[], key: string): T {
   return allowed.find((sort) => sort === key) ?? allowed[0];
@@ -105,17 +111,35 @@ export function useNotesData(): void {
     }
   });
 
+  // And one that cannot filter by author has no such filter or sort either.
+  const authorUnsupported = $derived(memoryRemote.value?.notesAuthorFilterSupported === false);
+
+  $effect(() => {
+    if (!authorUnsupported) {
+      return;
+    }
+
+    if (viewState.notesAuthor) {
+      viewState.notesAuthor = null;
+    }
+
+    if (viewState.notesSort.key === AUTHOR_SORT) {
+      viewState.notesSort = { key: 'updated', desc: true };
+    }
+  });
+
   const request = $derived<NotesRequest>({
     query: query.value,
     scope: combined ? reachScope(viewState.memoryReach) : null,
     kind: viewState.notesKind,
     place: viewState.notesPlace,
-    sort: sortOf(usefulUnsupported ? NOTE_SORTS : [...NOTE_SORTS, ...USEFUL_SORTS], viewState.notesSort.key),
+    sort: sortOf([...NOTE_SORTS, ...(usefulUnsupported ? [] : USEFUL_SORTS), ...(authorUnsupported ? [] : AUTHOR_SORTS)], viewState.notesSort.key),
     order: viewState.notesSort.desc ? 'desc' : 'asc',
     page: viewState.notesPage,
     hidden: notesTeam.showHidden,
     notEnglish: viewState.notesNotEnglish && !langUnsupported,
     useful: usefulUnsupported ? null : viewState.notesUseful,
+    author: authorUnsupported ? null : viewState.notesAuthor,
   });
 
   // The editor and the import review belong to the project on screen and to this view: neither outlives a switch of project or leaving the view.
@@ -170,16 +194,34 @@ export function useScriptsData(): void {
 
   const combined = $derived(scriptList.data?.combinedFilters ?? true);
 
+  // A Harness Memory that cannot filter by author has no such filter or sort: a choice of them is dropped, back to the default sort.
+  const authorUnsupported = $derived(memoryRemote.value?.notesAuthorFilterSupported === false);
+
+  $effect(() => {
+    if (!authorUnsupported) {
+      return;
+    }
+
+    if (viewState.scriptsAuthor) {
+      viewState.scriptsAuthor = null;
+    }
+
+    if (viewState.scriptsSort.key === AUTHOR_SORT) {
+      viewState.scriptsSort = { key: 'updated', desc: true };
+    }
+  });
+
   const request = $derived<ScriptsRequest>({
     query: query.value,
     scope: combined ? reachScope(viewState.memoryReach) : null,
     review: combined ? viewState.scriptsStatus : null,
     group: combined ? null : viewState.scriptsGroup,
     place: viewState.scriptsPlace,
-    sort: sortOf(SCRIPT_SORTS, viewState.scriptsSort.key),
+    sort: sortOf([...SCRIPT_SORTS, ...(authorUnsupported ? [] : AUTHOR_SORTS)], viewState.scriptsSort.key),
     order: viewState.scriptsSort.desc ? 'desc' : 'asc',
     page: viewState.scriptsPage,
     hidden: scriptsTeam.showHidden,
+    author: authorUnsupported ? null : viewState.scriptsAuthor,
   });
 
   // The editor belongs to the project on screen and to this view: it does not outlive a switch of project or leaving the view.

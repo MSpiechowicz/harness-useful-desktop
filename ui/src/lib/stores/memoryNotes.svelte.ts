@@ -1,4 +1,5 @@
 import { t } from '$lib/i18n/i18n.svelte';
+import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
 import type { MemoryNotesPage } from '$lib/ipc/bindings/MemoryNotesPage';
 import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
 import type { NoteDraft } from '$lib/ipc/bindings/NoteDraft';
@@ -22,7 +23,7 @@ import { ViewLoader } from './view-loader.svelte';
 /** How many notes one page of the table holds. */
 export const NOTES_PAGE_SIZE = 50;
 
-/** What the table asks the server for: one page of the notes that answer the search, the scope, the kind and the place, in this order. */
+/** What the table asks the server for: one page of the notes that answer the search, the scope, the kind, the place and the author, in this order. */
 export interface NotesRequest {
   query: string;
   scope: ScriptScope | null;
@@ -37,6 +38,8 @@ export interface NotesRequest {
   notEnglish: boolean;
   /** Only the notes agents found useful at least once, or those shown often and never found useful; null for all. */
   useful: NoteUsefulFilter | null;
+  /** Only the notes one person first added, or those nobody is known to have added; null for all. */
+  author: AuthorFilter | null;
 }
 
 /** The request as the loader's key: the loader fetches again whenever any of it changes, and drops answers to older ones. */
@@ -46,7 +49,7 @@ export function notesKey(request: NotesRequest): string {
 
 /** One page of the notes `reach` covers (every repository, one, or the global ones), with the count of every kind and scope. */
 export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => {
-  const { query, scope, kind, place, sort, order, page, hidden, notEnglish, useful } = JSON.parse(key) as NotesRequest;
+  const { query, scope, kind, place, sort, order, page, hidden, notEnglish, useful, author } = JSON.parse(key) as NotesRequest;
   const search = query.trim();
 
   return ipc.invoke('memory_notes_list', {
@@ -61,6 +64,7 @@ export const noteList = new ViewLoader<MemoryNotesPage, string>((key, reach) => 
     order,
     lang: notEnglish ? 'other' : undefined,
     useful: useful ?? undefined,
+    author: author ?? undefined,
     hidden: hidden || undefined,
   });
 });

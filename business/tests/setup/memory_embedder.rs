@@ -140,6 +140,7 @@ fn query(lang: Option<NoteLangFilter>) -> NotesQuery {
         place: None,
         lang,
         useful: None,
+        author: None,
         sort: None,
         hidden: false,
     }
@@ -223,6 +224,7 @@ fn a_query_keeps_its_lang_only_for_a_server_that_lists_notes_lang() {
         notes_lang,
         notes_useful: false,
         notes_authors: false,
+        notes_author_filter: false,
     };
 
     assert_eq!(asked.for_server(listed(true)), asked);

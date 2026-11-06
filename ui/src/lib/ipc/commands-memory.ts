@@ -1,3 +1,4 @@
+import type { AuthorFilter } from './bindings/AuthorFilter';
 import type { MemoryDeleteAll } from './bindings/MemoryDeleteAll';
 import type { MemoryRemote } from './bindings/MemoryRemote';
 import type { MemoryRemoteKind } from './bindings/MemoryRemoteKind';
@@ -123,7 +124,7 @@ export const memoryCommands = {
    * `project` is the project root, null for global only. `offset` defaults to 0, `limit` to 50 (1 to 200), `query`
    * (at most 256 characters, blank for none) matches name or description, `group` keeps one group (`groups` counts every
    * group under the query either way), `sort` (`updated`, `name`, `language`, `scope` with global first, `place`, `runs`,
-   * `lastRun` with never-run scripts last either way) defaults to `updated`, `order` to `desc` for `updated` and `asc`
+   * `lastRun` with never-run scripts last either way, `addedBy` by the name of whoever first saved it) defaults to `updated`, `order` to `desc` for `updated` and `asc`
    * otherwise; ties go by id. A server that does not know the sort answers `outdated`.
    * Rejects with `invalidInput` for a bad limit or a long query, `forbidden` for a project that is not open or recent.
    */
@@ -140,6 +141,8 @@ export const memoryCommands = {
       review?: ScriptReview;
       /** The scripts kept in one place; a server that predates it drops it (the page then says `places: null`). */
       place?: ScriptPlace;
+      /** Only the scripts one person first added, or those nobody is known to have added; a server without `notes-author-filter` ignores it (the page then says `authors: null`). */
+      author?: AuthorFilter;
       /** The one group of an older server, which cannot combine filters. Never sent with `scope` or `review`. */
       group?: ScriptGroup;
       sort?: ScriptSort;
@@ -265,9 +268,9 @@ export const memoryCommands = {
    * `available`). `project` is the project root, null for global only. `offset` defaults to 0, `limit` to 50 (1 to 200),
    * `query` (at most 256 characters, blank for none) is the server's search, `kind` keeps one kind (`kinds` counts every
    * kind under the query either way), `sort` (`updated`, `title`, `kind` by name, `scope` with global first, `place` with
-   * this computer first, `useful` by how often agents found it useful, `lastUseful` by when they last did) defaults to
+   * this computer first, `useful` by how often agents found it useful, `lastUseful` by when they last did, `addedBy` by the name of whoever first saved it) defaults to
    * `updated`, `order` to `desc` for `updated`, `useful` and `lastUseful` and `asc` otherwise; ties go by id. A server
-   * without `notes-useful` sorts by `updated` instead of `useful` and `lastUseful`.
+   * without `notes-useful` sorts by `updated` instead of `useful` and `lastUseful`, one without `notes-author-filter` instead of `addedBy`.
    * Rejects with `invalidInput` for a bad limit or a long query, `forbidden` for a project that is not open or recent.
    */
   memory_notes_list: cmd<
@@ -287,6 +290,8 @@ export const memoryCommands = {
       lang?: NoteLangFilter;
       /** Only the notes an agent found useful (`ever`) or those shown often and never found useful (`never`); a server without `notes-useful` ignores it. */
       useful?: NoteUsefulFilter;
+      /** Only the notes one person first added, or those nobody is known to have added; a server without `notes-author-filter` ignores it (the page then says `authors: null`). */
+      author?: AuthorFilter;
       sort?: NoteSort;
       order?: SortOrder;
       /** Only the team notes hidden on this computer (the page's `total` is then their count). */

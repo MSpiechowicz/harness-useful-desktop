@@ -47,12 +47,12 @@ describe('how useful agents found the documents', () => {
     expect(within(row(10)).queryByText('—')).toBeNull();
   });
 
-  it('sorts by the server, biggest first, from the two columns and not from who added a document', async () => {
+  it('sorts by the server, biggest first, from the two columns, and from A to Z by who added a document', async () => {
     const { invoke } = fakeKnowledge();
     await show();
 
-    expect(screen.queryByRole('button', { name: 'Added by' })).toBeNull();
-    expect(screen.getByRole('columnheader', { name: 'Added by' })).toBeInTheDocument();
+    await fireEvent.click(screen.getByRole('button', { name: 'Added by' }));
+    await waitFor(() => expect(calls(invoke, 'knowledge_docs_list').at(-1)).toMatchObject({ filter: { sort: 'addedBy', order: 'asc' }, offset: 0 }));
 
     await fireEvent.click(screen.getByRole('button', { name: 'Useful in searches' }));
     await waitFor(() => expect(calls(invoke, 'knowledge_docs_list').at(-1)).toMatchObject({ filter: { sort: 'useful', order: 'desc' }, offset: 0 }));
