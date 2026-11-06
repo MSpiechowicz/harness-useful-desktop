@@ -257,7 +257,8 @@ fn intro(elements: &[ResolvedPart]) -> Option<ResolvedPart> {
          once, after you did the steps, at the start of your final answer and never before your first tool call: \
          a Markdown table with the header \"| Step | Status |\" and one row per status line in step order, the label \
          without its colon in the first column (for example \"| Complexity | small, a one-line fix |\"), also for a \
-         small request. Never put a | inside a cell. Then leave a blank line and answer.",
+         small request. Never put a | inside a cell. Then leave a blank line and answer. Keep your prose short and \
+         direct: no preamble or filler, and code, paths, commands, numbers and caveats stay exact.",
         elements.len()
     );
 
