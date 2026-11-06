@@ -187,21 +187,26 @@ fn the_lock_file_is_never_opened_through_a_symbolic_link() {
 fn settings_over_the_size_cap_are_refused_and_the_file_stays_byte_for_byte() {
     let (_dir, data, _repo) = setup();
     ensure_global(&data).unwrap();
+    let mut guards = read_global(&data).unwrap();
     let mut refused = None;
 
+    // Written directly: a path this long cannot be resolved on every system (macOS stops at 1024
+    // bytes), and only the size of the file is under test here.
     for index in 0..MAX_ON_REPOS {
         let before = fs::read(global_path(&data)).unwrap();
-        let kind = if index % 2 == 0 {
-            MemoryGuardKind::Notes
-        } else {
-            MemoryGuardKind::Scripts
-        };
-        // Nineteen folders of about 200 characters: long, and valid file names.
-        let folders = format!("/{}", "a".repeat(200)).repeat(18);
-        let repo = format!("/m{index:04}{folders}");
+        let folders = vec!["a".repeat(200); 18].join(std::path::MAIN_SEPARATOR_STR);
+        let repo = data.join(format!("m{index:04}")).join(folders);
+        let repo = repo.display().to_string();
         assert!(repo.chars().count() <= MAX_REPO_CHARS);
 
-        match update_global(&data, &add(kind, &repo)) {
+        let guard = if index % 2 == 0 {
+            &mut guards.notes
+        } else {
+            &mut guards.scripts
+        };
+        guard.on_repos.push(repo);
+
+        match write_global(&data, &guards) {
             Ok(_) => assert!(fs::metadata(global_path(&data)).unwrap().len() <= MAX_FILE_BYTES),
             Err(error) => {
                 assert!(matches!(error, BusinessError::InvalidInput(_)), "{error:?}");

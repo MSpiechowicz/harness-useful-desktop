@@ -7,10 +7,8 @@ use crate::mcp_support;
 
 use std::path::PathBuf;
 
-#[cfg(unix)]
-use harness_business::ecosystem::memory_mcp_listed;
 use harness_business::ecosystem::{
-    Blocked, McpFile, MemoryRegistration, Shape, register_memory_mcp, unregister_memory_mcp,
+    Blocked, McpFile, MemoryRegistration, Shape, memory_mcp_listed, register_memory_mcp, unregister_memory_mcp,
 };
 use harness_business::model::McpRefusal;
 use mcp_support::{Home, keys, read};
@@ -186,7 +184,6 @@ fn files_that_cannot_be_changed_safely_are_refused_without_writing() {
     assert_eq!(home.files(), vec!["mcp.json"]);
 }
 
-#[cfg(unix)]
 /// What the start of an agent asks while Project memory is off: is the server still configured?
 #[test]
 fn the_memory_server_is_listed_by_the_target_file_or_a_file_it_also_reads_or_by_a_file_that_cannot_be_read() {
@@ -213,6 +210,7 @@ fn the_memory_server_is_listed_by_the_target_file_or_a_file_it_also_reads_or_by_
     assert!(memory_mcp_listed(&home.file()), "target, unreadable");
 }
 
+#[cfg(unix)]
 #[test]
 fn a_symlinked_file_is_refused_and_its_target_untouched() {
     let home = Home::new();
