@@ -1,3 +1,10 @@
+## [0.60.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.0...v0.60.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **chat:** show sparkles on the thought process row ([93124a0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/93124a04ef689f717b8fad8f9bed35148b315cb7))
+
 # [0.60.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.59.1...v0.60.0) (2026-11-05)
 
 
