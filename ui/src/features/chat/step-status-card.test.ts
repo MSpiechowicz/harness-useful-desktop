@@ -197,6 +197,22 @@ describe('the Status report card', () => {
     expect(screen.queryByText('Limits')).toBeNull();
   });
 
+  it('shows the questions an agent asked, and no row when none was open', async () => {
+    reply(TABLE('| Questions | asked 2 |', '| Notes | opened #12 |'));
+    await open();
+
+    expect(screen.getByText('Questions')).toBeTruthy();
+    expect(screen.getByText('asked 2')).toBeTruthy();
+  });
+
+  it('hides an open-questions row that says none', async () => {
+    reply(TABLE('| Questions | none open |', '| Notes | opened #12 |'));
+    await open();
+
+    expect(screen.queryByText('Questions')).toBeNull();
+    expect(screen.queryByText('No match')).toBeNull();
+  });
+
   it('survives two rows with one label', async () => {
     reply(TABLE('| Complexity | small |', '| Tests | ran unit |', '| Tests | ran e2e |'));
     await open();

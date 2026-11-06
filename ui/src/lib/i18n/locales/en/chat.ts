@@ -74,6 +74,7 @@ export const chat = {
   'chat.stepStatus.label.complexity': 'Complexity',
   'chat.stepStatus.label.limits': 'Limits',
   'chat.stepStatus.label.branch': 'Branch',
+  'chat.stepStatus.label.questions': 'Questions',
   'chat.stepStatus.label.notes': 'Notes',
   'chat.stepStatus.label.scripts': 'Scripts',
   'chat.stepStatus.label.knowledge': 'Knowledge',

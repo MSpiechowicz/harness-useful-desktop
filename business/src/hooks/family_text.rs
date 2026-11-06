@@ -48,7 +48,12 @@ pub(super) use useful_skills_tiers;
 
 /// The `useful-skills` context: step 30.
 pub const SEED_USEFUL_SKILLS_TEXT: &str = useful_skills_tiers!(
-    "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
+    "Before your first edit, read the code the request touches and list the choices that belong to the user: behaviour, \
+     interface, scope, data, cost or delivery that neither the request nor the code settles. A small request can hold one \
+     (does a delete need a confirmation or an undo?). When one is open, load the us-grill-me skill, ask, and end your turn \
+     with no edit and no status table: a question is not your final answer. Never ask what the request or the code \
+     already answers, and do not ask when the request is precise. Status line: \"Questions: asked 2\" or \"Questions: none \
+     open\". Then rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
 );
 
 /// The `branch-sync` context: step 20, after the commits of main the app found.

@@ -85,7 +85,13 @@ const USEFUL_SKILLS_STEP_V1: &str = useful_skills_tiers!(
     "Before your first edit, pick a lane from the request and state it in one line: \"Lane: small | medium | full — reason\"."
 );
 
+/// The step version with the "Complexity:" status label and no step for the user's open choices.
+const USEFUL_SKILLS_STEP_V2: &str = useful_skills_tiers!(
+    "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
+);
+
 pub(super) const USEFUL_SKILLS: &[&str] = &[
+    USEFUL_SKILLS_STEP_V2,
     USEFUL_SKILLS_STEP_V1,
     USEFUL_SKILLS_V3,
     "If Useful Skills are installed, read the ones that apply before you act: decide the workflow \
