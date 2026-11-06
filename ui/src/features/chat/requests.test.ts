@@ -51,6 +51,26 @@ describe('agent dialogs', () => {
     await waitFor(() => expect(no.answers()[0].outcome).toEqual({ type: 'confirmed', confirmed: false }));
   });
 
+  it('says a question comes from the agent, hides hidden characters and answers with the option as sent', async () => {
+    const backend = await startedSession();
+    const kind: UiRequest['kind'] = { type: 'select', title: 'Allow\u202E tool', options: ['Dele\u200Bte'], details: [null], timeoutMs: null };
+    render(UiRequestDialog, { session: backend.session, request: { id: 'req-q', kind, purpose: 'question' } });
+
+    expect(await screen.findByText('The agent is asking')).toBeTruthy();
+    expect(screen.getAllByText('Allow tool').length).toBeGreaterThan(0);
+
+    await fireEvent.click(screen.getByRole('button', { name: /Delete/ }));
+    await waitFor(() => expect(backend.of('agent_ui_respond')[0].response.outcome).toEqual({ type: 'value', value: 'Dele\u200Bte' }));
+  });
+
+  it('masks a secret input', async () => {
+    const backend = await startedSession();
+    const kind: UiRequest['kind'] = { type: 'input', title: 'Token', placeholder: 'token', timeoutMs: null };
+    render(UiRequestDialog, { session: backend.session, request: { id: 'req-s', kind, secret: true } });
+
+    expect((await screen.findByPlaceholderText('token')).getAttribute('type')).toBe('password');
+  });
+
   it('submits typed input as the value', async () => {
     const { answers } = await mountDialog({ type: 'input', title: 'Hook name', placeholder: 'pre-commit', timeoutMs: null });
 

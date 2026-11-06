@@ -407,6 +407,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.scope': 'Dotyczy tylko tej sesji. Aplikacja zapyta ponownie przy następnym uruchomieniu {harness}. Sesja uruchomi się ponownie i wznowi pracę od tego samego miejsca.',
   'chat.trust.action': 'Uruchom ponownie i zaufaj temu projektowi',
 
+  'chat.request.agentAsks': 'Agent pyta',
   'chat.request.closes': 'Zamknie się sama po upływie czasu',
   'chat.request.yes': 'Tak',
   'chat.request.no': 'Nie',

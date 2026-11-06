@@ -23,4 +23,8 @@ purpose?: UiPurpose,
  * The tool call an approval is about, as named in its `toolStart`, when the agent says which
  * (OpenCode). Without it the UI matches open calls by the tool the title names and never picks among several.
  */
-toolCallId?: string, };
+toolCallId?: string, 
+/**
+ * An input whose answer must not show on screen (OMP asks for a secret).
+ */
+secret?: boolean, };

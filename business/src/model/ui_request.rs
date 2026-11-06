@@ -23,6 +23,10 @@ pub struct UiRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub tool_call_id: Option<String>,
+    /// An input whose answer must not show on screen (OMP asks for a secret).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub secret: Option<bool>,
 }
 
 impl UiRequest {
@@ -33,6 +37,7 @@ impl UiRequest {
             kind,
             purpose: None,
             tool_call_id: None,
+            secret: None,
         }
     }
 }

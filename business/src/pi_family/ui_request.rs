@@ -29,7 +29,7 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
 
     let dialog = |kind: UiRequestKind| vec![Inbound::UiRequest(UiRequest::new(id.clone(), kind))];
     let event = |event: AgentEvent| vec![Inbound::Event(event)];
-    let title = || plain_text(&string(frame, "title").unwrap_or_default());
+    let title = || redact_text(&plain_text(&string(frame, "title").unwrap_or_default()));
     let timeout_ms = || unsigned(frame, "timeout");
 
     match method {
@@ -53,14 +53,21 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
         }
         "confirm" => dialog(UiRequestKind::Confirm {
             title: title(),
-            message: string(frame, "message").unwrap_or_default(),
+            message: redact_text(&string(frame, "message").unwrap_or_default()),
             timeout_ms: timeout_ms(),
         }),
-        "input" => dialog(UiRequestKind::Input {
-            title: title(),
-            placeholder: string(frame, "placeholder"),
-            timeout_ms: timeout_ms(),
-        }),
+        "input" => {
+            let kind = UiRequestKind::Input {
+                title: title(),
+                placeholder: string(frame, "placeholder").map(|text| redact_text(&text)),
+                timeout_ms: timeout_ms(),
+            };
+
+            vec![Inbound::UiRequest(UiRequest {
+                secret: frame.get("secret").and_then(Value::as_bool).filter(|secret| *secret),
+                ..UiRequest::new(id.clone(), kind)
+            })]
+        }
         "editor" => dialog(UiRequestKind::Editor {
             title: title(),
             prefill: string(frame, "prefill"),
@@ -110,6 +117,7 @@ fn option_details(frame: &Value) -> Vec<Option<String>> {
             details
                 .and_then(|details| details.get(index))
                 .and_then(|detail| string(detail, "description"))
+                .map(|detail| redact_text(&detail))
         })
         .collect()
 }
@@ -159,6 +167,17 @@ mod tests {
             Some(UiPurpose::Question)
         );
         assert_eq!(select_purpose(&["Approve", "Deny"]), None);
+    }
+
+    #[test]
+    fn a_secret_input_stays_secret() {
+        let frame = json!({ "id": "1", "method": "input", "title": "Token", "secret": true });
+        let requests = decode_ui_request(&frame);
+        let [Inbound::UiRequest(request)] = requests.as_slice() else {
+            panic!("expected one dialog");
+        };
+
+        assert_eq!(request.secret, Some(true));
     }
 
     #[test]

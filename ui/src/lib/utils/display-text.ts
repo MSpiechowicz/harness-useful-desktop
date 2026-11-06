@@ -5,3 +5,8 @@ const HIDDEN = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}͏ᅟᅠ឴឵᠋-᠏⠀ㅤ︀-️ﾠ\u
 export function displayText(text: string, max: number): string {
   return [...text.trim().replace(HIDDEN, '')].slice(0, max).join('').trim();
 }
+
+/** `text` of another program as a dialog shows it: without hidden characters, its line breaks and tabs kept. */
+export function visibleText(text: string): string {
+  return text.replace(HIDDEN, (hidden) => (hidden === '\n' || hidden === '\t' ? hidden : ''));
+}
