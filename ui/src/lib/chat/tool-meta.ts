@@ -103,6 +103,8 @@ export function shortSkillOf(call: ToolCallState): string | null {
   const skill = skillOf(call);
 
   return skill?.split(':').pop() || skill;
+}
+
 /** What an approval shows of a call with no command: its main argument in full, else all its arguments. */
 export function approvalArgument(args: JsonValue | null): string | null {
   const single = fullPrimaryArg(args);
