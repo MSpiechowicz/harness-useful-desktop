@@ -110,7 +110,7 @@ const COMMAND_NOISE = new Set(['command', 'description', 'timeout']);
 
 /**
  * What an approval shows beside a call's command, or instead of one: what else the command is given (where it runs),
- * the path of a file tool, and every argument of any other tool, so none is hidden behind its main one.
+ * the path a read looks at, and every argument of any other tool as sent, so none is hidden behind its main one.
  */
 export function approvalArgument(call: ToolCallState): string | null {
   const { args } = call;
@@ -124,10 +124,9 @@ export function approvalArgument(call: ToolCallState): string | null {
     return rest.length > 0 ? JSON.stringify(Object.fromEntries(rest)) : null;
   }
 
-  const kind = toolKind(call.name);
-  const single = fullPrimaryArg(args);
-  if (single !== null && (kind === 'edit' || kind === 'write' || kind === 'read' || Object.keys(args).length === 1)) {
-    return single;
+  const main = PRIMARY_ARGS.map((name) => args[name]).find((value) => typeof value === 'string' && value.trim() !== '');
+  if (typeof main === 'string' && (toolKind(call.name) === 'read' || Object.keys(args).length === 1)) {
+    return main;
   }
 
   return JSON.stringify(args);

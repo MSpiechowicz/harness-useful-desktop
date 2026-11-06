@@ -8,7 +8,7 @@
   import { approvalArgument, commandOf, skillApproval, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
   import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
-  import { markedText, visibleText } from '$lib/utils/display-text';
+  import { markedText } from '$lib/utils/display-text';
   import { overflowing } from '$lib/utils/overflowing';
 
   import Countdown from './Countdown.svelte';
@@ -52,7 +52,7 @@
 
   /** Alt+Y approves, Alt+N and Escape deny. `code` is used because Option+letter types symbols on macOS. */
   function onkeydown(event: KeyboardEvent): void {
-    if (event.defaultPrevented) {
+    if (event.defaultPrevented || event.repeat) {
       return;
     }
 
@@ -90,7 +90,7 @@
             <p class="max-h-48 overflow-y-auto font-mono text-xs break-all whitespace-pre-wrap text-fg-2" tabindex="0">{markedText(argument)}</p>
           {/if}
         {/if}
-        {#if prompt.approveDetail}<p class="text-sm text-fg-2">{visibleText(prompt.approveDetail)}</p>{/if}
+        {#if prompt.approveDetail}<p class="text-sm text-fg-2">{markedText(prompt.approveDetail)}</p>{/if}
       </div>
 
       {#if prompt.timeoutMs}<Countdown timeoutMs={prompt.timeoutMs} requestId={prompt.id} ontimeout={() => answer(prompt.deny)} />{/if}
@@ -119,17 +119,21 @@
 
     <div class="flex flex-wrap items-center gap-2">
       <Button variant="primary" onclick={() => answer(prompt.approve)}>
-        {visibleText(prompt.approve)}
+        {markedText(prompt.approve)}
         {#snippet trailing()}<Kbd keys="alt+y" />{/snippet}
       </Button>
       <Button variant="danger" onclick={() => answer(prompt.deny)}>
-        {visibleText(prompt.deny)}
+        {markedText(prompt.deny)}
         {#snippet trailing()}<Kbd keys="alt+n" />{/snippet}
       </Button>
       {#each prompt.others as other (other.option)}
-        <Button onclick={() => answer(other.option)}>{visibleText(other.option)}</Button>
+        <Button onclick={() => answer(other.option)}>{markedText(other.option)}</Button>
       {/each}
       <span class="ml-auto text-xs text-fg-3"><Kbd keys="escape" /> {t('chat.approvalCard.denies')}</span>
     </div>
+
+    {#each prompt.others as other (other.option)}
+      {#if other.detail}<p class="text-xs text-fg-3">{markedText(other.option)}: {markedText(other.detail)}</p>{/if}
+    {/each}
   </div>
 </section>

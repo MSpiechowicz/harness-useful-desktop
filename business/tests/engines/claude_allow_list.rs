@@ -313,6 +313,23 @@ fn a_subagent_approval_never_masks_what_it_covers() {
 }
 
 #[test]
+fn a_subagent_approval_shows_a_sandbox_escape() {
+    let bash = PermissionAsk {
+        from_subagent: true,
+        ..ask(
+            "Bash",
+            json!({ "command": "ls", "dangerouslyDisableSandbox": true, "timeout": 5 }),
+        )
+    };
+
+    let title = dialog_title(&bash);
+    assert!(
+        title.contains("dangerouslyDisableSandbox") && !title.contains("timeout"),
+        "{title}"
+    );
+}
+
+#[test]
 fn a_subagent_approval_shows_everything_a_known_tool_is_given() {
     let write = PermissionAsk {
         from_subagent: true,

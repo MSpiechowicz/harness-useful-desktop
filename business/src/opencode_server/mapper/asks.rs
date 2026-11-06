@@ -135,7 +135,11 @@ impl Asks {
         };
 
         let permission = text(properties, "permission").unwrap_or_else(|| "a tool".to_owned());
-        let subject = self.subject(&permission, properties);
+        let subject = if subagent {
+            subagent_input(&permission, properties)
+        } else {
+            self.subject(&permission, properties)
+        };
         let asker = if subagent { " for a subagent" } else { "" };
         let title = match subject {
             Some(subject) => format!("Allow {permission}{asker}: {subject}?"),
@@ -408,4 +412,24 @@ fn strings(value: &Value, key: &str) -> Vec<String> {
         .filter_map(Value::as_str)
         .map(str::to_owned)
         .collect()
+}
+
+/// What a subagent's ask covers, exactly as sent. Its call is not in the transcript, so the title is the only place
+/// to judge it, and a mask or a flattened line there could hide part of a command.
+fn subagent_input(permission: &str, properties: &Value) -> Option<String> {
+    let metadata = properties
+        .get("metadata")
+        .filter(|metadata| metadata.as_object().is_some_and(|fields| !fields.is_empty()));
+
+    if permission == "bash"
+        && let Some(command) = metadata.and_then(|metadata| text(metadata, "command"))
+    {
+        return Some(command);
+    }
+
+    let input = metadata
+        .map(Value::to_string)
+        .unwrap_or_else(|| strings(properties, "patterns").join(", "));
+
+    (!input.is_empty()).then_some(input)
 }

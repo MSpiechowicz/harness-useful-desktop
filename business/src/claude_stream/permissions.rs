@@ -209,7 +209,22 @@ fn subagent_input(ask: &PermissionAsk, project: &Path) -> Option<String> {
     let field = |key: &str| text(&ask.input, key);
 
     match ask.tool.as_str() {
-        BASH => field("command"),
+        BASH => field("command").map(|command| {
+            let rest: serde_json::Map<String, Value> = ask
+                .input
+                .as_object()
+                .into_iter()
+                .flatten()
+                .filter(|(name, _)| !matches!(name.as_str(), "command" | "description" | "timeout"))
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect();
+
+            if rest.is_empty() {
+                command
+            } else {
+                format!("{command} {}", Value::Object(rest))
+            }
+        }),
         READ => field("file_path").map(|path| relative(&path, project)),
         _ => ask
             .input

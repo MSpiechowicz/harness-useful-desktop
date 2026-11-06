@@ -3,6 +3,7 @@ import type { UiRequest } from '$lib/ipc/bindings/UiRequest';
 import type { ChatState, ToolCallState } from './types';
 
 const APPROVE = /^(approve|allow|accept|yes)\b/i;
+const APPROVE_ONCE = /^approve once$/i;
 const DENY = /^(deny|reject|decline|block|no)\b/i;
 const MAX_OPTIONS = 4;
 
@@ -25,11 +26,17 @@ export interface ApprovalPrompt {
 /** The approval a request asks for; null for any other dialog, and always for a question, whatever its options say. */
 export function asApproval(request: UiRequest): ApprovalPrompt | null {
   const { kind } = request;
-  if (request.purpose === 'question' || kind.type !== 'select' || kind.options.length > MAX_OPTIONS) {
+  if (request.purpose === 'question' || kind.type !== 'select') {
     return null;
   }
 
-  const approve = kind.options.find((option) => APPROVE.test(option));
+  // Beside a grant that remembers more, the primary answer is always this call only.
+  const once = kind.options.find((option) => APPROVE_ONCE.test(option));
+  if (once === undefined && kind.options.length > MAX_OPTIONS) {
+    return null;
+  }
+
+  const approve = once ?? kind.options.find((option) => APPROVE.test(option));
   const deny = kind.options.find((option) => DENY.test(option));
   if (approve === undefined || deny === undefined) {
     return null;

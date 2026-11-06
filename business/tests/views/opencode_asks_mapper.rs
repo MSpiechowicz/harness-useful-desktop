@@ -419,3 +419,22 @@ fn a_dismissed_typed_answer_rejects_the_question() {
     let rejected = sent(&mut mapper, &cancelled("que_1:1:own"));
     assert_eq!(rejected.kind, ReplyKind::QuestionReject { id: "que_1".to_owned() });
 }
+
+#[test]
+fn a_subagent_ask_shows_its_command_unmasked_and_on_its_own_lines() {
+    let mut mapper = mapper();
+    let created = json!({ "type": "session.created", "properties": { "sessionID": CHILD,
+        "info": { "id": CHILD, "parentID": SESSION, "directory": "/work/project/sub" } } });
+    let command = "echo -----BEGIN X-----\ntouch /tmp/marker";
+
+    let out: Vec<AgentEvent> = events(feed(
+        &mut mapper,
+        &[created, command_ask("per_1", CHILD, command, "call_1")],
+    ))
+    .into_iter()
+    .filter(|event| !matches!(event, AgentEvent::Subagent { .. }))
+    .collect();
+
+    let (_, title, ..) = select(&out[0]);
+    assert!(title.contains(command), "{title}");
+}

@@ -77,6 +77,7 @@ mod opencode2_merged_names;
 mod opencode2_plugin_actions;
 mod opencode2_plugin_remove;
 mod opencode2_quiet_mapper;
+mod opencode2_subagent_asks;
 mod opencode2_subagent_input;
 mod opencode2_subagent_mapper;
 mod opencode2_subagent_secret;

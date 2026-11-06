@@ -16,6 +16,9 @@ use crate::security::redact_text;
 /// not leave it out and an OMP approval never has it, so it tells them apart when the labels look alike.
 const ASK_OTHER_OPTION: &str = "Other (type your own)";
 
+/// How an OMP tool approval's title starts (`tools/approval.ts`).
+const APPROVAL_TITLE: &str = "Allow tool: ";
+
 /// Placement used when a widget does not name one.
 const DEFAULT_WIDGET_PLACEMENT: &str = "aboveEditor";
 
@@ -30,7 +33,16 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
     let dialog = |kind: UiRequestKind| vec![Inbound::UiRequest(UiRequest::new(id.clone(), kind))];
     let event = |event: AgentEvent| vec![Inbound::Event(event)];
     // An approval's title says what it covers, so a mask there could hide it (or the tool it names).
-    let shown_title = || plain_text(&string(frame, "title").unwrap_or_default());
+    let shown_title = || {
+        let title = string(frame, "title").unwrap_or_default();
+
+        // OMP puts the model's content in `Allow tool:` titles: stripping an escape there can cut what follows it.
+        if title.starts_with(APPROVAL_TITLE) {
+            title
+        } else {
+            plain_text(&title)
+        }
+    };
     let title = || redact_text(&shown_title());
     let timeout_ms = || unsigned(frame, "timeout");
 
@@ -153,16 +165,30 @@ pub fn cancelled_response(id: &str) -> Value {
 mod tests {
     use super::*;
 
+    fn shown_select_title(title: &str) -> String {
+        let frame = json!({ "id": "1", "method": "select", "title": title, "options": ["Approve", "Deny"] });
+
+        match decode_ui_request(&frame).pop() {
+            Some(Inbound::UiRequest(UiRequest {
+                kind: UiRequestKind::Select { title, .. },
+                ..
+            })) => title,
+            _ => panic!("a select is a dialog"),
+        }
+    }
+
+    #[test]
+    fn an_escape_in_an_approval_title_cannot_hide_what_follows() {
+        let title = "Allow tool: write\nContent:\nalias ll\n\u{1b}]0;\ntouch /tmp/marker";
+
+        assert_eq!(shown_select_title(title), title);
+    }
+
     #[test]
     fn an_approval_title_keeps_the_tool_it_names() {
         let title = "Allow tool: mcp__Acme2Server__getCustomerInvoiceSummaryV2";
-        let frame = json!({ "id": "1", "method": "select", "title": title, "options": ["Approve", "Deny"] });
-        let requests = decode_ui_request(&frame);
-        let [Inbound::UiRequest(request)] = requests.as_slice() else {
-            panic!("expected one dialog");
-        };
 
-        assert!(matches!(&request.kind, UiRequestKind::Select { title: shown, .. } if shown == title));
+        assert_eq!(shown_select_title(title), title);
     }
 
     fn select_purpose(options: &[&str]) -> Option<UiPurpose> {

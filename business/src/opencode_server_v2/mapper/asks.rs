@@ -138,7 +138,12 @@ impl Asks {
             permission.action.as_str()
         };
         let asker = if subagent { " for a subagent" } else { "" };
-        let title = match self.subject(action, permission, input) {
+        let subject = if subagent {
+            self.subagent_input(action, permission, input)
+        } else {
+            self.subject(action, permission, input)
+        };
+        let title = match subject {
             Some(subject) => format!("Allow {action}{asker}: {subject}?"),
             None => format!("Allow {action}{asker}?"),
         };
@@ -272,6 +277,31 @@ impl Asks {
     }
 
     /// What a permission request is about, in full on one redacted line (see the module docs).
+    /// What a subagent's ask covers, exactly as sent. Its call is not in the transcript, so the title is the only
+    /// place to judge it, and a mask or a flattened line there could hide part of a command.
+    fn subagent_input(&self, action: &str, permission: &PermissionRequest, input: Option<&Value>) -> Option<String> {
+        let input = input.filter(|input| input.as_object().is_some_and(|fields| !fields.is_empty()));
+
+        if action == "shell"
+            && let Some(command) = input.and_then(|input| text(input, "command"))
+        {
+            return Some(command);
+        }
+
+        let shown = input.map(Value::to_string).unwrap_or_else(|| {
+            let resources: Vec<String> = permission
+                .resources
+                .iter()
+                .filter(|resource| resource.as_str() != "*")
+                .map(|resource| self.relative(resource))
+                .collect();
+
+            resources.join(", ")
+        });
+
+        (!shown.is_empty()).then_some(shown)
+    }
+
     fn subject(&self, action: &str, permission: &PermissionRequest, input: Option<&Value>) -> Option<String> {
         let field = |keys: &[&str]| {
             let input = input?;

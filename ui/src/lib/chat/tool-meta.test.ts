@@ -70,7 +70,13 @@ describe('approvalArgument', () => {
     expect(approvalArgument(call('github', { op: 'delete' }))).toBe('{"op":"delete"}');
   });
 
-  it('keeps a file tool to its path', () => {
-    expect(approvalArgument(call('Edit', { file_path: 'a.ts', old_string: 'x', new_string: 'y' }))).toBe('a.ts');
+  it('shows what a file change writes and keeps a read to its path', () => {
+    expect(approvalArgument(call('Write', { file_path: 'a.ts', content: 'x' }))).toBe('{"file_path":"a.ts","content":"x"}');
+    expect(approvalArgument(call('Read', { file_path: 'a.ts', limit: 5 }))).toBe('a.ts');
+  });
+
+  it('never rewrites the whitespace of an argument', () => {
+    expect(approvalArgument(call('mcp__x__run', { command_text: 'x', path: 'a\nb' }))).toContain('a\\nb');
+    expect(approvalArgument(call('mcp__x__get', { url: 'a\u2028b' }))).toBe('a\u2028b');
   });
 });
