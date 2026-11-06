@@ -77,6 +77,49 @@ describe('resizing a column', () => {
     await fireEvent.pointerUp(edge, { pointerId: 1 });
   });
 
+  it('moves the edge by the column on its left when the title has no room left, so it stays under the pointer', async () => {
+    fakeMemory();
+    await showNotes();
+    const viewport = screen.getByRole('grid').parentElement as HTMLElement;
+
+    Object.defineProperty(viewport, 'scrollWidth', { configurable: true, value: 2000 });
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 1400 });
+
+    const edge = handle('Scope');
+
+    await fireEvent.pointerDown(edge, { clientX: 500, pointerId: 1 });
+    await fireEvent.pointerMove(edge, { clientX: 540, pointerId: 1 });
+    expect(widthOf('Kind')).toBe('240px');
+
+    await fireEvent.pointerMove(edge, { clientX: 460, pointerId: 1 });
+    expect(widthOf('Kind')).toBe('160px');
+
+    await fireEvent.pointerMove(edge, { clientX: 500, pointerId: 1 });
+    await fireEvent.pointerUp(edge, { pointerId: 1 });
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({});
+  });
+
+  it('holds the title to the least width its edge was dragged to, in a table that overflows', async () => {
+    fakeMemory();
+    await showNotes();
+    const viewport = screen.getByRole('grid').parentElement as HTMLElement;
+
+    Object.defineProperty(viewport, 'scrollWidth', { configurable: true, value: 2000 });
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 1400 });
+
+    const edge = handle('Kind');
+
+    await fireEvent.pointerDown(edge, { clientX: 500, pointerId: 1 });
+    await fireEvent.pointerMove(edge, { clientX: 540, pointerId: 1 });
+    await fireEvent.pointerUp(edge, { pointerId: 1 });
+
+    expect(screen.getByRole('grid').style.minWidth).toContain('200px');
+    expect(header('Title').style.width).toBe('');
+
+    await fireEvent.dblClick(edge);
+    expect(screen.getByRole('grid').style.minWidth).not.toContain('200px');
+  });
+
   it('is resized by the arrow keys, 16px at a time, the edge moving the way the key points', async () => {
     fakeMemory();
     await showNotes();

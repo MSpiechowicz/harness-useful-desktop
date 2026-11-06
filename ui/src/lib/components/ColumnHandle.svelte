@@ -9,6 +9,8 @@
     edge: 'start' | 'end';
     /** The width in px the column has now. */
     measure: () => number;
+    /** A drag begins, before the width is measured. */
+    onstart: () => void;
     /** Asks for a width; answers the width it got, which is held between the least and the most the table allows. */
     onresize: (px: number) => number;
     /** The drag or the key press is over: the width is kept. */
@@ -17,7 +19,7 @@
     onreset: () => void;
   }
 
-  let { column, edge, measure, onresize, oncommit, onreset }: Props = $props();
+  let { column, edge, measure, onstart, onresize, oncommit, onreset }: Props = $props();
 
   const KEY_STEP = 16;
 
@@ -42,6 +44,7 @@
     window.getSelection()?.removeAllRanges();
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     hold(true);
+    onstart();
     width = measure();
     origin = { pointer: event.clientX, width };
     dragging = true;
