@@ -1,3 +1,10 @@
+## [0.60.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.2...v0.60.3) (2026-11-06)
+
+
+### Bug Fixes
+
+* **chat:** stop syntax highlighting from freezing a large review ([1499740](https://github.com/MSpiechowicz/harness-useful-desktop/commit/14997401501fea0420e899d71b63b9c6a027a944)), closes [#54](https://github.com/MSpiechowicz/harness-useful-desktop/issues/54)
+
 ## [0.60.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.1...v0.60.2) (2026-11-06)
 
 
