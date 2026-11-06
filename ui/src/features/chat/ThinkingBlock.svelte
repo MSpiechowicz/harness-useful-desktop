@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Gauge from '@lucide/svelte/icons/gauge';
+  import Sparkles from '@lucide/svelte/icons/sparkles';
 
   import Spinner from '$lib/components/Spinner.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
@@ -22,8 +22,8 @@
 
 <ChatRow {open} ontoggle={() => (chosen = !open)} tone="think">
   {#snippet icon()}
-    <!-- The spinner takes the brain's place at the same size, so the row does not shift when the thinking ends. -->
-    {#if streaming}<Spinner size={16} />{:else}<Gauge size={16} aria-hidden="true" />{/if}
+    <!-- The spinner takes the icon's place at the same size, so the row does not shift when the thinking ends. -->
+    {#if streaming}<Spinner size={16} />{:else}<Sparkles size={16} aria-hidden="true" />{/if}
   {/snippet}
 
   {#snippet title()}
