@@ -9,7 +9,7 @@
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\". small (a typo, a one-liner, an obvious bug, a copy tweak): do it and verify, with no workflow stages. medium (a bounded fix or tweak across a few files, no new feature): implement it yourself, then run the enabled review and security review stages, with no scout and no planner or approval. full (a new view, new functionality, a refactor, a data, storage or architecture change, or unclear scope): load the us-run-workflow skill (Harness Skills) and run its full lane: scout research, planner with approval, implementation by workers, reviews, release assessment and memory."
+    "text": "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\". small (a typo, a one-liner, an obvious bug, a copy tweak): do it and verify, with no workflow stages. medium (a bounded fix or tweak across a few files, no new feature): implement it yourself, then run the enabled review and security review stages, with no scout and no planner or approval. full (a new view, new functionality, a refactor, a data, storage or architecture change, or unclear scope): load the us-run-workflow skill (Harness Skills) and run its full lane: scout research, planner with approval, implementation by workers, reviews, release assessment and memory. Before you open any PR, whatever the tier, run the us-assess-release skill on the final commit and put its Review guide in the PR body."
   },
   "enabled": true,
   "createdAt": "2026-10-17T10:00:00Z",

@@ -47,8 +47,11 @@ macro_rules! useful_skills_tiers {
 pub(super) use useful_skills_tiers;
 
 /// The `useful-skills` context: step 30.
-pub const SEED_USEFUL_SKILLS_TEXT: &str = useful_skills_tiers!(
-    "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
+pub const SEED_USEFUL_SKILLS_TEXT: &str = concat!(
+    useful_skills_tiers!(
+        "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
+    ),
+    " Before you open any PR, whatever the tier, run the us-assess-release skill on the final commit and put its Review guide in the PR body."
 );
 
 /// The `branch-sync` context: step 20, after the commits of main the app found.
@@ -68,7 +71,8 @@ pub const SEED_MEMORY_FIRST_TEXT: &str = "Harness Memory notes that match this r
 pub const SEED_CODE_GRAPH_FIRST_TEXT: &str = "Your first tool call on every message MUST be a Harness Code tool, before \
      any grep, find, ls or file read, with project_path (the repository root): code_map for an area (focus = the \
      path the request names), code_symbol when you know a name. Memory and knowledge searches go in that same first \
-     batch. Then use code_impact before changing a signature or behaviour and code_path for how A reaches B. Use \
+     batch. If a Harness Code call fails, fix what the error names and call it again before you use anything else. \
+     Then use code_impact before changing a signature or behaviour and code_path for how A reaches B. Use \
      grep and file reads only for literal text and for details the graph does not show. Status line: \"Code Graph: \
      code_map ui/src/hooks\".";
 

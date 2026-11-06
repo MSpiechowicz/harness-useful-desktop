@@ -9,7 +9,7 @@
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "Your first tool call on every message MUST be a Harness Code tool, before any grep, find, ls or file read, with project_path (the repository root): code_map for an area (focus = the path the request names), code_symbol when you know a name. Memory and knowledge searches go in that same first batch. Then use code_impact before changing a signature or behaviour and code_path for how A reaches B. Use grep and file reads only for literal text and for details the graph does not show. Status line: \"Code Graph: code_map ui/src/hooks\"."
+    "text": "Your first tool call on every message MUST be a Harness Code tool, before any grep, find, ls or file read, with project_path (the repository root): code_map for an area (focus = the path the request names), code_symbol when you know a name. Memory and knowledge searches go in that same first batch. If a Harness Code call fails, fix what the error names and call it again before you use anything else. Then use code_impact before changing a signature or behaviour and code_path for how A reaches B. Use grep and file reads only for literal text and for details the graph does not show. Status line: \"Code Graph: code_map ui/src/hooks\"."
   },
   "enabled": true,
   "createdAt": "2026-10-29T10:00:00Z",
