@@ -9,6 +9,7 @@
   import Gauge from '@lucide/svelte/icons/gauge';
   import GitBranch from '@lucide/svelte/icons/git-branch';
   import Layers from '@lucide/svelte/icons/layers';
+  import MessageCircleQuestion from '@lucide/svelte/icons/message-circle-question';
   import NotebookText from '@lucide/svelte/icons/notebook-text';
   import Search from '@lucide/svelte/icons/search';
   import SearchX from '@lucide/svelte/icons/search-x';
@@ -53,6 +54,7 @@
   const KNOWN: Record<string, { label: MessageKey; icon: Component }> = {
     Limits: { label: 'chat.stepStatus.label.limits', icon: Gauge },
     Branch: { label: 'chat.stepStatus.label.branch', icon: GitBranch },
+    Questions: { label: 'chat.stepStatus.label.questions', icon: MessageCircleQuestion },
     Notes: { label: 'chat.stepStatus.label.notes', icon: NotebookText },
     Scripts: { label: 'chat.stepStatus.label.scripts', icon: FileCode },
     Knowledge: { label: 'chat.stepStatus.label.knowledge', icon: BookOpenText },

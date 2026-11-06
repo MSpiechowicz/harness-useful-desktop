@@ -12,7 +12,7 @@ export interface StepStatusParts {
 const HEADER = '|Step|Status|';
 
 /** The labels of the family hooks' status lines (`business/src/hooks/family_text.rs`). */
-const LABELS = new Set(['Limits', 'Branch', 'Complexity', 'Notes', 'Scripts', 'Knowledge', 'Code Graph']);
+const LABELS = new Set(['Limits', 'Branch', 'Questions', 'Complexity', 'Notes', 'Scripts', 'Knowledge', 'Code Graph']);
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 const DELIMITER = /^\|?[\s:|-]*-[\s:|-]*\|?$/;
@@ -150,7 +150,12 @@ function rowOf(line: string): StepRow {
   return { label: label.trim(), value: rest.join('|').trim() };
 }
 
-/** Reads the table `splitStepStatus` found. A limit that is not close says nothing worth a row. */
+/** A limit that is not close, or a request with no open question, says nothing worth a row. */
+function saysNothing(row: StepRow): boolean {
+  return (row.label === 'Limits' || row.label === 'Questions') && saysNone(row.value);
+}
+
+/** Reads the table `splitStepStatus` found. */
 export function readStepStatus(table: string): StepStatus {
   const rows = table.split('\n').slice(2).map(rowOf);
   const complexity = rows.find((row) => row.label === 'Complexity')?.value ?? null;
@@ -159,6 +164,6 @@ export function readStepStatus(table: string): StepStatus {
   return {
     level: match ? LEVELS[match[1].toLowerCase()] : null,
     reason: (match ? match[2] : complexity)?.trim() || null,
-    rows: rows.filter((row) => row.label !== 'Complexity' && !(row.label === 'Limits' && saysNone(row.value))),
+    rows: rows.filter((row) => row.label !== 'Complexity' && !saysNothing(row)),
   };
 }

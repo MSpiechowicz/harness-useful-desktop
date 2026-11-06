@@ -77,6 +77,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.stepStatus.label.complexity': 'Complexité',
   'chat.stepStatus.label.limits': 'Limites',
   'chat.stepStatus.label.branch': 'Branche',
+  'chat.stepStatus.label.questions': 'Questions',
   'chat.stepStatus.label.notes': 'Notes',
   'chat.stepStatus.label.scripts': 'Scripts',
   'chat.stepStatus.label.knowledge': 'Connaissances',
