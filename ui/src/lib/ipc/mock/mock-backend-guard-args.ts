@@ -4,6 +4,8 @@ import { HELD_NOTE_SAVE_ID, HELD_REVISIONS, HELD_SCRIPT_SAVE_ID } from './memory
 type GuardCommand =
   | 'memory_guards_get'
   | 'memory_guards_update'
+  | 'memory_saving_root'
+  | 'memory_opt_in_notice_done'
   | 'memory_chat_guards_set'
   | 'memory_held_list'
   | 'memory_held_save'
@@ -19,6 +21,8 @@ export function memoryGuardArgs(sessionKey: string): { [K in GuardCommand]: Comm
   return {
     memory_guards_get: undefined,
     memory_guards_update: { patch: { kind: 'notes', addRepo: '/home/demo/project/' } },
+    memory_saving_root: { folder: '/home/demo/project' },
+    memory_opt_in_notice_done: undefined,
     memory_chat_guards_set: { key: CHAT_KEY, guards: { paused: false, notes: { on: true, ask: true }, scripts: { on: false, ask: false } }, revision: 1 },
     memory_held_list: { chatKey: CHAT_KEY },
     memory_held_save: {

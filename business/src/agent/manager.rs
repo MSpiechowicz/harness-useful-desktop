@@ -32,7 +32,9 @@ use tokio::time::Instant;
 
 use super::SessionOptions;
 use super::engine::{AgentSession, SessionLaunch};
-use super::launch::{approval_override, ensure_chat, exec_spec, prepare_memory_chat, resumed_session, trust_once};
+use super::launch::{
+    approval_override, ensure_chat, exec_spec, keep_guards_current, prepare_memory_chat, resumed_session, trust_once,
+};
 use super::sink::{EventSink, PromptTaken};
 use super::slots::{
     BindingSink, Bound, Claimant, Entry, Holder, Reservation, SessionClaim, Slots, bind, open_elsewhere, still_stopping,
@@ -66,6 +68,8 @@ pub struct AgentDeps<'a> {
     pub spawner: Arc<dyn ProcessSpawner>,
     /// The detected harness binary (with the user's override applied).
     pub binary: ResolvedBinary,
+    /// The "Project memory" pref: while it is off no start fails over the save guards.
+    pub memory_enabled: bool,
 }
 
 /// Agents taken out of the manager by [`AgentManager::begin_stop`] or
@@ -190,6 +194,8 @@ impl AgentManager {
         let resume = resumed_session(harness, deps.env, &project, &request)?;
         let approval_override = approval_override(harness, request.approval_override)?;
         let trust_once = trust_once(harness, deps.env, &project, request.trust_once)?;
+
+        keep_guards_current(deps.env, harness, &request, deps.memory_enabled).await?;
 
         // A utility agent saves nothing, so it has no memory identity.
         let memory_session = match request.memory_chat.as_ref().filter(|_| !request.utility) {

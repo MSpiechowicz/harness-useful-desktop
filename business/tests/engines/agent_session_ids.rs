@@ -122,6 +122,7 @@ fn omp_deps<'a>(env: &'a Env, spawner: &Arc<ScenarioSpawner>) -> AgentDeps<'a> {
         env,
         spawner: spawner.clone(),
         binary: binary(),
+        memory_enabled: true,
     }
 }
 
@@ -356,6 +357,7 @@ async fn an_omp_agent_holds_its_session_id_for_pi_too() {
         env: &setup.env,
         spawner: pi_spawner.clone(),
         binary: binary(),
+        memory_enabled: true,
     };
 
     let refused = setup

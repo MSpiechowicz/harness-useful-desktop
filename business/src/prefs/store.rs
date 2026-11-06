@@ -9,6 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 
+use crate::ecosystem::has_memory_database;
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::replace_atomically;
 use crate::git::validate_branch_name;
@@ -42,12 +43,27 @@ pub enum PrefsOrigin {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrefsStore {
     dir: PathBuf,
+    /// Harness Memory's data folder, when known. A prefs file that never existed starts with the
+    /// opt-in notice due when it holds a database ([`has_memory_database`]).
+    memory_data_dir: Option<PathBuf>,
 }
 
 impl PrefsStore {
     /// A store rooted at `dir` (created on first save).
     pub fn new(dir: PathBuf) -> Self {
-        Self { dir }
+        Self {
+            dir,
+            memory_data_dir: None,
+        }
+    }
+
+    /// This store, told where Harness Memory keeps its data: a first load with no prefs file then
+    /// leaves the one-time notice that saving is opt-in due when a database is there (a person who
+    /// used Harness Memory without this app, or lost the prefs file), and done when none is.
+    #[must_use]
+    pub fn with_memory_data_dir(mut self, dir: Option<PathBuf>) -> Self {
+        self.memory_data_dir = dir;
+        self
     }
 
     /// Path of the prefs file.
@@ -78,7 +94,7 @@ impl PrefsStore {
                     return (unusable_defaults(), PrefsOrigin::Unusable);
                 }
 
-                return (AppPrefs::default(), PrefsOrigin::Missing);
+                return (self.first_defaults(), PrefsOrigin::Missing);
             }
             Err(BusinessError::InvalidInput(reason)) => {
                 tracing::warn!(%reason, "unreadable prefs file");
@@ -119,6 +135,19 @@ impl PrefsStore {
         replace_atomically(&self.path(), &json, "replacing prefs file")?;
 
         Ok(prefs)
+    }
+
+    /// The defaults of a store that never held a file. The notice that saving is opt-in is done
+    /// for them (they begin with saving off) unless Harness Memory already has a database on this
+    /// computer: its owner had saving on before this app turned it off, and hears it once. Decided
+    /// here only, so once the file exists later loads keep what it holds.
+    fn first_defaults(&self) -> AppPrefs {
+        let has_data = self.memory_data_dir.as_deref().is_some_and(has_memory_database);
+
+        AppPrefs {
+            memory_opt_in_notice_done: !has_data,
+            ..AppPrefs::default()
+        }
     }
 
     fn ensure_dir(&self) -> Result<()> {
@@ -169,6 +198,8 @@ fn unusable_defaults() -> AppPrefs {
         background_fetch: false,
         // Not marked: the one-time switch to automatic updates runs once a readable file is saved.
         updates_turned_on: false,
+        // The file may be an existing install's: it still gets the notice that saving is opt-in.
+        memory_opt_in_notice_done: false,
         ..AppPrefs::default()
     }
 }

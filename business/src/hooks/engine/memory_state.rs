@@ -5,6 +5,7 @@
 
 use std::path::Path;
 
+use crate::ecosystem::{FeaturesSupport, repo_is_on};
 use crate::hooks::compose::ResolvedPart;
 use crate::model::{GlobalKindGuard, KindGuard, MemoryChatGuards, MemoryGuards};
 
@@ -18,7 +19,8 @@ pub const MEMORY_NOTICE_ID: &str = "harness-desktop:memory-settings";
 pub const MEMORY_NOTICE_NAME: &str = "Memory settings";
 
 /// Where saving one kind (notes or scripts) stands for a chat. The first reason that applies wins,
-/// in the order Harness Memory checks them: everywhere, the project, the chat.
+/// in the order Harness Memory checks them: everywhere, the project, the chat. Saving is opt-in: a
+/// project is off until the user turned the kind on for every project or for its repository.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum SaveRule {
     /// Agents save it.
@@ -28,7 +30,7 @@ pub enum SaveRule {
     Ask,
     /// Paused for every chat (Settings).
     PausedEverywhere,
-    /// Off for the chat's project.
+    /// Not turned on for the chat's project (the default).
     ProjectOff,
     /// The chat is paused.
     ChatPaused,
@@ -45,9 +47,14 @@ impl SaveRule {
     }
 
     /// The rule of one kind from the guards of every chat (`global`), the chat's own (`paused`,
-    /// `kind`) and the chat's project root (`repo`).
-    fn of(global: &GlobalKindGuard, paused: bool, kind: KindGuard, repo: Option<&Path>) -> Self {
-        let project_off = repo.is_some_and(|repo| global.off_repos.iter().any(|off| Path::new(off) == repo));
+    /// `kind`) and the chat's project root (`root`, see [`repo_is_on`]). This app cannot compute
+    /// project keys, so the project counts as on by its path, through the entries that have a pin
+    /// (one without turns nothing on). A project whose key changed since it was turned on still
+    /// reads as on here, while Harness Memory refuses it: its refusal tells the agent and the
+    /// Settings view tells the user.
+    fn of(global: &GlobalKindGuard, paused: bool, kind: KindGuard, root: Option<&Path>) -> Self {
+        let listed = root.is_some_and(|root| repo_is_on(root, &global.pinned_repos()));
+        let project_off = !global.every_project && !listed;
 
         if global.paused {
             return Self::PausedEverywhere;
@@ -90,6 +97,22 @@ impl SaveRule {
     }
 }
 
+/// Whether Harness Memory takes part in a chat, so its guards decide what the agent is told:
+/// `memory_enabled` is the "Project memory" pref and `support` what the installed server says it
+/// can do. False when the pref is off, the server is not installed or predates save guards: it
+/// saves as before (or not at all), so a notice that saving is off would be false. A server that
+/// lists `save-guards` takes part with or without `save-opt-in` (one without it refuses the opt-in
+/// file, so saving really is off), and one that could not be asked takes part too (off is the safe
+/// answer).
+pub fn takes_part(memory_enabled: bool, support: FeaturesSupport) -> bool {
+    memory_enabled
+        && match support {
+            FeaturesSupport::NotInstalled | FeaturesSupport::Unsupported => false,
+            FeaturesSupport::Listed { save_guards, .. } => save_guards,
+            FeaturesSupport::Unknown => true,
+        }
+}
+
 /// Where saving notes and scripts stands for one chat.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct MemoryGuardState {
@@ -113,7 +136,8 @@ impl MemoryGuardState {
     };
 
     /// The state of a chat whose guards are `chat` (default: no chat rules), with the guards of
-    /// every chat `global`, in the project root `repo` (none outside one).
+    /// every chat `global`, in the project root `repo` (none outside one). A git worktree counts as
+    /// its main repository ([`repo_is_on`]), as it does for Harness Memory.
     pub fn of(global: &MemoryGuards, chat: &MemoryChatGuards, repo: Option<&Path>) -> Self {
         Self {
             notes: SaveRule::of(&global.notes, chat.paused, chat.notes, repo),
@@ -194,11 +218,30 @@ impl HookSession {
     /// may be saved hears nothing).
     pub fn set_memory_guards(&mut self, state: MemoryGuardState) {
         self.memory = state;
+        self.memory_apart = false;
     }
 
-    /// Adds the memory settings notice to `plan` when the state changed since the agent was told.
+    /// Harness Memory takes no part in the chat now ([`takes_part`]: Project memory is off, it is
+    /// not installed, or its server has no save guards): the guards do not hold the memory-save
+    /// hook back, and no message carries a notice, neither "on again" nor "off". What the agent
+    /// was told last is kept, so when Harness Memory takes part again only a change since is told.
+    pub fn set_memory_apart(&mut self) {
+        self.memory = MemoryGuardState::OPEN;
+        self.memory_apart = true;
+    }
+
+    /// [`Self::set_memory_guards`] for `Some(state)`, [`Self::set_memory_apart`] for `None`.
+    pub fn set_memory(&mut self, state: Option<MemoryGuardState>) {
+        match state {
+            Some(state) => self.set_memory_guards(state),
+            None => self.set_memory_apart(),
+        }
+    }
+
+    /// Adds the memory settings notice to `plan` when the state changed since the agent was told
+    /// and Harness Memory takes part.
     pub(super) fn announce_memory(&self, plan: &mut SendPlan) {
-        if self.memory == self.announced {
+        if self.memory_apart || self.memory == self.announced {
             return;
         }
 

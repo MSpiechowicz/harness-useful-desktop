@@ -3,9 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } fr
 
 import type { HeldItem } from '$lib/ipc/bindings/HeldItem';
 import { HELD_NOTE_APPEND_ID, HELD_NOTE_SAVE_ID, HELD_NOTE_UPDATE_ID, HELD_SCRIPT_SAVE_ID, sampleHeld } from '$lib/ipc/mock/memory-guards-fixtures';
+import { ipc } from '$lib/ipc/client';
+import { IpcFailure } from '$lib/ipc/transport';
 import { defaultGuards } from '$lib/stores/memory-chat';
 import { memoryChat } from '$lib/stores/memoryChat.svelte';
 import { memoryHeld } from '$lib/stores/memoryHeld.svelte';
+import { projectScopes } from '$lib/stores/project-scopes.svelte';
 
 import MemoryChatRow from './MemoryChatRow.svelte';
 
@@ -36,6 +39,7 @@ afterEach(() => {
   memoryChat.release(AGENT);
   memoryHeld.items = [];
   memoryHeld.failures = {};
+  projectScopes.data = null;
 });
 
 describe('the card of saves waiting for review', () => {
@@ -225,11 +229,123 @@ describe('the card of saves waiting for review', () => {
     expect(screen.getByRole('dialog', { name: 'Edit the note before saving' })).toBeInTheDocument();
   });
 
+  describe('the project of an item that is edited before it is saved', () => {
+    const HOME = '/home/dev/projects/harness-desktop';
+    const OTHERS = [
+      { path: '/work/alpha', name: 'alpha', root: '/work/alpha', key: 'path:/work/alpha' },
+      { path: '/work/beta', name: 'beta', root: '/work/beta', key: 'path:/work/beta' },
+    ];
+
+    /** The sample items with the project the chat has, and the projects the app knows besides it. */
+    function showWithProject(project: string | null, scope: 'repo' | 'global' = 'repo'): void {
+      projectScopes.data = [{ path: HOME, name: 'harness-desktop', root: HOME, key: 'path:' + HOME }, ...OTHERS];
+      show(sampleHeld(KEY).map((held) => ({ ...held, projectPath: project, repoRoot: project, arguments: { ...(held.arguments as object), scope, project_path: project } })));
+    }
+
+    async function openEditor(name: string, title: string): Promise<{ dialog: HTMLElement; field: HTMLElement }> {
+      await fireEvent.click(within(item(name)).getByRole('button', { name: 'Edit' }));
+      const dialog = await screen.findByRole('dialog', { name: title });
+
+      return { dialog, field: within(dialog).getByRole('button', { name: 'Applies to' }) };
+    }
+
+    async function choices(field: HTMLElement): Promise<string[]> {
+      await fireEvent.click(field);
+      const menu = await screen.findByRole('menu', { name: 'Applies to' });
+      const names = within(menu).getAllByRole('menuitemradio').map((choice) => choice.textContent?.trim() ?? '');
+      await fireEvent.keyDown(menu, { key: 'Escape' });
+
+      return names;
+    }
+
+    it.each([
+      ['a note', 'Bindings come from the export test', 'Edit the note before saving'],
+      ['a script', 'check-bindings', 'Edit the script before saving'],
+    ])('offers Global and the project of the chat for %s, and no other project', async (_what, name, title) => {
+      showWithProject(HOME);
+      const { field } = await openEditor(name, title);
+
+      expect(field).toHaveTextContent('harness-desktop');
+      expect(await choices(field)).toEqual(['Global', 'harness-desktop']);
+    });
+
+    it('shows the project of the chat again when the scope goes from Global back to the repository', async () => {
+      showWithProject(HOME);
+      const { dialog, field } = await openEditor('Bindings come from the export test', 'Edit the note before saving');
+
+      await fireEvent.click(field);
+      await fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Global' }));
+      expect(field).toHaveTextContent('Global');
+      expect(within(dialog).getByText('For every project.')).toBeInTheDocument();
+
+      await fireEvent.click(field);
+      await fireEvent.click(await screen.findByRole('menuitemradio', { name: /^harness-desktop/ }));
+      expect(field).toHaveTextContent('harness-desktop');
+      expect(within(dialog).getByText('Only for harness-desktop, the project of this chat.')).toBeInTheDocument();
+
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      expect(save.mock.calls[0][1]).toMatchObject({ scope: 'repo' });
+    });
+
+    it('keeps a save global when the folder the agent named did not resolve, as the server refuses a repository save there', async () => {
+      projectScopes.data = [{ path: HOME, name: 'harness-desktop', root: HOME, key: 'path:' + HOME }, ...OTHERS];
+      show(sampleHeld(KEY).map((held) => ({ ...held, projectPath: null, repoRoot: HOME, arguments: { ...(held.arguments as object), scope: 'global' } })));
+
+      const { dialog, field } = await openEditor('Bindings come from the export test', 'Edit the note before saving');
+
+      expect(field).toBeDisabled();
+      expect(within(dialog).getByText('This chat has no project, so the save can only be global.')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['a note', 'Bindings come from the export test', 'Edit the note before saving'],
+      ['a script', 'check-bindings', 'Edit the script before saving'],
+    ])('keeps %s of a chat without a project global, and says why the project cannot be chosen', async (_what, name, title) => {
+      showWithProject(null);
+      const { dialog, field } = await openEditor(name, title);
+
+      expect(field).toHaveTextContent('Global');
+      expect(field).toBeDisabled();
+      expect(within(dialog).getByText('This chat has no project, so the save can only be global.')).toBeInTheDocument();
+
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      expect(save.mock.calls[0][1]).toMatchObject({ scope: 'global' });
+    });
+
+    it('keeps the project of an edited change to a saved note fixed, as its scope is', async () => {
+      showWithProject(HOME);
+      const { dialog, field } = await openEditor('WebKitGTK caps the page at 60 fps', 'Edit the note before saving');
+
+      expect(field).toBeDisabled();
+      expect(within(dialog).getByText('A note keeps its scope.')).toBeInTheDocument();
+    });
+  });
+
   it('shows why an item could not be saved inside that item', () => {
     show();
     memoryHeld.failures = { [HELD_NOTE_UPDATE_ID]: 'The note was deleted in the meantime, so this change cannot be saved. Skip it.' };
 
     return waitFor(() => expect(within(item('WebKitGTK caps the page at 60 fps')).getByRole('alert')).toHaveTextContent('deleted in the meantime'));
+  });
+
+  it('keeps the item and says the folder changed when Harness Memory refuses the save for it', async () => {
+    const sentence = 'The folder changed since you opened this chat, so nothing was saved. The item stays held.';
+    save.mockRestore();
+    skip.mockRestore();
+    const real = ipc.invoke.bind(ipc);
+    vi.spyOn(ipc, 'invoke').mockImplementation(((name: string, args: unknown) =>
+      name === 'memory_held_save' ? Promise.reject(new IpcFailure({ code: 'process', message: sentence })) : real(name as never, args as never)) as typeof ipc.invoke);
+    show();
+
+    await fireEvent.click(within(item('Bindings come from the export test')).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(within(item('Bindings come from the export test')).getByRole('alert')).toHaveTextContent(sentence));
+    expect(memoryHeld.items.map((held) => held.heldId)).toContain(HELD_NOTE_SAVE_ID);
+    expect(within(item('Bindings come from the export test')).getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 
   it('has no card while nothing waits', () => {

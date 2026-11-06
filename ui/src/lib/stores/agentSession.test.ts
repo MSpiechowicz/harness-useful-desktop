@@ -154,6 +154,17 @@ describe('starting sessions', () => {
     expect(notifications.items[0]).toMatchObject({ description: message, duration: 0 });
   });
 
+  it('says verbatim, and keeps on screen, that the Harness Memory settings could not be updated', async () => {
+    const notifications = new ToastsStore();
+    const message = 'Harness Memory settings could not be updated: the folder /home/me/.local/share/harness-memory/guards is read-only';
+    const transport: Transport = { invoke: () => Promise.reject(new IpcFailure({ code: 'io', message })) };
+    const store = new AgentSessionsStore(transport, notifications);
+
+    expect(await store.start(REQUEST)).toBeNull();
+    expect(store.sessions).toHaveLength(0);
+    expect(notifications.items[0]).toMatchObject({ title: 'Could not start the agent', description: message, tone: 'danger', duration: 0 });
+  });
+
   it('offers to trust a folder the harness does not trust yet once, and starts again only when the user picks that', async () => {
     const notifications = new ToastsStore();
     const requests: AgentStartRequest[] = [];

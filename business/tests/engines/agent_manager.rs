@@ -53,6 +53,7 @@ fn deps<'a>(env: &'a Env, spawner: &Arc<ScenarioSpawner>) -> AgentDeps<'a> {
         env,
         spawner: spawner.clone(),
         binary: binary(),
+        memory_enabled: true,
     }
 }
 
@@ -233,6 +234,7 @@ async fn a_harness_without_chat_is_refused_before_anything_spawns() {
         env: &env,
         spawner: spawner.clone(),
         binary: binary(),
+        memory_enabled: true,
     };
     let error = manager
         .start(request(HarnessId::Pi, project.path()), deps, CollectingSink::new())
@@ -267,6 +269,7 @@ async fn a_yolo_override_is_refused_where_the_harness_offers_no_yolo_mode() {
         env: &env,
         spawner: spawner.clone(),
         binary: binary(),
+        memory_enabled: true,
     };
     let mut yolo = request(HarnessId::Pi, project.path());
     yolo.approval_override = Some(ApprovalMode::Yolo);
@@ -298,6 +301,7 @@ async fn an_auto_override_is_refused_where_the_harness_offers_no_auto_mode() {
             env: &env,
             spawner: spawner.clone(),
             binary: binary(),
+            memory_enabled: true,
         };
         let mut auto = request(harness.id(), project.path());
         auto.approval_override = Some(ApprovalMode::Auto);

@@ -158,6 +158,11 @@ export class PrefsStore {
     }
   }
 
+  /** The one-time memory notice was handled: only this field is taken from the stored preferences, so an update in flight is not disturbed. */
+  keepMemoryOptInNoticeDone(done: boolean): void {
+    this.keepServerSwitch({ memoryOptInNoticeDone: done });
+  }
+
   /** Takes only the switch's own field from its answer. */
   private keepServerSwitch(fields: Partial<AppPrefs>): void {
     if (this.value) {

@@ -80,6 +80,8 @@
     "allow-memory-script-decide",
     "allow-memory-guards-get",
     "allow-memory-guards-update",
+    "allow-memory-saving-root",
+    "allow-memory-opt-in-notice-done",
     "allow-memory-chat-guards-set",
     "allow-memory-held-list",
     "allow-memory-held-save",

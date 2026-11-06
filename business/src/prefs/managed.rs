@@ -152,6 +152,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         code_auto_install_done: _,
         knowledge_restart_notice_done: _,
         updates_turned_on: _,
+        memory_opt_in_notice_done: _,
         main_branches: _,
     } = ui.clone();
 

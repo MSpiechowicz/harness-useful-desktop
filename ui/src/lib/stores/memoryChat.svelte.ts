@@ -57,6 +57,9 @@ export const appEnv: MemoryChatEnv = {
   },
 };
 
+/** How often the guards are read again while they could not be read or the old file is still in use, and a view shows them. */
+export const GLOBAL_RETRY_MS = 30_000;
+
 const SESSIONS_KEY = 'harness:memory-chats';
 /** More resumed sessions than this are not remembered: the oldest are forgotten first. */
 const MAX_REMEMBERED = 200;
@@ -95,7 +98,7 @@ export interface LaunchSource {
 /**
  * What agents may save, per chat and everywhere. Every chat has a random key that Harness Memory knows it by and that
  * its harness gets as `HARNESS_MEMORY_SESSION`, kept across restarts and resumes, with the chat's own guards. The
- * global guards (paused, off in a repository) are read from Harness Memory's files and written back as they change.
+ * global guards (paused, on for every project, on in a repository) are read from Harness Memory's files and written back as they change.
  */
 export class MemoryChatStore {
   /** The identity of each running agent, by its session key. */
@@ -106,9 +109,29 @@ export class MemoryChatStore {
   /** The newest revision written for each chat key's guards: every write is higher, so the backend can drop a late one. */
   private revisions = new Map<string, number>();
 
+  /** The saving root of each folder a chat works in, as `memory_saving_root` answered. A folder without one (gone) is not kept, so it is asked again at the next look. */
+  private roots = new SvelteMap<string, string>();
+  /** The folders whose root is being asked for. */
+  private asking = new Set<string>();
+  /** Rises whenever the guards change: an answer asked for before that is out of date. */
+  private rootGeneration = 0;
+  /** The folders whose root was answered before the guards last changed: the next look at one asks again (and still shows the old answer). */
+  private staleRoots = new Set<string>();
+  /** Rises with `rootGeneration`, so whatever reads a root looks again. */
+  private rootsChanged = $state(0);
+
   /** What every chat allows; null until it was read (or when it cannot be). */
   global = $state.raw<MemoryGuards | null>(null);
+  /** The last read of the global guards failed: the server refuses saves while it cannot read them. */
   globalFailed = $state(false);
+  /** Rises with every update of the global guards that went through: a read that started before one may hold an older state and is dropped. */
+  private globalGeneration = 0;
+  /** The read that is under way: another look at the guards waits for it instead of starting a second. */
+  private reading: Promise<void> | null = null;
+
+  /** How many views keep the global guards current, and the one timer they share while a read keeps failing or the old file is in use. */
+  private watchers = 0;
+  private retry: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly transport: Transport,
@@ -117,6 +140,73 @@ export class MemoryChatStore {
     private readonly storage: Storage | null = typeof localStorage === 'undefined' ? null : localStorage,
   ) {
     this.remembered = readRemembered(storage);
+  }
+
+  /**
+   * The root a chat working in `folder` is listed under in the global guards: a git worktree maps to its main repository, a
+   * separate clone stays separate. Asked once per folder, and again at the first look after the global guards changed (the answer
+   * depends on the projects listed), showing the old answer until the new one is in, so a switch does not blink. Null while it is not
+   * known and for a folder that is gone, which counts as not turned on. A null answer is not kept, so the next look asks again and a
+   * folder that comes back is found.
+   */
+  rootOf(folder: string): string | null {
+    if (folder === '') {
+      return null;
+    }
+
+    // Looks again when the guards changed, so a stale root is asked for by whatever shows it, and only by that.
+    void this.rootsChanged;
+
+    const known = this.roots.get(folder);
+
+    if (known === undefined || this.staleRoots.has(folder)) {
+      void this.askRoot(folder);
+    }
+
+    return known ?? null;
+  }
+
+  private async askRoot(folder: string): Promise<void> {
+    if (this.asking.has(folder)) {
+      return;
+    }
+
+    this.asking.add(folder);
+
+    try {
+      for (;;) {
+        const generation = this.rootGeneration;
+        this.staleRoots.delete(folder);
+        const root = await this.transport.invoke('memory_saving_root', { folder });
+
+        // The guards changed while it was asked: that answer may be out of date, so ask once more.
+        if (generation !== this.rootGeneration) {
+          continue;
+        }
+
+        if (root === null) {
+          this.roots.delete(folder);
+        } else {
+          this.roots.set(folder, root);
+        }
+
+        return;
+      }
+    } catch {
+      // Not known stays off, and the next look at the folder asks again (a root known stays as it was until then).
+      if (this.roots.has(folder)) {
+        this.staleRoots.add(folder);
+      }
+    } finally {
+      this.asking.delete(folder);
+    }
+  }
+
+  /** The roots depend on the guards, which changed: a root known is asked again at its next look, and shown as it was until then. */
+  private markRootsStale(): void {
+    this.rootGeneration += 1;
+    this.staleRoots = new Set(this.roots.keys());
+    this.rootsChanged += 1;
   }
 
   /** The identity of a running agent; null for a chat without one (not supported, or started before it was). */
@@ -129,9 +219,13 @@ export class MemoryChatStore {
     return [...this.chats.values()].map((memory) => memory.key);
   }
 
-  /** Whether chats can carry guards at all, as the Memory button and the Settings cards need to know. */
+  /**
+   * Whether the installed Harness Memory applies the opt-in guards, so the Memory button and the Settings cards have switches that are
+   * honoured. A server with guards but without opt-in refuses the new guards file, so it counts as not supported here (chats still
+   * carry an identity, see `appEnv.supports`).
+   */
   get supported(): boolean {
-    return memoryRemote.value?.saveGuardsSupported === true;
+    return memoryRemote.value?.saveGuardsSupported === true && memoryRemote.value.saveOptInSupported;
   }
 
   /**
@@ -269,17 +363,88 @@ export class MemoryChatStore {
     return this.reviews.get(agentKey) ?? 0;
   }
 
-  /** Reads what every chat allows. A failure leaves what was known (or nothing) and is remembered for the cards to say. */
-  async loadGlobal(): Promise<void> {
+  /**
+   * Reads what every chat allows. A failure leaves what was known (or nothing) and is remembered for the cards to say. A read already under
+   * way is joined, not repeated. A read that started before an update is dropped, so it cannot bring back what the update changed.
+   */
+  loadGlobal(): Promise<void> {
+    this.reading ??= this.read().finally(() => {
+      this.reading = null;
+    });
+
+    return this.reading;
+  }
+
+  private async read(): Promise<void> {
+    const generation = this.globalGeneration;
+
     try {
-      this.global = await this.transport.invoke('memory_guards_get', undefined);
-      this.globalFailed = false;
+      const next = await this.transport.invoke('memory_guards_get', undefined);
+
+      if (generation === this.globalGeneration) {
+        this.take(next, false);
+        this.globalFailed = false;
+      }
     } catch {
-      this.globalFailed = true;
+      if (generation === this.globalGeneration) {
+        this.globalFailed = true;
+      }
+    }
+
+    this.syncRetry();
+  }
+
+  /**
+   * A view that shows the global guards keeps them current: they are read now, and again every `GLOBAL_RETRY_MS` while a read
+   * failed or the old file is still in use. All views share one timer. Returns the function that stops watching.
+   */
+  watchGlobal(): () => void {
+    let watching = true;
+
+    this.watchers += 1;
+    void this.loadGlobal();
+
+    return () => {
+      if (!watching) {
+        return;
+      }
+
+      watching = false;
+      this.watchers -= 1;
+      this.syncRetry();
+    };
+  }
+
+  /** The timer runs only while someone watches and a read keeps failing or the old file is still in use. */
+  private syncRetry(): void {
+    const needed = this.watchers > 0 && (this.globalFailed || this.global?.migrationPending === true);
+
+    if (needed && this.retry === null) {
+      this.retry = setInterval(() => void this.loadGlobal(), GLOBAL_RETRY_MS);
+    } else if (!needed && this.retry !== null) {
+      clearInterval(this.retry);
+      this.retry = null;
     }
   }
 
-  /** What every chat allows, all on while nothing was saved or read yet. */
+  /**
+   * Takes the guards as the backend answered. The roots are asked again when the answer differs from what was known (or `changed`:
+   * after an update), and a read of equal content keeps the object, so nothing that reads it runs again.
+   */
+  private take(next: MemoryGuards, changed: boolean): void {
+    const previous = this.global;
+    const differs = previous !== null && JSON.stringify(previous) !== JSON.stringify(next);
+
+    if (previous === null || differs) {
+      this.global = next;
+    }
+
+    if (changed || differs) {
+      this.markRootsStale();
+    }
+  }
+
+  /** What every chat allows, all off while it was not read yet (saving is opt-in). */
   get guards(): MemoryGuards {
     return this.global ?? NO_GLOBAL_GUARDS;
   }
@@ -287,8 +452,13 @@ export class MemoryChatStore {
   /** One change to the global guards, applied by the backend to what is saved now. The answer is the new state. */
   async updateGlobal(patch: MemoryGuardsPatch): Promise<void> {
     try {
-      this.global = await this.transport.invoke('memory_guards_update', { patch });
+      const next = await this.transport.invoke('memory_guards_update', { patch });
+
+      // A read that started before this answer may hold the state from before the change.
+      this.globalGeneration += 1;
+      this.take(next, true);
       this.globalFailed = false;
+      this.syncRetry();
     } catch (error) {
       this.failed(error);
     }
@@ -298,14 +468,19 @@ export class MemoryChatStore {
     return this.updateGlobal({ kind, paused });
   }
 
-  /** Saving a kind in a repository (its git root) is allowed again, or not. */
-  setRepoOff(kind: GuardKind, root: string, off: boolean): Promise<void> {
-    return this.updateGlobal(off ? { kind, addRepo: root } : { kind, removeRepo: root });
+  /** Saving a kind in a repository (its saving root, or any folder in it) is turned on, or off again. */
+  setRepoOn(kind: GuardKind, repo: string, on: boolean): Promise<void> {
+    return this.updateGlobal(on ? { kind, addRepo: repo } : { kind, removeRepo: repo });
   }
 
-  /** Adds a repository by a folder the user picked; the backend stores its git root. */
+  /** Saving a kind in every project, including ones opened later, is turned on or back to the listed projects only. */
+  setEveryProject(kind: GuardKind, on: boolean): Promise<void> {
+    return this.updateGlobal({ kind, everyProject: on });
+  }
+
+  /** Turns saving on in a repository by a folder the user picked; the backend stores its saving root. */
   addRepo(kind: GuardKind, folder: string): Promise<void> {
-    return this.setRepoOff(kind, folder, true);
+    return this.setRepoOn(kind, folder, true);
   }
 
   private failed(error: unknown): void {

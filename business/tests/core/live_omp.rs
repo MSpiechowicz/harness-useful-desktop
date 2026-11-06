@@ -242,6 +242,7 @@ async fn live_omp_handshake_state_commands_and_shutdown() {
         env: &env,
         spawner,
         binary,
+        memory_enabled: true,
     };
 
     let info = manager

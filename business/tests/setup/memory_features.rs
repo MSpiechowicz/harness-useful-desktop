@@ -5,11 +5,13 @@
 //! features, each set apart from the other. Run against a rule-based stand-in.
 
 use crate::memory_cli_support;
+use crate::memory_remote_support;
 use crate::team_support;
 
-use harness_business::ecosystem::{FeaturesSupport, MemoryFeatures};
+use harness_business::ecosystem::{FeaturesSupport, MemoryFeatures, ScriptsSupport, memory_remote_get};
 use harness_business::process::ExecOutput;
 use memory_cli_support::installed;
+use memory_remote_support::{Home, with_features};
 use pretty_assertions::assert_eq;
 use team_support::{Cli, exits, wait};
 
@@ -36,6 +38,7 @@ fn a_server_that_lists_every_feature_routes_notes_and_scripts_to_both_and_is_ask
             scripts_hide: true,
             scripts_push_json: true,
             save_guards: false,
+            save_opt_in: false,
             embedder: false,
             settings: false,
             notes_lang: false,
@@ -150,6 +153,33 @@ fn save_guards_are_read_from_their_own_line() {
 
     assert!(!FeaturesSupport::Unsupported.save_guards());
     assert!(!FeaturesSupport::Unknown.save_guards());
+}
+
+#[test]
+fn opt_in_saving_is_read_from_its_own_line() {
+    let (_dir, env) = installed();
+
+    let opt_in = wait(MemoryFeatures::new().support(&env, &features("save-guards\nsave-opt-in\n")));
+    assert!(opt_in.save_opt_in());
+    assert!(opt_in.save_guards());
+
+    let guards_only = wait(MemoryFeatures::new().support(&env, &features("save-guards\n")));
+    assert!(guards_only.save_guards());
+    assert!(!guards_only.save_opt_in());
+
+    assert!(!FeaturesSupport::Unsupported.save_opt_in());
+    assert!(!FeaturesSupport::Unknown.save_opt_in());
+
+    let home = Home::new();
+    let flags = |features| {
+        let page = memory_remote_get(&home.env, with_features(ScriptsSupport::Unsupported, features));
+
+        (page.save_guards_supported, page.save_opt_in_supported)
+    };
+
+    assert_eq!(flags(opt_in), (true, true));
+    assert_eq!(flags(guards_only), (true, false));
+    assert_eq!(flags(FeaturesSupport::Unsupported), (false, false));
 }
 
 #[test]

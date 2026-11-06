@@ -84,6 +84,8 @@ const COMMANDS: &[&str] = &[
     "memory_script_decide",
     "memory_guards_get",
     "memory_guards_update",
+    "memory_saving_root",
+    "memory_opt_in_notice_done",
     "memory_chat_guards_set",
     "memory_held_list",
     "memory_held_save",

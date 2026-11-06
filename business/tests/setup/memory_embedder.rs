@@ -219,6 +219,7 @@ fn a_query_keeps_its_lang_only_for_a_server_that_lists_notes_lang() {
         scripts_hide: false,
         scripts_push_json: false,
         save_guards: false,
+        save_opt_in: false,
         embedder: false,
         settings: false,
         notes_lang,

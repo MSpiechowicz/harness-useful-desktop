@@ -1,14 +1,19 @@
 //! What agents may save to Harness Memory (`memory_guards_get`, `memory_guards_update`,
 //! `memory_chat_guards_set`), the saves it held for the user's review (`memory_held_list`,
 //! `memory_held_save`, `memory_held_skip`, `memory_held_listen`), and a chat's "Check again"
-//! (`chat_memory_check_again`). See `harness_business::ecosystem::memory_guards` and
+//! (`chat_memory_check_again`), and the one-time notice that saving became opt-in
+//! (`memory_opt_in_notice_done`). See `harness_business::ecosystem::memory_guards` and
 //! `memory_held` for the files and commands.
 
+use std::path::Path;
+
 use harness_business::ecosystem::{
-    HeldSave, guarded_server, list_held, memory_data_dir, read_global, save_held, skip_held, update_global,
+    HeldSave, guarded_server, list_held, memory_data_dir, read_guards, save_held, saving_root_listed, skip_held,
+    update_guards,
 };
 use harness_business::model::{
-    HeldItem, HeldSaved, MemoryChatGuards, MemoryChatGuardsSet, MemoryGuards, MemoryGuardsPatch, MemoryHeldEvent,
+    AppPrefs, HeldItem, HeldSaved, MemoryChatGuards, MemoryChatGuardsSet, MemoryGuards, MemoryGuardsPatch,
+    MemoryHeldEvent,
 };
 use harness_business::{BusinessError, Result};
 use serde_json::Value;
@@ -20,26 +25,59 @@ use crate::error::CommandResult;
 use crate::hooks::chat::check_again;
 use crate::state::AppState;
 
-/// The guards of every chat: none while nothing was saved. `protocol` for a guards file that
-/// cannot be read (Harness Memory then refuses every save until it is saved again),
-/// `unsupported` while the data folder is unknown.
+/// The guards of every chat: saving off while nothing was saved. A file of the older version 1 is
+/// moved to version 2 first, and a failure of that move is only logged: it reads as version 2 would
+/// hold it (the pauses, saving off) with `migrationPending` set, and the move is tried again at
+/// the next read. `protocol` for a guards file that cannot be read (Harness Memory then refuses
+/// every save until it is saved again), `unsupported` while the data folder is unknown. Each kind's
+/// `changedRepos` names the entries whose project key is no longer the one they had when turned
+/// on, from one question to the installed server (empty when it cannot be asked).
 #[tauri::command]
 pub async fn memory_guards_get(state: State<'_, AppState>) -> CommandResult<MemoryGuards> {
     let data_dir = data_dir(&state)?;
 
-    blocking(move || Ok(read_global(&data_dir)?)).await
+    Ok(read_guards(&state.env, &state.runner, &state.memory_features, data_dir).await?)
 }
 
 /// Applies one change to the guards of every chat, to what is saved now, and returns them as
-/// saved: pause or resume a kind, turn a repository off or on again (each repository kept as its
-/// project root, once, sorted). Changes made at once all apply. `invalidInput` for a repository
-/// that is not an absolute folder path, or more than 256 of them; `protocol` while the saved file
-/// cannot be read.
+/// saved: pause or resume a kind, turn saving on for every project (`everyProject`), turn a
+/// repository on (`addRepo`) or off again (`removeRepo`). Each repository is kept as its saving
+/// root (a git worktree as its main repository), once, sorted. Changes made at once all apply.
+/// Turning a repository on asks the installed server which project the folder given is and pins
+/// the key it answers to the entry (turning a listed repository on again pins the key it has
+/// now, which is how the user accepts a changed remote): when the server cannot be asked, or
+/// cannot use the folder, nothing is written (`notFound`, `unsupported`, `process` or
+/// `invalidInput` with the reason). `invalidInput` for a repository that is not an absolute folder
+/// path, or more than 256 of them; `protocol` while the saved file cannot be read. The answer has
+/// `changedRepos` as `memory_guards_get` does.
 #[tauri::command]
 pub async fn memory_guards_update(state: State<'_, AppState>, patch: MemoryGuardsPatch) -> CommandResult<MemoryGuards> {
     let data_dir = data_dir(&state)?;
 
-    blocking(move || Ok(update_global(&data_dir, &patch)?)).await
+    Ok(update_guards(&state.env, &state.runner, &state.memory_features, data_dir, patch).await?)
+}
+
+/// The saving root of `folder`: its project root, a git worktree as its main repository (the git
+/// folder itself when that is not named `.git`). When the repositories saving is on for list a
+/// checkout that keeps its git folder elsewhere and `folder` is one of its worktrees, the listed
+/// checkout instead, so the UI's comparison with `onRepos` finds it. The answer changes when the
+/// guards do, so the UI must read it again after a guards update. `None` for a folder that is gone
+/// or not a folder.
+#[tauri::command]
+pub async fn memory_saving_root(state: State<'_, AppState>, folder: String) -> CommandResult<Option<String>> {
+    let data_dir = memory_data_dir(&state.env);
+
+    blocking(move || Ok(saving_root_listed(data_dir.as_deref(), Path::new(&folder)))).await
+}
+
+/// Records that the one-time notice about saving being opt-in was shown (`memoryOptInNoticeDone`
+/// in the preferences, which a fresh install starts with), and returns the stored preferences. The
+/// preferences saved by `prefs_set` never change it.
+#[tauri::command]
+pub async fn memory_opt_in_notice_done(state: State<'_, AppState>) -> CommandResult<AppPrefs> {
+    let prefs = state.prefs.clone();
+
+    blocking(move || Ok(prefs.with(|store| store.update(|prefs| prefs.memory_opt_in_notice_done = true))?)).await
 }
 
 /// Saves the guards of chat `key` (a lowercase UUID, `invalidInput` otherwise) at `revision`.

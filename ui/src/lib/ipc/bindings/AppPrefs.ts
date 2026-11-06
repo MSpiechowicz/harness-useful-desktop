@@ -164,6 +164,16 @@ knowledgeRestartNoticeDone: boolean,
  */
 updatesTurnedOn: boolean, 
 /**
+ * Whether the one-time notice that agents save notes and scripts only where the user turned
+ * saving on was handled. A file without this key reads `false`, so every existing install sees
+ * the notice once; fresh installs start with `true` and never see it, since they begin with
+ * saving off, unless Harness Memory already has a database on the computer (someone who used it
+ * before this app, or lost the prefs file): then the first load starts with `false`. Prefs that
+ * could not be read load `false`, so the notice is not lost. Server-managed: only
+ * `memory_opt_in_notice_done` changes it.
+ */
+memoryOptInNoticeDone: boolean, 
+/**
  * Whether closing the main window hides it to the tray instead of quitting, so routines keep
  * running (default off). Without a tray icon closing always quits.
  */

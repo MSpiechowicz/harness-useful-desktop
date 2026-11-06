@@ -190,6 +190,15 @@ pub struct AppPrefs {
     /// the automatic defaults and `true`. Server-managed: only that migration changes it.
     #[serde(default)]
     pub updates_turned_on: bool,
+    /// Whether the one-time notice that agents save notes and scripts only where the user turned
+    /// saving on was handled. A file without this key reads `false`, so every existing install sees
+    /// the notice once; fresh installs start with `true` and never see it, since they begin with
+    /// saving off, unless Harness Memory already has a database on the computer (someone who used it
+    /// before this app, or lost the prefs file): then the first load starts with `false`. Prefs that
+    /// could not be read load `false`, so the notice is not lost. Server-managed: only
+    /// `memory_opt_in_notice_done` changes it.
+    #[serde(default)]
+    pub memory_opt_in_notice_done: bool,
     /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
     /// running (default off). Without a tray icon closing always quits.
     pub keep_running_in_tray: bool,
@@ -251,6 +260,7 @@ impl Default for AppPrefs {
             code_auto_install_done: false,
             knowledge_restart_notice_done: false,
             updates_turned_on: true,
+            memory_opt_in_notice_done: true,
             keep_running_in_tray: false,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,

@@ -6,34 +6,72 @@
 //! refused in those states.
 
 use std::path::Path;
+use std::sync::Arc;
 
-use harness_business::ecosystem::memory_data_dir;
+use harness_business::ecosystem::{MemoryFeatures, memory_data_dir};
 use harness_business::env::Env;
 use harness_business::hooks::{
-    HookSet, MemoryGuardState, SendOrigin, compose_follow_up, handled_without_run, memory_save_part, read_memory_guards,
+    HookSet, MemoryGuardState, SendOrigin, compose_follow_up, handled_without_run, memory_save_part,
+    read_memory_guards, takes_part,
 };
 use harness_business::model::AgentAction;
+use harness_business::process::TokioRunner;
 use harness_business::{BusinessError, Result};
 
 use super::ChatHooks;
-use crate::state::AppState;
+use crate::state::{AppState, SharedPrefs};
+
+/// What decides whether Harness Memory takes part in a chat ([`takes_part`]): taken from the app
+/// state, so a chat's detached hook task can ask without it.
+#[derive(Clone)]
+pub(super) struct MemoryInputs {
+    env: Arc<Env>,
+    prefs: SharedPrefs,
+    features: Arc<MemoryFeatures>,
+}
+
+impl MemoryInputs {
+    pub(super) fn of(state: &AppState) -> Self {
+        Self {
+            env: state.env.clone(),
+            prefs: state.prefs.clone(),
+            features: state.memory_features.clone(),
+        }
+    }
+
+    /// Whether Harness Memory takes part now: the "Project memory" pref is on and the installed
+    /// server applies save guards (asked only while the pref is on, the answer is cached).
+    async fn takes_part(&self) -> bool {
+        let prefs = self.prefs.clone();
+        let enabled = tauri::async_runtime::spawn_blocking(move || prefs.with(|store| store.load()).memory_enabled)
+            .await
+            .unwrap_or(false);
+
+        enabled && takes_part(true, self.features.support(&self.env, &TokioRunner).await)
+    }
+}
 
 impl ChatHooks {
-    /// Where the memory guards in `env`'s Harness Memory data folder leave this chat now (all open
-    /// while the folder is unknown). Reads files off the async runtime.
-    pub(super) async fn memory_guards(&self, env: &Env) -> MemoryGuardState {
-        let Some(data_dir) = memory_data_dir(env) else {
-            return MemoryGuardState::OPEN;
-        };
+    /// Where the memory guards in `inputs`' Harness Memory data folder leave this chat now. `None`
+    /// while Harness Memory takes no part (Project memory off, not installed, or a server without
+    /// save guards, which saves as before) or the folder is unknown: the chat is told nothing
+    /// about saving then. Reads files off the async runtime.
+    pub(super) async fn memory_guards(&self, inputs: &MemoryInputs) -> Option<MemoryGuardState> {
+        let data_dir = memory_data_dir(&inputs.env)?;
+
+        if !inputs.takes_part().await {
+            return None;
+        }
 
         let key = self.memory_key.clone();
         let repo = self.project();
 
-        tauri::async_runtime::spawn_blocking(move || {
+        let read = tauri::async_runtime::spawn_blocking(move || {
             read_memory_guards(&data_dir, key.as_deref(), repo.as_deref().map(Path::new))
         })
-        .await
-        .unwrap_or(MemoryGuardState::CLOSED)
+        .await;
+
+        Some(read.unwrap_or(MemoryGuardState::CLOSED))
     }
 
     /// The chat moved to `folder`: its memory guards file (when it has one) names the git root
@@ -67,7 +105,10 @@ pub async fn check_again(state: &AppState, key: &str) -> Result<()> {
         return Err(BusinessError::NotFound(format!("chat {key}")));
     };
 
-    let guards = chat.memory_guards(&state.env).await;
+    let guards = chat
+        .memory_guards(&MemoryInputs::of(state))
+        .await
+        .unwrap_or(MemoryGuardState::OPEN);
 
     if guards.gate().skips_memory_save() {
         return Err(BusinessError::InvalidInput(

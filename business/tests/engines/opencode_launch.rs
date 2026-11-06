@@ -109,6 +109,7 @@ async fn a_failed_startup_never_shows_the_password() {
         env: &env,
         spawner: spawner.clone(),
         binary: binary(),
+        memory_enabled: true,
     };
 
     let error = manager

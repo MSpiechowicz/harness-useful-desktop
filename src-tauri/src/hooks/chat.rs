@@ -63,6 +63,8 @@ mod sink;
 #[cfg(test)]
 mod tests_lookups;
 #[cfg(test)]
+mod tests_memory;
+#[cfg(test)]
 mod tests_prefetch;
 
 pub use memory::check_again;
@@ -72,6 +74,7 @@ use branch_prefetch::{BranchPrefetch, wanted_at_start};
 use context::with_context;
 use limits::{LimitsWatch, Watch};
 use lookups::BranchLookup;
+use memory::MemoryInputs;
 use report::report;
 
 /// The hook state of one tracked chat.
@@ -203,6 +206,7 @@ pub async fn track(
         runtime: state.hooks.clone(),
         agents: state.agents.clone(),
         env: state.env.clone(),
+        memory: MemoryInputs::of(state),
         chat,
     };
 
@@ -304,7 +308,7 @@ pub async fn send(state: &AppState, key: &str, action: AgentAction) -> Result<Ag
     let started = std::time::Instant::now();
     let hooks = state.hooks.hook_set(chat.project().as_deref()).await;
     let hook_set_ms = started.elapsed().as_millis();
-    session.set_memory_guards(chat.memory_guards(&state.env).await);
+    session.set_memory(chat.memory_guards(&MemoryInputs::of(state)).await);
     let guards_ms = started.elapsed().as_millis() - hook_set_ms;
 
     // Looked up for each message (cached): Harness Skills installed or removed since the chat
@@ -370,6 +374,7 @@ struct ChatTask {
     runtime: Arc<HookRuntime>,
     agents: Arc<Agents>,
     env: Arc<Env>,
+    memory: MemoryInputs,
     chat: Arc<ChatHooks>,
 }
 
@@ -381,7 +386,7 @@ impl ChatTask {
 
             // The guards as they are when the run settles decide its memory-save hook.
             let guards = match event {
-                AgentEvent::Settled { .. } => Some(self.chat.memory_guards(&self.env).await),
+                AgentEvent::Settled { .. } => Some(self.chat.memory_guards(&self.memory).await),
                 _ => None,
             };
 
@@ -389,7 +394,7 @@ impl ChatTask {
                 let mut session = self.chat.session.lock().await;
 
                 if let Some(guards) = guards {
-                    session.set_memory_guards(guards);
+                    session.set_memory(guards);
                 }
 
                 session.on_event(&hooks, &event)

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
@@ -174,26 +174,48 @@ describe('changing what a chat may save', () => {
     expect(toasts.items.map((toast) => toast.description)).toEqual(['the data folder is read-only']);
   });
 
-  it('adds a repository to the ones a kind is off in, and takes it away again', async () => {
+  it('turns a repository on for a kind and off again', async () => {
     const backend = recordingTransport();
     const { store } = await running(backend.transport);
 
-    await store.setRepoOff('notes', '/work/repo', true);
-    expect(store.guards.notes.offRepos).toEqual(['/work/repo']);
-    expect(store.guards.scripts.offRepos).toEqual([]);
+    await store.setRepoOn('notes', '/work/repo', true);
+    expect(store.guards.notes.onRepos).toEqual(['/work/repo']);
+    expect(store.guards.scripts.onRepos).toEqual([]);
 
-    await store.setRepoOff('notes', '/work/repo', false);
-    expect(store.guards.notes.offRepos).toEqual([]);
+    await store.setRepoOn('notes', '/work/repo', false);
+    expect(store.guards.notes.onRepos).toEqual([]);
+  });
+
+  it('turns saving on for every project and back to the listed ones', async () => {
+    const backend = recordingTransport();
+    const { store } = await running(backend.transport);
+
+    await store.setEveryProject('scripts', true);
+    expect(store.guards.scripts.everyProject).toBe(true);
+    expect(store.guards.notes.everyProject).toBe(false);
+
+    await store.setEveryProject('scripts', false);
+    expect(store.guards.scripts.everyProject).toBe(false);
+  });
+
+  it('counts saving as off until the global guards were read', async () => {
+    const { store } = await running(recordingTransport().transport);
+
+    expect(store.guards.notes).toEqual({ paused: false, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] });
   });
 
   it('applies each quick global change to what is saved, so none is lost', async () => {
     const backend = recordingTransport();
     const { store } = await running(backend.transport);
 
-    await Promise.all([store.setGlobalPause('notes', true), store.setRepoOff('scripts', '/work/a', true), store.setRepoOff('scripts', '/work/b', true)]);
+    await Promise.all([store.setGlobalPause('notes', true), store.setRepoOn('scripts', '/work/a', true), store.setRepoOn('scripts', '/work/b', true)]);
     await store.loadGlobal();
 
-    expect(store.guards).toEqual({ notes: { paused: true, offRepos: [] }, scripts: { paused: false, offRepos: ['/work/a', '/work/b'] } });
+    expect(store.guards).toEqual({
+      notes: { paused: true, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] },
+      scripts: { paused: false, everyProject: false, onRepos: ['/work/a', '/work/b'], deadRepos: [], changedRepos: [] },
+      migrationPending: false,
+    });
   });
 
   it('takes the state the backend answers with, not one worked out from an older read', async () => {
@@ -205,7 +227,41 @@ describe('changing what a chat may save', () => {
 
     await store.setGlobalPause('notes', true);
 
-    expect(store.guards).toEqual({ notes: { paused: true, offRepos: [] }, scripts: { paused: true, offRepos: [] } });
+    expect(store.guards).toEqual({
+      notes: { paused: true, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] },
+      scripts: { paused: true, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] },
+      migrationPending: false,
+    });
+  });
+});
+
+describe('the saving root of a chat folder', () => {
+  const rootStore = (transport: Transport) => new MemoryChatStore(transport, new ToastsStore(), env(), memoryStorage());
+
+  it('is asked for once per folder and kept, and is not known until it was answered', async () => {
+    const backend = recordingTransport();
+    const store = rootStore(backend.transport);
+
+    expect(store.rootOf('/work/feature')).toBeNull();
+    await vi.waitFor(() => expect(store.rootOf('/work/feature')).toBe('/work/feature'));
+    store.rootOf('/work/feature');
+
+    expect(backend.of('memory_saving_root')).toEqual([{ folder: '/work/feature' }]);
+  });
+
+  it('is asked again at the next look after the backend could not be reached', async () => {
+    let fail = true;
+    const transport: Transport = { invoke: () => (fail ? Promise.reject(new IpcFailure({ code: 'io', message: 'offline' })) : Promise.resolve('/work/a' as never)) };
+    const store = rootStore(transport);
+
+    store.rootOf('/work/a');
+    await Promise.resolve();
+    await Promise.resolve();
+    fail = false;
+    await vi.waitFor(() => {
+      store.rootOf('/work/a');
+      expect(store.rootOf('/work/a')).toBe('/work/a');
+    });
   });
 });
 

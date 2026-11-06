@@ -60,6 +60,7 @@ mod hooks_mcp_capabilities;
 mod hooks_mcp_scope;
 mod hooks_memory_gate;
 mod hooks_memory_notice;
+mod hooks_memory_opt_in;
 mod hooks_runs;
 mod hooks_steps;
 mod hooks_steps_choice;

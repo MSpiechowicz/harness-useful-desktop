@@ -22,6 +22,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
+use harness_business::agent::SETTINGS_NOT_UPDATED;
 use harness_business::env::Env;
 use harness_business::model::{
     AgentSessionInfo, AgentStartRequest, ApprovalMode, HarnessId, IpcErrorCode, RoutineAction, RoutineModel,
@@ -395,6 +396,10 @@ async fn start(
             return Err(match error.code() {
                 IpcErrorCode::NotFound => RunOutcome::failed(NOT_INSTALLED),
                 IpcErrorCode::Untrusted | IpcErrorCode::UntrustedUnreadable => RunOutcome::failed(UNTRUSTED_MESSAGE),
+                // The sentence names what to fix (a folder other users can write to, say).
+                IpcErrorCode::Io if error.message().starts_with(SETTINGS_NOT_UPDATED) => {
+                    RunOutcome::failed(error.message())
+                }
                 _ => RunOutcome::failed(START_FAILED),
             });
         }

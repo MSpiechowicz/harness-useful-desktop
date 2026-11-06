@@ -11,6 +11,7 @@
   import type { GuardKind } from '$lib/stores/memory-chat';
   import { memoryChat } from '$lib/stores/memoryChat.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
+  import { cx } from '$lib/utils/cx';
 
   import { ASK_PREF, folderName, GUARD_TEXT, pickRepositoryFolder } from './memory-guards';
   import SettingRow from './SettingRow.svelte';
@@ -24,24 +25,24 @@
 
   let picking = $state(false);
 
-  /** The project whose removal waits for the user's yes: taking a project off the list lets agents save there again. */
-  let removing = $state<string | null>(null);
-  let confirming = $state(false);
-
-  function askRemove(repo: string): void {
-    removing = repo;
-    confirming = true;
-  }
-
-  async function remove(): Promise<void> {
-    if (removing !== null) {
-      await memoryChat.setRepoOff(kind, removing, false);
-    }
-  }
+  /** Turning saving on for every project waits for the user's yes: it reaches projects they have not opened yet. */
+  let confirmingEvery = $state(false);
 
   const text = $derived(GUARD_TEXT[kind]);
   const guard = $derived(memoryChat.guards[kind]);
+  const everyDescription = $derived(t(guard.everyProject ? text.everyOn : text.every));
   const askPref = $derived(ASK_PREF[kind]);
+
+  /** Off is immediate. On asks first, and the switch stays off until the user said yes. */
+  function setEvery(on: boolean): void {
+    if (on) {
+      confirmingEvery = true;
+
+      return;
+    }
+
+    void memoryChat.setEveryProject(kind, false);
+  }
 
   async function add(): Promise<void> {
     picking = true;
@@ -81,6 +82,15 @@
     {/snippet}
   </SettingRow>
 
+  <SettingRow title={t('memory.guards.settings.every')} description={everyDescription} descriptions={[t(text.every), t(text.everyOn)]}>
+    {#snippet control()}
+      <Switch
+        label={`${t(text.title)}: ${t('memory.guards.settings.every')}`}
+        bind:checked={() => guard.everyProject, setEvery}
+      />
+    {/snippet}
+  </SettingRow>
+
   <div>
     <SettingRow title={t(text.repos)} description={t(text.reposHelp)}>
       {#snippet control()}
@@ -92,14 +102,24 @@
     </SettingRow>
 
     <ul class="chat-radius -mt-1 mb-4 divide-y divide-line overflow-hidden border border-line" aria-label={t(text.repos)}>
-      {#each guard.offRepos as repo (repo)}
+      {#each guard.onRepos as repo (repo)}
         <li class="flex min-h-12 items-center gap-3 py-1.5 pr-1.5 pl-3.5 text-sm">
           <Folder size={ICON.sm} class="shrink-0 text-fg-3" aria-hidden="true" />
-          <div class="flex min-w-0 flex-1 items-baseline gap-3">
-            <span class="shrink-0 font-medium text-fg">{folderName(repo)}</span>
-            <span class="min-w-0 flex-1 truncate font-mono text-xs text-fg-3" title={repo}>{repo}</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex min-w-0 items-baseline gap-3">
+              <span class={cx('shrink-0 font-medium', guard.deadRepos.includes(repo) ? 'text-fg-3' : 'text-fg')}>{folderName(repo)}</span>
+              <span class="min-w-0 flex-1 truncate font-mono text-xs text-fg-3" title={repo}>{repo}</span>
+            </div>
+            {#if guard.changedRepos.includes(repo)}
+              <p class="mt-0.5 text-xs text-warning">{t('memory.guards.settings.repos.changed')}</p>
+            {:else if guard.deadRepos.includes(repo)}
+              <p class="mt-0.5 text-xs text-warning">{t(guard.everyProject ? 'memory.guards.settings.repos.deadEvery' : 'memory.guards.settings.repos.dead')}</p>
+            {/if}
           </div>
-          <Button variant="ghost" aria-label={t('memory.guards.settings.repos.removeAria', { name: folderName(repo) })} onclick={() => askRemove(repo)}>{t('memory.guards.settings.repos.remove')}</Button>
+          {#if guard.changedRepos.includes(repo)}
+            <Button variant="ghost" aria-label={t('memory.guards.settings.repos.turnOnAgainAria', { name: folderName(repo) })} onclick={() => void memoryChat.addRepo(kind, repo)}>{t('memory.guards.settings.repos.turnOnAgain')}</Button>
+          {/if}
+          <Button variant="ghost" aria-label={t('memory.guards.settings.repos.removeAria', { name: folderName(repo) })} onclick={() => void memoryChat.setRepoOn(kind, repo, false)}>{t('memory.guards.settings.repos.remove')}</Button>
         </li>
       {:else}
         <li class="flex items-center py-1.5 pr-1.5 pl-3.5 text-sm text-fg-3"><span class="flex h-control items-center">{t(text.none)}</span></li>
@@ -109,11 +129,11 @@
 </SettingsSection>
 
 <ConfirmDialog
-  bind:open={confirming}
-  title={t(text.removeTitle, { name: removing ? folderName(removing) : '' })}
-  description={t(text.removeBody)}
-  subject={removing ? { icon: Folder, name: folderName(removing), details: removing } : undefined}
-  confirmLabel={t('memory.guards.settings.repos.remove')}
+  bind:open={confirmingEvery}
+  tone="primary"
+  title={t(text.everyTitle)}
+  description={t(text.everyBody)}
+  confirmLabel={t('memory.guards.settings.every.confirm')}
   cancelLabel={t('memory.guards.settings.repos.cancel')}
-  onconfirm={remove}
+  onconfirm={() => memoryChat.setEveryProject(kind, true)}
 />

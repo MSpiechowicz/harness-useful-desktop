@@ -6,12 +6,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use harness_business::agent::{AgentManager, SessionOptions};
-use harness_business::ecosystem::mcp_target_paths;
+use harness_business::ecosystem::{mcp_target_paths, memory_data_dir, update_global};
 use harness_business::env::Env;
 use harness_business::hooks::HookCapabilities;
 use harness_business::model::{
     AgentStartRequest, Detection, HarnessId, HarnessSummary, HookAction, HookAuthor, HookDraft, HookEvent, HookScope,
-    HookView, VersionSupport,
+    HookView, MemoryGuardKind, MemoryGuardsPatch, VersionSupport,
 };
 use harness_business::process::{ExecSpec, ProcessSpawner, SpawnedProcess, TokioSpawner};
 use harness_business::project::Projects;
@@ -400,6 +400,7 @@ fn agent_setup_with(binary: &Path, harness: HarnessId, spawner: Arc<ScenarioSpaw
     });
 
     claude::trust_project(&state.env, harness, &project);
+    turn_saving_on(&state);
 
     let options = SessionOptions {
         coalesce_window: Duration::ZERO,
@@ -414,6 +415,24 @@ fn agent_setup_with(binary: &Path, harness: HarnessId, spawner: Arc<ScenarioSpaw
         spawner,
         project,
         _dir: dir,
+    }
+}
+
+/// Turns saving notes and scripts on for every project in `state`'s Harness Memory data folder
+/// (saving is off until the user turns it on), so a chat's first message carries no memory notice
+/// that the scripted agents of these tests do not expect.
+fn turn_saving_on(state: &AppState) {
+    let data_dir = memory_data_dir(&state.env).expect("a Harness Memory data folder");
+
+    for kind in [MemoryGuardKind::Notes, MemoryGuardKind::Scripts] {
+        let patch = MemoryGuardsPatch {
+            kind,
+            paused: None,
+            every_project: Some(true),
+            add_repo: None,
+            remove_repo: None,
+        };
+        update_global(&data_dir, &patch, None).expect("saving turned on");
     }
 }
 

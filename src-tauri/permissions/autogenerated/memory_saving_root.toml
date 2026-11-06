@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-saving-root"
+description = "Enables the memory_saving_root command without any pre-configured scope."
+commands.allow = ["memory_saving_root"]
+
+[[permission]]
+identifier = "deny-memory-saving-root"
+description = "Denies the memory_saving_root command without any pre-configured scope."
+commands.deny = ["memory_saving_root"]

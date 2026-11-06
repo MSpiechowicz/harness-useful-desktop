@@ -12,6 +12,9 @@
 //! - `save-guards`: the server applies the save guards of each chat, repository and place, holds
 //!   saves for review (`held list|save|skip`), and saves the user's own notes and scripts through
 //!   `notes save|update` and `scripts save`, which agents cannot reach through MCP;
+//! - `save-opt-in`: `guards/global.json` is version 2, saving is off until the user turns it on
+//!   (`everyProject`, `onRepos`). A server without it refuses every save against a version 2 file, and a
+//!   version 1 file it reads as the old deny list (saving on);
 //! - `embedder`: the local embedder (`embedder run|enable|disable|status|remove-model`) behind
 //!   vector search;
 //! - `settings`: `settings get|set --json` (the English notes setting);
@@ -55,6 +58,9 @@ const SCRIPTS_PUSH_JSON: &str = "scripts-push-json";
 /// The line for save guards, held saves and the user's own saves.
 const SAVE_GUARDS: &str = "save-guards";
 
+/// The line for opt-in saving: `guards/global.json` version 2.
+const SAVE_OPT_IN: &str = "save-opt-in";
+
 /// The line for the local embedder behind vector search.
 const EMBEDDER: &str = "embedder";
 
@@ -95,6 +101,8 @@ pub enum FeaturesSupport {
         scripts_push_json: bool,
         /// `save-guards` is listed.
         save_guards: bool,
+        /// `save-opt-in` is listed.
+        save_opt_in: bool,
         /// `embedder` is listed.
         embedder: bool,
         /// `settings` is listed.
@@ -149,6 +157,12 @@ impl FeaturesSupport {
     /// saves through its CLI: `save-guards` is listed.
     pub fn save_guards(self) -> bool {
         matches!(self, Self::Listed { save_guards: true, .. })
+    }
+
+    /// Whether the server reads `guards/global.json` version 2 (saving is off until the user turns
+    /// it on): `save-opt-in` is listed.
+    pub fn save_opt_in(self) -> bool {
+        matches!(self, Self::Listed { save_opt_in: true, .. })
     }
 
     /// Whether the server runs a local embedder for vector search: `embedder` is listed.
@@ -227,6 +241,7 @@ impl MemoryFeatures {
                 scripts_hide: answer.lists(SCRIPTS_HIDE),
                 scripts_push_json: answer.lists(SCRIPTS_PUSH_JSON),
                 save_guards: answer.lists(SAVE_GUARDS),
+                save_opt_in: answer.lists(SAVE_OPT_IN),
                 embedder: answer.lists(EMBEDDER),
                 settings: answer.lists(SETTINGS),
                 notes_lang: answer.lists(NOTES_LANG),

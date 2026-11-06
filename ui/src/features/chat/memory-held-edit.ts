@@ -6,9 +6,21 @@ import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
 import { blankForm as blankNote, type NoteForm } from '../memory/note-form';
 import { blankForm as blankScript, type ScriptForm } from '../memory/script-form';
 
+/**
+ * The project a held save is written in, whatever the editor shows: the chat's repository, else its project. Null when it has none, or
+ * when the agent named a folder that did not resolve: the server keeps no folder for it and refuses a repository save, so none is offered.
+ */
+export function heldProjectOf(item: HeldItem): string | null {
+  if (item.projectPath === null) {
+    return null;
+  }
+
+  return item.repoRoot ?? item.projectPath;
+}
+
 /** Where the editor shows a save applying: the chat's repository for a repository save, else Global. */
 function targetOf(item: HeldItem, scope: 'repo' | 'global'): ScopeTarget {
-  const path = item.repoRoot ?? item.projectPath;
+  const path = heldProjectOf(item);
 
   return scope === 'repo' && path !== null ? { kind: 'repo', path } : { kind: 'global' };
 }
@@ -43,7 +55,7 @@ export function noteContentOf(item: HeldItem, view: HeldNoteView): NoteContent {
     tags,
     entities,
     scope,
-    repo: scope === 'repo' ? (item.repoRoot ?? item.projectPath) : null,
+    repo: scope === 'repo' ? heldProjectOf(item) : null,
     place: 'local',
     author: { source: item.client, root: item.repoRoot },
     createdAt: item.createdAt,

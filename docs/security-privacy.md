@@ -1470,20 +1470,56 @@ view, the waiting card) are never refused: the server only warns. The app does n
 
 ### Save guards
 
-You decide what agents may save to Harness Memory: per chat, per repository and everywhere, with an optional "Ask before
-saving". The Memory button in the chat top bar opens a popover with a Notes and a Scripts card (this chat, this
+Agents save nothing to Harness Memory until you turn it on: for every project or for a repository you list, per chat
+too, with an optional "Ask before saving". The Memory button in the chat top bar opens a popover with a Notes and a Scripts card (this chat, this
 repository, Ask before saving) and a Pause for the chat. Settings > Memory has a Notes and a Scripts card: pause saving in
-every chat, the Ask default new chats start with, and the repositories where agents save nothing. Plan and file contract:
+every chat, turn it on for every project, the Ask default new chats start with, and the repositories where agents may
+save. Plan and file contract:
 [plans/memory-save-guards.md](plans/memory-save-guards.md). Code: `business/src/ecosystem/memory_guards.rs`,
 `memory_held.rs`, `memory_user_save.rs`, `src-tauri/src/memory_held.rs`.
 
 - **Reading is never affected.** The guards cover only what an agent writes: `note_save`, `note_update`, `note_delete`,
   `entity_link`, `entity_delete`, `script_save` and `script_delete`. Search, recall and running a script work as before,
   and saved notes and scripts stay when a guard is turned on.
+- **Opt-in.** Saving is off by default, for notes and for scripts separately, in a fresh install and in an install
+  that had it on before (a one-time notice tells existing users). It is on for a chat's project when you turned the kind
+  on for every project or listed the project's repository. A git worktree counts as its main repository, a separate clone
+  does not. The app and the server believe a worktree's `.git` file only when its admin folder is a child of
+  `<common>/worktrees`, `commondir` names that common folder, and the admin folder's `gitdir` names this very `.git`
+  file, so a folder's own files (a forged admin folder inside it, or one elsewhere with a good back-link) cannot claim
+  another repository. A common folder named `.git` leads to its checkout. Any other one (`git init
+  --separate-git-dir`, a bare repository) leads to no checkout, and counts only when it is shaped like a git folder
+  (`HEAD` a regular file, `objects` and `refs` folders, no `.git` inside): the worktrees then map to that git folder,
+  and a work tree that merely holds a forged `worktrees/<name>` folder is no git folder, so a forged admin folder in a
+  listed folder maps to itself and stays off. That git folder is turned on only by an entry that is the git folder, or
+  by the listed main checkout that keeps its git folder there (written by the app, so believed), never for a root that
+  maps to itself or to a checkout: a listed folder cannot turn on another repository by naming it in its own `.git`
+  file. A folder that only names the git folder in its own `.git` file is its own root and stays off. Adding a
+  worktree stores the git folder, which turns on the repository's worktrees but not the checkout. This proves nothing
+  against a user-level attacker who can already write inside a repository's own git folder, and a listed checkout whose
+  `.git` file names the git folder of another repository turns on that repository's worktrees (the checkout is the
+  user's own folder). A plain folder delivered without git (an archive, say) that you turned on, shaped like a git
+  folder, can vouch for a folder that has a planted `.git` file: the shape of a folder cannot prove it is a git folder,
+  and it takes a way to put files there, an archive or a shell. With a separate git folder, listing the git folder
+  for one kind and the checkout for another can show a worktree as on in the UI where the server saves. Entries are
+  read as the canonical folders they lead to on both sides, a change leaves the listed entries as they are, and
+  turning a repository off through one of its folders removes every entry of that kind that turns it on.
+  **Pinned keys.** Each entry is also pinned to the project key the repository had when you turned it on (`repoKeys` in
+  `global.json`, `null` for a folder with no project), and the server saves there only while the repository's key is
+  still that one, so a remote that changed since (an upstream change of `.gitmodules` or of a remote that landed in
+  `.git/config`, a `git remote set-url`, a fresh clone at the same path) cannot send an agent's writes to the notes of a
+  repository that is off: the call is refused as `repo-off`. A legitimate remote change stops saving the same way until
+  you turn the project on again in Settings (the card lists such entries as changed). An entry with no pin names nothing.
+  The key is asked of the installed `harness-memory` (`project-key --json`, a user-only command) when you turn a project
+  on, never computed by the app, and a failed question turns nothing on. A submodule is keyed by its path whatever its
+  remote says, so `git submodule sync` cannot give it another project's key. A call with no chat root also counts the server's working folder as one of its repositories, so naming an
+  enabled project in `project_path` does not replace a working folder that is off (both must be on, and a server shared
+  by several chats with no session refuses more than it needs to). A pause stops the kind everywhere first. Your chat's
+  own switches and Ask apply after that.
 - **Off, paused and Ask.** Off or paused refuses every write of that kind. Ask before saving holds only a new or changed
   note or script until you press Save, Edit or Skip in the transcript, and lets deletes and links through. A held save is
   not in the store, search, lists or trust. A script you save from a held item is saved untrusted and still needs your
-  trust before it runs. A repository you turned off applies to everything a chat in that repository writes,
+  trust before it runs. A repository you turned on applies to everything a chat in that repository writes,
   global notes and scripts included. The agent is told that nothing was saved and not to retry.
 - **The session variable.** The app starts every chat's harness with `HARNESS_MEMORY_SESSION=<chatKey>`, a random
   lowercase UUID per chat, which the `harness-memory mcp` child inherits. Codex clears the environment of its MCP
@@ -1496,24 +1532,90 @@ every chat, the Ask default new chats start with, and the repositories where age
   and is no secret. A utility agent and any launch without a chat identity get no value (an inherited one is removed). A value that
   is not a UUID makes every guarded call refuse.
 - **Local files, never in the team database.** In the same folder as `desktop.alive` (`<data>/harness-memory`,
-  `HARNESS_MEMORY_DIR` overrides it): `guards/global.json` and `guards/chats/<chatKey>.json`, written by the app (version
-  1: the pause flags, the chat's on and ask switches, and the git roots of the repositories turned off), and
+  `HARNESS_MEMORY_DIR` overrides it): `guards/global.json` and `guards/chats/<chatKey>.json`, written by the app (`global.json` version
+  2: per kind the pause flag, `everyProject`, `onRepos`, the saving roots of the repositories turned on, and `repoKeys`,
+  their pinned project keys (nothing computed on a read, such as `deadRepos` and `changedRepos`, is written), and the
+  chat file version 1: the chat's pause, on and ask switches), and
   `held/<chatKey>/<heldId>.json`, written by the server (the tool's arguments as the agent sent them, the note or script as saved
   now, the chat key, the repository and a timestamp). Folders `0700`, files `0600` on Unix, written in one rename, a
   symbolic link or a foreign owner refused. At most 50 held items per chat and 512 KiB each, swept after 30 days. A chat's
   guards file stays after the chat ends. None of it goes to the team database, Share setup or the log, and the app logs
   no held text.
-- **Fail closed.** A missing guards file means no guards. An unreadable one or one of another version refuses the save. Ask needs the app to be running (`desktop.alive` younger than 15 s) and refuses
+- **Fail closed.** The desktop treats a missing `global.json` as saving off and writes it (off) before any agent starts,
+  and writes the marker `guards/opt-in` first. The server treats a missing `global.json` as no rules only while that
+  marker does not exist (an older desktop, or none, has chats and no such file and no marker, even with a session set).
+  Once the marker exists, in any form, a missing file refuses (`guard-unreadable`), so deleting `global.json` does not
+  turn saving back on. An unreadable file or one of another version refuses the save too.
+  The app moves a version 1 `global.json` (saving on, `offRepos`) to version 2 at start, at every agent start (routine
+  runs included) and when the Settings cards read the guards, only on a computer that uses Harness
+  Memory (its data folder exists or the `harness-memory` binary resolves: a user without it never gets a folder, a
+  failure or a blocked start). A start fails when the move fails only if it has a memory chat, a readable version 1
+  file remains (the server would keep the deny list with saving on), or neither `global.json` nor the marker exists
+  (a data folder other users can write to, a symbolic link in its place or a folder where the lock belongs leaves
+  neither, and the server then applies no rules), with "Harness Memory settings could not be updated: <reason>", which
+  a routine run shows as its message. Any other failure is a warning, a utility agent never fails, and no start fails
+  while Project memory is off, unless no rules exist (neither `global.json` nor the marker) and this harness's MCP files
+  (`also_read` files included) still list a `harness-memory` server: an OpenCode config with comments, an entry the app
+  does not own or one in an `also_read` file, a failed file change or a harness that was not detected at switch-off keep
+  it configured, and it would then save anywhere (a file that cannot be read counts as listed). Otherwise no harness
+  runs the server: the pauses stay, the list of
+  repositories is dropped, saving is off everywhere until you turn it on. Until the move works (a disk that refuses)
+  the Settings cards say so (`migrationPending`) and Harness Memory still follows the old file. A file it cannot read
+  (not JSON, a symbolic link, another version) is left as it is. Changes of `global.json` hold an exclusive lock on
+  `guards/global.lock` (created `0600`, never through a symbolic link), so two copies of the app cannot lose each
+  other's change, and wait for it at most 5 s (a read of guards that are already current takes no lock). A file that would pass 256 KiB (many long paths) is refused. Ask needs the app to be running (`desktop.alive` younger than 15 s) and refuses
   with "no desktop" otherwise.
 - **Your own saves bypass the guards.** The Notes and Scripts views and the waiting card save through
   `harness-memory notes save|update`, `scripts save` and `held save|skip`, commands of the server's command line that are
   not MCP tools, so an agent using MCP cannot reach them. They run with client name `harness-desktop`, a draft on stdin,
   no shell.
 - **The memory-save hook.** The Harness family hook "Harness Memory - save" is skipped while the chat is paused or notes
-  and scripts are both off for the chat, its repository or everywhere, so the agent is not asked to save what it may not.
+  and scripts are both off for the chat, its project (the default) or everywhere, so the agent is not asked to save what it may not.
   **Check again** in the popover sends the hook's text at once, and is disabled in those states.
+- **Known limits of opt-in.** (1) A Harness Memory without `save-opt-in` in `harness-memory features` refuses every
+  save against a version 2 file (it does not know the version), and the app says to update it. (2) A server from before
+  save guards ignores the file: agents save as they did, and the Memory button and Settings cards are hidden for it.
+  Chats say nothing about saving there, nor while Project memory is off or Harness Memory is not installed: the
+  notice that saving is off is sent only where the server applies save guards (`takes_part` in
+  `business/src/hooks/engine/memory_state.rs`), also when the server could not be asked (off is the safe answer).
+  (3) Turning scripts on while notes stay off leaves a script an agent saves untrusted until you approve it: opt-in does
+  not trust anything.
+  (4) A global routine runs in the routines workspace, which is no project, so its agent saves only while Save in every
+  project is on, also when it names a project that is on. A project routine runs in its project and follows that project.
+  (5) A server with no chat and a working folder with no project (the home folder, or one that is gone) has nothing to
+  check besides `project_path`, so naming a project that is on saves there. (6) A separate clone has its own switch for
+  who may save, but notes of one repository are shared by its `git:` key, so a clone that is on changes what a clone that
+  is off reads. (7) A folder created at the path of a worktree that was deleted without `git worktree remove` or a prune
+  counts as that worktree until the entry goes. (8) After uninstalling the desktop the marker `guards/opt-in` and the
+  version 2 `global.json` stay, so saving stays off with no UI to turn it on until the `guards/` folder is removed, and
+  an older desktop treats version 2 as unreadable. (9) Not fixed: another local user with write access to a data
+  folder that is not private can remove both files. The server does not check the folders before accepting "no rules",
+  because a standalone user's existing folder could break. (10) A held save is checked against the project the guard
+  saw when it was held, with the scope it will have after your edit, so editing a global item into a repository one
+  cannot reach another project, and the project root is compared without following a link at it, so a root swapped
+  for a link to a worktree of another repository that holds the same subfolder is a different project too.
+  (11) A listed folder names a repository only while it is its own canonical form: `dunce::canonicalize(entry)` has to
+  equal the entry exactly, as text, on both sides (the app stores that form, so a spelling that differs only by case or
+  by a Windows drive letter names nothing and the safe answer is off). An entry with a link in it names nothing: it
+  allows no path, no checkout and no git folder. That stops a `git pull` that replaces a listed submodule or nested
+  clone with a tracked link (`sub -> ../O`, also through a middle folder, an absolute target or a fresh clone) from
+  turning on the repository the link leads to. The cost: a project you moved, with a link left at the old path, has to
+  be turned on again at its new place. An entry whose folder was gone when it was added is kept as given and names
+  something only once the folder exists as itself. `removeRepo` of the listed string always works, so the stale entry
+  can be cleaned up in Settings (it is removed alone, not with the repository it would have led to).
+  (12) The app cannot compute project keys, so after a key changed the notice a chat gets can still say saving is on
+  while the server refuses: the refusal tells the agent, and Settings (`changedRepos`) tells you. Turning the project on
+  again accepts the key it has now. A key made from a path matches another made from a path, since a linked worktree of a
+  repository with no remote has a path key of its own, so only a remote that appeared, changed or vanished is a change.
+  A git folder entry is not checked for a change in the app (the folder alone has a `path:` key, the worktree it was
+  pinned from may have a `git:` one), and a git folder turned on while its worktrees have a remote refuses them.
+  (13) A submodule's notes and scripts are keyed by its path from now on: those saved under its old `git:` key stay there,
+  are no longer read from the submodule, and are not shared with a team database, whose other machines never match the path.
 - **Not a sandbox.** The guards stop an agent that uses the Harness Memory MCP tools. An agent with a shell can still
   edit the guards or the database under your home folder or run `harness-memory` itself, the same limit as script trust.
+  A project with notes and scripts both on and Ask off gives an agent with only the Harness Memory tools the same reach:
+  a script it saves there is trusted at once, so `script_run` runs it without asking, and that script can edit the guards.
+  This is a deliberate choice, since almost every harness already gives its agent a shell.
   The folder's privacy is the boundary (see [Script approval](#script-approval)).
 - **Where it works.** The variable reaches the memory server in OMP, PI and OpenCode 1.19.3, tested on Linux. Not tested:
   OpenCode 2.x, macOS and Windows. A harness that does not pass it on is marked `memoryChatGuards: false`: per-chat rules
@@ -1802,7 +1904,7 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | Search model | `models/<id>/` (`model_quantized.onnx`, `tokenizer.json`) in `<data>/harness-memory` | The int8 embedding model, about 135 MB, downloaded by `harness-memory` when vector search is on and checked against a pinned SHA-256. No user data. Deleted by `memory_embedder_remove_model` and by `harness-memory embedder remove-model`. |
 | Note vectors | `vectors.sqlite3` in the same folder | A vector and a text hash per note, the store each belongs to (a hash of the file path or of the team URL without credentials), the active model and the read position per store. Derived from your notes, local to this computer, never in the team database. |
 | Embedder files | `embedder.toml`, `embedder.lock` and `embedder.sock` in the same folder (the socket may be in the temporary folder when the path is long) | `embedder.toml` is `enabled = true\|false`. The lock and the socket (`0600`) exist while the embedder runs. Windows uses a named pipe instead of the socket file. |
-| Save guard files | `guards/global.json`, `guards/chats/<chatKey>.json` and `held/<chatKey>/<heldId>.json` in the same folder as the project memory database | Which saves agents may make (pause flags, per-chat switches, the git roots of repositories turned off) and the saves held for your review (the arguments the agent sent). The app writes the guards, the server writes the held items and the app settles them through the server's commands. Local only, never in the team database. `0600` files in `0700` folders on Unix. See [Save guards](#save-guards). |
+| Save guard files | `guards/global.json`, `guards/chats/<chatKey>.json` and `held/<chatKey>/<heldId>.json` in the same folder as the project memory database | Which saves agents may make (pause flags, per-chat switches, the git roots of the repositories saving is turned on for, and in an old version 1 file the ones turned off) and the saves held for your review (the arguments the agent sent). The app writes the guards, the server writes the held items and the app settles them through the server's commands. Local only, never in the team database. `0600` files in `0700` folders on Unix. See [Save guards](#save-guards). |
 | `harness-memory` server | `~/.local/bin/harness-memory` (Linux, macOS), `%LOCALAPPDATA%\Programs\harness-memory\harness-memory.exe` (Windows) | The server executable, written by its installer (`install.sh` / `install.ps1`) after you confirm, not by the app. Builds up to 0.16 also kept a copy at `<local data>/com.mspiechowicz.harness-useful-desktop/bin/harness-memory[.exe]` on macOS and Windows; the app deletes it at launch once the installed server is in place and nothing runs it. |
 | Harness Memory `config.toml` | `<config>/harness-memory/config.toml` (see [Team database](#team-database)) | Only when you set a team database: its URL, the libSQL token and the note routing, in plain text. Written atomically by the app (`0600` file, `0700` folder on Unix) and read by `harness-memory`; deleted when you turn the team database off. |
 | `memory-registration.json` | The OS app-config directory, beside `prefs.json` | `{"version": 1, "registered": [{"harness", "file"}]}`: the home-relative `mcp.json` paths the server was registered in, so a removed entry is not added back. No file contents. Read with a 64 KiB cap, written atomically; an unusable file is renamed to `memory-registration.json.corrupt-<unix-seconds>`. |
@@ -1825,7 +1927,9 @@ most), `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRef
 `memoryEnabled` and `vectorSearch` decide which directories are read, which programs run and which harness files are written. Only
 Rust changes them: through the native pickers and the project and harness commands, `memoryEnabled` through
 `memory_set_enabled`, which also adds or removes the `harness-memory` entries, and `vectorSearch` through
-`memory_set_vector_search`, which also starts or stops the embedder. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
+`memory_set_vector_search`, which also starts or stops the embedder. The one-time notice that saving became opt-in
+(`memoryOptInNoticeDone`: true in a new prefs file unless `memory.sqlite3` already exists in Harness Memory's data folder, then false; false in an existing one, false again when the file cannot be read) is
+marked done by `memory_opt_in_notice_done` only. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
 `introEnabled`, `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `rememberRecentProjects`,
 `updatePolicy`, `checkCompanionUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`,
 `onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
@@ -1862,7 +1966,8 @@ command is not granted). Process errors name only the program's file name (`Exec
   configuration) and your files. The app's deny-list, redaction and approvals do not restrict it. Approval behaviour is
   the harness's.
 - **Save guards are not a sandbox.** They stop agents that use the Harness Memory MCP tools, not an agent with a shell
-  (see [Save guards](#save-guards)).
+  (see [Save guards](#save-guards)). Opt-in has three further limits there (an older server, a server before save
+  guards, scripts on with notes off).
 - **Chat content is not redacted** (see above).
 - **Git filters.** A repository's `.git/config` can name clean/smudge `filter` drivers; git may run them while `status`
   or `diff` re-reads a changed file, as in a terminal (`business/src/git/mod.rs`). Open only repositories you trust. Read commands never lazy-fetch a missing object (git 2.44 and newer, older git

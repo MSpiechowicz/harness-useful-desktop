@@ -119,6 +119,22 @@ pub(crate) fn sidecar_outcome(changed: Result<SidecarRegistration, Blocked>) -> 
     }
 }
 
+/// True when `file` lists a server of `sidecar` that a harness could load: the target file, or one
+/// of the `also_read` files, holds an entry named like it or running `<binary> mcp`, owned by the
+/// app or not, switched off or not. A file that cannot be read counts as listing it: the answer
+/// is used to refuse, so a doubt is a yes. A missing file lists nothing.
+pub fn sidecar_listed(sidecar: &Sidecar, file: &McpFile) -> bool {
+    let Ok(target) = load(&file.path, file.shape) else {
+        return true;
+    };
+
+    if file.also_read.iter().any(|other| load(other, file.shape).is_err()) {
+        return true;
+    }
+
+    find_server(file, &target, sidecar.mcp_server, sidecar.binary).is_some()
+}
+
 /// Removes the owned entry from `file`, leaving every other server and the
 /// `disabledServers`/`enabledServers` lists as they are. `Ok(true)` when it was removed.
 pub fn unregister_sidecar_mcp(sidecar: &Sidecar, file: &McpFile) -> Result<bool, Blocked> {

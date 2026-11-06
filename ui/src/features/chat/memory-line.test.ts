@@ -2,19 +2,24 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MemoryChatGuards } from '$lib/ipc/bindings/MemoryChatGuards';
+import type { MemoryGuards } from '$lib/ipc/bindings/MemoryGuards';
 import { sampleHeld } from '$lib/ipc/mock/memory-guards-fixtures';
 import { agentSessions } from '$lib/stores/agentSession.svelte';
 import { defaultGuards, NO_GLOBAL_GUARDS, withKind } from '$lib/stores/memory-chat';
 import { memoryChat } from '$lib/stores/memoryChat.svelte';
 import { memoryHeld } from '$lib/stores/memoryHeld.svelte';
-import { projectScopes, revalidateProjectScopes } from '$lib/stores/project-scopes.svelte';
 
 import { PROJECT } from '../../../tests/chat-helpers';
 import { startMockApp } from '../../../tests/mock-app';
 import MemoryChatRow from './MemoryChatRow.svelte';
 
 const KEY = '11111111-2222-4333-8444-555555555555';
-const REPO = 'demo';
+/** Saving is turned on for every project, so what a chat says is about the chat itself. */
+const ALL_ON: MemoryGuards = {
+  notes: { paused: false, everyProject: true, onRepos: [], deadRepos: [], changedRepos: [] },
+  scripts: { paused: false, everyProject: true, onRepos: [], deadRepos: [], changedRepos: [] },
+  migrationPending: false,
+};
 const SAVING = defaultGuards({ notes: false, scripts: false });
 const attached: string[] = [];
 
@@ -36,7 +41,7 @@ const ask = (guards: MemoryChatGuards, ...kinds: Array<'notes' | 'scripts'>) => 
 
 beforeEach(async () => {
   await startMockApp(PROJECT);
-  memoryChat.global = NO_GLOBAL_GUARDS;
+  memoryChat.global = ALL_ON;
 });
 
 afterEach(async () => {
@@ -46,7 +51,6 @@ afterEach(async () => {
   }
 
   memoryChat.global = null;
-  projectScopes.sync(null, null);
   memoryHeld.items = [];
   vi.restoreAllMocks();
 });
@@ -84,17 +88,30 @@ describe('the line a chat says about what it saves', () => {
     expect(lines()).toEqual(['Nothing is saved from this chat. Agents still read notes and scripts.']);
   });
 
-  it('names the repository when notes are off for it', async () => {
-    memoryChat.global = { ...NO_GLOBAL_GUARDS, notes: { paused: false, offRepos: [PROJECT] } };
+  it('says nothing in a project that was not turned on, which is how every project starts', async () => {
+    memoryChat.global = NO_GLOBAL_GUARDS;
     await show(SAVING);
-    // The Memory button in the top bar reads the repositories as the chat opens.
-    revalidateProjectScopes();
+    await vi.waitFor(() => expect(memoryChat.rootOf(PROJECT)).toBe(PROJECT));
 
-    await waitFor(() => expect(lines()).toEqual([`No notes from this chat. Notes are off for ${REPO}.`]));
+    expect(lines()).toEqual([]);
+  });
+
+  it('says only what the user did when the other kind is off by default', async () => {
+    memoryChat.global = { ...NO_GLOBAL_GUARDS, notes: { paused: false, everyProject: false, onRepos: [PROJECT], deadRepos: [], changedRepos: [] } };
+    await show(off(SAVING, 'notes'));
+
+    await waitFor(() => expect(lines()).toEqual(['No notes from this chat.']));
+  });
+
+  it('says nothing about the other kind in a project that has only one kind turned on', async () => {
+    memoryChat.global = { ...NO_GLOBAL_GUARDS, notes: { paused: false, everyProject: false, onRepos: [PROJECT], deadRepos: [], changedRepos: [] } };
+    await show(ask(SAVING, 'notes'));
+
+    await waitFor(() => expect(lines()).toEqual(['Notes wait for your review.']));
   });
 
   it('says scripts are paused everywhere when they are paused in Settings', async () => {
-    memoryChat.global = { ...NO_GLOBAL_GUARDS, scripts: { paused: true, offRepos: [] } };
+    memoryChat.global = { ...ALL_ON, scripts: { paused: true, everyProject: true, onRepos: [], deadRepos: [], changedRepos: [] } };
     await show(SAVING);
 
     expect(lines()).toEqual(['No scripts from this chat. Scripts are paused everywhere.']);

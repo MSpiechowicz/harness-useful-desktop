@@ -12,8 +12,10 @@ export const GUARD_TEXT = {
     repos: 'memory.guards.settings.repos.notes',
     reposHelp: 'memory.guards.settings.repos.help.notes',
     none: 'memory.guards.settings.repos.none.notes',
-    removeTitle: 'memory.guards.settings.repos.removeTitle.notes',
-    removeBody: 'memory.guards.settings.repos.removeBody.notes',
+    every: 'memory.guards.settings.every.notes',
+    everyOn: 'memory.guards.settings.every.on.notes',
+    everyTitle: 'memory.guards.settings.every.confirm.title.notes',
+    everyBody: 'memory.guards.settings.every.confirm.body.notes',
   },
   scripts: {
     title: 'memory.guards.settings.scripts',
@@ -23,8 +25,10 @@ export const GUARD_TEXT = {
     repos: 'memory.guards.settings.repos.scripts',
     reposHelp: 'memory.guards.settings.repos.help.scripts',
     none: 'memory.guards.settings.repos.none.scripts',
-    removeTitle: 'memory.guards.settings.repos.removeTitle.scripts',
-    removeBody: 'memory.guards.settings.repos.removeBody.scripts',
+    every: 'memory.guards.settings.every.scripts',
+    everyOn: 'memory.guards.settings.every.on.scripts',
+    everyTitle: 'memory.guards.settings.every.confirm.title.scripts',
+    everyBody: 'memory.guards.settings.every.confirm.body.scripts',
   },
 } as const satisfies Record<GuardKind, Record<string, MessageKey>>;
 

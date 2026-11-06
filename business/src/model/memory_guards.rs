@@ -5,6 +5,8 @@
 //! The guards live in the server's data folder (`guards/global.json`, `guards/chats/<key>.json`),
 //! the held saves in its `held/` folder; see `crate::ecosystem::memory_guards`.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use ts_rs::TS;
@@ -67,15 +69,50 @@ pub struct MemoryChatStart {
     pub guards: MemoryChatGuards,
 }
 
-/// What every chat allows of one kind, as in `guards/global.json`.
+/// What every chat allows of one kind, as in `guards/global.json` (version 2). Saving is opt-in:
+/// agents save nothing of the kind until the user turns it on for every project or for a
+/// repository, and a pause stops it everywhere.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct GlobalKindGuard {
-    /// Nothing of this kind is saved by any agent.
+    /// Nothing of this kind is saved by any agent, whatever else is on.
     pub paused: bool,
-    /// The repositories (absolute, canonical git roots) where agents save nothing of this kind.
-    pub off_repos: Vec<String>,
+    /// Agents may save this kind in every project.
+    pub every_project: bool,
+    /// The repositories (absolute saving roots: a git worktree counts as its main repository, see
+    /// `memory_saving_root`) where agents may save this kind.
+    pub on_repos: Vec<String>,
+    /// The project key each entry of `onRepos` had when the user turned it on (`repoKeys` in the
+    /// file), by entry: `None` for a folder that has no project, such as the home folder. Harness
+    /// Memory saves in a repository only while its key is still the one pinned, and an entry with
+    /// no pin turns nothing on. Never sent to the UI.
+    #[serde(skip)]
+    #[ts(skip)]
+    pub repo_keys: BTreeMap<String, Option<String>>,
+    /// The entries of `onRepos` that turn nothing on: the folder is gone, its path holds a link,
+    /// it is not in its canonical form (`names_itself`), or it has no pin in `repoKeys`. Computed
+    /// when the guards are read or changed, never written to the file.
+    #[serde(default)]
+    pub dead_repos: Vec<String>,
+    /// The entries of `onRepos` whose project key is not the one pinned when they were turned on
+    /// (the remote of the repository changed): Harness Memory refuses to save there until the user
+    /// turns the project on again, which pins the key it has now. Computed by `memory_guards_get`
+    /// and `memory_guards_update` with one question to the installed server, empty when the server
+    /// cannot be asked, and never written to the file.
+    #[serde(default)]
+    pub changed_repos: Vec<String>,
+}
+
+impl GlobalKindGuard {
+    /// The entries of `onRepos` that have a pin: the only ones that can turn anything on.
+    pub fn pinned_repos(&self) -> Vec<String> {
+        self.on_repos
+            .iter()
+            .filter(|entry| self.repo_keys.contains_key(*entry))
+            .cloned()
+            .collect()
+    }
 }
 
 /// The guards of every chat (`memory_guards_get`, `memory_guards_update`).
@@ -87,6 +124,11 @@ pub struct MemoryGuards {
     pub notes: GlobalKindGuard,
     /// Scripts.
     pub scripts: GlobalKindGuard,
+    /// The file on disk is still version 1 (saving on, `offRepos`) and could not be moved to version 2
+    /// yet: what is shown is its pauses with saving off, and Harness Memory still follows the old file
+    /// until the move works. Computed when the guards are read, never written to the file.
+    #[serde(default)]
+    pub migration_pending: bool,
 }
 
 /// The kind of save a guard covers.
@@ -112,11 +154,16 @@ pub struct MemoryGuardsPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub paused: Option<bool>,
-    /// A repository (any folder in it) where agents save nothing of the kind from now on.
+    /// Turns saving of the kind on for every project (`true`) or back to the listed repositories
+    /// only (`false`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub every_project: Option<bool>,
+    /// A repository (any folder in it) where agents may save the kind from now on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub add_repo: Option<String>,
-    /// A repository turned off before, on again.
+    /// A repository turned on before, off again (as listed or any folder in it).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub remove_repo: Option<String>,

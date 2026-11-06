@@ -1,10 +1,33 @@
 use pretty_assertions::assert_eq;
 
-use super::*;
+use std::collections::BTreeMap;
 
+use super::*;
+use crate::model::{GlobalKindGuard, MemoryGuardKind};
+
+mod changes;
 mod chats;
+mod dead_repos;
+mod global;
+mod hardening;
+#[cfg(unix)]
+mod linked_parent;
+mod read_lock;
+mod saving_root;
+mod saving_root_cases;
+#[cfg(unix)]
+mod saving_root_links;
 
 const KEY: &str = "0f8e5a7c-1d2b-4c3a-9e8f-7a6b5c4d3e2f";
+
+/// [`super::update_global`] for a patch that may turn a repository on: it is pinned with the key a
+/// repository with no remote has (the key the server asks of the folder is its own concern, see
+/// `memory_project_key`).
+fn update_global(data_dir: &Path, patch: &MemoryGuardsPatch) -> Result<MemoryGuards> {
+    let pin = patch.add_repo.as_ref().map(|repo| Pin(Some(format!("path:{repo}"))));
+
+    super::update_global(data_dir, patch, pin)
+}
 
 /// A data folder that does not exist yet, inside a temporary folder that holds a git repository
 /// `repo` with a subfolder `repo/src`.
@@ -26,6 +49,18 @@ fn chat(paused: bool, notes: bool, scripts: bool) -> MemoryChatGuards {
         notes: KindGuard { on: notes, ask: false },
         scripts: KindGuard { on: scripts, ask: true },
     }
+}
+
+/// A data folder in `dir` that other users can write to (`0757`).
+#[cfg(unix)]
+fn open_data_folder(dir: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+
+    let data = dir.join("shared data");
+    std::fs::create_dir(&data).unwrap();
+    std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o757)).unwrap();
+
+    data
 }
 
 #[cfg(unix)]
@@ -56,7 +91,7 @@ fn chat_keys_are_lowercase_uuids() {
 }
 
 #[test]
-fn missing_files_are_no_guards() {
+fn missing_files_leave_saving_off() {
     let (_dir, data, _repo) = setup();
 
     assert_eq!(read_global(&data).unwrap(), MemoryGuards::default());
@@ -64,7 +99,7 @@ fn missing_files_are_no_guards() {
 }
 
 #[test]
-fn global_guards_round_trip_privately_with_repositories_as_project_roots() {
+fn global_guards_round_trip_privately_with_repositories_as_listed() {
     let (_dir, data, repo) = setup();
     let root = repo.to_string_lossy().into_owned();
     let gone = repo.with_file_name("no-such-repository").to_string_lossy().into_owned();
@@ -72,33 +107,78 @@ fn global_guards_round_trip_privately_with_repositories_as_project_roots() {
     let asked = MemoryGuards {
         notes: GlobalKindGuard {
             paused: false,
-            off_repos: vec![
+            every_project: false,
+            on_repos: vec![
                 repo.join("src").to_string_lossy().into_owned(),
                 root.clone(),
                 gone.clone(),
+                gone.clone(),
             ],
+            repo_keys: [
+                (
+                    repo.join("src").to_string_lossy().into_owned(),
+                    Some("git:example.invalid/acme/src".to_owned()),
+                ),
+                (root.clone(), None),
+                (gone.clone(), Some("path:/gone".to_owned())),
+                // A pin of an entry that is not listed is not written.
+                ("/not/listed".to_owned(), Some("path:/not/listed".to_owned())),
+            ]
+            .into(),
+            dead_repos: Vec::new(),
+            changed_repos: Vec::new(),
         },
         scripts: GlobalKindGuard {
             paused: true,
-            off_repos: Vec::new(),
+            every_project: true,
+            on_repos: Vec::new(),
+            repo_keys: BTreeMap::new(),
+            dead_repos: Vec::new(),
+            changed_repos: Vec::new(),
         },
+        ..MemoryGuards::default()
     };
 
     let written = write_global(&data, &asked).unwrap();
-    let mut expected = vec![root.clone(), gone];
+    let mut expected = vec![
+        repo.join("src").to_string_lossy().into_owned(),
+        root.clone(),
+        gone.clone(),
+    ];
     expected.sort();
     assert_eq!(
-        written.notes.off_repos, expected,
-        "a subfolder counts as its repository, once"
+        written.notes.on_repos, expected,
+        "listed as given, without duplicates, sorted"
     );
     assert!(written.scripts.paused);
-    assert_eq!(read_global(&data).unwrap(), written);
+    // What is read also says which entries turn nothing on (the folder that is gone).
+    let read = read_global(&data).unwrap();
+    assert_eq!(read.notes.dead_repos, std::slice::from_ref(&gone));
+    assert_eq!(read, with_dead_repos(written.clone()));
+    assert_eq!(
+        written.notes.repo_keys.len(),
+        3,
+        "the pin of an unlisted entry is dropped"
+    );
 
     let text = std::fs::read_to_string(global_path(&data)).unwrap();
     let file: serde_json::Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(file["version"], 1);
-    assert_eq!(file["notes"]["offRepos"][1], root.as_str());
+    assert_eq!(file["version"], 2);
+    assert_eq!(file["notes"]["onRepos"][1], root.as_str());
+    assert_eq!(file["notes"]["everyProject"], false);
     assert_eq!(file["scripts"]["paused"], true);
+    assert_eq!(file["scripts"]["everyProject"], true);
+
+    // Each kind holds exactly what the server reads (it refuses unknown keys): what is computed on
+    // a read never reaches the file, and the pins do, `null` for a folder with no project.
+    for kind in ["notes", "scripts"] {
+        let mut keys: Vec<&str> = file[kind].as_object().unwrap().keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["everyProject", "onRepos", "paused", "repoKeys"], "{kind}");
+    }
+    assert_eq!(file["notes"]["repoKeys"][&root], serde_json::Value::Null);
+    assert_eq!(file["notes"]["repoKeys"][&gone], "path:/gone");
+    assert_eq!(file["scripts"]["repoKeys"], serde_json::json!({}));
 
     #[cfg(unix)]
     {
@@ -144,12 +224,8 @@ fn chat_guards_round_trip_privately() {
 #[cfg(unix)]
 #[test]
 fn a_data_folder_other_users_can_write_to_names_the_fix() {
-    use std::os::unix::fs::PermissionsExt;
-
     let (dir, _data, _repo) = setup();
-    let data = dir.path().join("shared data");
-    std::fs::create_dir(&data).unwrap();
-    std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o757)).unwrap();
+    let data = open_data_folder(dir.path());
 
     let refused = write_chat(&data, KEY, &chat(false, true, true), None);
     let shown = data.display().to_string();
@@ -172,8 +248,8 @@ fn a_relative_repository_is_refused() {
     let (_dir, data, _repo) = setup();
     let guards = MemoryGuards {
         notes: GlobalKindGuard {
-            paused: false,
-            off_repos: vec!["relative/repo".to_owned()],
+            on_repos: vec!["relative/repo".to_owned()],
+            ..GlobalKindGuard::default()
         },
         ..MemoryGuards::default()
     };
@@ -194,7 +270,7 @@ fn symbolic_links_are_never_written_through_or_read() {
     let elsewhere = dir.path().join("elsewhere.json");
     std::fs::write(
         &elsewhere,
-        r#"{"version":1,"notes":{"paused":false,"offRepos":[]},"scripts":{"paused":false,"offRepos":[]}}"#,
+        r#"{"version":2,"notes":{"paused":false,"everyProject":true,"onRepos":[],"repoKeys":{}},"scripts":{"paused":false,"everyProject":true,"onRepos":[],"repoKeys":{}}}"#,
     )
     .unwrap();
     std::os::unix::fs::symlink(&elsewhere, global_path(&data)).unwrap();
@@ -235,6 +311,7 @@ fn patch(kind: MemoryGuardKind) -> MemoryGuardsPatch {
         kind,
         paused: None,
         add_repo: None,
+        every_project: None,
         remove_repo: None,
     }
 }
@@ -264,7 +341,7 @@ fn a_patch_changes_only_what_it_names() {
     )
     .unwrap();
     assert_eq!(
-        added.notes.off_repos,
+        added.notes.on_repos,
         std::slice::from_ref(&root),
         "kept as its repository"
     );
@@ -278,7 +355,7 @@ fn a_patch_changes_only_what_it_names() {
         },
     )
     .unwrap();
-    assert!(removed.notes.off_repos.is_empty());
+    assert!(removed.notes.on_repos.is_empty());
     assert!(removed.scripts.paused);
     assert_eq!(read_global(&data).unwrap(), removed);
 }
@@ -315,7 +392,7 @@ fn patches_made_at_once_all_apply() {
     });
 
     let saved = read_global(&data).unwrap();
-    assert_eq!(saved.notes.off_repos, repos);
+    assert_eq!(saved.notes.on_repos, repos);
     assert!(saved.scripts.paused);
 }
 

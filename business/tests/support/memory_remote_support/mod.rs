@@ -39,6 +39,7 @@ pub const EVERY_FEATURE: FeaturesSupport = FeaturesSupport::Listed {
     scripts_hide: true,
     scripts_push_json: true,
     save_guards: true,
+    save_opt_in: false,
     embedder: false,
     settings: false,
     notes_lang: false,

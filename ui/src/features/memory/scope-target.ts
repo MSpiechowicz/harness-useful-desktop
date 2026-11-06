@@ -1,4 +1,5 @@
-import { buildTargetOptions, projectChoice, type ScopeTarget, targetValue } from '$lib/components/scope/scope-options';
+import { buildTargetOptions, folderName, projectChoice, type ScopeTarget, targetValue } from '$lib/components/scope/scope-options';
+import { t } from '$lib/i18n/i18n.svelte';
 import type { ProjectScope } from '$lib/ipc/bindings/ProjectScope';
 import { GLOBAL_ONLY } from '$lib/stores/memory-reach';
 
@@ -56,6 +57,43 @@ export function targetOfItem(item: Placed, projects: ProjectScope[]): ScopeTarge
  */
 export function editProject(item: Placed, projects: ProjectScope[], activePath: string | null): string | null {
   return (item.repo === null ? undefined : projectOfRepo(item.repo, projects)?.path) ?? activePath;
+}
+
+/**
+ * The project a save an agent holds is written in (null when its chat has none). The save lands there whatever an editor shows, so the
+ * Applies to field offers Global and that project only, and only Global when there is none.
+ */
+export interface PinnedProject {
+  path: string | null;
+}
+
+/** The projects the Applies to field offers: all of them, or for a held save its project alone (by the name the known projects give it, else by its folder). */
+export function offeredProjects(pinned: PinnedProject | null, projects: ProjectScope[]): ProjectScope[] {
+  if (pinned === null) {
+    return projects;
+  }
+
+  if (pinned.path === null) {
+    return [];
+  }
+
+  const path = pinned.path;
+  const known = projects.find((candidate) => candidate.path === path || candidate.root === path);
+
+  return [{ path, name: known?.name ?? folderName(path), root: path, key: known?.key ?? null }];
+}
+
+/** What the Applies to field says for a held save: why it cannot be anything but Global, or which project it is kept in. Null for a save that is not held, or applies globally. */
+export function pinnedHelp(pinned: PinnedProject | null, target: ScopeTarget, offered: ProjectScope[]): string | null {
+  if (pinned === null) {
+    return null;
+  }
+
+  if (pinned.path === null) {
+    return t('memory.guards.edit.scope.noProject');
+  }
+
+  return target.kind === 'repo' ? t('memory.guards.edit.scope.repo', { project: targetLabel(offered, target, t('components.scope.global')) }) : null;
 }
 
 /** The project a new item is saved in: the chosen folder, none for Global. */

@@ -50,6 +50,7 @@ export function defaultPrefs(): AppPrefs {
     codeAutoInstallDone: false,
     knowledgeRestartNoticeDone: false,
     updatesTurnedOn: true,
+    memoryOptInNoticeDone: false,
     keepRunningInTray: false,
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
@@ -73,6 +74,8 @@ export class MockState {
   knowledgeVectorSearch = true;
   codeEnabled = true;
   codeAutoInstallDone = false;
+  /** Whether the notice that saving notes and scripts is opt-in was handled: only `memory_opt_in_notice_done` changes it. */
+  memoryOptInNoticeDone = false;
   /** The main branch picked per project: only `git_set_main_branch` changes it. */
   mainBranches: MainBranchChoice[] = [];
   recents: ProjectInfo[] = structuredClone(fixtures.recentProjects);
@@ -115,6 +118,7 @@ export class MockState {
       codeAutoInstallDone: this.codeAutoInstallDone,
       knowledgeRestartNoticeDone: false,
       updatesTurnedOn: true,
+      memoryOptInNoticeDone: this.memoryOptInNoticeDone,
       mainBranches: structuredClone(this.mainBranches),
     };
   }
@@ -122,6 +126,13 @@ export class MockState {
   /** The "Project memory" switch: the only way to change `memoryEnabled`. */
   setMemoryEnabled(enabled: boolean): AppPrefs {
     this.memoryEnabled = enabled;
+
+    return this.snapshot();
+  }
+
+  /** The opt-in notice was shown: it never comes back. */
+  markMemoryOptInNoticeDone(): AppPrefs {
+    this.memoryOptInNoticeDone = true;
 
     return this.snapshot();
   }

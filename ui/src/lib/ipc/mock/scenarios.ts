@@ -159,6 +159,7 @@ export function defaultScenario(): Scenario {
       server: setup.memoryServer(),
       manualRemovals: enabled ? [] : manualRemovalsOf(setupScenarioFromLocation()),
     }),
+    memory_opt_in_notice_done: () => state.markMemoryOptInNoticeDone(),
     // The switch reports the knowledge server the setup mock installs.
     knowledge_set_enabled: ({ enabled }) => ({
       knowledgeEnabled: state.setKnowledgeEnabled(enabled).knowledgeEnabled,

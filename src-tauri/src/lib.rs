@@ -41,6 +41,7 @@ mod window;
 
 use std::process::ExitCode;
 
+use harness_business::ecosystem::{ensure_global, guards_data_dir};
 use tauri::Manager;
 
 use crate::state::AppState;
@@ -66,6 +67,20 @@ pub fn run() -> ExitCode {
             // Once per install: every update setting becomes automatic (the user can turn them off after).
             if let Err(error) = app.state::<AppState>().prefs.with(|store| store.turn_updates_on_once()) {
                 tracing::warn!(%error, "cannot turn the update settings on");
+            }
+            // Once per launch, before anything reads or changes them: the save guards become the
+            // opt-in version 2 (saving off until the user turns it on), with the marker that makes a
+            // missing file refuse. A failure is logged: every agent start tries again and, while
+            // Project memory is on, fails if it still cannot be written (the server would keep the
+            // deny list of version 1, or apply no rules when it finds neither file nor marker). A
+            // start with Project memory off only warns, unless the rules are missing or a readable
+            // version 1 file remains and the harness's MCP files still list the memory server (see
+            // `keep_guards_current`).
+            // Nothing is created for a user without Harness Memory (no data folder, no server).
+            if let Some(data_dir) = guards_data_dir(&app.state::<AppState>().env)
+                && let Err(error) = ensure_global(&data_dir)
+            {
+                tracing::warn!(code = ?error.code(), "the memory save guards could not be brought to the current version");
             }
             app.state::<AppState>().agents.sweep_orphans_in_background();
             window::create_main_window(app)?;
@@ -164,6 +179,8 @@ pub fn run() -> ExitCode {
             commands::memory_requests::memory_script_decide,
             commands::memory_guards::memory_guards_get,
             commands::memory_guards::memory_guards_update,
+            commands::memory_guards::memory_saving_root,
+            commands::memory_guards::memory_opt_in_notice_done,
             commands::memory_guards::memory_chat_guards_set,
             commands::memory_guards::memory_held_list,
             commands::memory_guards::memory_held_save,

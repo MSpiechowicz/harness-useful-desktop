@@ -50,6 +50,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "codeAutoInstallDone": false,
             "knowledgeRestartNoticeDone": false,
             "updatesTurnedOn": true,
+            "memoryOptInNoticeDone": true,
             "keepRunningInTray": false,
             "memoryNotesAskDefault": false,
             "memoryScriptsAskDefault": false,

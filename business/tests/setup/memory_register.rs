@@ -7,6 +7,8 @@ use crate::mcp_support;
 
 use std::path::PathBuf;
 
+#[cfg(unix)]
+use harness_business::ecosystem::memory_mcp_listed;
 use harness_business::ecosystem::{
     Blocked, McpFile, MemoryRegistration, Shape, register_memory_mcp, unregister_memory_mcp,
 };
@@ -185,6 +187,32 @@ fn files_that_cannot_be_changed_safely_are_refused_without_writing() {
 }
 
 #[cfg(unix)]
+/// What the start of an agent asks while Project memory is off: is the server still configured?
+#[test]
+fn the_memory_server_is_listed_by_the_target_file_or_a_file_it_also_reads_or_by_a_file_that_cannot_be_read() {
+    let home = Home::new();
+    assert!(!memory_mcp_listed(&home.file()), "no file lists nothing");
+
+    home.write(
+        "mcp.json",
+        r#"{"mcpServers":{"other":{"command":"/x/other","args":["mcp"]}}}"#,
+    );
+    assert!(!memory_mcp_listed(&home.file()), "another server");
+
+    // An entry the app does not own, switched off or not, in a file the harness also reads.
+    let foreign = r#"{"mcpServers":{"mine":{"command":"/x/harness-memory","args":["mcp"],"disabled":true}}}"#;
+    home.write(".mcp.json", foreign);
+    assert!(memory_mcp_listed(&home.file()), "also read");
+
+    // A file that cannot be read counts as listing it, in either place.
+    home.write(".mcp.json", "{ not json");
+    assert!(memory_mcp_listed(&home.file()), "also read, unreadable");
+
+    std::fs::remove_file(home.agent(".mcp.json")).unwrap();
+    home.write("mcp.json", "{ not json");
+    assert!(memory_mcp_listed(&home.file()), "target, unreadable");
+}
+
 #[test]
 fn a_symlinked_file_is_refused_and_its_target_untouched() {
     let home = Home::new();

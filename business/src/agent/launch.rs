@@ -10,8 +10,11 @@ use std::path::Path;
 
 use super::manager::AgentDeps;
 use crate::ecosystem::knowledge_binary::KNOWLEDGE_SESSION_VAR;
-use crate::ecosystem::memory_data_dir;
-use crate::ecosystem::memory_guards::{SESSION_VAR, chat_repo_root, check_chat_key, write_chat};
+use crate::ecosystem::memory_guards::{
+    SESSION_VAR, chat_repo_root, check_chat_key, ensure_global, guards_data_dir, rules_missing, version_one_remains,
+    write_chat,
+};
+use crate::ecosystem::{mcp_target, memory_data_dir, memory_mcp_listed};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::harness::{Harness, LaunchRequest};
@@ -140,8 +143,97 @@ pub(super) fn exec_spec(
     Ok(spec)
 }
 
+/// How the failure of [`keep_guards_current`] begins: "Harness Memory settings could not be
+/// updated: <reason>".
+pub const SETTINGS_NOT_UPDATED: &str = "Harness Memory settings could not be updated";
+
+/// Brings the guards of every chat in Harness Memory's data folder up to date ([`ensure_global`])
+/// before an agent starts, whether it is a chat, a routine's run or a utility one: the server reads
+/// them for every one of them. It runs first in a start, so the file the rules are read against is
+/// current for every agent that starts.
+///
+/// Nothing happens (no folder or file is created) while this computer does not use Harness Memory:
+/// no data folder and no server ([`guards_data_dir`]), unless the start has a memory chat, whose
+/// guards are written to that folder anyway and must come with the marker. Otherwise the work runs
+/// off the runtime's workers.
+///
+/// A failure fails the start when the server would then apply other rules than the user's: the
+/// start has a memory chat (whose rules would not be current), a readable version 1 file remains
+/// (the server would keep its deny list, with saving on), or neither `global.json` nor the marker
+/// exists ([`rules_missing`]: a folder that could not be taken or written leaves neither, and the
+/// server then applies no rules at all). It never fails a utility agent. While Project memory is
+/// off (`memory_enabled`) the app removed its entry, so usually no harness runs the server and the
+/// alert in Settings would be greyed out: a failure is then logged and the agent starts, except
+/// when the rules are missing or a readable version 1 file remains, and this harness's MCP files,
+/// the ones it also reads included, still list a `harness-memory` server ([`memory_mcp_listed`]):
+/// an OpenCode config with comments, an entry the app does not own, a file change that failed or a
+/// harness that was not detected at switch-off leave it configured, and it would save anywhere
+/// (with no rules) or with the old deny list. A file that cannot be read counts as listing it. Any other failure is logged and the agent starts. The error is `io` with a
+/// sentence for the user: "Harness Memory settings could not be updated: <reason>".
+pub(super) async fn keep_guards_current(
+    env: &Env,
+    harness: &dyn Harness,
+    request: &AgentStartRequest,
+    memory_enabled: bool,
+) -> Result<()> {
+    // Only asked while Project memory is off: the files that may still start the server.
+    let mcp_file = if memory_enabled { None } else { mcp_target(env, harness) };
+    let env = env.clone();
+    let memory_chat = request.memory_chat.is_some();
+
+    let outcome = tokio::task::spawn_blocking(move || {
+        let data_dir = if memory_chat {
+            memory_data_dir(&env)?
+        } else {
+            guards_data_dir(&env)?
+        };
+        let result = ensure_global(&data_dir);
+        let missing = result.is_err() && rules_missing(&data_dir);
+        let stale = result.is_err() && (missing || version_one_remains(&data_dir));
+        let server_left = stale && mcp_file.as_ref().is_some_and(memory_mcp_listed);
+
+        Some((result, stale, server_left))
+    })
+    .await
+    .map_err(|error| BusinessError::Internal(format!("updating the memory settings failed: {error}")))?;
+
+    let Some((Err(error), stale, server_left)) = outcome else {
+        return Ok(());
+    };
+
+    let fails = if memory_enabled {
+        memory_chat || stale
+    } else {
+        server_left
+    };
+
+    if request.utility || !fails {
+        tracing::warn!(code = ?error.code(), "the memory save guards could not be brought up to date");
+        return Ok(());
+    }
+
+    Err(settings_not_updated(&error))
+}
+
+/// `io` (the UI shows its text as it is, and `forbidden` would be replaced by a generic one) with
+/// the sentence "Harness Memory settings could not be updated: <reason>".
+fn settings_not_updated(error: &BusinessError) -> BusinessError {
+    let reason = match error {
+        BusinessError::InvalidInput(message) | BusinessError::Forbidden(message) | BusinessError::Protocol(message) => {
+            message.clone()
+        }
+        other => other.to_string(),
+    };
+
+    BusinessError::Io {
+        context: SETTINGS_NOT_UPDATED.to_owned(),
+        source: std::io::Error::other(reason),
+    }
+}
+
 /// Writes the guards of `chat` in `project` (with the project root there) to Harness Memory's data
-/// folder before its harness starts, and returns its key for `HARNESS_MEMORY_SESSION`.
+/// folder before its harness starts, and returns its key for `HARNESS_MEMORY_SESSION`. The guards
+/// of every chat are current by then ([`keep_guards_current`]).
 /// `invalidInput` for a key that is not a lowercase UUID; a guards file that cannot be written
 /// fails the start, so a chat never runs without the rules the user set. While the data folder is
 /// unknown (Windows without `LOCALAPPDATA`) nothing is written and `None` comes back: the harness

@@ -24,7 +24,7 @@
   import EditorNotice from './EditorNotice.svelte';
   import ExistsNotice from './ExistsNotice.svelte';
   import HiddenText from './HiddenText.svelte';
-  import { defaultTarget, editProject, projectOfTarget, targetLabel, targetOfItem } from './scope-target';
+  import { defaultTarget, editProject, offeredProjects, type PinnedProject, pinnedHelp, projectOfTarget, targetLabel, targetOfItem } from './scope-target';
   import ScriptChangedNotice from './ScriptChangedNotice.svelte';
   import { blankForm, codeChanged, DEFAULT_TIMEOUT_SECS, draftOf, type FieldKey, formOf, LANGUAGES, problemsOf, type ScriptForm, unsupportedLanguage } from './script-form';
   import { languageLabel, needsReview, revealHidden } from './script-format';
@@ -44,9 +44,11 @@
      * editor closes. The editor then neither writes the script nor looks for one of the same name.
      */
     commit?: (draft: ScriptDraft) => Promise<string | null>;
+    /** Set for a script an agent holds: the project it is written in, which the Applies to field offers besides Global. */
+    pinned?: PinnedProject | null;
   }
 
-  let { open = $bindable(false), script, onsaved, onopen, prefill = null, commit }: Props = $props();
+  let { open = $bindable(false), script, onsaved, onopen, prefill = null, commit, pinned = null }: Props = $props();
 
   const FIELDS: readonly FieldKey[] = ['name', 'description', 'body', 'timeout', 'scope'];
 
@@ -76,6 +78,7 @@
   const unsupported = $derived(opened ? unsupportedLanguage(opened) : null);
   const projectPath = $derived(project.active?.path ?? null);
   const projects = $derived(projectScopes.data ?? []);
+  const choices = $derived(offeredProjects(pinned, projects));
 
   /** What the editor opens on: the script edited, else what an agent wants to save, else a blank script in the scope the view looks at. */
   function startingForm(): ScriptForm {
@@ -114,6 +117,12 @@
   const scopeHelp = $derived.by(() => {
     if (editing) {
       return t('memory.editor.script.scope.fixed');
+    }
+
+    const held = pinnedHelp(pinned, form.target, choices);
+
+    if (held !== null) {
+      return held;
     }
 
     return form.target.kind === 'repo' ? t('memory.editor.script.scope.repo.hint', { project: targetLabel(projects, form.target, t('components.scope.global')) }) : t('memory.editor.script.scope.global.hint');
@@ -300,7 +309,7 @@
     </div>
   </DocField>
 
-  <EditorScope bind:value={form.target} {projects} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing} />
+  <EditorScope bind:value={form.target} projects={choices} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing || pinned?.path === null} />
 
   <EditorNotice level="info" icon={ShieldCheck} body={t(commit ? 'memory.guards.waiting.script.trust' : 'memory.editor.script.trust')} />
 </EditorDialog>

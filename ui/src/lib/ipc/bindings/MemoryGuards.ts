@@ -12,4 +12,10 @@ notes: GlobalKindGuard,
 /**
  * Scripts.
  */
-scripts: GlobalKindGuard, };
+scripts: GlobalKindGuard, 
+/**
+ * The file on disk is still version 1 (saving on, `offRepos`) and could not be moved to version 2
+ * yet: what is shown is its pauses with saving off, and Harness Memory still follows the old file
+ * until the move works. Computed when the guards are read, never written to the file.
+ */
+migrationPending: boolean, };

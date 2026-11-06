@@ -134,3 +134,31 @@ fn a_notification_click_opens_only_the_waiting_run_it_names() {
         .collect();
     assert_eq!(opened, [older], "the run the notification named, not the newest");
 }
+
+#[cfg(unix)]
+#[test]
+fn a_run_whose_memory_settings_cannot_be_written_fails_with_the_reason() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let Some(fixture) = Fixture::new("omp_routine_reply.jsonl", timing()) else {
+        return;
+    };
+
+    // Harness Memory is in use and its data folder is one other users can write to, with no
+    // guards in it: nothing could be written, so the server would apply no rules.
+    let data = harness_business::ecosystem::memory_data_dir(&fixture.state.env).expect("a data folder");
+    std::fs::remove_file(data.join("guards").join("global.json")).expect("no guards file");
+    let _ = std::fs::remove_file(data.join("guards").join("opt-in"));
+    std::fs::set_permissions(&data, std::fs::Permissions::from_mode(0o770)).expect("open the folder");
+
+    let (id, _) = fixture.run(agent("Check the build"));
+    let run = fixture.ended(&id);
+    let message = run.record.message.expect("a message");
+
+    assert_eq!(run.record.status, RunStatus::Failed);
+    assert!(
+        message.starts_with("Harness Memory settings could not be updated: other users can write to"),
+        "{message}"
+    );
+    assert_eq!(fixture.setup.spawner.spawned(), 0, "nothing ran");
+}

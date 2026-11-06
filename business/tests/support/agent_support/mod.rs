@@ -281,6 +281,19 @@ pub async fn start_at(
     environment: impl FnOnce(Env, &Path) -> Env,
     customize: impl FnOnce(&mut AgentStartRequest),
 ) -> harness_business::Result<Run> {
+    start_when(true, harness, dialect, scenario_name, options, environment, customize).await
+}
+
+/// [`start_at`] with the "Project memory" pref as `memory_enabled`.
+pub async fn start_when(
+    memory_enabled: bool,
+    harness: HarnessId,
+    dialect: &'static str,
+    scenario_name: &str,
+    options: SessionOptions,
+    environment: impl FnOnce(Env, &Path) -> Env,
+    customize: impl FnOnce(&mut AgentStartRequest),
+) -> harness_business::Result<Run> {
     let registry = HarnessRegistry::with_defaults();
     let adapter: &dyn Harness = registry.get(harness).expect("registered harness");
     let project = project();
@@ -303,6 +316,7 @@ pub async fn start_at(
         env: &env,
         spawner: spawner.clone(),
         binary: binary(),
+        memory_enabled,
     };
     let info = manager.start(start, deps, sink.clone()).await?;
 

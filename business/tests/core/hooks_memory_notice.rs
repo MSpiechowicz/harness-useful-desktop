@@ -5,7 +5,7 @@
 
 use crate::hook_support;
 
-mod hooks_memory_notice {
+pub(crate) mod hooks_memory_notice {
     use std::fs;
 
     use harness_business::ecosystem::{update_global, write_chat};
@@ -19,6 +19,9 @@ mod hooks_memory_notice {
     use pretty_assertions::assert_eq;
 
     use super::hook_support::{chat, context, prompt, set};
+    use crate::hooks_memory_opt_in::hooks_memory_opt_in::{
+        patch, turn_every_project, turn_notes_on_for, turn_on_everywhere,
+    };
     use crate::hooks_steps::hooks_steps::resolved;
 
     const KEY: &str = "3b2f6c1e-8a4d-4e5f-9a0b-1c2d3e4f5a6b";
@@ -55,7 +58,7 @@ mod hooks_memory_notice {
             .map(|item| item.text)
     }
 
-    fn told(session: &mut HookSession) -> Option<String> {
+    pub(crate) fn told(session: &mut HookSession) -> Option<String> {
         notice(&send(session, &HookSet::empty(), &prompt("Go on")).0)
     }
 
@@ -207,6 +210,7 @@ mod hooks_memory_notice {
         let dir = data.path();
         let repo = tempfile::tempdir().unwrap();
 
+        turn_on_everywhere(dir);
         assert_eq!(read_memory_guards(dir, Some(KEY), None), MemoryGuardState::OPEN);
 
         let chat_guards = MemoryChatGuards {
@@ -225,25 +229,25 @@ mod hooks_memory_notice {
             "without a key: no chat rules"
         );
 
-        let root = turn_notes_off_for(dir, repo.path());
+        turn_every_project(dir, MemoryGuardKind::Notes, false);
+        let root = turn_notes_on_for(dir, repo.path());
         assert_eq!(
             read_memory_guards(dir, Some(KEY), Some(&root)),
-            guards(SaveRule::ProjectOff, SaveRule::ChatOff)
+            guards(SaveRule::Ask, SaveRule::ChatOff)
         );
 
         update_global(
             dir,
             &MemoryGuardsPatch {
-                kind: MemoryGuardKind::Scripts,
                 paused: Some(true),
-                add_repo: None,
-                remove_repo: None,
+                ..patch(MemoryGuardKind::Scripts)
             },
+            None,
         )
         .unwrap();
         assert_eq!(
             read_memory_guards(dir, Some(KEY), Some(&root)),
-            guards(SaveRule::ProjectOff, SaveRule::PausedEverywhere)
+            guards(SaveRule::Ask, SaveRule::PausedEverywhere)
         );
 
         fs::write(dir.join("guards").join("global.json"), "not json").unwrap();
@@ -266,6 +270,8 @@ mod hooks_memory_notice {
             },
         };
 
+        turn_on_everywhere(dir);
+
         write_chat(dir, KEY, &chat_guards(true, true, true), None).unwrap();
         assert_eq!(
             read_memory_guards(dir, Some(KEY), None),
@@ -286,27 +292,26 @@ mod hooks_memory_notice {
         );
 
         write_chat(dir, KEY, &chat_guards(false, true, true), None).unwrap();
-        let root = turn_notes_off_for(dir, repo.path());
+        turn_every_project(dir, MemoryGuardKind::Notes, false);
+        let root = turn_notes_on_for(dir, repo.path());
         assert_eq!(
             read_memory_guards(dir, Some(KEY), Some(&root)),
-            guards(SaveRule::ProjectOff, SaveRule::Saved),
-            "notes off in its project"
+            MemoryGuardState::OPEN,
+            "notes on in their project"
         );
         assert_eq!(
             read_memory_guards(dir, Some(KEY), Some(elsewhere.path())),
-            MemoryGuardState::OPEN,
+            guards(SaveRule::ProjectOff, SaveRule::Saved),
             "outside that project"
         );
 
         write_chat(dir, KEY, &chat_guards(true, true, true), None).unwrap();
         for kind in [MemoryGuardKind::Notes, MemoryGuardKind::Scripts] {
             let pause = MemoryGuardsPatch {
-                kind,
                 paused: Some(true),
-                add_repo: None,
-                remove_repo: None,
+                ..patch(kind)
             };
-            update_global(dir, &pause).unwrap();
+            update_global(dir, &pause, None).unwrap();
         }
         assert_eq!(
             read_memory_guards(dir, None, None),
@@ -324,6 +329,7 @@ mod hooks_memory_notice {
     fn a_chat_file_that_cannot_be_read_refuses_every_save() {
         let data = tempfile::tempdir().unwrap();
         let dir = data.path();
+        turn_on_everywhere(dir);
         write_chat(dir, KEY, &MemoryChatGuards::default(), None).unwrap();
 
         fs::write(
@@ -350,27 +356,11 @@ mod hooks_memory_notice {
         let elsewhere = dir.join("elsewhere.json");
         fs::write(
             &elsewhere,
-            r#"{"version":1,"notes":{"paused":false,"offRepos":[]},"scripts":{"paused":false,"offRepos":[]}}"#,
+            r#"{"version":2,"notes":{"paused":false,"everyProject":true,"onRepos":[],"repoKeys":{}},"scripts":{"paused":false,"everyProject":true,"onRepos":[],"repoKeys":{}}}"#,
         )
         .unwrap();
         std::os::unix::fs::symlink(&elsewhere, dir.join("guards").join("global.json")).unwrap();
 
         assert_eq!(read_memory_guards(dir, None, None), MemoryGuardState::CLOSED);
-    }
-
-    /// Turns notes off for the project at `folder` and returns the root it was stored as.
-    fn turn_notes_off_for(dir: &std::path::Path, folder: &std::path::Path) -> std::path::PathBuf {
-        let off = update_global(
-            dir,
-            &MemoryGuardsPatch {
-                kind: MemoryGuardKind::Notes,
-                paused: None,
-                add_repo: Some(folder.to_string_lossy().into_owned()),
-                remove_repo: None,
-            },
-        )
-        .unwrap();
-
-        std::path::PathBuf::from(&off.notes.off_repos[0])
     }
 }

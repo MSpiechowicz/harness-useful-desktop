@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { IpcFailure } from '../transport';
 import { fixtures } from './fixtures';
 import { MockHooks } from './hooks-state';
 import { HELD_NOTE_APPEND_ID, HELD_NOTE_SAVE_ID, HELD_NOTE_UPDATE_ID, HELD_REVISIONS, HELD_SCRIPT_SAVE_ID, PICKED_FOLDER, SAMPLE_CHAT_KEY } from './memory-guards-fixtures';
@@ -76,22 +77,58 @@ describe('the mock save guards', () => {
       handlers.memory_guards_update({ patch: { kind: 'notes', addRepo: '/b/' } }),
       handlers.memory_guards_update({ patch: { kind: 'notes', addRepo: '/a' } }),
     ]);
-    expect(first.notes.offRepos).toEqual(['/b']);
-    expect(second.notes.offRepos).toEqual(['/a', '/b']);
+    expect(first.notes.onRepos).toEqual(['/b']);
+    expect(second.notes.onRepos).toEqual(['/a', '/b']);
 
     const paused = await handlers.memory_guards_update({ patch: { kind: 'scripts', paused: true } });
-    expect(paused).toEqual({ notes: { paused: false, offRepos: ['/a', '/b'] }, scripts: { paused: true, offRepos: [] } });
+    expect(paused).toEqual({ notes: { paused: false, everyProject: false, onRepos: ['/a', '/b'], deadRepos: [], changedRepos: [] }, scripts: { paused: true, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] }, migrationPending: false });
+
+    const every = await handlers.memory_guards_update({ patch: { kind: 'scripts', everyProject: true } });
+    expect(every.scripts).toEqual({ paused: true, everyProject: true, onRepos: [], deadRepos: [], changedRepos: [] });
 
     const removed = await handlers.memory_guards_update({ patch: { kind: 'notes', removeRepo: '/b/' } });
-    expect(removed.notes.offRepos).toEqual(['/a']);
+    expect(removed.notes.onRepos).toEqual(['/a']);
     expect(await handlers.memory_guards_get(undefined)).toEqual(removed);
     expect(() => handlers.memory_guards_update({ patch: { kind: 'notes', addRepo: 'relative' } })).toThrow(expect.objectContaining({ code: 'invalidInput' }));
+  });
+
+  it('starts with saving off everywhere and takes a folder as its own saving root', async () => {
+    const handlers = new MockMemoryGuards(() => 'empty').handlers();
+
+    expect(await handlers.memory_guards_get(undefined)).toEqual({
+      notes: { paused: false, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] },
+      scripts: { paused: false, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] },
+      migrationPending: false,
+    });
+    expect(await handlers.memory_saving_root({ folder: '/home/demo/project' })).toBe('/home/demo/project');
+  });
+
+  it('can be made to fail reads and updates and to report the old file still in use, then recovers', async () => {
+    const guards = new MockMemoryGuards(() => 'empty');
+    const handlers = guards.handlers();
+
+    guards.failReads(new IpcFailure({ code: 'io', message: 'the file is unreadable' }));
+    expect(() => handlers.memory_guards_get(undefined)).toThrow(expect.objectContaining({ code: 'io' }));
+    guards.failReads(null);
+
+    guards.failUpdates(new IpcFailure({ code: 'protocol', message: 'settings are busy' }));
+    expect(() => handlers.memory_guards_update({ patch: { kind: 'notes', paused: true } })).toThrow(expect.objectContaining({ code: 'protocol' }));
+    guards.failUpdates(null);
+    expect((await handlers.memory_guards_get(undefined)).notes.paused).toBe(false);
+
+    guards.setMigrationPending(true);
+    expect((await handlers.memory_guards_get(undefined)).migrationPending).toBe(true);
+    expect((await handlers.memory_guards_update({ patch: { kind: 'notes', paused: true } })).migrationPending).toBe(true);
+
+    guards.setMigrationPending(false);
+    expect((await handlers.memory_guards_get(undefined)).migrationPending).toBe(false);
   });
 
   it('ignores a chat guards write that is not newer than the last one', async () => {
     const mock = createMockTransport(defaultScenario(), 0);
     const request = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false, utility: false } as const;
     const info = await mock.invoke('agent_start', { request: { ...request, memoryChat: { key: CHAT, guards: GUARDS } }, onEvent: () => {} });
+    await mock.invoke('memory_guards_update', { patch: { kind: 'notes', addRepo: request.project } });
 
     await expect(mock.invoke('memory_chat_guards_set', { key: CHAT, guards: { ...GUARDS, paused: true }, revision: 2 })).resolves.toEqual({ applied: true, revision: 2 });
     await expect(mock.invoke('memory_chat_guards_set', { key: CHAT, guards: GUARDS, revision: 1 })).resolves.toEqual({ applied: false, revision: 2 });
@@ -133,6 +170,10 @@ describe('the mock save guards', () => {
     const request = { harness: 'omp', project: fixtures.recentProjects[0].path, resume: null, approvalOverride: null, trustOnce: false, utility: false } as const;
     const info = await mock.invoke('agent_start', { request: { ...request, memoryChat: { key: CHAT, guards: GUARDS } }, onEvent: () => {} });
 
+    // Saving is off until the user turns it on for the project.
+    await expect(mock.invoke('chat_memory_check_again', { agentId: info.key })).rejects.toMatchObject({ code: 'invalidInput' });
+
+    await mock.invoke('memory_guards_update', { patch: { kind: 'notes', addRepo: request.project } });
     await expect(mock.invoke('chat_memory_check_again', { agentId: info.key })).resolves.toBeNull();
 
     await mock.invoke('memory_chat_guards_set', { key: CHAT, guards: { ...GUARDS, paused: true }, revision: 1 });

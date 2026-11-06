@@ -14,7 +14,9 @@
 //!   there is one, answers `{"saved": {"kind": "note", "id"}}` or `{"saved": {"kind": "script",
 //!   "name"}}` (a script saved untrusted); a `note_update` of a note deleted meanwhile is refused
 //!   `gone` (a conflict here), a save the agent held again since the user saw it (another
-//!   revision) `changed`;
+//!   revision) `changed`, a save whose project folder is gone or leads to another project since
+//!   it was held `changed` with `"reason": "project"` (a process error with the server's
+//!   sentence here, the save stays held and nothing is written);
 //! - `held skip <heldId> --json [--expect REVISION]` answers `{"skipped": "<heldId>"}`, refused
 //!   `changed` as `held save` is.
 //!

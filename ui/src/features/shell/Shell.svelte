@@ -20,6 +20,7 @@
   import { palette } from '$lib/stores/palette.svelte';
   import { prefs } from '$lib/stores/prefs.svelte';
   import { memoryChat } from '$lib/stores/memoryChat.svelte';
+  import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { codeGraph } from '$lib/stores/codeGraph.svelte';
   import { memoryHeld } from '$lib/stores/memoryHeld.svelte';
   import { scriptRequests } from '$lib/stores/scriptRequests.svelte';
@@ -33,6 +34,7 @@
   import ScriptRequestDialog from '../memory/ScriptRequestDialog.svelte';
   import { familyUpdater } from '../ecosystem/family-updater';
   import { skillsNamesMigration } from '../ecosystem/skills-migration';
+  import { memoryOptInNotice } from '../memory/opt-in-notice';
   import { hooks } from '../hooks/hooks-data.svelte';
   import { openRequestedRun } from '../routines/routine-request';
   import { routines } from '../routines/routines-data.svelte';
@@ -243,6 +245,18 @@
   $effect(() => {
     if (intro.phase === 'done' && !onboarding.visible && prefs.value) {
       void skillsNamesMigration.run();
+    }
+  });
+
+  // An existing user hears once that agents save notes and scripts only where they turned it on. It waits for the first-run setup and for
+  // what decides it (the installed Harness Memory), which the notice reads where this effect tracks it.
+  $effect(() => {
+    if (intro.phase === 'done' && !onboarding.visible && prefs.value?.memoryOptInNoticeDone === false) {
+      if (memoryRemote.value === null) {
+        untrack(() => void memoryRemote.load());
+      }
+
+      void memoryOptInNotice.run();
     }
   });
 

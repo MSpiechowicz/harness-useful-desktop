@@ -1,3 +1,4 @@
+import { NO_GLOBAL_GUARDS } from '$lib/stores/memory-chat';
 import type { HeldItem } from '../bindings/HeldItem';
 import type { HeldSaved } from '../bindings/HeldSaved';
 import type { JsonValue } from '../bindings/serde_json/JsonValue';
@@ -12,6 +13,7 @@ import type { Handlers } from './types';
 type GuardCommands =
   | 'memory_guards_get'
   | 'memory_guards_update'
+  | 'memory_saving_root'
   | 'memory_chat_guards_set'
   | 'memory_held_list'
   | 'memory_held_save'
@@ -57,18 +59,21 @@ function sortedRepos(repos: string[]): string[] {
 /** `guards` with `patch` applied, as the backend applies it to what is saved now. */
 function patched(guards: MemoryGuards, patch: MemoryGuardsPatch): MemoryGuards {
   const kind = guards[patch.kind];
-  let offRepos = [...kind.offRepos];
+  let onRepos = [...kind.onRepos];
 
   if (patch.removeRepo !== undefined) {
     const root = repoOf(patch.removeRepo);
-    offRepos = offRepos.filter((repo) => repo !== patch.removeRepo && repo !== root);
+    onRepos = onRepos.filter((repo) => repo !== patch.removeRepo && repo !== root);
   }
 
   if (patch.addRepo !== undefined) {
-    offRepos.push(patch.addRepo);
+    onRepos.push(patch.addRepo);
   }
 
-  return { ...guards, [patch.kind]: { paused: patch.paused ?? kind.paused, offRepos: sortedRepos(offRepos) } };
+  return {
+    ...guards,
+    [patch.kind]: { paused: patch.paused ?? kind.paused, everyProject: patch.everyProject ?? kind.everyProject, onRepos: sortedRepos(onRepos), deadRepos: [], changedRepos: [] },
+  };
 }
 
 /**
@@ -76,7 +81,12 @@ function patched(guards: MemoryGuards, patch: MemoryGuardsPatch): MemoryGuards {
  * started with a memory identity, so a preview chat shows its waiting cards.
  */
 export class MockMemoryGuards {
-  private global: MemoryGuards = { notes: { paused: false, offRepos: [] }, scripts: { paused: false, offRepos: [] } };
+  /** Saving is opt-in: nothing is on until the user turns a project on. */
+  private global: MemoryGuards = NO_GLOBAL_GUARDS;
+  /** The next reads of the guards fail with this, until it is cleared: the file cannot be read. */
+  private readFailure: IpcFailure | null = null;
+  /** The next updates of the guards fail with this, until it is cleared (busy, too long). */
+  private updateFailure: IpcFailure | null = null;
   private readonly chats = new Map<string, MemoryChatGuards>();
   /** The newest revision written for each chat's guards. */
   private readonly revisions = new Map<string, number>();
@@ -94,6 +104,21 @@ export class MockMemoryGuards {
 
     this.held = start === 'empty' ? [] : sampleHeld();
     this.holdAgainFirst = start === 'changed';
+  }
+
+  /** Whether the old guards file could not be moved yet: reads say so (`migrationPending`) until a test turns it off, as the backend does once the move works. */
+  setMigrationPending(pending: boolean): void {
+    this.global = { ...this.global, migrationPending: pending };
+  }
+
+  /** `memory_guards_get` fails as if the file could not be read (a failure given), or reads again (null). */
+  failReads(failure: IpcFailure | null): void {
+    this.readFailure = failure;
+  }
+
+  /** `memory_guards_update` fails with `failure` (given), or works again (null). */
+  failUpdates(failure: IpcFailure | null): void {
+    this.updateFailure = failure;
   }
 
   /** The project of agent `agentKey`, while it runs with a memory identity. */
@@ -133,10 +158,16 @@ export class MockMemoryGuards {
     }
   }
 
-  /** Whether the memory-save hook of agent `agentKey` is skipped: the chat paused, or notes and scripts both off for it, its project or everywhere. */
+  /** Whether the memory-save hook of agent `agentKey` is skipped: the chat paused, or notes and scripts both off for it, its project (not turned on) or everywhere. */
   skipsMemorySave(agentKey: string): boolean {
     const agent = this.agents.get(agentKey);
-    const chat = agent ? this.chats.get(agent.key) : undefined;
+
+    // A chat without a memory identity has no guards to skip it by.
+    if (agent === undefined) {
+      return false;
+    }
+
+    const chat = this.chats.get(agent.key);
 
     if (chat?.paused) {
       return true;
@@ -144,7 +175,9 @@ export class MockMemoryGuards {
 
     const off = (kind: 'notes' | 'scripts') => {
       const everywhere = this.global[kind];
-      return chat?.[kind].on === false || everywhere.paused || (agent !== undefined && everywhere.offRepos.includes(agent.project));
+      const allowed = everywhere.everyProject || everywhere.onRepos.includes(agent.project);
+
+      return chat?.[kind].on === false || everywhere.paused || !allowed;
     };
 
     return off('notes') && off('scripts');
@@ -152,12 +185,24 @@ export class MockMemoryGuards {
 
   handlers(): Pick<Handlers, GuardCommands> {
     return {
-      memory_guards_get: () => structuredClone(this.global),
+      memory_guards_get: () => {
+        if (this.readFailure) {
+          throw this.readFailure;
+        }
+
+        return structuredClone(this.global);
+      },
       memory_guards_update: ({ patch }) => {
+        if (this.updateFailure) {
+          throw this.updateFailure;
+        }
+
         this.global = patched(this.global, patch);
 
         return structuredClone(this.global);
       },
+      // The mock has no worktrees: a folder is its own saving root.
+      memory_saving_root: ({ folder }) => folder,
       memory_chat_guards_set: ({ key, guards, revision }) => {
         checkKey(key, 'a memory chat key');
 

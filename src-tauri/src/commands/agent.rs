@@ -185,6 +185,7 @@ pub(crate) async fn start_with(
         env: &state.env,
         spawner: agents.spawner(),
         binary,
+        memory_enabled: state.prefs.with(|store| store.load()).memory_enabled,
     };
 
     let info = match agents.manager().start(request, deps, events).await {

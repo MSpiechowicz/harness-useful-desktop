@@ -48,6 +48,7 @@ pub use claude::ClaudeSession;
 pub use coalesce::{COALESCE_WINDOW, DeltaCoalescer};
 pub use codex::{CodexSession, codex_bash_allowed};
 pub use engine::{AgentSession, SessionLaunch};
+pub use launch::SETTINGS_NOT_UPDATED;
 pub use manager::{AgentDeps, AgentManager, MAX_SESSIONS, Stopping};
 pub use opencode::OpenCodeSession;
 pub use opencode_v2::OpenCodeV2Session;

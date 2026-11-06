@@ -1,23 +1,23 @@
-import { projectScopes } from '$lib/stores/project-scopes.svelte';
+import { memoryChat } from '$lib/stores/memoryChat.svelte';
 
 export interface ChatRepository {
-  /** The git root: what the guards name the repository by. */
+  /** The saving root: what the guards list a project by (a git worktree counts as its main repository). */
   root: string;
-  /** What the repository is called for people. */
+  /** What the chat's project is called for people: the name of the folder the chat works in. */
   name: string;
 }
 
 /**
- * The repository of a chat working in `folder`: its git root, else the folder itself (the identity the guards use, so a folder that is
- * no git repository has its switch too). A folder whose root is not known yet has none, and the switches stay out. Reads the project
- * stores, so call it where a change should show.
+ * The project of a chat working in `folder`: the saving root the global guards list it under, named after the folder itself. A folder
+ * whose root is not known yet (or that is gone) has none, so it counts as not turned on and the project switches stay out. Reads
+ * the root cache, so call it where a change should show.
  */
 export function repositoryOf(folder: string): ChatRepository | null {
-  const root = projectScopes.data?.find((scope) => scope.path === folder)?.root ?? null;
+  const root = memoryChat.rootOf(folder);
 
   if (root === null) {
     return null;
   }
 
-  return { root, name: root.split(/[\\/]/).filter(Boolean).at(-1) ?? root };
+  return { root, name: folder.split(/[\\/]/).filter(Boolean).at(-1) ?? folder };
 }

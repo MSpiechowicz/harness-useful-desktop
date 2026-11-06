@@ -68,8 +68,8 @@
   {#snippet trigger({ props })}
     <Tooltip text={info ? t('chat.approval.tooltip', { explanation: info.explanation, source }) : t('chat.approval.settingsTooltip', { harness: harnessName })} side="bottom">
       {#snippet children({ describedby })}
-        <button type="button" {...props} aria-describedby={describedby} class="rounded-md" aria-label={t('chat.approval.aria', { mode: modeName })}>
-          <Badge {tone} class="h-control rounded-md! px-2.5 text-sm!">
+        <button type="button" {...props} aria-describedby={describedby} class="group rounded-md" aria-label={t('chat.approval.aria', { mode: modeName })}>
+          <Badge {tone} class="h-control rounded-md! px-2.5 text-sm! transition-[filter] duration-[var(--dur-fast)] group-hover:brightness-125 group-aria-expanded:brightness-125">
             {#if tone === 'warning'}<ShieldAlert size={16} aria-hidden="true" />{:else}<ShieldCheck size={16} aria-hidden="true" />{/if}
             {nativeName ?? t('chat.approval.badge', { mode: modeName })}
           </Badge>

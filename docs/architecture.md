@@ -218,7 +218,8 @@ flowchart LR
    codes, and the earlier row with the same title); Rust keeps the rows under a single-use plan id with the project
    (`AppState::notes_import`), and `memory_notes_import_apply` (one at a time) saves the selected row indexes as
    `memory_note_save` does, streaming each row's end over a channel.
-9. **Save guards.** The user decides what agents may save, per chat, per project and everywhere. Plan and file
+9. **Save guards.** Saving is opt-in: agents save nothing until the user turns it on for every project or for a
+   repository, per chat too (issue #55). Plan and file
    contract: [plans/memory-save-guards.md](plans/memory-save-guards.md). Reading and recall are never guarded.
    - **Chat.** Every chat gets a random `chatKey` (lowercase UUID v4), and the harness is started with
      `HARNESS_MEMORY_SESSION=<chatKey>` (`SESSION_VAR`, `agent/launch.rs`, after its guards file is written); the
@@ -229,10 +230,29 @@ flowchart LR
      `memoryScriptsAskDefault` seed. A harness whose `memoryChatGuards` capability is false (the MCP child does not get
      the variable) keeps only the repository and global guards and cannot turn Ask on. OMP, PI and OpenCode 1.19.3
      pass it on, checked on Linux.
-   - **Files.** `business/src/ecosystem/memory_guards.rs` writes `guards/global.json` (`MemoryGuards`: per kind a
-     `paused` flag and the `offRepos`, git roots) and `guards/chats/<chatKey>.json` in the Harness Memory data folder
+   - **Files.** `business/src/ecosystem/memory_guards.rs` writes `guards/global.json` (version 2,
+     `MemoryGuards`: per kind a `paused` flag, `everyProject`, `onRepos`, the saving roots, and `repoKeys`, the project key
+     each had when the user turned it on, asked of the installed server with `harness-memory project-key` by
+     `memory_guards_update` (`ecosystem/memory_project_key.rs`) and compared by the server: a changed remote stops saving
+     until the project is turned on again, and `memory_guards_get` lists such entries as `changedRepos`; a git worktree counts as its
+     main checkout or, for a repository with a separate or bare git folder, as that git folder, `saving_root`, `memory_saving_root`) and `guards/chats/<chatKey>.json` in the Harness Memory data folder
      (`memory_data_dir`), at chat start and on every toggle (`memory_guards_get`, `memory_guards_update`,
-     `memory_chat_guards_set`). The server reads them on every gated call and refuses when one is unreadable. The server
+     `memory_chat_guards_set`). The server reads them on every gated call and refuses when one is unreadable. A missing
+     `global.json` leaves saving off. `ensure_global` writes the marker `guards/opt-in` (`{"version":1}`) first, then moves a
+     missing or version 1 file to version 2 (pauses kept, `offRepos` dropped), in the app's `setup`, at the start of every
+     agent that starts (chats and routine runs: `keep_guards_current` in `business/src/agent/launch.rs`, in
+     `spawn_blocking`, only when the data folder exists or the `harness-memory` binary resolves, else nothing is
+     created; a failure fails the start only with a memory chat, while a readable version 1 file remains, or when
+     neither `global.json` nor the marker exists (`rules_missing`: the server would then apply no rules), as an `io`
+     error "Harness Memory settings could not be updated: <reason>", which a routine run shows as its message,
+     otherwise a warning, and never for a utility agent. While Project memory is off only the `rules_missing` case and a readable version 1 file that remains (the server would apply its old deny list with saving on) fail, and only when the harness's MCP files, `also_read` files included, still list a `harness-memory` server (`memory_mcp_listed`, a file it cannot read counts as listed)) and when `memory_guards_get` reads, and leaves a file it cannot read as it is. While the marker exists the server takes a missing `global.json` as unreadable. A version 1
+     file that could not be moved yet reads with `migrationPending: true` (never written to the file). Every
+     read-change-write of `global.json` holds a mutex and an exclusive lock on `guards/global.lock` (`try_lock`, one 5 s deadline for both, then
+     `protocol` "settings are busy"; a read that finds the folders, the marker and a version 2 file as they should be returns without the lock), and a file that would pass 256 KiB is refused (`invalidInput`) and left as it is.
+     `memory_saving_root(folder)` answers the saving root of the folder, or the listed checkout of a repository with a
+     separate git folder when the folder is one of its worktrees (it changes when the guards do). `removeRepo` also drops every entry of that kind that turns the folder's project on, and a change leaves the listed entries as they are (only the `addRepo` is resolved). A server without `save-opt-in` in `harness-memory features` (`MemoryFeatures.saveOptIn`,
+     `saveOptInSupported`) refuses every save against version 2, a server without `save-guards` ignores the file.
+     `memoryOptInNoticeDone` (server-managed pref, `memory_opt_in_notice_done`) marks the one-time notice done. The server
      writes `held/<chatKey>/<heldId>.json` for a save held by Ask, and the app lists and settles those (`memory_held.rs`,
      `memory_held_list`, `memory_held_save`, `memory_held_skip`, event `memory-held-changed`, watched through the
      folder's change stamp) only through `harness-memory held list|save|skip --json`. Nothing here goes into the
@@ -244,12 +264,12 @@ flowchart LR
      the Settings cards (`MemoryFeatures.saveGuards`).
    - **Hook.** `ChatHooks::memory_gate` (`src-tauri/src/hooks/chat/memory.rs`) reads the guards at each settle. The
      Harness family hook "Harness Memory - save" is skipped while the chat is paused or notes and scripts are both off
-     for the chat, its repository or everywhere (`MemorySaveGate`, `business/src/hooks/engine/memory_gate.rs`).
+     for the chat, its project or everywhere (`MemorySaveGate`, `business/src/hooks/engine/memory_gate.rs`).
      `chat_memory_check_again` sends the hook's text at once through the hook path, and is refused in those states.
    - **UI.** The Memory button in the chat top bar (`ui/src/features/chat/MemoryButton.svelte`) opens a popover with a
      Notes and a Scripts card (this chat, this repository, Ask before saving), Pause and Check again. A waiting card in
      the transcript shows the held saves for Save, Edit or Skip. Settings > Memory has a Notes and a Scripts card
-     (`MemoryGuardsCard.svelte`: pause everywhere, the Ask default, repositories without saves).
+     (`MemoryGuardsCard.svelte`: pause everywhere, every project, the Ask default, repositories with saving on).
 10. **Vector search and English notes.** Harness Memory can search by meaning as well as by keywords, through one
     local embedder per computer (`harness-memory embedder run`), which every `harness-memory mcp` asks over a local
     socket. The app keeps that process running and never talks to the socket itself.
@@ -268,7 +288,7 @@ flowchart LR
       carry `addedBy` and `updatedBy`, and Harness Knowledge's `docs-author-filter` does the same for documents). A
       server without the line answers `unsupported`, and Harness Memory not installed answers
       `notFound`. The page reads the same lines from `MemoryRemote` (`embedderSupported`, `settingsSupported`,
-      `notesLangSupported`, `notesUsefulSupported`, `notesAuthorsSupported`, `notesAuthorFilterSupported`, next to `saveGuardsSupported`) and
+      `notesLangSupported`, `notesUsefulSupported`, `notesAuthorsSupported`, `notesAuthorFilterSupported`, next to `saveGuardsSupported` and `saveOptInSupported`) and
       falls back to a rejected call only while those are not loaded.
     - **Pref.** `vectorSearch` in `prefs.json` (default on, also for a file without the key) is server-managed:
       only `memory_set_vector_search` changes it, because it also runs `embedder enable|disable` and starts or stops the

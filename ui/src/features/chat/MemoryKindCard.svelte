@@ -4,7 +4,7 @@
 
   import { ICON } from '$lib/components/icon';
   import { t } from '$lib/i18n/i18n.svelte';
-  import { type GuardKind, offReason } from '$lib/stores/memory-chat';
+  import { type GuardKind, offReason, projectIsOn } from '$lib/stores/memory-chat';
   import { memoryChat } from '$lib/stores/memoryChat.svelte';
   import { cx } from '$lib/utils/cx';
 
@@ -14,13 +14,15 @@
     kind: GuardKind;
     /** The chat's agent. */
     agentKey: string;
-    /** The git root of the chat's project; null when it is no repository. */
+    /** The saving root of the chat's project, as the global guards list it; null while it is not known. */
     root: string | null;
-    /** What the repository is called for people. */
+    /** The folder the chat works in: turning the project on names it, so its key is the one the chat saves under (a git folder alone has another). */
+    folder: string;
+    /** What the project is called for people. */
     repoName: string;
   }
 
-  let { kind, agentKey, root, repoName }: Props = $props();
+  let { kind, agentKey, root, folder, repoName }: Props = $props();
 
   const KINDS = {
     notes: { icon: NotebookText, title: 'memory.guards.notes', chatOn: 'memory.guards.chat.on.notes', chatOff: 'memory.guards.chat.off.notes', repoOff: 'memory.guards.repo.off.notes' },
@@ -30,9 +32,19 @@
   const look = $derived(KINDS[kind]);
   const guards = $derived(memoryChat.get(agentKey)?.guards ?? null);
   const reason = $derived(guards ? offReason(kind, guards, memoryChat.guards, root) : null);
+  const everyProject = $derived(memoryChat.guards[kind].everyProject);
+  const projectOn = $derived(projectIsOn(memoryChat.guards[kind], root));
   const repoIsOff = $derived(reason === 'repo');
   const everywhereOff = $derived(reason === 'global');
   const title = $derived(t(look.title));
+
+  const repoDescription = $derived.by(() => {
+    if (everyProject) {
+      return t('memory.guards.repo.every');
+    }
+
+    return t(projectOn ? 'memory.guards.repo.on' : look.repoOff, { repo: repoName });
+  });
 
   const chatDescription = $derived.by(() => {
     if (everywhereOff) {
@@ -70,11 +82,12 @@
       {#if root !== null}
         <MemoryGuardRow
           title={t('memory.guards.repo')}
-          description={t(repoIsOff ? look.repoOff : 'memory.guards.repo.on', { repo: repoName })}
+          description={repoDescription}
           strong={repoName}
           label={`${title}: ${t('memory.guards.repo')}`}
-          checked={!repoIsOff}
-          onchange={(on) => void memoryChat.setRepoOff(kind, root, !on)}
+          checked={projectOn}
+          disabled={everyProject}
+          onchange={(on) => void memoryChat.setRepoOn(kind, on ? folder : root, on)}
         />
       {/if}
 

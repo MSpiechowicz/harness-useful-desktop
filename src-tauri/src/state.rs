@@ -11,7 +11,7 @@ use harness_business::ecosystem::catalog::{KNOWLEDGE_SIDECAR, MEMORY_SIDECAR};
 use harness_business::ecosystem::{
     ChatGuardWrites, CodeFeatures, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor,
     KnowledgeFeatures, KnowledgeImporter, KnowledgeIntakes, MemoryFeatures, MemoryKinds, MemoryScripts, NotesCopyCache,
-    PoolOptions, SaveRoute, StoredNotesImport,
+    PoolOptions, SaveRoute, StoredNotesImport, memory_data_dir,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -70,7 +70,7 @@ pub struct AppState {
     pub memory_kinds: MemoryKinds,
     /// What else the installed Harness Memory can do (`harness-memory features`, probed once per
     /// binary).
-    pub memory_features: MemoryFeatures,
+    pub memory_features: Arc<MemoryFeatures>,
     /// The embedder behind vector search (`harness-memory embedder run`), kept running while project
     /// memory and vector search are on.
     pub memory_embedder: Arc<EmbedderSupervisor>,
@@ -177,7 +177,7 @@ impl AppState {
     /// State over the prefs (and the other config files) in `prefs_dir` and `env`, with the default
     /// harnesses and updates off.
     pub fn new(prefs_dir: PathBuf, env: Env) -> Self {
-        let prefs = SharedPrefs::new(PrefsStore::new(prefs_dir.clone()));
+        let prefs = SharedPrefs::new(PrefsStore::new(prefs_dir.clone()).with_memory_data_dir(memory_data_dir(&env)));
         let env = Arc::new(env);
         let hooks = HookRuntime::new(HookStore::from_env(&env, prefs_dir.clone()), prefs.clone(), env.clone());
         let memory_scripts = Arc::new(MemoryScripts::new(Arc::new(TokioSpawner), PoolOptions::default()));
@@ -201,7 +201,7 @@ impl AppState {
             dashboard: Arc::new(Dashboard::new(Arc::new(TokioSpawner), DashboardOptions::default())),
             memory_scripts,
             memory_kinds: MemoryKinds::new(),
-            memory_features: MemoryFeatures::new(),
+            memory_features: Arc::new(MemoryFeatures::new()),
             memory_embedder: Arc::new(EmbedderSupervisor::new(&MEMORY_SIDECAR, Arc::new(TokioSpawner))),
             embedder_watch: EmbedderWatch::default(),
             knowledge_features: KnowledgeFeatures::new(),

@@ -108,6 +108,12 @@ scriptsTeamAndLocalSupported: boolean,
  */
 saveGuardsSupported: boolean, 
 /**
+ * True when the installed Harness Memory lists `save-opt-in` in `harness-memory features`: it
+ * reads `guards/global.json` version 2, where agents save nothing until the user turns saving
+ * on (`everyProject`, `onRepos`). An older server refuses every save against that file.
+ */
+saveOptInSupported: boolean, 
+/**
  * True when the installed Harness Memory lists `embedder` in `harness-memory features`: it
  * runs the local embedder behind vector search.
  */

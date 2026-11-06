@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-memory-opt-in-notice-done"
+description = "Enables the memory_opt_in_notice_done command without any pre-configured scope."
+commands.allow = ["memory_opt_in_notice_done"]
+
+[[permission]]
+identifier = "deny-memory-opt-in-notice-done"
+description = "Denies the memory_opt_in_notice_done command without any pre-configured scope."
+commands.deny = ["memory_opt_in_notice_done"]

@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use agent_support::{Run, options, start_in};
 use harness_business::BusinessError;
 use harness_business::ecosystem::{
-    KNOWLEDGE_SESSION_VAR, SESSION_VAR, memory_data_dir, read_chat, read_chat_repo, update_global,
+    KNOWLEDGE_SESSION_VAR, Pin, SESSION_VAR, memory_data_dir, read_chat, read_chat_repo, update_global,
 };
 use harness_business::env::{Env, OsKind};
 use harness_business::model::{
@@ -23,7 +23,7 @@ use harness_business::model::{
 use harness_business::process::ExecSpec;
 use pretty_assertions::assert_eq;
 
-const KEY: &str = "3b2f6c1e-8a4d-4e5f-9a0b-1c2d3e4f5a6b";
+pub(crate) const KEY: &str = "3b2f6c1e-8a4d-4e5f-9a0b-1c2d3e4f5a6b";
 
 fn guards() -> MemoryChatGuards {
     MemoryChatGuards {
@@ -33,7 +33,7 @@ fn guards() -> MemoryChatGuards {
     }
 }
 
-fn memory_chat(key: &str) -> MemoryChatStart {
+pub(crate) fn memory_chat(key: &str) -> MemoryChatStart {
     MemoryChatStart {
         key: key.to_owned(),
         guards: guards(),
@@ -42,14 +42,22 @@ fn memory_chat(key: &str) -> MemoryChatStart {
 
 /// `env` with Windows' local data folder in its home, so Harness Memory's data folder is known on
 /// every platform (`LOCALAPPDATA` counts only on Windows).
-fn with_data_folder(env: Env) -> Env {
+pub(crate) fn with_data_folder(env: Env) -> Env {
     let local = env.home.to_string_lossy().into_owned();
 
     env.with_var("LOCALAPPDATA", local)
 }
 
+/// [`with_data_folder`], and the folder exists: Harness Memory is in use on this computer.
+pub(crate) fn with_memory(env: Env) -> Env {
+    let env = with_data_folder(env);
+    std::fs::create_dir_all(memory_data_dir(&env).unwrap()).unwrap();
+
+    env
+}
+
 /// Harness Memory's data folder of `run`.
-fn data_folder(run: &Run) -> PathBuf {
+pub(crate) fn data_folder(run: &Run) -> PathBuf {
     memory_data_dir(&with_data_folder(Env::for_tests(run.home.path()))).expect("a data folder")
 }
 
@@ -84,7 +92,7 @@ fn assert_no_session_variable(run: &Run) {
 }
 
 /// Starts `scenario` with Harness Memory's data folder known ([`with_data_folder`]).
-async fn start_with(
+pub(crate) async fn start_with(
     harness: HarnessId,
     dialect: &'static str,
     scenario: &str,
@@ -193,22 +201,144 @@ async fn the_chat_file_names_the_git_root_of_the_project() {
 }
 
 #[tokio::test]
-async fn a_chat_outside_a_repository_names_its_folder_as_turned_off() {
+async fn a_chat_outside_a_repository_names_its_folder_as_turned_on() {
     let run = start(HarnessId::Omp, "omp", "omp_basic.jsonl", Some(KEY)).await;
     let data = data_folder(&run);
 
-    let turn_off = MemoryGuardsPatch {
+    let turn_on = MemoryGuardsPatch {
         kind: MemoryGuardKind::Notes,
         paused: None,
+        every_project: None,
         add_repo: Some(run.project.path().to_string_lossy().into_owned()),
         remove_repo: None,
     };
-    let off_repos = update_global(&data, &turn_off).unwrap().notes.off_repos;
+    let on_repos = update_global(&data, &turn_on, Some(Pin(None))).unwrap().notes.on_repos;
 
     assert_eq!(read_chat(&data, KEY).unwrap(), Some(guards()));
-    assert_eq!(off_repos.len(), 1);
-    assert_eq!(read_chat_repo(&data, KEY).unwrap().as_ref(), Some(&off_repos[0]));
+    assert_eq!(on_repos.len(), 1);
+    assert_eq!(read_chat_repo(&data, KEY).unwrap().as_ref(), Some(&on_repos[0]));
 
+    run.manager.stop(run.key()).await.unwrap();
+}
+
+pub(crate) fn global_file(data: &Path) -> PathBuf {
+    data.join("guards").join("global.json")
+}
+
+/// `with_data_folder` and a `guards/global.json` holding `text` before the chat starts.
+fn with_global(text: &'static str) -> impl FnOnce(Env) -> Env {
+    move |env| {
+        let env = with_data_folder(env);
+        let data = memory_data_dir(&env).unwrap();
+
+        std::fs::create_dir_all(data.join("guards")).unwrap();
+        std::fs::write(global_file(&data), text).unwrap();
+
+        env
+    }
+}
+
+#[tokio::test]
+async fn a_chat_start_creates_the_opt_in_guards_file_on_a_fresh_data_folder() {
+    let run = start(HarnessId::Omp, "omp", "omp_basic.jsonl", Some(KEY)).await;
+    let data = data_folder(&run);
+
+    let file: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(global_file(&data)).unwrap()).unwrap();
+    assert_eq!(
+        file,
+        serde_json::json!({
+            "version": 2,
+            "notes": { "paused": false, "everyProject": false, "onRepos": [], "repoKeys": {} },
+            "scripts": { "paused": false, "everyProject": false, "onRepos": [], "repoKeys": {} },
+        })
+    );
+
+    run.manager.stop(run.key()).await.unwrap();
+}
+
+#[tokio::test]
+async fn a_chat_start_moves_a_version_one_file_and_leaves_an_unreadable_one() {
+    let version_one =
+        r#"{"version":1,"notes":{"paused":true,"offRepos":["/x"]},"scripts":{"paused":false,"offRepos":[]}}"#;
+    let run = start_in(
+        HarnessId::Omp,
+        "omp",
+        "omp_basic.jsonl",
+        options(),
+        with_global(version_one),
+        |request| request.memory_chat = Some(memory_chat(KEY)),
+    )
+    .await
+    .expect("the chat starts");
+
+    let file: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(global_file(&data_folder(&run))).unwrap()).unwrap();
+    assert_eq!(file["version"], 2);
+    assert_eq!(file["notes"]["paused"], true);
+    assert_eq!(file["notes"]["onRepos"], serde_json::json!([]));
+    run.manager.stop(run.key()).await.unwrap();
+
+    let run = start_in(
+        HarnessId::Omp,
+        "omp",
+        "omp_basic.jsonl",
+        options(),
+        with_global("not json"),
+        |request| request.memory_chat = Some(memory_chat(KEY)),
+    )
+    .await
+    .expect("the chat starts: the server refuses saves against that file");
+
+    assert_eq!(
+        std::fs::read_to_string(global_file(&data_folder(&run))).unwrap(),
+        "not json"
+    );
+    run.manager.stop(run.key()).await.unwrap();
+}
+
+pub(crate) fn marker_file(data: &Path) -> PathBuf {
+    data.join("guards").join("opt-in")
+}
+
+#[tokio::test]
+async fn any_agent_start_keeps_the_guards_current_a_routine_run_included() {
+    let version_one =
+        r#"{"version":1,"notes":{"paused":true,"offRepos":["/x"]},"scripts":{"paused":false,"offRepos":[]}}"#;
+
+    // No memory identity, as in a routine's run.
+    let run = start_in(
+        HarnessId::Omp,
+        "omp",
+        "omp_basic.jsonl",
+        options(),
+        with_global(version_one),
+        |request| request.memory_chat = None,
+    )
+    .await
+    .expect("the agent starts");
+
+    let data = data_folder(&run);
+    let file: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(global_file(&data)).unwrap()).unwrap();
+    assert_eq!(file["version"], 2);
+    assert_eq!(file["notes"]["paused"], true);
+    assert_eq!(std::fs::read_to_string(marker_file(&data)).unwrap(), r#"{"version":1}"#);
+    assert_no_session_variable(&run);
+    run.manager.stop(run.key()).await.unwrap();
+
+    // A helper agent too.
+    let run = start_in(
+        HarnessId::Omp,
+        "omp",
+        "omp_basic.jsonl",
+        options(),
+        with_memory,
+        |request| {
+            request.utility = true;
+        },
+    )
+    .await
+    .expect("the helper starts");
+    assert!(marker_file(&data_folder(&run)).exists());
     run.manager.stop(run.key()).await.unwrap();
 }
 
@@ -236,48 +366,4 @@ async fn a_chat_without_a_written_chat_file_gets_no_session_variable() {
     assert_no_session_variable(&run);
 
     run.manager.stop(run.key()).await.unwrap();
-}
-
-#[cfg(unix)]
-#[tokio::test]
-async fn a_data_folder_other_users_can_write_to_fails_the_start_with_the_fix() {
-    use std::os::unix::fs::PermissionsExt;
-
-    let mut data = None;
-    let open_data_folder = |env: Env| {
-        let folder = memory_data_dir(&env).unwrap();
-        std::fs::create_dir_all(&folder).unwrap();
-        std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o770)).unwrap();
-        data = Some(folder);
-        env
-    };
-
-    let error = start_in(
-        HarnessId::Omp,
-        "omp",
-        "omp_basic.jsonl",
-        options(),
-        open_data_folder,
-        |request| {
-            request.memory_chat = Some(memory_chat(KEY));
-        },
-    )
-    .await
-    .err()
-    .expect("refused");
-
-    let folder = data.unwrap().display().to_string();
-    let BusinessError::InvalidInput(message) = &error else {
-        panic!("a message the user sees: {error:?}");
-    };
-
-    assert!(
-        message.contains(&format!("can write to the Harness Memory folder {folder}")),
-        "{message}"
-    );
-    // The command quotes a folder with a space (macOS: `Application Support`) as one word.
-    assert!(
-        message.contains(&format!("chmod 700 {folder}")) || message.contains(&format!("chmod 700 '{folder}'")),
-        "{message}"
-    );
 }

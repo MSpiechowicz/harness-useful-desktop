@@ -6,10 +6,12 @@
 use crate::hook_support;
 
 mod hooks_memory_gate {
+    use harness_business::ecosystem::update_global;
     use harness_business::hooks::{
         EventOutcome, HookSet, MemoryGuardState, SEED_MEMORY_SAVE_TEXT, SaveRule, compose_follow_up, memory_save_part,
+        read_memory_guards,
     };
-    use harness_business::model::{HookAction, HookEvent, HookSeed};
+    use harness_business::model::{HookAction, HookEvent, HookSeed, MemoryGuardKind, MemoryGuardsPatch};
     use pretty_assertions::assert_eq;
 
     use super::hook_support::{chat, command, follow_up, follow_up_plan, set, texts, user_run};
@@ -108,6 +110,36 @@ mod hooks_memory_gate {
             let plan = follow_up_plan(user_run(&mut session, &hooks()));
             assert_eq!(texts(&plan.firing), vec!["follow-up 1"], "{closed:?}");
         }
+    }
+
+    #[test]
+    fn the_memory_save_hook_is_skipped_by_default_and_runs_once_saving_is_on() {
+        let data = tempfile::tempdir().unwrap();
+        let dir = data.path();
+        let repo = tempfile::tempdir().unwrap();
+
+        let mut session = chat(false, false);
+        session.set_memory_guards(read_memory_guards(dir, None, Some(repo.path())));
+        let plan = follow_up_plan(user_run(&mut session, &hooks()));
+        assert_eq!(
+            texts(&plan.firing),
+            vec!["follow-up 1"],
+            "saving is off until the user turns it on"
+        );
+
+        let on = MemoryGuardsPatch {
+            kind: MemoryGuardKind::Notes,
+            paused: None,
+            every_project: Some(true),
+            add_repo: None,
+            remove_repo: None,
+        };
+        update_global(dir, &on, None).unwrap();
+
+        session.set_memory_guards(read_memory_guards(dir, None, Some(repo.path())));
+        let (prefix, kept) = tailored_follow_up(&mut session);
+        assert!(prefix.contains("note_save"), "notes on, scripts still off: {prefix}");
+        assert_eq!(kept, "follow-up 2");
     }
 
     #[test]

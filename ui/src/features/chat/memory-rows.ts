@@ -23,8 +23,6 @@ export interface ChatMemoryState {
   paused: boolean;
   /** What each kind does here (every kind saves while paused: that is said on its own). */
   kinds: Record<GuardKind, KindState>;
-  /** What the chat's repository is called, for the line that says it is off there. */
-  repoName: string;
 }
 
 /** What happens to a kind a chat's agent wants to save. */
@@ -65,11 +63,8 @@ export function chatMemoryState(agentKey: string): ChatMemoryState | null {
     return null;
   }
 
-  const repository = repositoryOf(
-    agentSessions.get(agentKey)?.info.project ?? "",
-  );
+  const root = repositoryOf(agentSessions.get(agentKey)?.info.project ?? "")?.root ?? null;
   const paused = memory.guards.paused;
-  const root = repository?.root ?? null;
   const kinds = {
     notes: kindState(memory, "notes", root),
     scripts: kindState(memory, "scripts", root),
@@ -80,7 +75,6 @@ export function chatMemoryState(agentKey: string): ChatMemoryState | null {
     outcomes: memoryHeld.outcomesOf(memory.key),
     paused,
     kinds,
-    repoName: repository?.name ?? "",
   };
 }
 
@@ -102,40 +96,38 @@ export function hasMemoryRow(agentKey: string, conversation: boolean): boolean {
   );
 }
 
+/**
+ * Whether the line says that `kind` is off: saving is off by default in a project that was not turned on, which is nothing to state
+ * under every chat. Only what the user did (the chat's own switch, a pause) is said.
+ */
+function statesOff(kind: GuardKind, state: ChatMemoryState): boolean {
+  const off = state.kinds[kind].off;
+
+  return off !== null && off !== "repo";
+}
+
 /** The sentence that names why saving `kind` is off beyond the chat itself; null when the chat is the reason. */
 function reasonOf(
   kind: GuardKind,
   state: ChatMemoryState,
 ): LineSentence | null {
-  const off = state.kinds[kind].off;
-
-  if (off === "repo") {
-    return {
-      key:
-        kind === "notes"
-          ? "memory.guards.line.reason.notes.repo"
-          : "memory.guards.line.reason.scripts.repo",
-      params: { repo: state.repoName },
-    };
+  if (state.kinds[kind].off !== "global") {
+    return null;
   }
 
-  if (off === "global") {
-    return {
-      key:
-        kind === "notes"
-          ? "memory.guards.line.reason.notes.global"
-          : "memory.guards.line.reason.scripts.global",
-    };
-  }
-
-  return null;
+  return {
+    key:
+      kind === "notes"
+        ? "memory.guards.line.reason.notes.global"
+        : "memory.guards.line.reason.scripts.global",
+  };
 }
 
 /** The sentences of one line about what the chat saves, empty when everything saves normally. A paused chat says so on its own line. */
 export function memoryLine(state: ChatMemoryState): LineSentence[] {
   const { notes, scripts } = state.kinds;
 
-  if (notes.off && scripts.off) {
+  if (statesOff("notes", state) && statesOff("scripts", state)) {
     return [
       { key: "memory.guards.line.off" } satisfies LineSentence,
       reasonOf("notes", state),
@@ -146,7 +138,7 @@ export function memoryLine(state: ChatMemoryState): LineSentence[] {
   const sentences: Array<LineSentence | null> = [];
 
   for (const kind of GUARD_KINDS) {
-    if (state.kinds[kind].off) {
+    if (statesOff(kind, state)) {
       sentences.push(
         {
           key:

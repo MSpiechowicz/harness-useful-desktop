@@ -15,7 +15,7 @@
   import ScriptEditor from '../memory/ScriptEditor.svelte';
   import MemoryHeldNote from './MemoryHeldNote.svelte';
   import MemoryHeldScript from './MemoryHeldScript.svelte';
-  import { noteContentOf, noteFormOf, scriptFormOf } from './memory-held-edit';
+  import { heldProjectOf, noteContentOf, noteFormOf, scriptFormOf } from './memory-held-edit';
 
   interface Props {
     item: HeldItem;
@@ -28,6 +28,8 @@
   let editedRevision: string | null = null;
 
   const view = $derived(heldView(item));
+  // The edited save is written in the chat's project whatever the editor shows, so the editor offers that one only.
+  const pinned = $derived({ path: heldProjectOf(item) });
   const busy = $derived(memoryHeld.busy.has(item.heldId));
   const failure = $derived(memoryHeld.failures[item.heldId] ?? null);
 
@@ -86,10 +88,10 @@
 <!-- The editor changes the draft only: what the user keeps goes to Harness Memory as the edited save, and the agent's own is dropped. -->
 {#if view.type === 'note'}
   {#if view.noteId === null}
-    <NoteEditor bind:open={editing} note={null} links={[]} prefill={noteFormOf(item, view)} commit={saveEdited} />
+    <NoteEditor bind:open={editing} note={null} links={[]} prefill={noteFormOf(item, view)} commit={saveEdited} {pinned} />
   {:else}
-    <NoteEditor bind:open={editing} note={noteContentOf(item, view)} links={[]} commit={saveEdited} />
+    <NoteEditor bind:open={editing} note={noteContentOf(item, view)} links={[]} commit={saveEdited} {pinned} />
   {/if}
 {:else}
-  <ScriptEditor bind:open={editing} script={null} prefill={scriptFormOf(item, view)} commit={saveEdited} />
+  <ScriptEditor bind:open={editing} script={null} prefill={scriptFormOf(item, view)} commit={saveEdited} {pinned} />
 {/if}

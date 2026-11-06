@@ -57,7 +57,7 @@ mod tool_end;
 mod user_marks;
 
 pub use memory_gate::{MemorySaveGate, memory_save_part};
-pub use memory_state::{MEMORY_NOTICE_ID, MEMORY_NOTICE_NAME, MemoryGuardState, SaveRule};
+pub use memory_state::{MEMORY_NOTICE_ID, MEMORY_NOTICE_NAME, MemoryGuardState, SaveRule, takes_part};
 
 pub(crate) use memory_state::Announcement;
 
@@ -90,6 +90,8 @@ pub struct HookSession {
     memory: MemoryGuardState,
     /// Where they stood when the agent was last told.
     announced: MemoryGuardState,
+    /// Harness Memory takes no part in the chat now: nothing is announced, and `announced` stays.
+    memory_apart: bool,
 }
 
 impl HookSession {
@@ -111,6 +113,7 @@ impl HookSession {
             hook_handled: 0,
             memory: MemoryGuardState::OPEN,
             announced: MemoryGuardState::OPEN,
+            memory_apart: false,
         }
     }
 

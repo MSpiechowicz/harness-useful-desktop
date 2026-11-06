@@ -64,7 +64,7 @@ pub use compose::{
 pub use engine::{
     ChatContext, CommandRequest, EventOutcome, Firing, FollowUpPlan, HookSession, HookSet, MEMORY_NOTICE_ID,
     MEMORY_NOTICE_NAME, MemoryGuardState, MemorySaveGate, PlannedPart, SaveRule, SendOrigin, SendPlan,
-    memory_save_part,
+    memory_save_part, takes_part,
 };
 pub use family::{
     FAMILY, FamilyHook, FamilyStep, StepKind, apply_family, family_hook, family_status, restore_member, seed_defaults,

@@ -34,6 +34,7 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, probe: MemoryRemoteTes
     teamAndLocalSupported: true,
     scriptsTeamAndLocalSupported: true,
     saveGuardsSupported: false,
+    saveOptInSupported: false,
     embedderSupported: false,
     settingsSupported: false,
     notesLangSupported: false,

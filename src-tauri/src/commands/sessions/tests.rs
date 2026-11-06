@@ -194,6 +194,7 @@ fn a_session_open_in_a_chat_is_not_deleted() {
             path: binary.clone(),
             is_batch_script: false,
         },
+        memory_enabled: true,
     };
     let manager = state.agents.manager();
     let info = block_on(manager.start(request, deps, CollectingSink::new())).expect("the chat starts");

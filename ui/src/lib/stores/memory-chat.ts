@@ -1,3 +1,4 @@
+import type { GlobalKindGuard } from '$lib/ipc/bindings/GlobalKindGuard';
 import type { KindGuard } from '$lib/ipc/bindings/KindGuard';
 import type { MemoryChatGuards } from '$lib/ipc/bindings/MemoryChatGuards';
 import type { MemoryGuards } from '$lib/ipc/bindings/MemoryGuards';
@@ -23,7 +24,12 @@ export function defaultGuards(ask: Record<GuardKind, boolean>): MemoryChatGuards
   return { paused: false, notes: { on: true, ask: ask.notes }, scripts: { on: true, ask: ask.scripts } };
 }
 
-export const NO_GLOBAL_GUARDS: MemoryGuards = { notes: { paused: false, offRepos: [] }, scripts: { paused: false, offRepos: [] } };
+/** What every chat allows while it is not known: saving is opt-in, so nothing is on until the guards were read. */
+export const NO_GLOBAL_GUARDS: MemoryGuards = {
+  notes: { paused: false, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] },
+  scripts: { paused: false, everyProject: false, onRepos: [], deadRepos: [], changedRepos: [] },
+  migrationPending: false,
+};
 
 function isKindGuard(value: unknown): value is KindGuard {
   const guard = value as KindGuard | null;
@@ -58,13 +64,25 @@ export function withKind(guards: MemoryChatGuards, kind: GuardKind, change: Part
   return { ...guards, [kind]: { ...guards[kind], ...change } };
 }
 
-/** Why a kind cannot be saved in a chat in repository `root`, or null when it can: paused everywhere, off in the repository, or off in the chat. */
+/** Whether a project saves this kind: every project, or it is listed and its entry still turns it on (the folder is there, its remote did not change). */
+export function projectIsOn(guard: GlobalKindGuard, root: string | null): boolean {
+  if (guard.everyProject) {
+    return true;
+  }
+
+  return root !== null && guard.onRepos.includes(root) && !guard.deadRepos.includes(root) && !guard.changedRepos.includes(root);
+}
+
+/**
+ * Why a kind cannot be saved in a chat in saving root `root`, or null when it can: paused everywhere, not turned on for the project
+ * (a root that is not known counts as not turned on), or off in the chat.
+ */
 export function offReason(kind: GuardKind, chat: MemoryChatGuards, global: MemoryGuards, root: string | null): OffReason | null {
   if (global[kind].paused) {
     return 'global';
   }
 
-  if (root !== null && global[kind].offRepos.includes(root)) {
+  if (!projectIsOn(global[kind], root)) {
     return 'repo';
   }
 

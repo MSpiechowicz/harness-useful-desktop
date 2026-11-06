@@ -1,3 +1,4 @@
+import type { AppPrefs } from './bindings/AppPrefs';
 import type { AuthorFilter } from './bindings/AuthorFilter';
 import type { MemoryDeleteAll } from './bindings/MemoryDeleteAll';
 import type { MemoryRemote } from './bindings/MemoryRemote';
@@ -204,18 +205,28 @@ export const memoryCommands = {
    */
   memory_script_decide: cmd<{ requestId: string; allow: boolean }, null>(),
   /**
-   * What agents may save everywhere (`guards/global.json` in Harness Memory's data folder): each kind paused, and the repositories it is off in.
-   * Nothing saved yet is all on. Rejects with `protocol` for a guards file that cannot be read (Harness Memory then refuses every agent save
+   * What agents may save everywhere (`guards/global.json` in Harness Memory's data folder): each kind paused, on for every project, and the
+   * repositories it is on in. Saving is opt-in, so nothing saved yet is all off. Rejects with `protocol` for a guards file that cannot be read (Harness Memory then refuses every agent save
    * until it is saved again), `unsupported` while the data folder is unknown.
    */
   memory_guards_get: cmd<undefined, MemoryGuards>(),
   /**
    * Applies one change to what agents may save everywhere, to what is saved now, and returns it as saved: `paused` pauses or resumes the kind,
-   * `addRepo` turns a repository (any folder in it) off, `removeRepo` turns one on again. Each repository is kept as its project root (git
-   * root), once, sorted. Changes sent at once all apply. `invalidInput` for a repository that is not an absolute folder path, or more than 256
+   * `everyProject` turns saving on for every project or back to the listed ones, `addRepo` turns a repository (any folder in it) on,
+   * `removeRepo` turns one off again. Each repository is kept as its saving root, once, sorted. Changes sent at once all apply. `invalidInput` for a repository that is not an absolute folder path, or more than 256
    * of them, `protocol` while the saved file cannot be read.
    */
   memory_guards_update: cmd<{ patch: MemoryGuardsPatch }, MemoryGuards>(),
+  /**
+   * The root a chat working in `folder` is listed under in the global guards (`onRepos`): a folder in a repository maps to the repository,
+   * a git worktree to its main repository, a separate clone stays separate. Null when the folder is gone.
+   */
+  memory_saving_root: cmd<{ folder: string }, string | null>(),
+  /**
+   * Marks the one-time notice that saving notes and scripts is opt-in as handled and returns the stored preferences (`memoryOptInNoticeDone`
+   * is server-managed, `prefs_set` cannot change it).
+   */
+  memory_opt_in_notice_done: cmd<undefined, AppPrefs>(),
   /**
    * Saves what the agents of chat `key` (its `memoryChat.key`, a lowercase UUID) may save, applied to their next save. `revision` counts the
    * chat's writes up: a write whose revision is not higher than the last one saved for the chat came late and is ignored (it still resolves,

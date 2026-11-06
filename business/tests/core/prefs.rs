@@ -30,6 +30,7 @@ fn unusable_defaults() -> AppPrefs {
         auto_refresh_catalogs: false,
         background_fetch: false,
         updates_turned_on: false,
+        memory_opt_in_notice_done: false,
         ..AppPrefs::default()
     }
 }
@@ -118,6 +119,7 @@ fn unknown_fields_are_ignored_and_missing_fields_defaulted() {
         AppPrefs {
             theme: ThemePref::Light,
             updates_turned_on: false,
+            memory_opt_in_notice_done: false,
             ..AppPrefs::default()
         }
     );
@@ -185,6 +187,7 @@ fn stored_language_is_normalized_on_load() {
             AppPrefs {
                 language: "fr".to_owned(),
                 updates_turned_on: false,
+                memory_opt_in_notice_done: false,
                 ..AppPrefs::default()
             },
             PrefsOrigin::Stored
@@ -202,6 +205,7 @@ fn stored_language_is_normalized_on_load() {
         (
             AppPrefs {
                 updates_turned_on: false,
+                memory_opt_in_notice_done: false,
                 ..AppPrefs::default()
             },
             PrefsOrigin::Stored
@@ -225,6 +229,7 @@ fn a_language_that_is_not_a_string_loads_as_english_and_keeps_the_file() {
                     theme: ThemePref::Dark,
                     show_thinking: false,
                     updates_turned_on: false,
+                    memory_opt_in_notice_done: false,
                     ..AppPrefs::default()
                 },
                 PrefsOrigin::Stored

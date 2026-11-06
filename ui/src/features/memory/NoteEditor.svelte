@@ -25,7 +25,7 @@
   import ExistsNotice from './ExistsNotice.svelte';
   import { KIND_LABELS, NOTE_KINDS } from './note-format';
   import NoteLinks from './NoteLinks.svelte';
-  import { defaultTarget, editProject, projectOfTarget, targetLabel, targetOfItem } from './scope-target';
+  import { defaultTarget, editProject, offeredProjects, type PinnedProject, pinnedHelp, projectOfTarget, targetLabel, targetOfItem } from './scope-target';
   import { spelledOut } from './script-format';
   import {
     blankForm,
@@ -60,9 +60,11 @@
      * editor closes. The editor then neither writes the note nor looks for one of the same title.
      */
     commit?: (draft: NoteDraft) => Promise<string | null>;
+    /** Set for a note an agent holds: the project it is written in, which the Applies to field offers besides Global. */
+    pinned?: PinnedProject | null;
   }
 
-  let { open = $bindable(false), note, links, onsaved, onopen, prefill = null, commit }: Props = $props();
+  let { open = $bindable(false), note, links, onsaved, onopen, prefill = null, commit, pinned = null }: Props = $props();
 
   const FIELDS: readonly FieldKey[] = ['title', 'body', 'tags', 'entities', 'scope'];
 
@@ -83,6 +85,7 @@
   const editing = $derived(note !== null);
   const projectPath = $derived(project.active?.path ?? null);
   const projects = $derived(projectScopes.data ?? []);
+  const choices = $derived(offeredProjects(pinned, projects));
 
   const fields = fieldProblems(() => problemsOf(form, { editing }), () => open);
 
@@ -128,6 +131,12 @@
   const scopeHelp = $derived.by(() => {
     if (editing) {
       return t('memory.editor.note.scope.fixed');
+    }
+
+    const held = pinnedHelp(pinned, form.target, choices);
+
+    if (held !== null) {
+      return held;
     }
 
     return form.target.kind === 'repo' ? t('memory.editor.note.scope.repo.hint', { project: targetLabel(projects, form.target, t('components.scope.global')) }) : t('memory.editor.note.scope.global.hint');
@@ -304,5 +313,5 @@
     </DocField>
   {/if}
 
-  <EditorScope bind:value={form.target} {projects} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing} />
+  <EditorScope bind:value={form.target} projects={choices} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing || pinned?.path === null} />
 </EditorDialog>

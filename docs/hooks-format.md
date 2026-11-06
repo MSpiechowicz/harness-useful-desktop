@@ -174,7 +174,7 @@ Escaping: in `NAME` replace `&` `<` `>` `"` with `&amp;` `&lt;` `&gt;` `&quot;`.
 
 Cap: each composed context block (the `<harness-hook-context>` wrapper's elements) and each composed follow-up prompt is at most 12 KiB (12288 bytes) of elements. Elements are taken in hook order, one that does not fit is dropped and logged, later smaller ones may still fit. When the user's text with the block would exceed the prompt limit (512 KiB), the last elements are dropped until it fits, and the text is sent alone when none fits.
 
-The app may add its own element first in `<harness-hook-context>`: `<hook name="Memory settings">`, which tells the agent where saving notes and scripts stands after the user changed the chat's memory settings. Its id `harness-desktop:memory-settings` is not a hook id, so no hook file matches or replaces it (see [the memory save guards plan](plans/memory-save-guards.md#telling-the-agent)).
+The app may add its own element first in `<harness-hook-context>`: `<hook name="Memory settings">`, which tells the agent where saving notes and scripts stands: at a chat's first message when saving is off for its project (the default, saving is opt-in) or restricted, and after the user changed the chat's memory settings. It is never sent while Project memory is off, Harness Memory is not installed or its server predates save guards (it saves as before there). Its id `harness-desktop:memory-settings` is not a hook id, so no hook file matches or replaces it (see [the memory save guards plan](plans/memory-save-guards.md#telling-the-agent)).
 
 ### Knowledge recall element
 

@@ -264,8 +264,11 @@ pub(crate) fn refusal(stdout: &str, message: String) -> Refusal {
         .filter(|text| !text.is_empty())
         .unwrap_or(message);
 
+    let moved_project = data.get("reason").and_then(Value::as_str) == Some("project");
+
     let error = match code.as_deref() {
         Some("gone") => BusinessError::Conflict(GONE_MESSAGE.to_owned()),
+        Some("changed") if moved_project => BusinessError::Process(message.clone()),
         Some("changed") => BusinessError::Changed(CHANGED_MESSAGE.to_owned()),
         Some("notFound") => BusinessError::NotFound(message.clone()),
         Some("invalid") => BusinessError::InvalidInput(message.clone()),
@@ -346,6 +349,15 @@ mod tests {
             "line".to_owned(),
         );
         assert!(matches!(changed.error, BusinessError::Changed(ref text) if text == CHANGED_MESSAGE));
+
+        let moved = refusal(
+            r#"{"error": "changed", "reason": "project", "message": "the folder this save was held for is gone, so nothing was saved"}"#,
+            "line".to_owned(),
+        );
+        assert_eq!(moved.code.as_deref(), Some("changed"));
+        assert!(
+            matches!(moved.error, BusinessError::Process(ref text) if text.contains("is gone, so nothing was saved"))
+        );
 
         let missing = refusal(
             r#"{"error": "notFound", "message": ""}"#,

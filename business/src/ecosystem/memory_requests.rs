@@ -68,6 +68,15 @@ pub fn memory_data_dir(env: &Env) -> Option<PathBuf> {
     MEMORY_SIDECAR.data_dir(env)
 }
 
+/// The local database file in Harness Memory's data folder.
+const DATABASE_FILE: &str = "memory.sqlite3";
+
+/// Whether `data_dir` holds the local database of Harness Memory: a plain file, or a link to one.
+/// Nothing is opened or read.
+pub fn has_memory_database(data_dir: &Path) -> bool {
+    std::fs::metadata(data_dir.join(DATABASE_FILE)).is_ok_and(|metadata| metadata.is_file())
+}
+
 /// Touches `<data_dir>/desktop.alive` (created `0600` when missing). `false`, with nothing written,
 /// while the data folder does not exist: the server creates it. Refuses a symbolic link there.
 pub fn touch_alive(data_dir: &Path) -> Result<bool> {

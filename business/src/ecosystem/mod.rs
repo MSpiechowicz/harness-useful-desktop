@@ -143,6 +143,7 @@ pub mod memory_notes_copy;
 pub mod memory_notes_import;
 pub mod memory_notes_save;
 mod memory_notes_titles;
+pub mod memory_project_key;
 pub mod memory_recall;
 pub mod memory_record;
 pub mod memory_register;
@@ -261,8 +262,10 @@ pub use memory_embedder::{
 };
 pub use memory_features::{FeaturesSupport, MemoryFeatures};
 pub use memory_guards::{
-    CHAT_MAX_AGE, ChatGuardWrites, SESSION_VAR, chat_repo_root, check_chat_key, is_chat_key, read_chat, read_chat_repo,
-    read_global, sweep_chats, update_global, write_chat,
+    CHAT_MAX_AGE, ChatGuardWrites, OPT_IN_MARKER, Pin, SESSION_VAR, chat_repo_root, check_chat_key, checkable_repos,
+    ensure_global, guards_data_dir, is_chat_key, read_chat, read_chat_repo, read_global, read_global_healed,
+    repo_is_on, saving_root, saving_root_listed, saving_root_of_folder, sweep_chats, update_global,
+    version_one_remains, with_changed_repos, write_chat,
 };
 pub use memory_held::{HeldSave, guarded_server, held_stamp, list_held, save_held, skip_held};
 pub use memory_hidden::{MAX_LOCAL_IDS, discard_local, hide_entry};
@@ -278,18 +281,19 @@ pub use memory_notes_import::{
     apply_notes_import, import_template, read_notes_file,
 };
 pub use memory_notes_save::save_note;
+pub use memory_project_key::{pin_of, read_guards, update_guards, with_changed};
 pub use memory_recall::{MAX_MEMORY_RECALL_OUTPUT_BYTES, memory_recall};
 pub use memory_record::{MEMORY_RECORD_FILE, MemoryRecord, RecordedFile};
 pub use memory_register::{
-    MemoryRegistration, names_command, register_memory_mcp, register_memory_mcp_cli, repoint_memory_mcp,
-    unregister_memory_mcp, unregister_memory_mcp_cli,
+    MemoryRegistration, memory_mcp_listed, names_command, register_memory_mcp, register_memory_mcp_cli,
+    repoint_memory_mcp, unregister_memory_mcp, unregister_memory_mcp_cli,
 };
 pub use memory_remote::{
     MemoryRemoteChange, MemorySupport, ScriptsSupport, memory_config_path, memory_remote_get, memory_remote_set,
     memory_remote_test,
 };
 pub use memory_repos::list_repos;
-pub use memory_requests::{RequestWatcher, memory_data_dir, remove_alive, touch_alive};
+pub use memory_requests::{RequestWatcher, has_memory_database, memory_data_dir, remove_alive, touch_alive};
 pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};
 pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::{script_sha256, trust_scripts};

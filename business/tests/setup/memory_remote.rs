@@ -129,6 +129,7 @@ fn without_a_file_team_memory_is_off() {
             team_and_local_supported: false,
             scripts_team_and_local_supported: false,
             save_guards_supported: false,
+            save_opt_in_supported: false,
             embedder_supported: false,
             settings_supported: false,
             notes_lang_supported: false,

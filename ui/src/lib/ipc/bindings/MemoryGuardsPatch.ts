@@ -15,10 +15,15 @@ kind: MemoryGuardKind,
  */
 paused?: boolean, 
 /**
- * A repository (any folder in it) where agents save nothing of the kind from now on.
+ * Turns saving of the kind on for every project (`true`) or back to the listed repositories
+ * only (`false`).
+ */
+everyProject?: boolean, 
+/**
+ * A repository (any folder in it) where agents may save the kind from now on.
  */
 addRepo?: string, 
 /**
- * A repository turned off before, on again.
+ * A repository turned on before, off again (as listed or any folder in it).
  */
 removeRepo?: string, };

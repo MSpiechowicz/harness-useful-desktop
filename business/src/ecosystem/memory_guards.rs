@@ -1,9 +1,24 @@
 //! The save guards Harness Memory applies to agents, kept in its data folder
 //! ([`memory_data_dir`](super::memory_data_dir)) and written by this app only:
 //!
-//! - `guards/global.json` ([`GLOBAL_FILE`]): `{"version": 1, "notes": {"paused", "offRepos"},
-//!   "scripts": {...}}`, the guards of every chat (`memory_guards_get`, `memory_guards_update`,
-//!   one change at a time under a lock: [`update_global`]);
+//! - `guards/global.json` ([`GLOBAL_FILE`]): `{"version": 2, "notes": {"paused", "everyProject",
+//!   "onRepos", "repoKeys"}, "scripts": {...}}`, the guards of every chat (`memory_guards_get`,
+//!   `memory_guards_update`, one change at a time under a lock in this process and on
+//!   `guards/global.lock` for other processes: [`update_global`]). Saving is opt-in: it is off
+//!   until `everyProject` is on or the project's [`saving_root`] is in `onRepos` ([`repo_is_on`])
+//!   and still has the project key its entry was pinned with in `repoKeys` (the key the server gave
+//!   the folder when the user turned it on, `null` for one with no project: [`Pin`]). This app
+//!   cannot compute keys, so its own rule is by path and an entry with no pin counts as dead;
+//!   `changedRepos` (the entries whose key changed) is asked of the server by the commands.
+//!   Version 1 (`offRepos`, saving on) becomes version 2 when the app starts, when any agent starts
+//!   and when the guards are read ([`ensure_global`]): the pause stays, the list does not. This
+//!   happens only on a computer that uses Harness Memory ([`guards_data_dir`]: the data folder exists
+//!   or the server resolves), so a user without it gets no folder, no file and no failed start. A
+//!   start fails when the move fails only if it has a memory chat or a readable version 1 file
+//!   remains, with "Harness Memory settings could not be updated: <reason>" (`io`);
+//! - `guards/opt-in` ([`OPT_IN_MARKER`]): `{"version":1}`, written before `global.json` by every
+//!   [`ensure_global`]. While it exists, Harness Memory takes a missing `global.json` as unreadable
+//!   (refuses) instead of "no rules", so a deleted file cannot turn saving back on;
 //! - `guards/chats/<key>.json` ([`CHATS_DIR`]): `{"version": 1, "paused", "notes": {"on", "ask"},
 //!   "scripts": {...}, "repoRoot"}`, the guards of one chat and the root of its project (its git
 //!   root, else the folder: [`chat_repo_root`]), written when the chat starts, on every toggle
@@ -11,23 +26,27 @@
 //!   as [`SESSION_VAR`] only once its file is written. Files untouched for [`CHAT_MAX_AGE`] go at
 //!   startup ([`sweep_chats`]).
 //!
-//! The server reads them on every gated call: a missing file is no guards, an unreadable one
-//! refuses. Folders are `0700` and this user's, files `0600`, written in one rename, never through
+//! The server reads them on every gated call: a missing `global.json` is no rules only while
+//! `guards/opt-in` does not exist (an older desktop has chats and no file and no marker, while this
+//! app treats a missing file as off and writes the marker and the file before any agent starts),
+//! and with a session a missing or unreadable chat file refuses. Folders are `0700` and this user's, files `0600`, written in one rename, never through
 //! a symbolic link; a file of another version is unreadable. The app creates the data folder when
 //! it is missing (`0700`), as the server does.
 //!
 //! The hooks of one chat read both through [`read_memory_guards`](crate::hooks::read_memory_guards).
 
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::{BusinessError, Result};
 use crate::fs_atomic::{create_private_dir, ensure_private_dir, refuse_link, replace_atomically};
 use crate::hooks::project_identity;
-use crate::model::{GlobalKindGuard, KindGuard, MemoryChatGuards, MemoryGuardKind, MemoryGuards, MemoryGuardsPatch};
+use crate::model::{KindGuard, MemoryChatGuards, MemoryGuards, MemoryGuardsPatch};
 use crate::security::SafeReader;
+
+use global::{GlobalFile, GlobalRead};
+use saving_root::names_itself;
 
 /// The variable that names a chat to Harness Memory (its key).
 pub const SESSION_VAR: &str = "HARNESS_MEMORY_SESSION";
@@ -41,21 +60,18 @@ pub const GLOBAL_FILE: &str = "global.json";
 /// The folder of each chat's guards, in [`GUARDS_DIR`].
 pub const CHATS_DIR: &str = "chats";
 
-/// The file format written and read.
+/// The format of a chat's file.
 const VERSION: u32 = 1;
 
-/// The largest guards file read (256 KiB: far more than [`MAX_OFF_REPOS`] paths).
+/// The largest guards file read and written (256 KiB). A full list of long paths can pass it
+/// ([`MAX_ON_REPOS`] of [`MAX_REPO_CHARS`] each), and a write over it is refused ([`write_global`]).
 const MAX_FILE_BYTES: u64 = 256 * 1024;
 
-/// The most repositories turned off per kind.
-pub const MAX_OFF_REPOS: usize = 256;
+/// The most repositories turned on per kind.
+pub const MAX_ON_REPOS: usize = 256;
 
 /// The longest repository path kept, in characters.
 const MAX_REPO_CHARS: usize = 4096;
-
-/// One change of `guards/global.json` at a time in this process, so two changes made at once both
-/// apply ([`update_global`]).
-static GLOBAL_WRITES: Mutex<()> = Mutex::new(());
 
 /// Whether `key` is a chat key: a lowercase UUID (`8-4-4-4-12` lowercase hex digits).
 pub fn is_chat_key(key: &str) -> bool {
@@ -79,15 +95,6 @@ pub fn check_chat_key(key: &str) -> Result<()> {
     ))
 }
 
-/// `guards/global.json` as written.
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GlobalFile {
-    version: u32,
-    notes: GlobalKindGuard,
-    scripts: GlobalKindGuard,
-}
-
 /// `guards/chats/<key>.json` as written.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,47 +107,71 @@ struct ChatFile {
     repo_root: Option<String>,
 }
 
-/// The guards of every chat in `data_dir`: none while the file is missing. `protocol` for a file
-/// that cannot be read (a symbolic link, too large, not this version), which the server takes as
-/// "refuse every save".
+/// The guards of every chat in `data_dir`: saving off while the file is missing. A file of version
+/// 1 reads as [`ensure_global`] would write it (the pauses, saving off) with `migrationPending`
+/// set, and is not changed. `protocol` for a file that cannot be read (a symbolic link, too large,
+/// of another version), which the server takes as "refuse every save".
+///
+/// Each kind's `dead_repos` are the entries that turn nothing on ([`names_itself`], or no pin),
+/// computed here with one canonicalisation per entry and never written ([`GlobalFile`]).
 pub fn read_global(data_dir: &Path) -> Result<MemoryGuards> {
+    read_listed(data_dir).map(with_dead_repos)
+}
+
+/// [`read_global`] without `dead_repos`: for what only reads or rewrites the entries.
+pub(crate) fn read_listed(data_dir: &Path) -> Result<MemoryGuards> {
     let Some(text) = read_file(&global_path(data_dir))? else {
         return Ok(MemoryGuards::default());
     };
 
-    match serde_json::from_str::<GlobalFile>(&text) {
-        Ok(file) if file.version == VERSION => Ok(MemoryGuards {
-            notes: file.notes,
-            scripts: file.scripts,
-        }),
-        _ => Err(unreadable()),
-    }
+    Ok(GlobalRead::parse(&text)?.guards())
 }
 
-/// Writes the guards of every chat to `data_dir` and returns them as written: each repository as
-/// its project root (see [`project_identity`]; a folder that is gone stays as given), without
-/// duplicates, sorted. `invalidInput` for a repository that is not an absolute path, too long, or
-/// more than [`MAX_OFF_REPOS`] of them.
+/// `guards` with each kind's `dead_repos` filled in: the entries that name nothing or have no pin.
+fn with_dead_repos(mut guards: MemoryGuards) -> MemoryGuards {
+    for kind in [&mut guards.notes, &mut guards.scripts] {
+        kind.dead_repos = kind
+            .on_repos
+            .iter()
+            .filter(|entry| !names_itself(Path::new(entry)) || !kind.repo_keys.contains_key(*entry))
+            .cloned()
+            .collect();
+    }
+
+    guards
+}
+
+/// Writes the guards of every chat to `data_dir` and returns them as written: the repositories as
+/// given (a change turns one on as its saving root, see [`change`]; the ones listed stay as they
+/// are), without duplicates, sorted. `invalidInput` for a repository that is not an absolute path,
+/// too long, more than [`MAX_ON_REPOS`] of them, or a file that would pass [`MAX_FILE_BYTES`] (the
+/// file is left as it is). The caller holds the [`GlobalLock`].
 pub(crate) fn write_global(data_dir: &Path, guards: &MemoryGuards) -> Result<MemoryGuards> {
     let guards = MemoryGuards {
-        notes: canonical_kind(&guards.notes)?,
-        scripts: canonical_kind(&guards.scripts)?,
+        notes: change::listed_kind(&guards.notes)?,
+        scripts: change::listed_kind(&guards.scripts)?,
+        migration_pending: false,
     };
 
-    let file = GlobalFile {
-        version: VERSION,
-        notes: guards.notes.clone(),
-        scripts: guards.scripts.clone(),
-    };
+    let bytes = encoded(&GlobalFile::of(&guards))?;
+
+    if bytes.len() as u64 > MAX_FILE_BYTES {
+        return Err(BusinessError::InvalidInput(format!(
+            "the repositories turned on take more than {} KiB of settings: turn some off",
+            MAX_FILE_BYTES / 1024
+        )));
+    }
 
     let guards_dir = ready_guards_dir(data_dir)?;
-    write_file(&guards_dir.join(GLOBAL_FILE), &file)?;
+    write_bytes(&guards_dir.join(GLOBAL_FILE), &bytes)?;
 
     tracing::info!(
         notes_paused = guards.notes.paused,
-        notes_off = guards.notes.off_repos.len(),
+        notes_every_project = guards.notes.every_project,
+        notes_on = guards.notes.on_repos.len(),
         scripts_paused = guards.scripts.paused,
-        scripts_off = guards.scripts.off_repos.len(),
+        scripts_every_project = guards.scripts.every_project,
+        scripts_on = guards.scripts.on_repos.len(),
         "memory save guards saved"
     );
 
@@ -148,34 +179,26 @@ pub(crate) fn write_global(data_dir: &Path, guards: &MemoryGuards) -> Result<Mem
 }
 
 /// Applies `patch` to the guards of every chat saved in `data_dir` now and returns them as written
-/// (see [`write_global`]): pause or resume the kind, turn a repository off (`addRepo`, any folder
-/// in it) or on again (`removeRepo`, as listed or any folder in it). One change at a time in this
-/// process, so changes made at once all apply. `protocol` while the file saved now cannot be read
-/// (nothing is written over it), `invalidInput` as [`write_global`].
-pub fn update_global(data_dir: &Path, patch: &MemoryGuardsPatch) -> Result<MemoryGuards> {
-    let _writing = GLOBAL_WRITES.lock().unwrap_or_else(PoisonError::into_inner);
+/// (see [`write_global`]): pause or resume the kind, turn it on for every project or only for the
+/// listed ones (`everyProject`), turn a repository on (`addRepo`, any folder in it) or off again
+/// (`removeRepo`, as listed or any folder in it). One change at a time, in this process and across
+/// processes (a lock on `guards/global.lock`, waited for 5 seconds), so changes made at once all
+/// apply. `added` is the [`Pin`] of the folder `addRepo` names, asked of the server before this
+/// (`invalidInput` when `addRepo` comes without it: no entry is written without its pin); the entry
+/// is written with it, or its pin replaced when the repository was on already. `protocol` while the
+/// file saved now cannot be read (nothing is written over it) or while another process keeps the
+/// lock, `invalidInput` as [`write_global`].
+pub fn update_global(data_dir: &Path, patch: &MemoryGuardsPatch, added: Option<Pin>) -> Result<MemoryGuards> {
+    let _writing = GlobalLock::take(data_dir)?;
 
-    let mut guards = read_global(data_dir)?;
-    let guard = match patch.kind {
-        MemoryGuardKind::Notes => &mut guards.notes,
-        MemoryGuardKind::Scripts => &mut guards.scripts,
-    };
-
-    if let Some(paused) = patch.paused {
-        guard.paused = paused;
-    }
-
-    if let Some(repo) = &patch.remove_repo {
-        let root = canonical_repo(repo)?;
-        guard.off_repos.retain(|off| off != repo && *off != root);
-    }
-
-    if let Some(repo) = &patch.add_repo {
-        guard.off_repos.push(canonical_repo(repo)?);
-    }
-
-    write_global(data_dir, &guards)
+    change::apply(data_dir, patch, added).map(with_dead_repos)
 }
+
+/// The project key a repository had when the user turned it on, as Harness Memory computes it
+/// ([`project_key`](super::memory_project_key)): `None` for a folder with no project, such as the
+/// home folder. Saving there stops when the repository's key becomes another one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pin(pub Option<String>);
 
 /// The guards of chat `key` in `data_dir`; `None` while its file is missing. `invalidInput` for a
 /// key that is not one, `protocol` for a file that cannot be read.
@@ -226,59 +249,13 @@ pub fn write_chat(data_dir: &Path, key: &str, guards: &MemoryChatGuards, repo_ro
 }
 
 /// The repository of a chat in `project`, as its chat file names it: the project root the hooks
-/// resolve ([`project_identity`]), its git root or, outside a repository, the folder itself, the
-/// same string `addRepo` turns off. `None` for a folder that is gone or a path that is not text.
+/// resolve ([`project_identity`]), its git root or, outside a repository, the folder itself (for a
+/// worktree its own root: the server maps it to the main repository, as [`saving_root`] does).
+/// `None` for a folder that is gone or a path that is not text.
 pub fn chat_repo_root(project: &Path) -> Option<String> {
     let root = project_identity(project).ok()?;
 
     root.into_os_string().into_string().ok()
-}
-
-/// `guard` with its repositories as written (see [`write_global`]).
-fn canonical_kind(guard: &GlobalKindGuard) -> Result<GlobalKindGuard> {
-    if guard.off_repos.len() > MAX_OFF_REPOS {
-        return Err(BusinessError::InvalidInput(format!(
-            "at most {MAX_OFF_REPOS} repositories can be turned off"
-        )));
-    }
-
-    let mut repos = Vec::new();
-
-    for repo in &guard.off_repos {
-        let repo = canonical_repo(repo)?;
-
-        if !repos.contains(&repo) {
-            repos.push(repo);
-        }
-    }
-
-    repos.sort();
-
-    Ok(GlobalKindGuard {
-        paused: guard.paused,
-        off_repos: repos,
-    })
-}
-
-/// `repo` as its project root; as given when the folder is gone.
-fn canonical_repo(repo: &str) -> Result<String> {
-    let path = Path::new(repo);
-
-    if !path.is_absolute() || repo.chars().count() > MAX_REPO_CHARS || repo.chars().any(char::is_control) {
-        return Err(BusinessError::InvalidInput(
-            "a repository is an absolute folder path".to_owned(),
-        ));
-    }
-
-    let root = match project_identity(path) {
-        Ok(root) => root,
-        Err(BusinessError::NotFound(_)) => path.to_path_buf(),
-        Err(error) => return Err(error),
-    };
-
-    root.into_os_string()
-        .into_string()
-        .map_err(|_| BusinessError::InvalidInput("a repository path is not valid text".to_owned()))
 }
 
 fn global_path(data_dir: &Path) -> PathBuf {
@@ -392,20 +369,42 @@ fn check_owner(_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Writes `value` as JSON to `path` in one rename (`0600`), never through a symbolic link.
-fn write_file<T: Serialize>(path: &Path, value: &T) -> Result<()> {
-    refuse_link(path)?;
-
+/// `value` as the JSON a guards file holds.
+fn encoded<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     let mut bytes = serde_json::to_vec_pretty(value)
         .map_err(|error| BusinessError::Internal(format!("encoding the memory guards failed: {error}")))?;
     bytes.push(b'\n');
 
-    replace_atomically(path, &bytes, "saving the Harness Memory guards")
+    Ok(bytes)
 }
 
-mod chats;
+/// Writes `value` as JSON to `path` in one rename (`0600`), never through a symbolic link.
+fn write_file<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+    write_bytes(path, &encoded(value)?)
+}
 
+/// Writes `bytes` to `path` in one rename (`0600`), never through a symbolic link.
+fn write_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
+    refuse_link(path)?;
+
+    replace_atomically(path, bytes, "saving the Harness Memory guards")
+}
+
+mod change;
+mod changed;
+mod chats;
+mod global;
+mod lock;
+mod saving_root;
+
+pub use changed::{checkable_repos, with_changed_repos};
 pub use chats::{CHAT_MAX_AGE, ChatGuardWrites, sweep_chats};
+pub use global::{
+    OPT_IN_MARKER, ensure_global, guards_data_dir, read_global_healed, rules_missing, version_one_remains,
+};
+pub use saving_root::{repo_is_on, saving_root, saving_root_listed, saving_root_of_folder};
+
+use lock::GlobalLock;
 
 #[cfg(test)]
 mod tests;

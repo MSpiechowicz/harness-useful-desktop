@@ -122,6 +122,10 @@ pub struct MemoryRemote {
     /// applies the guards of each chat, repository and place, holds saves for review, and saves
     /// the user's own notes and scripts through commands agents cannot reach.
     pub save_guards_supported: bool,
+    /// True when the installed Harness Memory lists `save-opt-in` in `harness-memory features`: it
+    /// reads `guards/global.json` version 2, where agents save nothing until the user turns saving
+    /// on (`everyProject`, `onRepos`). An older server refuses every save against that file.
+    pub save_opt_in_supported: bool,
     /// True when the installed Harness Memory lists `embedder` in `harness-memory features`: it
     /// runs the local embedder behind vector search.
     pub embedder_supported: bool,
