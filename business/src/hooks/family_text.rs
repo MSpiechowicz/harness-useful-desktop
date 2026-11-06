@@ -51,7 +51,7 @@ pub const SEED_USEFUL_SKILLS_TEXT: &str = concat!(
     useful_skills_tiers!(
         "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
     ),
-    " Before you open any PR, whatever the tier, run the us-assess-release skill on the final commit and put its Review guide in the PR body."
+    " Before you open any PR, whatever the tier, run the us-assess-release skill on the final commit and put its Review guide in the PR body, unless the release-assessment setting is off."
 );
 
 /// The `branch-sync` context: step 20, after the commits of main the app found.

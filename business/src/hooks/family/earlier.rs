@@ -90,7 +90,16 @@ const USEFUL_SKILLS_STEP_V2: &str = useful_skills_tiers!(
     "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
 );
 
+/// The PR assessment sentence, before it left out a release-assessment setting that is off.
+const USEFUL_SKILLS_STEP_V3: &str = concat!(
+    useful_skills_tiers!(
+        "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
+    ),
+    " Before you open any PR, whatever the tier, run the us-assess-release skill on the final commit and put its Review guide in the PR body."
+);
+
 pub(super) const USEFUL_SKILLS: &[&str] = &[
+    USEFUL_SKILLS_STEP_V3,
     USEFUL_SKILLS_STEP_V2,
     USEFUL_SKILLS_STEP_V1,
     USEFUL_SKILLS_V3,
