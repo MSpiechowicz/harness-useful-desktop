@@ -42,6 +42,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.nativeMode.bypassPermissions': 'Omitir permisos',
 
   'chat.approvalCard.label': 'Se necesita aprobación',
+  'chat.approvalCard.oneOf': 'Una de estas llamadas pregunta:',
   'chat.approvalCard.denies': 'deniega',
   'chat.approvalCard.readsAs.codex': 'Codex lo interpreta como: {reading}',
 

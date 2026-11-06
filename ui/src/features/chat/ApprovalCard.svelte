@@ -3,9 +3,9 @@
 
   import Button from '$lib/components/Button.svelte';
   import Kbd from '$lib/components/Kbd.svelte';
-  import { approvalSubject, type ApprovalPrompt } from '$lib/chat/approval';
+  import { approvalCalls, type ApprovalPrompt } from '$lib/chat/approval';
   import type { ChatSession } from '$lib/chat/session.svelte';
-  import { commandOf, fullPrimaryArg, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
+  import { approvalArgument, commandOf, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
   import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import { overflowing } from '$lib/utils/overflowing';
@@ -23,11 +23,14 @@
   /** Harnesses whose card intent is their own reading of a command, a hint that may leave parts out: it says whose reading it is. */
   const READINGS: Partial<Record<HarnessId, MessageKey>> = { codex: 'chat.approvalCard.readsAs.codex' };
 
-  const subject = $derived(approvalSubject(session.chat, prompt));
+  const calls = $derived(approvalCalls(session.chat, prompt));
+  const subject = $derived(calls.length === 1 ? calls[0] : null);
+  // Several parallel calls may be asking: none is picked, each is shown in full.
+  const candidates = $derived(calls.length > 1 ? calls : []);
   const Icon = $derived(subject ? TOOL_ICONS[toolKind(subject.name)] : ShieldAlert);
   const command = $derived(subject ? commandOf(subject) : null);
   // Nothing about what is approved is cut off: the command and the argument are shown in full.
-  const argument = $derived(subject ? fullPrimaryArg(subject.args) : null);
+  const argument = $derived(subject ? approvalArgument(subject.args) : null);
   // A Codex ask can be about something else than the command of its card (input for it, or one command it runs): the title
   // then names what is asked, which the command below does not show.
   const asksOther = $derived(command !== null && session.info.harness === 'codex' && !prompt.title.includes(command));
@@ -86,6 +89,20 @@
     </div>
 
     {#if command}<TerminalBlock text="" {command} capCommand />{/if}
+
+    {#if candidates.length > 0}
+      <div class="flex flex-col gap-2">
+        <p class="text-sm text-fg-2">{t('chat.approvalCard.oneOf')}</p>
+        {#each candidates as call (call.id)}
+          {@const candidate = commandOf(call)}
+          {#if candidate}
+            <TerminalBlock text="" command={candidate} capCommand />
+          {:else}
+            <p class="text-sm text-fg-2">{toolTitle(call)}{#if approvalArgument(call.args)} · <span class="font-mono break-all text-xs">{approvalArgument(call.args)}</span>{/if}</p>
+          {/if}
+        {/each}
+      </div>
+    {/if}
 
     <div class="flex flex-wrap items-center gap-2">
       <Button variant="primary" onclick={() => answer(prompt.approve)}>

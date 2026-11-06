@@ -79,6 +79,16 @@ export function fullPrimaryArg(args: JsonValue | null): string | null {
   return null;
 }
 
+/** What an approval shows of a call with no command: its main argument in full, else all its arguments. */
+export function approvalArgument(args: JsonValue | null): string | null {
+  const single = fullPrimaryArg(args);
+  if (single !== null) {
+    return single;
+  }
+
+  return isJsonObject(args) && Object.keys(args).length > 0 ? JSON.stringify(args) : null;
+}
+
 /** The shell command a bash-like call runs, when it has one. */
 export function commandOf(call: ToolCallState): string | null {
   if (toolKind(call.name) !== 'bash' || !isJsonObject(call.args)) {
