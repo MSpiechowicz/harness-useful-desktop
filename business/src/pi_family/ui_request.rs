@@ -154,7 +154,10 @@ mod tests {
 
     #[test]
     fn a_question_from_the_ask_tool_is_never_taken_for_an_approval() {
-        assert_eq!(select_purpose(&["Approve", "Deny", ASK_OTHER_OPTION]), Some(UiPurpose::Question));
+        assert_eq!(
+            select_purpose(&["Approve", "Deny", ASK_OTHER_OPTION]),
+            Some(UiPurpose::Question)
+        );
         assert_eq!(select_purpose(&["Approve", "Deny"]), None);
     }
 
