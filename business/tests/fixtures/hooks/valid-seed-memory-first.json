@@ -9,7 +9,7 @@
   "matcher": null,
   "action": {
     "type": "addContext",
-    "text": "Harness Memory notes that match this request are listed below, each with a short snippet only. Before you act, open every one that fits the request with note_get. When the request reaches an area they do not cover, search with note_search (English keywords, project_path = the repository root), and check script_list before you repeat a command. Notes may be outdated: check them in the code. After you used them, call note_feedback with the ids that helped (an empty list when none did). Status lines: \"Notes: opened #12, #15\" or \"Notes: none fit\", and \"Scripts: ran build-ui\" or \"Scripts: none fit\"."
+    "text": "Harness Memory notes that match this request are listed below, each with a short snippet only. Before you act, open every one that fits the request with note_get (ids: [12, 15], a list even for one note). When the request reaches an area they do not cover, search with note_search (English keywords, project_path = the repository root), and check script_list before you repeat a command. Notes may be outdated: check them in the code. After you used them, call note_feedback with the ids that helped (ids: [12, 15], or ids: [] when none did). Status lines: \"Notes: opened #12, #15\" or \"Notes: none fit\", and \"Scripts: ran build-ui\" or \"Scripts: none fit\"."
   },
   "enabled": true,
   "createdAt": "2026-10-17T10:00:00Z",
