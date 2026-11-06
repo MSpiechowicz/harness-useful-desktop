@@ -211,12 +211,10 @@ fn subject(ask: &PermissionAsk, project: &Path) -> Option<String> {
         NOTEBOOK_EDIT => field(&["notebook_path"]).map(|path| relative(&path, project)),
         "WebFetch" | "WebSearch" => field(&["url", "query"]),
         TASK | "Agent" => field(&["description", "subagent_type"]),
-        // A subagent's call is not in the transcript, so its input shows only here.
-        _ if ask.from_subagent => ask
-            .input
-            .as_object()
-            .filter(|input| !input.is_empty())
-            .map(|_| ask.input.to_string()),
+        // A subagent's call is not in the transcript, so its input shows only here, spaces and all.
+        _ if ask.from_subagent && ask.input.as_object().is_some_and(|input| !input.is_empty()) => {
+            return Some(redact_text(&ask.input.to_string()));
+        }
         _ => None,
     };
 
