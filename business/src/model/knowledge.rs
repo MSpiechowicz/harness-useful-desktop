@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{
-    AuthorRef, DashboardSetup, KnowledgeDocStatus, KnowledgeLastChange, KnowledgePending, KnowledgeProblem,
-    ManualRemoval, lenient_author, lenient_names,
+    AuthorFacet, AuthorRef, DashboardSetup, KnowledgeDocStatus, KnowledgeLastChange, KnowledgePending,
+    KnowledgeProblem, ManualRemoval, lenient_author, lenient_names,
 };
 
 /// An id of a document or chunk as the server gave it: a plain number (the remote database, or the
@@ -155,6 +155,10 @@ pub struct KnowledgeFeatures {
     /// `docs-sort-paths`: `docs list --sort paths`.
     #[serde(default)]
     pub docs_sort_paths: bool,
+    /// `docs-author-filter`: `docs list --author|--author-unknown`, `--sort addedBy` and the
+    /// authors facet of the answer.
+    #[serde(default)]
+    pub docs_author_filter: bool,
 }
 
 /// What `knowledge_status` says: whether the server is there and what it can do.
@@ -354,6 +358,10 @@ pub struct KnowledgePage {
     /// nothing, for a list narrowed to the remote place).
     #[serde(default)]
     pub offline: bool,
+    /// Who first imported the documents under the other filters, whatever author was asked for;
+    /// `None` from a server without `docs-author-filter`.
+    #[serde(default)]
+    pub authors: Option<AuthorFacet>,
 }
 
 impl KnowledgePage {
@@ -364,6 +372,7 @@ impl KnowledgePage {
             items: Vec::new(),
             total: 0,
             offline: false,
+            authors: None,
         }
     }
 
@@ -375,6 +384,7 @@ impl KnowledgePage {
             items: Vec::new(),
             total: 0,
             offline: true,
+            authors: None,
         }
     }
 }

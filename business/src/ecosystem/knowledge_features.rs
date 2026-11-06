@@ -16,6 +16,9 @@
 //!   any|ever|never` and `--sort useful|lastUseful` use them;
 //! - `docs-similar`: `docs similar`, the manifest's `replacing` and the check of `knowledge_add`;
 //! - `docs-authors`: `docs list|get` rows carry `addedBy` and `updatedBy`;
+//! - `docs-author-filter`: `docs list` takes `--author NAME` and `--author-unknown`, sorts by
+//!   `--sort addedBy` and answers the `authors` facet (`docs-authors` alone only means the rows
+//!   carry names);
 //! - `docs-drafts`: document states (`live`, `draft`, `waiting`, `changesRequested`), `--status`,
 //!   `--draft`, history, compare, ask and go live, reviews with comments, the stored original
 //!   (download), the draft counts of `stats` and `upgrade`;
@@ -74,6 +77,9 @@ const DOCS_SIMILAR: &str = "docs-similar";
 
 /// The line for the authors of a document.
 const DOCS_AUTHORS: &str = "docs-authors";
+
+/// The line for the author filter, the `addedBy` sort and the authors facet of `docs list`.
+const DOCS_AUTHOR_FILTER: &str = "docs-author-filter";
 
 /// The line for drafts, their review and `upgrade`.
 const DOCS_DRAFTS: &str = "docs-drafts";
@@ -186,6 +192,12 @@ impl KnowledgeSupport {
         self.features().docs_authors
     }
 
+    /// Whether `docs list` filters by `--author`, sorts by `addedBy` and answers the authors
+    /// facet: `docs-author-filter` is listed.
+    pub fn docs_author_filter(self) -> bool {
+        self.features().docs_author_filter
+    }
+
     /// Whether the server keeps drafts and their review: `docs-drafts` is listed.
     pub fn docs_drafts(self) -> bool {
         self.features().docs_drafts
@@ -237,6 +249,7 @@ impl KnowledgeFeatures {
                 docs_drafts: answer.lists(DOCS_DRAFTS),
                 docs_approval: answer.lists(DOCS_APPROVAL),
                 docs_sort_paths: answer.lists(DOCS_SORT_PATHS),
+                docs_author_filter: answer.lists(DOCS_AUTHOR_FILTER),
             }),
             LineAnswer::Unsupported => KnowledgeSupport::Unsupported,
             LineAnswer::NotInstalled => KnowledgeSupport::NotInstalled,

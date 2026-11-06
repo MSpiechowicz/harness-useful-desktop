@@ -3,4 +3,4 @@
 /**
  * How `memory_notes_list` sorts.
  */
-export type NoteSort = "updated" | "title" | "kind" | "scope" | "place" | "useful" | "lastUseful";
+export type NoteSort = "updated" | "title" | "kind" | "scope" | "place" | "useful" | "lastUseful" | "addedBy";

@@ -235,6 +235,7 @@ async fn each_global_page(
             place: None,
             lang: None,
             useful: None,
+            author: None,
             sort: Some(NoteSort::Title),
             hidden: false,
         };

@@ -3,6 +3,7 @@
   import ShieldCheck from '@lucide/svelte/icons/shield-check';
   import { untrack } from 'svelte';
 
+  import AddedByFilter from '$lib/components/AddedByFilter.svelte';
   import AuthorCell from '$lib/components/AuthorCell.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -13,6 +14,7 @@
   import ScopeLabel from '$lib/components/ScopeLabel.svelte';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
+  import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
   import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
   import type { ScriptPlace } from '$lib/ipc/bindings/ScriptPlace';
@@ -71,12 +73,14 @@
   // An older Harness Memory cannot combine the scope with the status: it gets one "Show" filter of its groups, and a hint that an update adds the scope.
   const combined = $derived(page?.combinedFilters ?? true);
   const searching = $derived(viewState.scriptsQuery.trim() !== '');
-  const filtered = $derived(viewState.memoryReach !== ALL_REPOS || (combined ? viewState.scriptsStatus !== null : viewState.scriptsGroup !== null) || placeApplied(places, viewState.scriptsPlace) || scriptsTeam.showHidden);
+  const filtered = $derived(viewState.memoryReach !== ALL_REPOS || (combined ? viewState.scriptsStatus !== null : viewState.scriptsGroup !== null) || placeApplied(places, viewState.scriptsPlace) || scriptsTeam.showHidden || viewState.scriptsAuthor !== null);
   // Remote scripts hidden on this computer: a switch to them shows once there are any, and stays while they are shown.
   const hiddenCount = $derived(page?.hiddenCount ?? 0);
   // Nothing saved yet: one page with the explanation, not an empty table beside a message.
   // `notesAuthorsSupported` says whether the server tells who wrote a script: the "Added by" column exists only then, for every row alike.
   const authorsListed = $derived(memoryRemote.value?.notesAuthorsSupported ?? rows.some((row) => row.addedBy != null));
+  // And `notesAuthorFilterSupported` whether it filters by author: the Added by filter and the sort by that column exist only then. The page's facet stands in until it was read.
+  const authorFilterListed = $derived(memoryRemote.value?.notesAuthorFilterSupported ?? page?.authors != null);
   const none = $derived(page !== null && availability === null && total === 0 && !searching && !filtered);
   // Trusting several at once is for the scripts on screen: the ones of the page the user is looking at. Hidden scripts are not on screen for agents, so none.
   const toTrust = $derived(scriptsTeam.showHidden ? [] : rows.filter(needsReview));
@@ -126,6 +130,11 @@
 
   function choosePlace(place: ScriptPlace | null): void {
     viewState.scriptsPlace = place;
+    viewState.scriptsPage = 0;
+  }
+
+  function chooseAuthor(author: AuthorFilter | null): void {
+    viewState.scriptsAuthor = author;
     viewState.scriptsPage = 0;
   }
 
@@ -307,6 +316,8 @@
       align="start"
     />
   {/if}
+
+  <AddedByFilter facet={page?.authors ?? null} author={viewState.scriptsAuthor} supported={authorFilterListed} narrowed={searching || filtered} onchange={chooseAuthor} />
 {/snippet}
 
 {#snippet hint()}
@@ -347,7 +358,7 @@
   hint={combined ? undefined : hint}
   tableLabel={t('memory.scripts.list.label')}
   tableId="memory-scripts"
-  columns={scriptColumns(authorsListed)}
+  columns={scriptColumns(authorsListed, authorFilterListed)}
   {rows}
   sort={viewState.scriptsSort}
   onsort={(next) => {

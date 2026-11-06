@@ -1,5 +1,6 @@
 import type { KnowledgeDocument } from '../bindings/KnowledgeDocument';
 import type { KnowledgeListFilter } from '../bindings/KnowledgeListFilter';
+import { compareAddedBy } from './authors';
 import { numberOf } from './knowledge-routing';
 
 /** The documents a list shows: by repository scope, format, place, state and the words of the search (in the title). A live document counts for the state of its pending version too (`pendingOf` finds it). */
@@ -41,11 +42,16 @@ export function visibleDocuments(documents: KnowledgeDocument[], filter: Knowled
   });
 }
 
-/** The sort of a list: newest first unless asked, the title, format and repository from A, the size, chunks, paths and usefulness from the largest (a document nobody rated counts 0, ties go by id the way the sort goes). */
+/** The sort of a list: newest first unless asked, the title, format, repository and author from A, the size, chunks, paths and usefulness from the largest (a document nobody rated counts 0, ties go by id the way the sort goes). */
 export function sortDocuments(documents: KnowledgeDocument[], filter: KnowledgeListFilter | null): KnowledgeDocument[] {
   const sort = filter?.sort ?? 'updated';
-  const natural = sort === 'title' || sort === 'format' || sort === 'repos' ? 'asc' : 'desc';
+  const natural = sort === 'title' || sort === 'format' || sort === 'repos' || sort === 'addedBy' ? 'asc' : 'desc';
   const direction = (filter?.order ?? natural) === 'asc' ? 1 : -1;
+
+  // Who added a document leaves the ones nobody added last either way, so it is no plain order to flip.
+  if (sort === 'addedBy') {
+    return [...documents].sort((left, right) => compareAddedBy(left, right, direction, (doc) => numberOf(doc.id)));
+  }
 
   const key = (doc: KnowledgeDocument): string | number => {
     switch (sort) {

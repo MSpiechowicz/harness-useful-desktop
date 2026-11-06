@@ -197,4 +197,11 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.scope.appliesTo': 'Gilt für',
   'components.scope.unknown': 'Unbekannt',
   'components.scope.remote': 'Remote',
+
+  'components.addedBy.label': 'Hinzugefügt von',
+  'components.addedBy.unknown': 'Unbekannt',
+  'components.addedBy.clear': 'Filter Hinzugefügt von zurücksetzen',
+  'components.addedBy.search': 'Personen durchsuchen',
+  'components.addedBy.search.placeholder': 'Personen durchsuchen…',
+  'components.addedBy.search.empty': 'Keine Person passt',
 };

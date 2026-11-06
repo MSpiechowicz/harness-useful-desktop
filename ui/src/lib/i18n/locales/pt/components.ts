@@ -197,4 +197,11 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.scope.appliesTo': 'Aplica-se a',
   'components.scope.unknown': 'Desconhecido',
   'components.scope.remote': 'Remoto',
+
+  'components.addedBy.label': 'Adicionado por',
+  'components.addedBy.unknown': 'Desconhecido',
+  'components.addedBy.clear': 'Limpar o filtro Adicionado por',
+  'components.addedBy.search': 'Pesquisar pessoas',
+  'components.addedBy.search.placeholder': 'Pesquisar pessoas…',
+  'components.addedBy.search.empty': 'Nenhuma pessoa corresponde',
 };

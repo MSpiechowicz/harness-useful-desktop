@@ -18,7 +18,7 @@ use serde_json::Value;
 use super::memory_cli::{CliCall, LIST_OUTPUT_BYTES, LIST_TIMEOUT, count_of, run_json};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryPlaceCounts, ScriptPlace, offline_reason_text};
+use crate::model::{AuthorFilter, MemoryPlaceCounts, ScriptPlace, offline_reason_text};
 use crate::process::ProcessRunner;
 
 /// One option of a list command and its value (`("--kind", "fix")`).
@@ -58,6 +58,22 @@ fn place_name(place: ScriptPlace) -> &'static str {
         ScriptPlace::Local => "local",
         ScriptPlace::Team => "team",
     }
+}
+
+/// The `--author NAME` option of `author`, when it names a person. `invalidInput` for a name the
+/// server would refuse with a usage error, which [`run_list`] would read as an older server: it is
+/// never sent.
+pub(crate) fn author_option(author: Option<&AuthorFilter>) -> Result<Option<Filter<'_>>> {
+    match author.map(AuthorFilter::checked).transpose()? {
+        Some(AuthorFilter::Name { name }) => Ok(Some(("--author", name))),
+        Some(AuthorFilter::Unknown) | None => Ok(None),
+    }
+}
+
+/// The bare `--author-unknown` flag, when `author` asks for the entries without a writer. It is
+/// no option with a value, so it goes after the filters of [`list_filters`].
+pub(crate) fn author_unknown_flag(author: Option<&AuthorFilter>) -> Option<OsString> {
+    matches!(author, Some(AuthorFilter::Unknown)).then(|| OsString::from("--author-unknown"))
 }
 
 /// A list command's JSON answer, and whether the server combines filters.

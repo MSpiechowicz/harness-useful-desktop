@@ -3,4 +3,4 @@
 /**
  * How `memory_scripts_list` sorts.
  */
-export type ScriptSort = "updated" | "name" | "language" | "scope" | "place" | "runs" | "lastRun";
+export type ScriptSort = "updated" | "name" | "language" | "scope" | "place" | "runs" | "lastRun" | "addedBy";

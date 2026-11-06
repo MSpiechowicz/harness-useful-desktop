@@ -205,4 +205,11 @@ export const components: AreaMessages<typeof enComponents> = {
   'components.scope.appliesTo': 'Dotyczy',
   'components.scope.unknown': 'Nieznany',
   'components.scope.remote': 'Zdalne',
+
+  'components.addedBy.label': 'Dodane przez',
+  'components.addedBy.unknown': 'Nieznany',
+  'components.addedBy.clear': 'Wyczyść filtr Dodane przez',
+  'components.addedBy.search': 'Szukaj osób',
+  'components.addedBy.search.placeholder': 'Szukaj osób…',
+  'components.addedBy.search.empty': 'Brak pasującej osoby',
 };

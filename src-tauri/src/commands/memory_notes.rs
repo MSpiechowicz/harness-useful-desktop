@@ -12,8 +12,8 @@ use harness_business::ecosystem::{
     ListWindow, NotesQuery, Repos, delete_all_notes, delete_note, discard_local, hide_entry, save_note,
 };
 use harness_business::model::{
-    LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, NoteDetail, NoteDraft, NoteKind,
-    NoteLangFilter, NoteSaved, NoteSort, NoteUsefulFilter, ScriptPlace, ScriptScope, SortOrder,
+    AuthorFilter, LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, NoteDetail, NoteDraft,
+    NoteKind, NoteLangFilter, NoteSaved, NoteSort, NoteUsefulFilter, ScriptPlace, ScriptScope, SortOrder,
 };
 use tauri::State;
 
@@ -25,13 +25,16 @@ use crate::state::AppState;
 /// one `place` and one detected `lang` (`en`, `other`, `unknown`) when asked. A server that does not list
 /// `notes-lang` ignores `lang` (its notes carry no language). `useful` (`ever`, `never`) and the
 /// `useful` and `lastUseful` sorts need `notes-useful`: a server without it ignores the filter and
-/// sorts by `updated` (its notes carry no counts). Never fails for a missing or old
+/// sorts by `updated` (its notes carry no counts). `author` (a name, or the notes without one)
+/// and the `addedBy` sort need `notes-author-filter`: a server without it ignores them, and its
+/// page has `authors: null`. Never fails for a missing or old
 /// server: see the page's `availability`
 /// (`notes` is empty unless `available`); a server that does not filter by place drops `place` and
 /// answers `places: null`, one that does not combine filters drops `scope` too and answers
 /// `combinedFilters: false`. `hidden` lists the team notes hidden on this machine instead.
 /// `invalidInput` for a limit of 0 or above 200, or a query above 256 characters, `forbidden` for
-/// a project that is not open or recent.
+/// a project that is not open or recent. `invalidInput` too for an author name the servers
+/// would refuse (empty, over 80 characters, edge spaces, control or invisible characters).
 #[tauri::command]
 #[expect(
     clippy::too_many_arguments,
@@ -49,6 +52,7 @@ pub async fn memory_notes_list(
     place: Option<ScriptPlace>,
     lang: Option<NoteLangFilter>,
     useful: Option<NoteUsefulFilter>,
+    author: Option<AuthorFilter>,
     sort: Option<NoteSort>,
     order: Option<SortOrder>,
     hidden: Option<bool>,
@@ -60,6 +64,7 @@ pub async fn memory_notes_list(
         place,
         lang,
         useful,
+        author,
         sort,
         hidden: hidden.unwrap_or(false),
     };
@@ -192,10 +197,13 @@ async fn list(
     repos: Option<MemoryRepos>,
     query: &NotesQuery,
 ) -> CommandResult<MemoryNotesPage> {
+    query.author.as_ref().map(AuthorFilter::checked).transpose()?;
+
     let project = project_root(state, project).await?;
 
     // A server without `notes-lang` would refuse `--lang`, one without `notes-useful` `--useful`
-    // and the usefulness sorts, as usage errors.
+    // and the usefulness sorts, one without `notes-author-filter` the author options and the
+    // `addedBy` sort, as usage errors.
     let query = if query.needs_features() {
         query.for_server(state.memory_features.support(&state.env, &state.runner).await)
     } else {
@@ -275,6 +283,7 @@ mod tests {
             place: None,
             lang: None,
             useful: None,
+            author: None,
             sort: None,
             hidden: false,
         }
@@ -316,6 +325,29 @@ mod tests {
         .map(|result| result.expect_err("unknown project").code());
 
         assert_eq!(codes, [IpcErrorCode::Forbidden; 5]);
+    }
+
+    #[test]
+    fn an_author_name_the_servers_refuse_is_invalid_input_not_an_older_server() {
+        let setup = ProjectHome::new("notes-author");
+        let state = &setup.state;
+
+        for name in ["", " Ada", "Ada\nLovelace"] {
+            let query = NotesQuery {
+                author: Some(AuthorFilter::Name { name: name.to_owned() }),
+                ..first_page()
+            };
+
+            let error = block_on(list(state, None, None, &query)).expect_err("refused");
+            assert_eq!(error.code(), IpcErrorCode::InvalidInput, "{name:?}");
+        }
+
+        let query = NotesQuery {
+            author: Some(AuthorFilter::Unknown),
+            ..first_page()
+        };
+        let page = block_on(list(state, None, None, &query)).expect("a valid filter is asked");
+        assert_eq!(page.availability, MemoryScriptsAvailability::NotInstalled);
     }
 
     #[test]

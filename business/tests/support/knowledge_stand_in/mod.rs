@@ -14,6 +14,7 @@ use harness_business::testing::FakePeer;
 use serde_json::{Value, json};
 use tokio::io::AsyncReadExt;
 
+pub mod authors;
 pub mod review;
 
 use crate::memory_cli_support::{installed_binary, installed_binary_at};
@@ -21,7 +22,7 @@ use crate::setup_support::play;
 use crate::team_support::{Cli, exits};
 
 /// What a current server lists.
-pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\ndocs-drafts\ndocs-approval\ndocs-sort-paths\n";
+pub const ALL_FEATURES: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\ndocs-drafts\ndocs-approval\ndocs-sort-paths\ndocs-author-filter\n";
 
 /// What a server lists with drafts but before team approval: no `docs-approval`.
 pub const BEFORE_APPROVAL: &str = "docs\nimport-ndjson\nembedder\nsearch\nrecall\nheld\nmcp\nrouting\ndoc-matches\noffline-fallback\ndocs-useful\ndocs-similar\ndocs-authors\ndocs-drafts\n";

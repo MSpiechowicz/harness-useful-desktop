@@ -9,6 +9,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use crate::error::{BusinessError, Result};
 use crate::signed_docs::unicode::is_hidden_char;
 
 /// The most characters of a name, as the servers cap it.
@@ -27,6 +28,66 @@ pub struct AuthorRef {
     /// The MCP client (`claude-code`, `codex`, ...) for an agent's write, none for the user's own.
     #[serde(default)]
     pub via: Option<String>,
+}
+
+/// Which writer a list keeps (`--author NAME`, `--author-unknown`). Asked of a server that lists
+/// `notes-author-filter` (notes and scripts) or `docs-author-filter` (documents) only.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export)]
+pub enum AuthorFilter {
+    /// What this person first added: the exact git `user.name` of the writer.
+    Name {
+        /// The name as the facet lists it.
+        name: String,
+    },
+    /// What has no known writer.
+    Unknown,
+}
+
+impl AuthorFilter {
+    /// This filter when the servers would take it, else `invalidInput`: a name is what a server
+    /// would store (see [`is_clean_author_name`]). A name the servers refuse exits with a usage
+    /// error, which reads as an older server, so it is never sent.
+    pub fn checked(&self) -> Result<&Self> {
+        match self {
+            Self::Name { name } if !is_clean_author_name(name) => Err(BusinessError::InvalidInput(format!(
+                "an author name is 1 to {MAX_AUTHOR_NAME_CHARS} characters without control or invisible ones"
+            ))),
+            _ => Ok(self),
+        }
+    }
+}
+
+/// One person in the author facet of a list and how many entries they first added under the other
+/// filters of the list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AuthorCount {
+    /// The git `user.name`, cleaned (see [`is_clean_author_name`]).
+    pub name: String,
+    /// How many entries they added.
+    pub count: u32,
+}
+
+/// Who added the entries of a list, under the list's other filters (not the author filter itself,
+/// so the choices stay). `None` on a page from a server that does not send it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct AuthorFacet {
+    /// The writers, in the server's order (at most 201).
+    pub people: Vec<AuthorCount>,
+    /// How many entries have no known writer.
+    pub unknown: u32,
+}
+
+/// Whether `name` is an author name as the servers store it: not empty, at most
+/// [`MAX_AUTHOR_NAME_CHARS`] characters, trimmed, with no control or invisible character, so
+/// cleaning it ([`display_text`]) changes nothing.
+pub fn is_clean_author_name(name: &str) -> bool {
+    !name.is_empty() && display_text(name, MAX_AUTHOR_NAME_CHARS) == name
 }
 
 /// The most characters of a server's reason for a database it cannot reach that are shown.

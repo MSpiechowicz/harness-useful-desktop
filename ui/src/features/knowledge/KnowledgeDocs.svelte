@@ -6,6 +6,7 @@
   import BookOpenText from '@lucide/svelte/icons/book-open-text';
   import { untrack } from 'svelte';
 
+  import AddedByFilter from '$lib/components/AddedByFilter.svelte';
   import AuthorCell from '$lib/components/AuthorCell.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -17,6 +18,7 @@
   import type { Column } from '$lib/components/table';
   import UsefulCell from '$lib/components/UsefulCell.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
   import type { KnowledgeDocument } from '$lib/ipc/bindings/KnowledgeDocument';
   import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
   import type { KnowledgeStatusFilter } from '$lib/ipc/bindings/KnowledgeStatusFilter';
@@ -62,7 +64,7 @@
   const rows = $derived(page?.items ?? []);
   const total = $derived(page?.total ?? 0);
   const searching = $derived(viewState.knowledgeQuery.trim() !== '');
-  const filtered = $derived(viewState.knowledgeScope !== 'all' || viewState.knowledgeFormat !== null || viewState.knowledgePlace !== null || viewState.knowledgeUseful !== null || viewState.knowledgeStatus !== null);
+  const filtered = $derived(viewState.knowledgeScope !== 'all' || viewState.knowledgeFormat !== null || viewState.knowledgePlace !== null || viewState.knowledgeUseful !== null || viewState.knowledgeStatus !== null || viewState.knowledgeAuthor !== null);
   // Nothing at all is kept: no documents, and no search or filter that would explain it.
   const none = $derived(page !== null && total === 0 && !searching && !filtered);
   // Both places are in use while the routing says so, or while a document says where it is kept. The routing is known once it was read.
@@ -77,6 +79,8 @@
   const features = $derived(knowledgeStatus.value?.features);
   const usefulListed = $derived(features?.docsUseful ?? rows.some((row) => row.shown != null));
   const authorsListed = $derived(features?.docsAuthors ?? rows.some((row) => row.addedBy != null));
+  // One that filters by author has the Added by filter, and sorts by that column. The page's facet stands in until it was read.
+  const authorFilterListed = $derived(features?.docsAuthorFilter ?? page?.authors != null);
   // A Harness Knowledge that keeps drafts has the Status column and the Status filter, and the panel's review, changes and history.
   // They stay while a status filter is applied, even when no row on the page shows a state (the filter answered nothing), so the user can see and clear it.
   const draftsListed = $derived((features?.docsDrafts ?? rows.some((row) => row.status !== 'live')) || viewState.knowledgeStatus !== null);
@@ -323,6 +327,16 @@
       wide
     />
   {/if}
+
+  <AddedByFilter
+    facet={page?.authors ?? null}
+    author={viewState.knowledgeAuthor}
+    supported={authorFilterListed}
+    narrowed={searching || filtered}
+    onchange={(next) => choose(() => {
+        viewState.knowledgeAuthor = next;
+      })}
+  />
 {/snippet}
 
 {#snippet emptyAction()}
@@ -357,7 +371,7 @@
   {filters}
   tableLabel={t('knowledge.table.label')}
   tableId="knowledge-docs"
-  columns={docColumns(usefulListed, authorsListed, draftsListed, features?.docsSortPaths === true)}
+  columns={docColumns(usefulListed, authorsListed, draftsListed, features?.docsSortPaths === true, authorFilterListed)}
   {rows}
   sort={viewState.knowledgeSort}
   onsort={(next) => choose(() => {

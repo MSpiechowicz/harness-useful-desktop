@@ -71,4 +71,9 @@ docsApproval: boolean,
 /**
  * `docs-sort-paths`: `docs list --sort paths`.
  */
-docsSortPaths: boolean, };
+docsSortPaths: boolean, 
+/**
+ * `docs-author-filter`: `docs list --author|--author-unknown`, `--sort addedBy` and the
+ * authors facet of the answer.
+ */
+docsAuthorFilter: boolean, };

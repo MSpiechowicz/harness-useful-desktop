@@ -3,7 +3,7 @@ import type { MemoryRemote } from '../bindings/MemoryRemote';
 import type { MemoryRemoteKind } from '../bindings/MemoryRemoteKind';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
-import { notesAuthorsListed } from './authors';
+import { notesAuthorFilterListed, notesAuthorsListed } from './authors';
 import { embedderScenarioFromLocation } from './memory-embedder-handlers';
 import { notesLangListed, notesUsefulListed } from './memory-notes-handlers';
 import { scriptsSupported } from './memory-scripts-handlers';
@@ -199,6 +199,8 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       notesUsefulSupported: notesUsefulListed(),
       // `?authors=old` is one that does not tell who wrote a note or a script.
       notesAuthorsSupported: notesAuthorsListed(),
+      // `?authorFilter=old` is one that tells who wrote them but cannot filter or sort by it.
+      notesAuthorFilterSupported: notesAuthorFilterListed(),
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };

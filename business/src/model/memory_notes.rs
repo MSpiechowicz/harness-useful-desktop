@@ -10,7 +10,7 @@ use ts_rs::TS;
 use super::memory_scripts::{
     MemoryPlaceCounts, MemoryScopeCounts, MemoryScriptsAvailability, ScriptAuthor, ScriptPlace, ScriptScope,
 };
-use super::{AuthorRef, lenient_author};
+use super::{AuthorFacet, AuthorRef, lenient_author};
 
 /// What a note records.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -54,6 +54,9 @@ pub enum NoteSort {
     /// By when an agent last used the note, latest first. Asked of a server that lists
     /// `notes-useful` only.
     LastUseful,
+    /// By the name of who first saved the note, A to Z (ascending).
+    /// Asked of a server that lists `notes-author-filter` only.
+    AddedBy,
 }
 
 impl NoteSort {
@@ -61,6 +64,12 @@ impl NoteSort {
     #[must_use]
     pub fn needs_useful(self) -> bool {
         matches!(self, Self::Useful | Self::LastUseful)
+    }
+
+    /// Whether the sort reads the writer, which a server lists as `notes-author-filter` only.
+    #[must_use]
+    pub fn needs_author_filter(self) -> bool {
+        self == Self::AddedBy
     }
 }
 
@@ -255,6 +264,9 @@ pub struct MemoryNotesPage {
     /// The notes of each place under the query, kind and scope; `None` from a server that does
     /// not filter by place, whose list then keeps every place (a `place` asked for was dropped).
     pub places: Option<MemoryPlaceCounts>,
+    /// Who first saved the notes under the query, kind, scope and place, whatever author was
+    /// asked for; `None` from a server without `notes-author-filter`.
+    pub authors: Option<AuthorFacet>,
     /// Whether the server combines `scope` with `kind` (and answered the scope counts): false
     /// from an older one, whose list then follows the query and kind only (a `scope` asked for
     /// was dropped).

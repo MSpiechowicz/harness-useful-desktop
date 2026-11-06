@@ -7,7 +7,11 @@
 //! answers the counts of each group, with combined filters those of each scope (`scopes`, under
 //! the query, review and place) and review (`review`, under the query, scope and place), and with
 //! the place those of each place (`places`, `{"local", "team"}` under the query, scope and
-//! review). A server that predates the place answers without `places` and refuses `--place`, one
+//! review). `--author NAME` or `--author-unknown` keeps the scripts one person first saved or those
+//! without a known writer, `--sort addedBy` sorts by that person, and `authors`
+//! (`{"people": [{"name", "count"}], "unknown": N}`, under every filter but the author's own) says
+//! who saved them: a server that lists `notes-author-filter` only takes the options (see
+//! [`ScriptsQuery::for_server`]). A server that predates the place answers without `places` and refuses `--place`, one
 //! that predates combined filters answers neither `scopes` nor `review` and refuses `--scope` and
 //! `--review`: the list is then asked again without them (see
 //! [`memory_list`](super::memory_list)).
@@ -24,14 +28,18 @@ use std::path::Path;
 use serde_json::Value;
 
 use super::memory_cli::{ListWindow, Repos, count_of, counts_by_scope, list_availability, scope_counts, scope_name};
+use super::memory_features::FeaturesSupport;
 use super::memory_hidden::HIDDEN_FLAG;
-use super::memory_list::{ListAnswer, list_filters, offline, offline_reason, place_counts, run_list};
+use super::memory_list::{
+    ListAnswer, author_option, author_unknown_flag, list_filters, offline, offline_reason, place_counts, run_list,
+};
 use super::memory_scripts::parse;
+use super::sidecar_cli::author_facet;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    MemoryScriptsAvailability, MemoryScriptsPage, ScriptGroup, ScriptGroupCounts, ScriptPlace, ScriptReview,
-    ScriptReviewCounts, ScriptScope, ScriptSort, ScriptSummary,
+    AuthorFilter, MemoryScriptsAvailability, MemoryScriptsPage, ScriptGroup, ScriptGroupCounts, ScriptPlace,
+    ScriptReview, ScriptReviewCounts, ScriptScope, ScriptSort, ScriptSummary,
 };
 use crate::process::ProcessRunner;
 
@@ -52,7 +60,12 @@ pub struct ScriptsQuery {
     pub review: Option<ScriptReview>,
     /// One place only, or both (dropped by a server that does not filter by place).
     pub place: Option<ScriptPlace>,
-    /// `updated` unless given.
+    /// Only the scripts this person first saved, or those without a known writer. The caller drops
+    /// it for a server that does not list `notes-author-filter` (it would refuse the options). A
+    /// name the servers would refuse makes the page fail without asking.
+    pub author: Option<AuthorFilter>,
+    /// `updated` unless given. The caller resets `addedBy` for a server that does not list
+    /// `notes-author-filter` (it would refuse the sort as a usage error).
     pub sort: Option<ScriptSort>,
     /// List the team scripts hidden on this machine instead of the visible ones.
     pub hidden: bool,
@@ -80,20 +93,47 @@ impl ScriptsQuery {
             scope,
             review,
             place: None,
+            author: None,
             sort,
             hidden: false,
         })
     }
+
+    /// This query as the server `features` describes can answer it: `author` and the `addedBy`
+    /// sort (back to the default one) are dropped unless `notes-author-filter` is listed (an older
+    /// server refuses them as usage errors).
+    #[must_use]
+    pub fn for_server(&self, features: FeaturesSupport) -> Self {
+        let author = self.author.clone().filter(|_| features.notes_author_filter());
+        let sort = self
+            .sort
+            .filter(|sort| features.notes_author_filter() || !sort.needs_author_filter());
+
+        Self {
+            author,
+            sort,
+            ..self.clone()
+        }
+    }
+
+    /// Whether [`for_server`](Self::for_server) has something to drop: the caller asks the
+    /// server's features only then.
+    #[must_use]
+    pub fn needs_features(&self) -> bool {
+        self.author.is_some() || self.sort.is_some_and(ScriptSort::needs_author_filter)
+    }
 }
 
 /// One page of the scripts of `project` from the server at `server` (see
-/// [`MemoryScripts::list`](super::memory_scripts::MemoryScripts::list)).
+/// [`MemoryScripts::list`](super::memory_scripts::MemoryScripts::list)). The caller has checked the
+/// query's author with [`checked_author`].
 pub(super) async fn list_page(
     env: &Env,
     runner: &dyn ProcessRunner,
     server: &Path,
     project: Repos<'_>,
     query: &ScriptsQuery,
+    author: Option<(&str, &str)>,
 ) -> MemoryScriptsPage {
     let sort = match query.sort {
         Some(ScriptSort::Name) => "name",
@@ -102,6 +142,7 @@ pub(super) async fn list_page(
         Some(ScriptSort::Place) => "place",
         Some(ScriptSort::Runs) => "runs",
         Some(ScriptSort::LastRun) => "lastRun",
+        Some(ScriptSort::AddedBy) => "addedBy",
         Some(ScriptSort::Updated) | None => "updated",
     };
 
@@ -109,6 +150,7 @@ pub(super) async fn list_page(
         .group
         .map(|group| ("--group", group_name(group)))
         .into_iter()
+        .chain(author)
         .collect();
 
     let mut combined = Vec::new();
@@ -118,11 +160,13 @@ pub(super) async fn list_page(
     let (filters, fallbacks) = list_filters(&group, &combined, query.place);
 
     let hidden = query.hidden.then(|| OsString::from(HIDDEN_FLAG));
+    let unknown = author_unknown_flag(query.author.as_ref());
     let args = |filters: &[(&str, &str)]| -> Vec<OsString> {
         [OsString::from("scripts")]
             .into_iter()
             .chain(query.window.list_args(filters, sort, project))
             .chain(hidden.clone())
+            .chain(unknown.clone())
             .collect()
     };
     let fallbacks = fallbacks.iter().map(|filters| args(filters)).collect();
@@ -131,6 +175,15 @@ pub(super) async fn list_page(
         Ok(answer) => scripts_page(answer),
         Err(error) => unavailable_page(list_availability(error)),
     }
+}
+
+/// The `--author` option of the query, checked before anything runs: the server answers a name it
+/// refuses with a usage error, which reads as an older server, so it is never asked. `Err` says why
+/// the page is empty.
+pub(super) fn checked_author(
+    query: &ScriptsQuery,
+) -> std::result::Result<Option<(&str, &str)>, MemoryScriptsAvailability> {
+    author_option(query.author.as_ref()).map_err(list_availability)
 }
 
 /// The server's name of `group`.
@@ -159,6 +212,7 @@ pub(super) fn unavailable_page(availability: MemoryScriptsAvailability) -> Memor
         scopes: None,
         review: None,
         places: None,
+        authors: None,
         combined_filters: false,
         scripts: Vec::new(),
         hidden_count: None,
@@ -213,6 +267,7 @@ fn scripts_page(answer: ListAnswer) -> MemoryScriptsPage {
         scopes: scope_counts(data),
         review,
         places: place_counts(data),
+        authors: author_facet(data),
         combined_filters: answer.combined_filters,
         scripts,
         hidden_count: count_of(data.get("hiddenCount")),

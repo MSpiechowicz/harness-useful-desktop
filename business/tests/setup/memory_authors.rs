@@ -21,6 +21,7 @@ async fn notes(setup: &Setup) -> MemoryNotesPage {
         place: None,
         lang: None,
         useful: None,
+        author: None,
         sort: None,
         hidden: false,
     };
@@ -42,6 +43,7 @@ async fn scripts(setup: &Setup) -> MemoryScriptsPage {
         scope: None,
         review: None,
         place: None,
+        author: None,
         sort: None,
         hidden: false,
     };

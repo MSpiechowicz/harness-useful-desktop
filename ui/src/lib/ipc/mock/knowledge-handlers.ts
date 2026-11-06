@@ -13,11 +13,11 @@ import type { KnowledgePulse } from '../bindings/KnowledgePulse';
 import type { CommandArgs } from '../commands';
 import { idKey } from '../knowledge-id';
 import { IpcFailure } from '../transport';
+import { ADA, authorFacetOf, keepAuthor } from './authors';
 import { bulkDocuments, chunkText, DESKTOP_REPO, documentOf, outlineOf, sampleDocuments, sampleHeld, withoutQuality } from './knowledge-fixtures';
 import { sortDocuments, visibleDocuments } from './knowledge-list';
 import { draftsApply, hasDrafts, ME, MockReview, pendingSummary, putPending, reviewCounts, seedReviewDocuments, seedRevisedProposal, waitingForYou } from './knowledge-review';
 import { keptInTeam, localPathMessage, numberOf, placed } from './knowledge-routing';
-import { ADA } from './authors';
 import type { Handlers } from './types';
 
 type KnowledgeCommands =
@@ -221,7 +221,7 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
     }
   };
   const available = () => availability().type === 'available';
-  // A Harness Knowledge without `docs-useful`, `docs-similar` and `docs-authors`: the app asks it for none of them, and its rows carry none.
+  // A Harness Knowledge without `docs-useful`, `docs-similar`, `docs-authors` and `docs-author-filter`: the app asks it for none of them, and its rows carry none.
   const older = () => scenario() === 'older';
 
   return {
@@ -230,21 +230,25 @@ export function knowledgeHandlers(store: MockKnowledge, scenario: () => Knowledg
 
       const newer = on && !older();
 
-      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on, offlineFallback: on, docsUseful: newer, docsSimilar: newer, docsAuthors: newer, docsDrafts: newer, docsApproval: newer, docsSortPaths: newer } };
+      return { availability: availability(), features: { docs: on, import: on, embedder: on, search: on, recall: on, held: on, mcp: on, routing: on, docMatches: on, offlineFallback: on, docsUseful: newer, docsSimilar: newer, docsAuthors: newer, docsAuthorFilter: newer, docsDrafts: newer, docsApproval: newer, docsSortPaths: newer } };
     },
 
     knowledge_docs_list: ({ filter, offset, limit, query }) => {
       if (!available()) {
-        return { availability: availability(), items: [], total: 0, offline: false };
+        return { availability: availability(), items: [], total: 0, offline: false, authors: null };
       }
 
-      // The app drops the filter and the sorts a server without `docs-useful` or `docs-sort-paths` would refuse, and reads the default order instead.
-      const asked = older() && filter ? { ...filter, useful: null, status: null, sort: filter.sort === 'useful' || filter.sort === 'lastUseful' || filter.sort === 'paths' ? null : filter.sort } : filter;
-      const matching = sortDocuments(visibleDocuments(store.reachable(), asked, query, (doc) => store.pendingOf(doc)), asked);
+      // The app drops the filters and the sorts a server without `docs-useful`, `docs-sort-paths` or `docs-author-filter` would refuse, and reads the default order instead.
+      const dropped = filter?.sort === 'useful' || filter?.sort === 'lastUseful' || filter?.sort === 'paths' || filter?.sort === 'addedBy';
+      const asked = older() && filter ? { ...filter, useful: null, status: null, author: null, sort: dropped ? null : filter.sort } : filter;
+
+      // The facet counts the documents under every filter but the author's, so the choices stay while one is chosen.
+      const underOthers = visibleDocuments(store.reachable(), asked, query, (doc) => store.pendingOf(doc));
+      const matching = sortDocuments(keepAuthor(underOthers, asked?.author), asked);
       const size = limit ?? DEFAULT_LIMIT;
       const items = matching.slice(offset ?? 0, (offset ?? 0) + size).map((doc) => store.view(doc));
 
-      return { availability: availability(), items: older() ? items.map(withoutQuality) : items, total: matching.length, offline: store.offline };
+      return { availability: availability(), items: older() ? items.map(withoutQuality) : items, total: matching.length, offline: store.offline, authors: older() ? null : authorFacetOf(underOthers) };
     },
 
     knowledge_doc_get: ({ id, chunkId }) => {

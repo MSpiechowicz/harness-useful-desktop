@@ -5,18 +5,21 @@
 //! server's commands, within [`LIST_TIMEOUT`]:
 //!
 //! - `notes list --json --offset N --limit N [--query Q] [--kind K] [--scope repo|global] [--place
-//!   local|team] [--lang en|other|unknown] [--useful ever|never] --sort
-//!   updated|title|kind|scope|place|useful|lastUseful --order O [--project P] [--hidden]` (`--lang`
-//!   only of a server that lists `notes-lang`, `--useful` and the last two sorts only of one that
-//!   lists `notes-useful`) answers
+//!   local|team] [--lang en|other|unknown] [--useful ever|never] [--author NAME|--author-unknown]
+//!   --sort updated|title|kind|scope|place|useful|lastUseful|addedBy --order O [--project P]
+//!   [--hidden]` (`--lang` only of a server that lists `notes-lang`, `--useful` and the two
+//!   usefulness sorts only of one that lists `notes-useful`, the author options and the `addedBy`
+//!   sort only of one that lists `notes-author-filter`) answers
 //!   `{"notes": [...], "total": N, "kinds": [{"kind", "count"}], "scopes": {"repo", "global"},
-//!   "places": {"local", "team"}}`: the repository notes of the project and the global ones, each
-//!   with `readOnly` and `hidden`, and with a team database `hiddenCount` and `localCounts`
-//!   (`{"repo", "global"}`, every repository). `places` counts each place under every other
-//!   filter. `--hidden` lists the team notes hidden on this machine instead. A server that
-//!   predates the place answers without `places` and refuses `--place` (a usage error), one that
-//!   predates combined filters answers without `scopes` either and refuses `--scope`: the list is
-//!   then asked again without them (see [`memory_list`](super::memory_list));
+//!   "places": {"local", "team"}, "authors": {"people": [{"name", "count"}], "unknown": N}}`: the
+//!   repository notes of the project and the global ones, each with `readOnly` and `hidden`, and
+//!   with a team database `hiddenCount` and `localCounts` (`{"repo", "global"}`, every
+//!   repository). `places` counts each place under every other filter, `authors` who first saved
+//!   the notes under every filter but the author's own. `--hidden` lists the team notes hidden on
+//!   this machine instead. A server that predates the place answers without `places` and refuses
+//!   `--place` (a usage error), one that predates combined filters answers without `scopes`
+//!   either and refuses `--scope`: the list is then asked again without them (see
+//!   [`memory_list`](super::memory_list));
 //! - `notes get <id> --json [--project P] [--hidden]` answers `{"note": {... "body"}, "links":
 //!   [...]}`; a hidden note only with `--hidden`;
 //! - `notes hide|unhide` and `notes discard-local` are [`memory_hidden`](super::memory_hidden)'s,
@@ -46,13 +49,16 @@ use super::memory_cli::{
 use super::memory_features::FeaturesSupport;
 pub(super) use super::memory_hidden::ids_on_stdin;
 use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, kind_args, not_found};
-use super::memory_list::{ListAnswer, list_filters, offline, offline_reason, place_counts, run_list};
+use super::memory_list::{
+    ListAnswer, author_option, author_unknown_flag, list_filters, offline, offline_reason, place_counts, run_list,
+};
 use super::memory_scripts::MemoryScripts;
+use super::sidecar_cli::author_facet;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteDetail, NoteKind, NoteKindCount,
-    NoteLangFilter, NoteSort, NoteSummary, NoteUsefulFilter, ScriptPlace, ScriptScope,
+    AuthorFilter, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryScriptsAvailability, NoteDetail, NoteKind,
+    NoteKindCount, NoteLangFilter, NoteSort, NoteSummary, NoteUsefulFilter, ScriptPlace, ScriptScope,
 };
 use crate::process::ProcessRunner;
 
@@ -77,8 +83,13 @@ pub struct NotesQuery {
     /// caller drops it for a server that does not list `notes-useful` (it would refuse
     /// `--useful`).
     pub useful: Option<NoteUsefulFilter>,
-    /// `updated` unless given. The caller resets `useful` and `lastUseful` for a server that does
-    /// not list `notes-useful` (it would refuse the sort as a usage error).
+    /// Only the notes this person first saved, or those without a known writer. The caller drops
+    /// it for a server that does not list `notes-author-filter` (it would refuse the options). A
+    /// name the servers would refuse makes [`list_notes`] fail the page without asking.
+    pub author: Option<AuthorFilter>,
+    /// `updated` unless given. The caller resets `useful`, `lastUseful` and `addedBy` for a
+    /// server that does not list the feature of that sort (it would refuse the sort as a usage
+    /// error).
     pub sort: Option<NoteSort>,
     /// List the team notes hidden on this machine instead of the visible ones.
     pub hidden: bool,
@@ -86,17 +97,24 @@ pub struct NotesQuery {
 
 impl NotesQuery {
     /// This query as the server `features` describes can answer it: `lang` is dropped unless
-    /// `notes-lang` is listed, and `useful` and the `useful` and `lastUseful` sorts (back to the
-    /// default one) unless `notes-useful` is (an older server refuses them as usage errors).
+    /// `notes-lang` is listed, `useful` and the `useful` and `lastUseful` sorts (back to the
+    /// default one) unless `notes-useful` is, and `author` and the `addedBy` sort unless
+    /// `notes-author-filter` is (an older server refuses them as usage errors).
     #[must_use]
     pub fn for_server(&self, features: FeaturesSupport) -> Self {
         let lang = self.lang.filter(|_| features.notes_lang());
         let useful = self.useful.filter(|_| features.notes_useful());
-        let sort = self.sort.filter(|sort| features.notes_useful() || !sort.needs_useful());
+        let author = self.author.clone().filter(|_| features.notes_author_filter());
+
+        let sort = self.sort.filter(|sort| {
+            (features.notes_useful() || !sort.needs_useful())
+                && (features.notes_author_filter() || !sort.needs_author_filter())
+        });
 
         Self {
             lang,
             useful,
+            author,
             sort,
             ..self.clone()
         }
@@ -106,7 +124,12 @@ impl NotesQuery {
     /// server's features only then.
     #[must_use]
     pub fn needs_features(&self) -> bool {
-        self.lang.is_some() || self.useful.is_some() || self.sort.is_some_and(NoteSort::needs_useful)
+        self.lang.is_some()
+            || self.useful.is_some()
+            || self.author.is_some()
+            || self
+                .sort
+                .is_some_and(|sort| sort.needs_useful() || sort.needs_author_filter())
     }
 }
 
@@ -126,6 +149,7 @@ pub async fn list_notes(
         kinds: Vec::new(),
         scopes: None,
         places: None,
+        authors: None,
         combined_filters: false,
         notes: Vec::new(),
         hidden_count: None,
@@ -133,6 +157,12 @@ pub async fn list_notes(
         offline: false,
         offline_reason: None,
         cached_at: None,
+    };
+
+    // Checked before anything runs: the server answers a name it refuses with a usage error.
+    let author = match author_option(query.author.as_ref()) {
+        Ok(author) => author,
+        Err(error) => return unavailable(list_availability(error)),
     };
 
     let server = match probe.cli_server(env).await {
@@ -147,6 +177,7 @@ pub async fn list_notes(
         Some(NoteSort::Place) => "place",
         Some(NoteSort::Useful) => "useful",
         Some(NoteSort::LastUseful) => "lastUseful",
+        Some(NoteSort::AddedBy) => "addedBy",
         Some(NoteSort::Updated) | None => "updated",
     };
 
@@ -165,13 +196,21 @@ pub async fn list_notes(
         .into_iter()
         .collect();
 
-    let kept: Vec<(&str, &str)> = kind.iter().chain(&lang).chain(&useful).copied().collect();
+    let kept: Vec<(&str, &str)> = kind
+        .iter()
+        .chain(&lang)
+        .chain(&useful)
+        .chain(&author)
+        .copied()
+        .collect();
     let (filters, fallbacks) = list_filters(&kept, &scope, query.place);
 
     let hidden = query.hidden.then(|| OsString::from(HIDDEN_FLAG));
+    let unknown = author_unknown_flag(query.author.as_ref());
     let listed = |filters: &[(&str, &str)]| {
         let mut args = kind_args(NOTES, query.window.list_args(filters, sort, project));
         args.extend(hidden.clone());
+        args.extend(unknown.clone());
         args
     };
 
@@ -298,6 +337,7 @@ fn notes_page(answer: ListAnswer) -> MemoryNotesPage {
         kinds: entries::<NoteKindCount>(data, "kinds"),
         scopes: scope_counts(data),
         places: place_counts(data),
+        authors: author_facet(data),
         combined_filters: answer.combined_filters,
         notes,
         hidden_count: count_of(data.get("hiddenCount")),

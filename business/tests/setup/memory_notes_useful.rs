@@ -7,7 +7,7 @@ use std::path::Path;
 use harness_business::ecosystem::memory_list_cache::list_notes_cached;
 use harness_business::ecosystem::{ListWindow, MemoryFeatures, NotesQuery, Repos, list_notes};
 use harness_business::model::{MemoryNotesPage, MemoryScriptsAvailability, NoteSort, NoteSummary, NoteUsefulFilter};
-use memory_stand_in::{CURRENT, Setup};
+use memory_stand_in::{CURRENT, Setup, last_args, value_of};
 use pretty_assertions::assert_eq;
 use serde_json::json;
 
@@ -24,6 +24,7 @@ fn query(useful: Option<NoteUsefulFilter>, sort: Option<NoteSort>) -> NotesQuery
         place: None,
         lang: None,
         useful,
+        author: None,
         sort,
         hidden: false,
     }
@@ -42,18 +43,6 @@ async fn list(setup: &Setup, project: &Path, query: &NotesQuery) -> MemoryNotesP
 
 fn ids(page: &MemoryNotesPage) -> Vec<i64> {
     page.notes.iter().map(|note| note.id).collect()
-}
-
-/// The arguments of the command run last.
-fn last_args(setup: &Setup) -> Vec<String> {
-    setup.run_args(setup.runs().len() - 1)
-}
-
-/// The value after `option` in `args`.
-fn value_of<'a>(args: &'a [String], option: &str) -> Option<&'a str> {
-    let at = args.iter().position(|arg| arg == option)?;
-
-    args.get(at + 1).map(String::as_str)
 }
 
 #[tokio::test]

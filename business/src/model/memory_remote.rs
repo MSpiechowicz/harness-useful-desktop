@@ -137,6 +137,10 @@ pub struct MemoryRemote {
     /// True when the installed Harness Memory lists `notes-authors` in `harness-memory features`:
     /// notes and scripts carry `addedBy` and `updatedBy`.
     pub notes_authors_supported: bool,
+    /// True when the installed Harness Memory lists `notes-author-filter` in `harness-memory
+    /// features`: `notes list` and `scripts list` filter by `--author`, sort by `addedBy` and
+    /// answer the authors facet.
+    pub notes_author_filter_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does

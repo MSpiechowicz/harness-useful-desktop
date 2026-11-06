@@ -24,6 +24,7 @@ fn query(group: Option<ScriptGroup>, sort: Option<ScriptSort>) -> ScriptsQuery {
         scope: None,
         review: None,
         place: None,
+        author: None,
         sort,
         hidden: false,
     }
@@ -156,6 +157,7 @@ async fn the_page_window_group_and_order_go_to_the_server() {
         scope: None,
         review: None,
         place: None,
+        author: None,
         sort: None,
         hidden: false,
     };
@@ -199,6 +201,7 @@ async fn the_page_window_group_and_order_go_to_the_server() {
         scope: None,
         review: None,
         place: None,
+        author: None,
         sort: Some(ScriptSort::Name),
         hidden: false,
     };
@@ -250,6 +253,7 @@ async fn every_sort_goes_to_the_server_by_its_name() {
         scope: None,
         review: None,
         place: None,
+        author: None,
         sort: Some(ScriptSort::Runs),
         hidden: false,
     };

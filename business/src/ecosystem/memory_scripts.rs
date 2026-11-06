@@ -40,7 +40,7 @@ use super::memory_cli::{Repos, delete_all, run_json, run_text};
 use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, not_found};
 use super::memory_remote::ScriptsSupport;
 pub use super::memory_scripts_list::ScriptsQuery;
-use super::memory_scripts_list::{list_page, unavailable_page};
+use super::memory_scripts_list::{checked_author, list_page, unavailable_page};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
@@ -131,8 +131,13 @@ impl MemoryScripts {
         project: Repos<'_>,
         query: &ScriptsQuery,
     ) -> MemoryScriptsPage {
+        let author = match checked_author(query) {
+            Ok(author) => author,
+            Err(availability) => return unavailable_page(availability),
+        };
+
         match self.cli_server(env).await {
-            Ok(server) => list_page(env, runner, &server, project, query).await,
+            Ok(server) => list_page(env, runner, &server, project, query, author).await,
             Err(availability) => unavailable_page(availability),
         }
     }

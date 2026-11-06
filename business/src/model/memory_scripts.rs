@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{AuthorRef, lenient_author};
+use super::{AuthorFacet, AuthorRef, lenient_author};
 
 /// Whether the installed Harness Memory can list scripts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -229,6 +229,17 @@ pub enum ScriptSort {
     Runs,
     /// By the latest run; a script never run comes last whichever the order.
     LastRun,
+    /// By the name of who first saved the script, A to Z (ascending).
+    /// Asked of a server that lists `notes-author-filter` only.
+    AddedBy,
+}
+
+impl ScriptSort {
+    /// Whether the sort reads the writer, which a server lists as `notes-author-filter` only.
+    #[must_use]
+    pub fn needs_author_filter(self) -> bool {
+        self == Self::AddedBy
+    }
 }
 
 /// How many scripts of each group match the query. The groups are disjoint: a script that needs
@@ -266,6 +277,9 @@ pub struct MemoryScriptsPage {
     /// does not filter by place, whose list then keeps every place (a `place` asked for was
     /// dropped).
     pub places: Option<MemoryPlaceCounts>,
+    /// Who first saved the scripts under the query, group, scope, review and place, whatever
+    /// author was asked for; `None` from a server without `notes-author-filter`.
+    pub authors: Option<AuthorFacet>,
     /// Whether the server combines `scope` and `review` (and answered their counts): false from
     /// an older one, whose list then follows the query and group only (a `scope` or `review`
     /// asked for was dropped).

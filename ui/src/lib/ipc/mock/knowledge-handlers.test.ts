@@ -34,6 +34,47 @@ describe('the knowledge preview backend', () => {
     expect(found.items.map((doc) => doc.format)).toEqual(['transcript']);
   });
 
+  it('filters by author and counts the authors under every other filter, not the author one', () => {
+    const { knowledge_docs_list } = backend();
+    const list = (filter: { format?: string; author?: { kind: 'name'; name: string } | { kind: 'unknown' }; sort?: 'addedBy' }) =>
+      knowledge_docs_list({ ...ALL, filter: { scope: null, format: null, place: null, sort: null, order: null, ...filter } }) as Awaited<ReturnType<typeof knowledge_docs_list>>;
+
+    const everyone = list({});
+    const grace = list({ author: { kind: 'name', name: 'Grace Hopper' } });
+    const nobody = list({ author: { kind: 'unknown' } });
+
+    expect(grace.items.length).toBeGreaterThan(0);
+    expect(grace.items.every((doc) => doc.addedBy?.name === 'Grace Hopper')).toBe(true);
+    expect(nobody.items.every((doc) => !doc.addedBy)).toBe(true);
+    expect(grace.authors).toEqual(everyone.authors);
+    expect(list({ format: 'pdf' }).authors).not.toEqual(everyone.authors);
+  });
+
+  it('sorts by author from A or from Z, with the documents nobody added last and the ties by id the way the sort goes', () => {
+    const { knowledge_docs_list } = backend();
+
+    for (const order of ['asc', 'desc'] as const) {
+      const rows = (knowledge_docs_list({ ...ALL, filter: { scope: null, format: null, place: null, sort: 'addedBy', order } }) as Awaited<ReturnType<typeof knowledge_docs_list>>).items;
+      const named = rows.filter((doc) => doc.addedBy);
+      const unknown = rows.filter((doc) => !doc.addedBy);
+      const sign = order === 'asc' ? 1 : -1;
+      const nameOf = (doc: (typeof rows)[number]) => doc.addedBy?.name.toLowerCase() ?? '';
+      const expected = [...named].sort((a, b) => sign * ((nameOf(a) < nameOf(b) ? -1 : nameOf(a) > nameOf(b) ? 1 : 0) || Number(a.id) - Number(b.id)));
+
+      expect(unknown.length).toBeGreaterThan(0);
+      expect(rows.slice(named.length)).toEqual(unknown);
+      expect(named.map((doc) => doc.id)).toEqual(expected.map((doc) => doc.id));
+    }
+  });
+
+  it('answers no facet and ignores the author and its sort for a Harness Knowledge that cannot filter by author', () => {
+    const { knowledge_docs_list } = backend('older');
+    const page = knowledge_docs_list({ ...ALL, filter: { scope: null, format: null, place: null, sort: 'addedBy', order: null, author: { kind: 'unknown' } } }) as Awaited<ReturnType<typeof knowledge_docs_list>>;
+
+    expect(page.authors).toBeNull();
+    expect(page.items).toHaveLength(page.total);
+  });
+
   it('scopes the list to one repository or to the global documents', () => {
     const { knowledge_docs_list } = backend();
     const scoped = (scope: { kind: 'global' } | { kind: 'repo'; key: string }) => knowledge_docs_list({ ...ALL, filter: { scope, format: null, place: null, sort: null, order: null } }) as Awaited<ReturnType<typeof knowledge_docs_list>>;

@@ -44,6 +44,7 @@ pub const EVERY_FEATURE: FeaturesSupport = FeaturesSupport::Listed {
     notes_lang: false,
     notes_useful: false,
     notes_authors: false,
+    notes_author_filter: false,
 };
 
 /// What a server with `scripts` support and `features` supports (team documents and database kinds

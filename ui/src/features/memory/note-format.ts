@@ -25,9 +25,9 @@ export const KIND_LABELS = {
 /**
  * Every column sorts, by the server. They are all text or dates, so they read from the left. A time or a count starts with the biggest.
  * The two columns of usefulness exist only for a Harness Memory that counts it, and "Added by" only for one that tells who wrote a note: an older one has nothing to show in them.
- * Who wrote a note is not sortable, the server has no sort by it.
+ * "Added by" sorts (by the name, from A) only for a Harness Memory that filters by author (`authorSortable`): an older one cannot sort by it.
  */
-export function noteColumns(usefulness = false, authors = false): Column[] {
+export function noteColumns(usefulness = false, authors = false, authorSortable = false): Column[] {
   const useful: Column[] = [
     { key: 'useful', label: t('memory.notes.column.useful'), width: COLUMN_WIDTH.useful, sortable: true, descFirst: true },
     { key: 'lastUseful', label: t('memory.notes.column.lastUseful'), width: COLUMN_WIDTH.lastUseful, sortable: true, descFirst: true },
@@ -39,7 +39,7 @@ export function noteColumns(usefulness = false, authors = false): Column[] {
     { key: 'scope', label: t('memory.notes.column.scope'), width: COLUMN_WIDTH.project, sortable: true },
     { key: 'place', label: t('memory.notes.column.place'), width: '8rem', sortable: true },
     ...(usefulness ? useful : []),
-    ...(authors ? [{ key: 'addedBy', label: t('memory.notes.column.addedBy'), width: COLUMN_WIDTH.author } satisfies Column] : []),
+    ...(authors ? [{ key: 'addedBy', label: t('memory.notes.column.addedBy'), width: COLUMN_WIDTH.author, sortable: authorSortable } satisfies Column] : []),
     { key: 'updated', label: t('memory.notes.column.updated'), width: '8rem', sortable: true, descFirst: true },
   ];
 }

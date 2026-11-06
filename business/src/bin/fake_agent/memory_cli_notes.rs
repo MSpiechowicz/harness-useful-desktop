@@ -37,7 +37,8 @@ pub fn with_usefulness(mut note: Value) -> Value {
 
 /// `entry` (a note or a script) with the `addedBy` and `updatedBy` the stand-in gives by its id,
 /// when it lists `notes-authors`: Ada wrote it (through `claude-code` when the id is even) and
-/// Grace changed it last when the id is odd, and one with an id divisible by three has no author.
+/// Grace changed it last when the id is odd, Grace wrote it and changed it when the id is divisible
+/// by five, and one with an id divisible by three has no author.
 pub fn with_authors(mut entry: Value) -> Value {
     if !crate::memory_push::lists("notes-authors") {
         return entry;
@@ -48,6 +49,12 @@ pub fn with_authors(mut entry: Value) -> Value {
     if id % 3 == 0 {
         entry["addedBy"] = Value::Null;
         entry["updatedBy"] = Value::Null;
+        return entry;
+    }
+
+    if id % 5 == 0 {
+        entry["addedBy"] = json!({ "name": "Grace Hopper", "via": null });
+        entry["updatedBy"] = json!({ "name": "Grace Hopper", "via": null });
         return entry;
     }
 

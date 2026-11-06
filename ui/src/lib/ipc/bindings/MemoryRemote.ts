@@ -133,6 +133,12 @@ notesUsefulSupported: boolean,
  */
 notesAuthorsSupported: boolean, 
 /**
+ * True when the installed Harness Memory lists `notes-author-filter` in `harness-memory
+ * features`: `notes list` and `scripts list` filter by `--author`, sort by `addedBy` and
+ * answer the authors facet.
+ */
+notesAuthorFilterSupported: boolean, 
+/**
  * The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
  */
 configPath: string, 

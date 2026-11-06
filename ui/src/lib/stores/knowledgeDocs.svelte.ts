@@ -1,4 +1,5 @@
 import { t } from '$lib/i18n/i18n.svelte';
+import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
 import type { KnowledgeDeleted } from '$lib/ipc/bindings/KnowledgeDeleted';
 import type { KnowledgeDetail } from '$lib/ipc/bindings/KnowledgeDetail';
 import type { KnowledgeLink } from '$lib/ipc/bindings/KnowledgeLink';
@@ -39,6 +40,8 @@ export interface DocsRequest {
   useful?: KnowledgeUsefulFilter | null;
   /** Narrows the table by state (live, drafts, waiting for approval, changes requested), from a server that keeps drafts. */
   status?: KnowledgeStatusFilter | null;
+  /** Narrows the table to the documents one person first added, or those nobody is known to have added, from a server that tells who added them. */
+  author?: AuthorFilter | null;
   sort: KnowledgeSort;
   order: SortOrder;
   page: number;
@@ -71,11 +74,11 @@ export class KnowledgeDocsStore {
 
   constructor(private readonly transport: Transport) {
     this.list = new ViewLoader((key) => {
-      const { query, scope, format, place, useful, status, sort, order, page } = JSON.parse(key) as DocsRequest;
+      const { query, scope, format, place, useful, status, author, sort, order, page } = JSON.parse(key) as DocsRequest;
       const search = query.trim();
 
       return transport.invoke('knowledge_docs_list', {
-        filter: { scope: scopeOf(scope), format, place, sort, order, ...(useful ? { useful } : {}), ...(status ? { status } : {}) },
+        filter: { scope: scopeOf(scope), format, place, sort, order, ...(useful ? { useful } : {}), ...(status ? { status } : {}), ...(author ? { author } : {}) },
         offset: page * KNOWLEDGE_PAGE_SIZE,
         limit: KNOWLEDGE_PAGE_SIZE,
         query: search === '' ? null : search,

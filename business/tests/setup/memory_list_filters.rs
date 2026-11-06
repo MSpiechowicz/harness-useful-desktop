@@ -8,12 +8,12 @@
 use std::ffi::OsString;
 
 use harness_business::BusinessError;
-use harness_business::ecosystem::{ListWindow, NotesQuery, Repos, ScriptsQuery, list_notes};
+use harness_business::ecosystem::{ListWindow, NotesQuery, ScriptsQuery};
 use harness_business::model::{
-    MemoryNotesPage, MemoryPlaceCounts, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage, NoteKind,
-    NoteKindCount, ScriptGroup, ScriptPlace, ScriptReview, ScriptReviewCounts, ScriptScope, ScriptSort,
+    MemoryPlaceCounts, MemoryScopeCounts, MemoryScriptsAvailability, NoteKind, NoteKindCount, ScriptGroup, ScriptPlace,
+    ScriptReview, ScriptReviewCounts, ScriptScope, ScriptSort,
 };
-use memory_stand_in::{CURRENT, SCOPED, SINGLE, Setup, UNPAGED, Vars};
+use memory_stand_in::{CURRENT, SCOPED, SINGLE, Setup, UNPAGED, Vars, note_ids, notes, script_ids, scripts};
 use pretty_assertions::assert_eq;
 
 use crate::memory_stand_in;
@@ -30,6 +30,7 @@ fn notes_query(kind: Option<NoteKind>, scope: Option<ScriptScope>) -> NotesQuery
         place: None,
         lang: None,
         useful: None,
+        author: None,
         sort: None,
         hidden: false,
     }
@@ -37,28 +38,6 @@ fn notes_query(kind: Option<NoteKind>, scope: Option<ScriptScope>) -> NotesQuery
 
 fn scripts_query(scope: Option<ScriptScope>, review: Option<ScriptReview>) -> ScriptsQuery {
     ScriptsQuery::new(window(), None, scope, review, Some(ScriptSort::Name)).unwrap()
-}
-
-async fn notes(setup: &Setup, query: &NotesQuery) -> MemoryNotesPage {
-    let project = setup.project();
-
-    list_notes(
-        &setup.env,
-        &setup.scripts,
-        setup.runner(),
-        Repos::Project(Some(&project)),
-        query,
-    )
-    .await
-}
-
-async fn scripts(setup: &Setup, query: &ScriptsQuery) -> MemoryScriptsPage {
-    let project = setup.project();
-
-    setup
-        .scripts
-        .list(&setup.env, setup.runner(), Repos::Project(Some(&project)), query)
-        .await
 }
 
 /// The arguments of run `index` after `list --json --offset 0 --limit 50`, up to `--sort`.
@@ -252,14 +231,6 @@ fn placed_scripts(scope: Option<ScriptScope>, place: ScriptPlace) -> ScriptsQuer
         place: Some(place),
         ..scripts_query(scope, None)
     }
-}
-
-fn note_ids(page: &MemoryNotesPage) -> Vec<i64> {
-    page.notes.iter().map(|note| note.id).collect()
-}
-
-fn script_ids(page: &MemoryScriptsPage) -> Vec<i64> {
-    page.scripts.iter().map(|script| script.id).collect()
 }
 
 #[tokio::test]

@@ -12,7 +12,7 @@ import { deletion, requireServer } from './memory-delete-all';
 import { type Reach, reaches } from './memory-reach';
 import { combinesFilters } from './memory-notes-handlers';
 import { type CopyStores, type TeamScriptsHandlers, teamScriptsHandlers } from './memory-notes-team-handlers';
-import { notesAuthorsListed, withoutAuthors } from './authors';
+import { authorFacetOf, compareAddedBy, keepAuthor, notesAuthorFilterListed, notesAuthorsListed, withoutAuthors } from './authors';
 import { sampleScripts, summaryOf } from './memory-scripts-fixtures';
 import { sampleRunRequests } from './script-request-fixtures';
 
@@ -85,7 +85,7 @@ const REVIEWS = {
 type ScriptOrder = (a: ScriptSummary, b: ScriptSummary) => number;
 
 /** How each sort orders two scripts, ascending (`scope`: global first); ties go by id. `lastRun` leaves the never run ones to {@link neverRunLast}. */
-const SCRIPT_ORDERS: Record<ScriptSort, ScriptOrder> = {
+const SCRIPT_ORDERS: Record<Exclude<ScriptSort, 'addedBy'>, ScriptOrder> = {
   updated: (a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt),
   name: (a, b) => a.name.localeCompare(b.name),
   language: (a, b) => a.language.localeCompare(b.language),
@@ -101,15 +101,15 @@ function neverRunLast(sort: ScriptSort, a: ScriptSummary, b: ScriptSummary): num
 }
 
 /**
- * One page of scripts as the server answers: filtered by the query (name or description), the scope, the review, the place and the group, sorted and cut.
+ * One page of scripts as the server answers: filtered by the query (name or description), the scope, the review, the place, the group and the author, sorted and cut.
  * The groups (disjoint: a script that needs review is in no scope group) are counted under the query, the scopes under the query, the review and the place,
  * the review under the query, the scope and the place, the places under the query, the scope and the review. A group asked for
  * together with a scope or review is refused. `combined: false` is an older server: it drops the scope, the review and the place and counts none of them.
- * A hidden script is listed only when `hidden` asks for them. `everything` is every script of the store, which the count of scripts on this computer takes in.
+ * The authors facet counts the scripts under every filter but the author's. A hidden script is listed only when `hidden` asks for them. `everything` is every script of the store, which the count of scripts on this computer takes in.
  */
 export function pageOfScripts(
   visible: ScriptSummary[],
-  { offset, limit = DEFAULT_LIMIT, query = '', scope, review, place, group, sort = 'updated', order, hidden }: CommandArgs<'memory_scripts_list'>,
+  { offset, limit = DEFAULT_LIMIT, query = '', scope, review, place, group, author, sort = 'updated', order, hidden }: CommandArgs<'memory_scripts_list'>,
   combined = true,
   everything: ScriptSummary[] = visible,
 ): Omit<MemoryScriptsPage, 'availability'> {
@@ -121,11 +121,13 @@ export function pageOfScripts(
   const answering = visible.filter((script) => script.hidden === (hidden ?? false) && (needle === '' || script.name.toLowerCase().includes(needle) || script.description.toLowerCase().includes(needle)));
   const onThisComputer = everything.filter((script) => script.place === 'local');
   const direction = (order ?? (sort === 'updated' ? 'desc' : 'asc')) === 'desc' ? -1 : 1;
-  const compare = SCRIPT_ORDERS[sort];
+  // `addedBy` leaves the scripts nobody added last either way, so it is no plain ascending order to flip.
+  const compare = sort === 'addedBy' ? null : SCRIPT_ORDERS[sort];
   const inScope = answering.filter((script) => !combined || scope === undefined || script.scope === scope);
   const inReview = answering.filter((script) => !combined || review === undefined || REVIEWS[review](script));
   const inPlace = answering.filter((script) => !combined || place === undefined || script.place === place);
-  const chosen = answering.filter((script) => inScope.includes(script) && inReview.includes(script) && inPlace.includes(script) && (group === undefined || GROUPS[group](script)));
+  const underOthers = answering.filter((script) => inScope.includes(script) && inReview.includes(script) && inPlace.includes(script) && (group === undefined || GROUPS[group](script)));
+  const chosen = keepAuthor(underOthers, author);
   const reviewedHere = inReview.filter((script) => inPlace.includes(script));
   const inScopeHere = inScope.filter((script) => inPlace.includes(script));
   const reviewedInScope = inReview.filter((script) => inScope.includes(script));
@@ -140,8 +142,9 @@ export function pageOfScripts(
     scopes: combined ? { repo: reviewedHere.filter(SCOPES.repo).length, global: reviewedHere.filter(SCOPES.global).length } : null,
     review: combined ? { needed: inScopeHere.filter(REVIEWS.needed).length, trusted: inScopeHere.filter(REVIEWS.trusted).length } : null,
     places: combined ? { local: reviewedInScope.filter((script) => script.place === 'local').length, team: reviewedInScope.filter((script) => script.place === 'team').length } : null,
+    authors: authorFacetOf(underOthers),
     combinedFilters: combined,
-    scripts: [...chosen].sort((a, b) => neverRunLast(sort, a, b) || direction * (compare(a, b) || a.id - b.id)).slice(offset, offset + limit),
+    scripts: [...chosen].sort((a, b) => neverRunLast(sort, a, b) || (compare ? direction * (compare(a, b) || a.id - b.id) : compareAddedBy(a, b, direction, (script) => script.id))).slice(offset, offset + limit),
     hiddenCount: visible.filter((script) => script.hidden).length,
     localCounts: { repo: onThisComputer.filter(SCOPES.repo).length, global: onThisComputer.filter(SCOPES.global).length },
     offline: false,
@@ -179,7 +182,7 @@ function withReadOnly(scenario: ScriptScenario): ScriptDetail[] {
   return sampleScripts().map((script) => ({ ...script, readOnly: scenario === 'readonly' && script.place === 'team' }));
 }
 
-export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptScenarioFromLocation, combined: () => boolean = combinesFilters, copyStores: CopyStores = {}, authorsListed: () => boolean = notesAuthorsListed): ScriptHandlers {
+export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptScenarioFromLocation, combined: () => boolean = combinesFilters, copyStores: CopyStores = {}, authorsListed: () => boolean = notesAuthorsListed, authorFilterListed: () => boolean = notesAuthorFilterListed): ScriptHandlers {
   let scripts: ScriptDetail[] | null = null;
   const current = (): ScriptDetail[] => (scripts ??= withReadOnly(scenario()));
 
@@ -229,13 +232,24 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
     memory_scripts_list: (args) => {
       const availability = availabilityOf(scenario());
       if (availability.kind !== 'available') {
-        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
+        return { availability, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, authors: null, combinedFilters: combined(), scripts: [], hiddenCount: null, localCounts: null, offline: false, cachedAt: null };
       }
 
-      const page = pageOfScripts(visible(args).map(summaryOf), args, combined(), current().map(summaryOf));
+      // A server without `notes-author-filter` ignores the filter and the sort, and sends no facet.
+      const asked = { ...args };
+
+      if (!authorFilterListed()) {
+        delete asked.author;
+
+        if (asked.sort === 'addedBy') {
+          delete asked.sort;
+        }
+      }
+
+      const page = pageOfScripts(visible(args).map(summaryOf), asked, combined(), current().map(summaryOf));
 
       // A server without `notes-authors` sends no author.
-      return { availability, ...page, scripts: authorsListed() ? page.scripts : page.scripts.map(withoutAuthors) };
+      return { availability, ...page, authors: authorFilterListed() ? page.authors : null, scripts: authorsListed() ? page.scripts : page.scripts.map(withoutAuthors) };
     },
     memory_script_get: ({ id, hidden, ...reach }) => (authorsListed() ? find(id, reach, hidden) : withoutAuthors(find(id, reach, hidden))),
     memory_script_delete: ({ id, ...reach }) => {
