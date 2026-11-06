@@ -35,6 +35,11 @@ const READ_TIMEOUT: Duration = Duration::from_secs(30);
 /// `unsupported` when this build has no updater public key (nothing is requested then).
 #[tauri::command]
 pub async fn update_check(app: AppHandle, state: State<'_, AppState>) -> CommandResult<Option<UpdateInfo>> {
+    // A dev build must not update itself: the updater would overwrite `target/debug` with the released app.
+    if cfg!(debug_assertions) {
+        return Ok(None);
+    }
+
     check(&state.updates, |pubkey| updater(&app, pubkey)).await
 }
 

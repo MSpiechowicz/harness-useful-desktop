@@ -779,7 +779,7 @@
     "seq": 18,
     "event": {
       "type": "promptResult",
-      "requestId": "req-5",
+      "requestId": "req-6",
       "status": "aborted",
       "error": null,
       "retryable": false

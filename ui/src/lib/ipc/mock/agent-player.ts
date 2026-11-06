@@ -111,6 +111,10 @@ function isDenial(outcome: UiOutcome | null): boolean {
     return true;
   }
 
+  if (outcome.type === 'answers') {
+    return false;
+  }
+
   return outcome.type === 'value' ? /^deny/i.test(outcome.value) : !outcome.confirmed;
 }
 

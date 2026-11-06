@@ -14,7 +14,7 @@
   import PromptErrorBanner from './PromptErrorBanner.svelte';
   import SubagentList from './SubagentList.svelte';
   import SubagentPanel from './SubagentPanel.svelte';
-  import UiRequestDialog from './UiRequestDialog.svelte';
+  import UiRequestHost from './UiRequestHost.svelte';
   import WidgetStrip from './WidgetStrip.svelte';
 
   interface Props {
@@ -78,11 +78,7 @@
   <SubagentPanel {session} {host} />
 </div>
 
-{#if session.dialog}
-  {#key session.dialog.id}
-    <UiRequestDialog {session} request={session.dialog} />
-  {/key}
-{/if}
+<UiRequestHost {session} />
 
 {#if session.ui.ask}
   <AskDialog {session} kind={session.ui.ask} />

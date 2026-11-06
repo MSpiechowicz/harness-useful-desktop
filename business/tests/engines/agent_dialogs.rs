@@ -185,7 +185,7 @@ async fn a_cancelled_dialog_closes_and_ask_or_unknown_methods_are_declined() {
         |event| matches!(event, AgentEvent::UiCancel { request_id } if request_id == "sel-1"),
     )
     .await;
-    // The fake agent only gets here after reading `cancelled` answers to `ask` and `teleport`.
+    // The fake agent only gets here after reading `cancelled` answers to an empty `ask` and to `teleport`.
     run.wait("notice", |event| matches!(event, AgentEvent::Notice { .. }))
         .await;
 
@@ -197,7 +197,7 @@ async fn a_cancelled_dialog_closes_and_ask_or_unknown_methods_are_declined() {
         .iter()
         .filter(|event| matches!(event, AgentEvent::UiRequest { .. }))
         .count();
-    assert_eq!(shown, 1, "ask and unknown methods never reach the webview");
+    assert_eq!(shown, 1, "an empty ask and unknown methods never reach the webview");
 
     run.manager.stop(run.key()).await.unwrap();
 }

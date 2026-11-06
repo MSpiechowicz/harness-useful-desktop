@@ -28,7 +28,7 @@ export function dropRequest(state: ChatState, requestId: string): ChatState {
   return { ...state, openRequests: state.openRequests.filter((request) => request.id !== requestId) };
 }
 
-function openRequest(state: ChatState, request: UiRequest): ChatState {
+export function openRequest(state: ChatState, request: UiRequest): ChatState {
   if (state.openRequests.some((open) => open.id === request.id)) {
     return state;
   }

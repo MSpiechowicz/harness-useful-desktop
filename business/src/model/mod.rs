@@ -211,5 +211,8 @@ pub use sync::{
     SyncItemStatus, SyncMcpPreview, SyncNote, SyncStep, SyncUnsupported,
 };
 pub use sync_apply::{SyncImportResult, SyncItemOutcome, SyncOutcome, SyncProgress, SyncSkipReason};
-pub use ui_request::{UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
+pub use ui_request::{
+    AskAnswer, AskInput, AskOption, AskQuestion, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse,
+    answers_by_position,
+};
 pub use update::{MAX_UPDATE_NOTES_BYTES, UpdateInfo, UpdatePhase, UpdateProgress};

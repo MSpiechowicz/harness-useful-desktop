@@ -1,0 +1,16 @@
+export const chatRequest = {
+  'chat.request.agentAsks': 'The agent is asking',
+  'chat.request.questionOf': 'Question {number} of {total}',
+  'chat.request.back': 'Back',
+  'chat.request.next': 'Next',
+  'chat.request.ownAnswer': 'Other (type your own)',
+  'chat.request.recommended': 'Recommended',
+  'chat.request.pickAny': 'Select all that apply',
+  'chat.request.pickFirst': 'Pick an answer first',
+  'chat.request.closes': 'Closes by itself when the time runs out',
+  'chat.request.closesSending': 'When the time runs out, your answers so far are sent',
+  'chat.request.yes': 'Yes',
+  'chat.request.no': 'No',
+  'chat.request.cancel': 'Cancel',
+  'chat.request.submit': 'Submit',
+};

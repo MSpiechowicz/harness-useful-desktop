@@ -5,22 +5,18 @@
 
 use std::path::Path;
 
-use harness_business::model::{
-    AgentEvent, ChatBlock, ChatMessage, MessageRole, UiOutcome, UiRequest, UiRequestKind, UiResponse,
-};
+use harness_business::model::{AgentEvent, ChatBlock, ChatMessage, MessageRole, UiOutcome, UiRequest, UiResponse};
 use harness_business::opencode_server::wire::Outgoing;
 use harness_business::opencode_server_v2::events::{Event, parse};
-use harness_business::opencode_server_v2::mapper::{Answer, Mapped, Mapper, QuietKind, Reply, compaction_started};
+use harness_business::opencode_server_v2::mapper::{Mapped, Mapper, QuietKind, Reply, compaction_started};
 use serde_json::{Value, json};
 use tempfile::TempDir;
 
+use crate::ask_support::{answers, labels, pick, questions_of, typed};
 use crate::opencode2_recorded::{DIRECTORY, recordings};
 
 /// The session of crafted events.
 pub const SESSION: &str = "ses_test";
-
-/// The option of a single-choice question that asks for a typed answer.
-pub const OWN_ANSWER: &str = "Type your own answer…";
 
 /// A recording replayed through a mapper.
 pub struct Replay {
@@ -145,7 +141,7 @@ fn exchange(replay: &mut Replay, row: &Value) {
             Some("always") => "Always allow",
             _ => "Reject",
         };
-        let reply = send(mapper.answer(&value(&id, label)).expect("an open permission dialog"));
+        let reply = mapper.answer(&value(&id, label)).expect("an open permission dialog");
         replay.replies.push(reply);
     } else if path.contains("/form/") && path.ends_with("/reply") {
         let id = segment_after(&path, "form");
@@ -160,37 +156,23 @@ fn exchange(replay: &mut Replay, row: &Value) {
     }
 }
 
-/// Answers form `id` field by field with `answers`, typing those that are not an option.
-fn answer_form(replay: &mut Replay, id: &str, answers: &[String]) -> Reply {
-    let mut dialog = last_request(&replay.out, id).expect("the form's dialog");
-
-    for answer in answers {
-        let options = match &dialog.kind {
-            UiRequestKind::Select { options, .. } => options.clone(),
-            _ => Vec::new(),
-        };
-
-        let mut response = value(&dialog.id, answer);
-
-        if !options.is_empty() && !options.contains(answer) {
-            match replay
-                .mapper
-                .answer(&value(&dialog.id, OWN_ANSWER))
-                .expect("own answer")
-            {
-                Answer::Next(next) => dialog = request(&next[0]).clone(),
-                Answer::Send(_) => panic!("the typed answer comes next"),
+/// Answers form `id` with `texts`, one per field: an option's label picks it, other text is typed.
+fn answer_form(replay: &mut Replay, id: &str, texts: &[String]) -> Reply {
+    let dialog = last_request(&replay.out, id).expect("the form's dialog");
+    let given = questions_of(&dialog)
+        .iter()
+        .zip(texts)
+        .enumerate()
+        .map(|(index, (question, text))| {
+            if labels(question).contains(&text.as_str()) {
+                pick(index, &[text])
+            } else {
+                typed(index, text)
             }
-            response = value(&dialog.id, answer);
-        }
+        })
+        .collect();
 
-        match replay.mapper.answer(&response).expect("an answer") {
-            Answer::Next(next) => dialog = request(&next[0]).clone(),
-            Answer::Send(reply) => return reply,
-        }
-    }
-
-    panic!("form {id} was not answered");
+    replay.mapper.answer(&answers(id, given)).expect("an answer")
 }
 
 fn segment_after(path: &str, name: &str) -> String {
@@ -199,23 +181,15 @@ fn segment_after(path: &str, name: &str) -> String {
     segments.next().expect("an id").to_owned()
 }
 
-/// The newest dialog whose id starts with `prefix`.
-fn last_request(out: &[Mapped], prefix: &str) -> Option<UiRequest> {
+/// The newest dialog `id`.
+fn last_request(out: &[Mapped], id: &str) -> Option<UiRequest> {
     out.iter().rev().find_map(|item| match item {
         Mapped::Event(event) => match event.as_ref() {
-            AgentEvent::UiRequest { request } if request.id.starts_with(prefix) => Some(request.clone()),
+            AgentEvent::UiRequest { request } if request.id == id => Some(request.clone()),
             _ => None,
         },
         _ => None,
     })
-}
-
-/// The reply of an answer that sends one.
-pub fn send(answer: Answer) -> Reply {
-    match answer {
-        Answer::Send(reply) => reply,
-        Answer::Next(_) => panic!("expected a reply, the form goes on"),
-    }
 }
 
 /// A dialog answer with `value`.

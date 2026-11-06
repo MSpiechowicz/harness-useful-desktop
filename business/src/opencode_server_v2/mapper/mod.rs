@@ -35,7 +35,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use self::asks::Asks;
-pub use self::asks::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
+pub use self::asks::{PERMISSION_OPTIONS, Reply, ReplyKind};
 pub use self::history::{history, settled_history};
 use self::quiet::QuietRun;
 pub use self::quiet::{QuietKind, ShellResult, compaction_started};
@@ -259,7 +259,7 @@ impl Mapper {
     }
 
     /// The answer to dialog `response.id`; the engine sends it (or shows the next question).
-    pub fn answer(&mut self, response: &UiResponse) -> Result<Answer> {
+    pub fn answer(&mut self, response: &UiResponse) -> Result<Reply> {
         self.asks.answer(response)
     }
 

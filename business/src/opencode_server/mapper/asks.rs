@@ -6,11 +6,9 @@
 //!   subagent session asks), the subject in full on one line. Answers: `once`, `always`,
 //!   `reject`; a dismissed dialog rejects.
 //! - **Questions** (`question.asked`) are marked as questions, so the UI never shows one as an
-//!   approval card, and shown one dialog per question, in order: a `select` for a single choice,
-//!   with a trailing [`OWN_ANSWER`] option unless the question sets `custom: false` (choosing it
-//!   asks for the text in an `input`), an `input` for several choices (comma-separated, typed
-//!   answers too) or a free answer. The answers go out together after the last one; a dismissed
-//!   dialog rejects the whole request.
+//!   approval card, and shown as one dialog holding all of them. A typed answer is offered unless
+//!   the question sets `custom: false`. The answers go out together; a dismissed dialog rejects the
+//!   whole request.
 //! - `permission.replied` (answered elsewhere, or rejected along with another ask of the session),
 //!   `question.replied` and `question.rejected` close the dialog (`uiCancel`), as does the end of
 //!   the turn (OpenCode drops its open asks when a turn stops, without an event).
@@ -20,9 +18,11 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::message::text;
-use super::question::{Question, question, typed};
+use super::question::{Question, question};
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentEvent, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
+use crate::model::{
+    AgentEvent, AskAnswer, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse, answers_by_position,
+};
 use crate::security::redact_text;
 
 /// The answers of a permission dialog, in order.
@@ -41,15 +41,6 @@ const TASK_DETAIL_MODE: &str = "The subagent's own tools then follow this chat's
 /// What "Always allow" also means: OpenCode checks it after every rule, for every agent of the
 /// chat's server (`permission/index.ts`, the instance's approved list).
 const OVERRIDES: &str = ", for every agent and even where one denies it (the plan agent too)";
-
-/// What answering a dialog means for OpenCode.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Answer {
-    /// Nothing to send yet: the next question of the request is shown.
-    Next(Vec<AgentEvent>),
-    /// Send this reply.
-    Send(Reply),
-}
 
 /// A reply to an ask of `session`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,10 +99,6 @@ enum AskKind {
 struct QuestionAsk {
     id: String,
     questions: Vec<Question>,
-    answers: Vec<Vec<String>>,
-    /// The current question was answered with the typed-answer option: its typed answer comes
-    /// next.
-    typing: bool,
 }
 
 impl Asks {
@@ -212,8 +199,6 @@ impl Asks {
         let ask = QuestionAsk {
             id: id.clone(),
             questions,
-            answers: Vec::new(),
-            typing: false,
         };
         out.push(ask.dialog(&id));
 
@@ -243,34 +228,25 @@ impl Asks {
     }
 
     /// The answer to dialog `response.id` (see the module docs).
-    pub(super) fn answer(&mut self, response: &UiResponse) -> Result<Answer> {
+    pub(super) fn answer(&mut self, response: &UiResponse) -> Result<Reply> {
         let position = self
             .open
             .iter()
             .position(|ask| ask.dialog == response.id)
             .ok_or_else(|| BusinessError::NotFound(format!("open dialog {}", response.id)))?;
 
-        let ask = &mut self.open[position];
+        let ask = &self.open[position];
 
-        let kind = match &mut ask.kind {
+        let kind = match &ask.kind {
             AskKind::Permission { id } => ReplyKind::Permission {
                 id: id.clone(),
                 reply: permission_reply(&response.outcome)?,
             },
             AskKind::Question(question) => match &response.outcome {
-                UiOutcome::Value { value } => {
-                    if let Some(id) = question.answer(value)? {
-                        let next = question.dialog(&id);
-                        ask.dialog = id;
-
-                        return Ok(Answer::Next(vec![next]));
-                    }
-
-                    ReplyKind::Question {
-                        id: question.id.clone(),
-                        answers: std::mem::take(&mut question.answers),
-                    }
-                }
+                UiOutcome::Answers { answers } => ReplyKind::Question {
+                    id: question.id.clone(),
+                    answers: question.answers(answers)?,
+                },
                 _ => ReplyKind::QuestionReject {
                     id: question.id.clone(),
                 },
@@ -279,10 +255,10 @@ impl Asks {
 
         let ask = self.open.remove(position);
 
-        Ok(Answer::Send(Reply {
+        Ok(Reply {
             session: ask.session,
             kind,
-        }))
+        })
     }
 
     /// What a permission ask is about, in full on one redacted line: the command, the file
@@ -328,65 +304,34 @@ impl Ask {
 }
 
 impl QuestionAsk {
-    fn current(&self) -> Result<&Question> {
-        self.questions
-            .get(self.answers.len())
-            .ok_or_else(|| BusinessError::Internal("question without a current step".to_owned()))
-    }
-
-    /// Takes `value` as the answer to the current question. Returns the id of the dialog that comes
-    /// next (the typed answer, or the next question), `None` once every question is answered.
-    fn answer(&mut self, value: &str) -> Result<Option<String>> {
-        let current = self.current()?;
-        let step = self.answers.len() + 1;
-
-        if !self.typing && current.is_own_answer(value) {
-            self.typing = true;
-
-            return Ok(Some(format!("{}:{step}:own", self.id)));
-        }
-
-        let answer = if self.typing {
-            typed(value)
-        } else {
-            current.answer(value)?
-        };
-        self.typing = false;
-        self.answers.push(answer);
-
-        if self.answers.len() < self.questions.len() {
-            return Ok(Some(format!("{}:{}", self.id, self.answers.len() + 1)));
-        }
-
-        Ok(None)
-    }
-
-    /// The dialog of the current question (or of its typed answer), as `id`.
+    /// The dialog of every question, as `id`.
     fn dialog(&self, id: &str) -> AgentEvent {
-        let step = self.answers.len();
-        let current = &self.questions[step];
-
-        let title = match self.questions.len() {
-            1 => current.text.clone(),
-            count => format!("Question {} of {count}: {}", step + 1, current.text),
-        };
-
-        let kind = if self.typing {
-            UiRequestKind::Input {
-                title,
-                placeholder: None,
-                timeout_ms: None,
-            }
-        } else {
-            current.kind(title)
-        };
+        let questions = self
+            .questions
+            .iter()
+            .enumerate()
+            .map(|(index, question)| question.shown(index))
+            .collect();
 
         AgentEvent::UiRequest {
             request: UiRequest {
                 purpose: Some(UiPurpose::Question),
-                ..UiRequest::new(id, kind)
+                ..UiRequest::new(
+                    id,
+                    UiRequestKind::Questions {
+                        questions,
+                        timeout_ms: None,
+                    },
+                )
             },
         }
+    }
+
+    /// The answers in question order; a wrong one fails with the dialog still open.
+    fn answers(&self, answers: &[AskAnswer]) -> Result<Vec<Vec<String>>> {
+        answers_by_position(answers, self.questions.len())?
+            .map(|(index, answer)| self.questions[index].answer(answer))
+            .collect()
     }
 }
 

@@ -2,6 +2,7 @@ import type { Dict } from '../types';
 import { common } from './common';
 import { shell } from './shell';
 import { chat } from './chat';
+import { chatRequest } from './chat-request';
 import { sessions } from './sessions';
 import { changes } from './changes';
 import { config } from './config';
@@ -29,6 +30,7 @@ export const fr: Dict = {
   ...common,
   ...shell,
   ...chat,
+  ...chatRequest,
   ...sessions,
   ...changes,
   ...config,

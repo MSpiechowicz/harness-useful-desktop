@@ -23,34 +23,22 @@ use serde_json::Value;
 use super::approvals::{PermissionAnswer, always_allowed, asker_directory, undelivered};
 use super::{Chat, OpenCodeV2Session, guard, stream};
 use crate::error::{BusinessError, Result};
-use crate::model::{MAX_ACTION_TEXT_BYTES, UiOutcome, UiResponse};
+use crate::model::UiResponse;
 use crate::opencode_server::HttpError;
-use crate::opencode_server_v2::mapper::{Answer, Reply, ReplyKind};
+use crate::opencode_server_v2::mapper::{Reply, ReplyKind};
 use crate::opencode_server_v2::wire::{Decision, PermissionRequest};
 use crate::opencode_server_v2::{FormId, Mapped, RouteV2, SessionId};
 
 impl OpenCodeV2Session {
     /// Answers an open dialog; fails for ids that are not open (answered, cancelled or unknown).
     pub(super) async fn answer_dialog(&self, response: UiResponse) -> Result<()> {
-        if let UiOutcome::Value { value } = &response.outcome
-            && value.len() > MAX_ACTION_TEXT_BYTES
-        {
-            return Err(BusinessError::InvalidInput(format!(
-                "value exceeds {MAX_ACTION_TEXT_BYTES} bytes"
-            )));
-        }
+        response.outcome.check_size()?;
 
         let chat = &self.chat;
         let (reply, directory, always) = {
             let mut live = chat.lock();
 
-            let reply = match live.mapper.answer(&response)? {
-                Answer::Next(events) => {
-                    stream::apply(chat, &mut live, events.into_iter().map(Mapped::event).collect());
-                    return Ok(());
-                }
-                Answer::Send(reply) => reply,
-            };
+            let reply = live.mapper.answer(&response)?;
 
             if allows_unknown_agent(chat, &reply, &live.mapper.pending_permissions()) {
                 let reopened = live.mapper.reopen(request_id(&reply.kind));

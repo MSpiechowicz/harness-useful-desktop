@@ -1,16 +1,15 @@
 //! OpenCode's permission asks and questions as chat dialogs (`Mapper`), with the recorded shapes of
 //! `fixtures/opencode/server/global-event.sse`, and the replies the answers make.
 
+use crate::ask_support::{answers, labels, pick, pick_and_type, questions_of, typed};
 use crate::opencode_mapper_support;
 
 use harness_business::model::{AgentEvent, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
 use harness_business::opencode_server::Mapper;
-use harness_business::opencode_server::mapper::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
+use harness_business::opencode_server::mapper::{PERMISSION_OPTIONS, Reply, ReplyKind};
 use opencode_mapper_support::{SESSION, events, feed, mapper, status};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
-
-const OWN_ANSWER: &str = "Type your own answer…";
 
 const CHILD: &str = "ses_eaa55fce6ffeMnl5ZAKxvDBT61";
 
@@ -55,10 +54,7 @@ fn cancelled(id: &str) -> UiResponse {
 }
 
 fn sent(mapper: &mut Mapper, response: &UiResponse) -> Reply {
-    match mapper.answer(response).expect("an open dialog") {
-        Answer::Send(reply) => reply,
-        Answer::Next(next) => panic!("expected a reply, got {next:?}"),
-    }
+    mapper.answer(response).expect("an open dialog")
 }
 
 fn request(event: &AgentEvent) -> &UiRequest {
@@ -78,16 +74,6 @@ fn select(event: &AgentEvent) -> (String, String, Vec<String>, Vec<Option<String
                 ..
             } => (request.id.clone(), title.clone(), options.clone(), details.clone()),
             other => panic!("not a select: {other:?}"),
-        },
-        other => panic!("not a dialog: {other:?}"),
-    }
-}
-
-fn input(event: &AgentEvent) -> (String, String, Option<String>) {
-    match event {
-        AgentEvent::UiRequest { request } => match &request.kind {
-            UiRequestKind::Input { title, placeholder, .. } => (request.id.clone(), title.clone(), placeholder.clone()),
-            other => panic!("not an input: {other:?}"),
         },
         other => panic!("not a dialog: {other:?}"),
     }
@@ -213,7 +199,7 @@ fn a_subagent_asks_with_its_own_directory_and_other_sessions_are_ignored() {
 }
 
 #[test]
-fn a_single_choice_question_is_a_select_that_never_reads_as_an_approval() {
+fn a_question_is_a_dialog_that_never_reads_as_an_approval() {
     let mut mapper = mapper();
     let recorded = json!([{ "question": "Pick one", "header": "Pick", "options": [
         { "label": "Alpha", "description": "first" }, { "label": "Beta", "description": "second" }] }]);
@@ -225,22 +211,37 @@ fn a_single_choice_question_is_a_select_that_never_reads_as_an_approval() {
         &[question("que_1", recorded), question("que_2", yes_no)],
     ));
 
-    let (id, title, options, details) = select(&out[0]);
-    assert_eq!((id.as_str(), title.as_str()), ("que_1", "Pick one"));
-    assert_eq!(options, ["Alpha", "Beta", OWN_ANSWER]);
-    assert_eq!(details, [Some("first".to_owned()), Some("second".to_owned()), None]);
-    assert_eq!(request(&out[0]).purpose, Some(UiPurpose::Question));
-
-    let (_, _, options, _) = select(&out[1]);
-    assert_eq!(options, ["Yes", "No", OWN_ANSWER], "the labels as asked");
+    let first = request(&out[0]);
+    assert_eq!(first.id, "que_1");
+    assert_eq!(first.purpose, Some(UiPurpose::Question));
+    let [pick_one] = questions_of(first) else {
+        panic!("one question");
+    };
+    assert_eq!((pick_one.id.as_str(), pick_one.question.as_str()), ("0", "Pick one"));
+    assert_eq!(labels(pick_one), ["Alpha", "Beta"], "no trailing typed-answer option");
     assert_eq!(
-        request(&out[1]).purpose,
+        pick_one
+            .options
+            .iter()
+            .map(|option| option.description.as_deref())
+            .collect::<Vec<_>>(),
+        [Some("first"), Some("second")]
+    );
+    assert!(
+        pick_one.custom && !pick_one.multi,
+        "a typed answer is offered unless custom is false"
+    );
+
+    let second = request(&out[1]);
+    assert_eq!(labels(&questions_of(second)[0]), ["Yes", "No"], "the labels as asked");
+    assert_eq!(
+        second.purpose,
         Some(UiPurpose::Question),
         "marked, so the UI does not show an approval card"
     );
-    assert_eq!(request(&out[1]).tool_call_id, None);
+    assert_eq!(second.tool_call_id, None);
 
-    let beta = sent(&mut mapper, &value("que_1", "Beta"));
+    let beta = sent(&mut mapper, &answers("que_1", vec![pick(0, &["Beta"])]));
     assert_eq!(
         beta.kind,
         ReplyKind::Question {
@@ -249,44 +250,67 @@ fn a_single_choice_question_is_a_select_that_never_reads_as_an_approval() {
         }
     );
 
-    let no = sent(&mut mapper, &value("que_2", "No"));
+    let no = sent(&mut mapper, &answers("que_2", vec![pick(0, &["No"])]));
     assert!(matches!(no.kind, ReplyKind::Question { answers, .. } if answers == [["No"]]));
 }
 
 #[test]
-fn several_or_open_questions_are_inputs_answered_together() {
+fn several_and_open_questions_are_one_dialog_answered_together() {
     let mut mapper = mapper();
     let questions = json!([
         { "question": "Which tools?", "header": "Tools", "multiple": true, "options": [
-            { "label": "Alpha", "description": "" }, { "label": "Beta", "description": "" }] },
+            { "label": "Alpha", "description": "" }, { "label": "Beta, the second", "description": "" }] },
         { "question": "Anything else?", "header": "More", "options": [] },
     ]);
 
     let out = events(feed(&mut mapper, &[question("que_1", questions)]));
-    let (id, title, placeholder) = input(&out[0]);
-    assert_eq!(id, "que_1");
+    assert_eq!(out.len(), 1, "one dialog for both questions");
+    let asked = questions_of(request(&out[0]));
     assert_eq!(
-        title,
-        "Question 1 of 2: Which tools? (any of Alpha, Beta, separated by commas)"
+        asked
+            .iter()
+            .map(|question| (
+                question.id.as_str(),
+                question.question.as_str(),
+                labels(question),
+                question.multi
+            ))
+            .collect::<Vec<_>>(),
+        [
+            ("0", "Which tools?", vec!["Alpha", "Beta, the second"], true),
+            ("1", "Anything else?", vec![], false)
+        ]
     );
-    assert_eq!(placeholder.as_deref(), Some("Alpha, Beta"));
 
-    let Answer::Next(next) = mapper.answer(&value("que_1", "alpha, Gamma")).expect("open") else {
-        panic!("the second question comes next");
-    };
-    let (id, title, placeholder) = input(&next[0]);
-    assert_eq!(
-        (id.as_str(), title.as_str(), placeholder),
-        ("que_1:2", "Question 2 of 2: Anything else?", None)
+    let wrong = [
+        answers("que_1", vec![pick(0, &["alpha"]), typed(1, "no")]),
+        answers("que_1", vec![pick(0, &["Alpha"])]),
+        answers("que_1", vec![pick(1, &["Alpha"]), typed(0, "no")]),
+    ];
+    for response in &wrong {
+        assert!(mapper.answer(response).is_err(), "{response:?}");
+    }
+
+    let reply = sent(
+        &mut mapper,
+        &answers(
+            "que_1",
+            vec![
+                pick_and_type(0, &["Alpha", "Beta, the second"], "Gamma"),
+                typed(1, "  no  "),
+            ],
+        ),
     );
-
-    let reply = sent(&mut mapper, &value("que_1:2", "  no  "));
     assert_eq!(
         reply.kind,
         ReplyKind::Question {
             id: "que_1".to_owned(),
-            answers: vec![vec!["Alpha".to_owned(), "Gamma".to_owned()], vec!["no".to_owned()]]
-        }
+            answers: vec![
+                vec!["Alpha".to_owned(), "Beta, the second".to_owned(), "Gamma".to_owned()],
+                vec!["no".to_owned()]
+            ]
+        },
+        "the dialog stayed open after the wrong answers, labels with a comma stay whole"
     );
 }
 
@@ -368,7 +392,7 @@ fn a_task_ask_says_how_the_subagent_runs_its_own_tools() {
 }
 
 #[test]
-fn a_single_choice_question_takes_a_typed_answer() {
+fn a_question_takes_a_typed_answer_unless_it_sets_custom_false() {
     let mut mapper = mapper();
     let questions = json!([
         { "question": "Which branch?", "header": "Branch", "options": [
@@ -377,27 +401,25 @@ fn a_single_choice_question_takes_a_typed_answer() {
             { "label": "Yes", "description": "" }, { "label": "No", "description": "" }] },
     ]);
 
-    feed(&mut mapper, &[question("que_1", questions)]);
-
-    let Answer::Next(own) = mapper.answer(&value("que_1", OWN_ANSWER)).expect("open") else {
-        panic!("the typed answer comes next");
-    };
-    let (id, title, placeholder) = input(&own[0]);
+    let out = events(feed(&mut mapper, &[question("que_1", questions)]));
+    let asked = questions_of(request(&out[0]));
     assert_eq!(
-        (id.as_str(), title.as_str(), placeholder),
-        ("que_1:1:own", "Question 1 of 2: Which branch?", None)
+        asked.iter().map(|question| question.custom).collect::<Vec<_>>(),
+        [true, false],
+        "custom: false offers no typed answer"
     );
-    assert_eq!(request(&own[0]).purpose, Some(UiPurpose::Question));
 
-    let Answer::Next(next) = mapper.answer(&value("que_1:1:own", "  release/2.0 ")).expect("open") else {
-        panic!("the second question comes next");
-    };
-    let (id, _, options, _) = select(&next[0]);
-    assert_eq!(id, "que_1:2");
-    assert_eq!(options, ["Yes", "No"], "custom: false offers no typed answer");
-    assert!(mapper.answer(&value("que_1:2", OWN_ANSWER)).is_err());
+    assert!(
+        mapper
+            .answer(&answers("que_1", vec![pick(0, &["main"]), typed(1, "Maybe")]))
+            .is_err(),
+        "a typed answer to it is refused, with the dialog still open"
+    );
 
-    let reply = sent(&mut mapper, &value("que_1:2", "Yes"));
+    let reply = sent(
+        &mut mapper,
+        &answers("que_1", vec![typed(0, "  release/2.0 "), pick(1, &["Yes"])]),
+    );
     assert_eq!(
         reply.kind,
         ReplyKind::Question {
@@ -405,19 +427,6 @@ fn a_single_choice_question_takes_a_typed_answer() {
             answers: vec![vec!["release/2.0".to_owned()], vec!["Yes".to_owned()]]
         }
     );
-}
-
-#[test]
-fn a_dismissed_typed_answer_rejects_the_question() {
-    let mut mapper = mapper();
-    let one = json!([{ "question": "Which branch?", "header": "Branch", "options": [{ "label": "main", "description": "" }] }]);
-
-    feed(&mut mapper, &[question("que_1", one)]);
-    let next = mapper.answer(&value("que_1", OWN_ANSWER)).expect("open");
-    assert!(matches!(next, Answer::Next(_)));
-
-    let rejected = sent(&mut mapper, &cancelled("que_1:1:own"));
-    assert_eq!(rejected.kind, ReplyKind::QuestionReject { id: "que_1".to_owned() });
 }
 
 #[test]

@@ -5,6 +5,7 @@
 //! a subagent ask for an agent the mode's probe did not list can only be rejected.
 
 use crate::agent_support;
+use crate::ask_support::{labels, outcome, pick, questions_of};
 use crate::opencode2_engine_helpers;
 use crate::opencode2_engine_support;
 
@@ -12,7 +13,9 @@ use std::time::Duration;
 
 use agent_support::WAIT;
 use harness_business::BusinessError;
-use harness_business::model::{AgentEvent, ApprovalMode, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
+use harness_business::model::{
+    AgentEvent, ApprovalMode, IpcErrorCode, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse,
+};
 use opencode2_engine_helpers::prompt;
 use opencode2_engine_support::{Chat, start, start_mode, until_marker};
 use pretty_assertions::assert_eq;
@@ -190,7 +193,9 @@ async fn answers_that_do_not_reach_opencode_show_the_dialog_again() {
     choose(&chat, "per_3", "Allow once").await.expect("once");
 
     dialog(&chat, "frm_1").await;
-    let gone = choose(&chat, "frm_1", "Red").await.expect_err("the form is gone");
+    let gone = answer(&chat, "frm_1", outcome(vec![pick(0, &["Red"])]))
+        .await
+        .expect_err("the form is gone");
     assert!(gone.to_string().contains("HTTP 404"), "{gone}");
 
     let events = until_marker(&chat).await;
@@ -210,16 +215,27 @@ async fn question_forms_are_answered_together_or_cancelled() {
 
     let color = dialog(&chat, "frm_1").await;
     assert_eq!(color.purpose, Some(UiPurpose::Question), "never an approval card");
-    let (title, options, _) = select(&color.kind);
-    assert_eq!(title, "Which color do you prefer, red or blue?");
-    assert_eq!(options, ["Red", "Blue", "Type your own answer…"]);
-    choose(&chat, "frm_1", "Blue").await.expect("answered");
+    let [asked] = questions_of(&color) else {
+        panic!("one question");
+    };
+    assert_eq!(asked.question, "Which color do you prefer, red or blue?");
+    assert_eq!(labels(asked), ["Red", "Blue"]);
+    answer(&chat, "frm_1", outcome(vec![pick(0, &["Blue"])]))
+        .await
+        .expect("answered");
 
-    dialog(&chat, "frm_2").await;
-    choose(&chat, "frm_2", "Red").await.expect("the first field");
-    let sizes = dialog(&chat, "frm_2:2").await;
-    assert!(matches!(sizes.kind, UiRequestKind::Input { .. }), "{sizes:?}");
-    choose(&chat, "frm_2:2", "S, M").await.expect("both answered");
+    let sizes = dialog(&chat, "frm_2").await;
+    let [_, many] = questions_of(&sizes) else {
+        panic!("both fields in one dialog");
+    };
+    assert!(many.multi, "{many:?}");
+    let refused = answer(&chat, "frm_2", outcome(vec![pick(0, &["Red"])]))
+        .await
+        .expect_err("an answer for one field only");
+    assert_eq!(refused.code(), IpcErrorCode::InvalidInput);
+    answer(&chat, "frm_2", outcome(vec![pick(0, &["Red"]), pick(1, &["S", "M"])]))
+        .await
+        .expect("both answered");
 
     dialog(&chat, "frm_3").await;
     answer(&chat, "frm_3", UiOutcome::Cancelled).await.expect("cancelled");
@@ -228,7 +244,9 @@ async fn question_forms_are_answered_together_or_cancelled() {
     closed(&chat, "frm_4").await;
 
     dialog(&chat, "frm_5").await;
-    choose(&chat, "frm_5", "Red").await.expect("a subagent's form");
+    answer(&chat, "frm_5", outcome(vec![pick(0, &["Red"])]))
+        .await
+        .expect("a subagent's form");
 
     let events = until_marker(&chat).await;
     assert!(chat.session().is_running(), "every answer matched the scenario");

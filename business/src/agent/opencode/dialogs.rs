@@ -8,9 +8,9 @@
 use serde_json::json;
 
 use super::{OpenCodeSession, stream};
-use crate::error::{BusinessError, Result};
-use crate::model::{MAX_ACTION_TEXT_BYTES, UiOutcome, UiResponse};
-use crate::opencode_server::mapper::{Answer, ReplyKind};
+use crate::error::Result;
+use crate::model::UiResponse;
+use crate::opencode_server::mapper::ReplyKind;
 use crate::opencode_server::{HttpError, Mapped, PermissionId, QuestionId, Route};
 
 impl OpenCodeSession {
@@ -18,25 +18,13 @@ impl OpenCodeSession {
     pub async fn respond(&self, response: UiResponse) -> Result<()> {
         self.process.ensure_running()?;
 
-        if let UiOutcome::Value { value } = &response.outcome
-            && value.len() > MAX_ACTION_TEXT_BYTES
-        {
-            return Err(BusinessError::InvalidInput(format!(
-                "value exceeds {MAX_ACTION_TEXT_BYTES} bytes"
-            )));
-        }
+        response.outcome.check_size()?;
 
         let chat = &self.chat;
         let (reply, directory) = {
             let mut live = chat.lock();
 
-            let reply = match live.mapper.answer(&response)? {
-                Answer::Next(events) => {
-                    stream::apply(chat, &mut live, events.into_iter().map(Mapped::Event).collect());
-                    return Ok(());
-                }
-                Answer::Send(reply) => reply,
-            };
+            let reply = live.mapper.answer(&response)?;
 
             let directory = live
                 .mapper

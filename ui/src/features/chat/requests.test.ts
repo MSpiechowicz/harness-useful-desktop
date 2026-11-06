@@ -92,11 +92,15 @@ describe('agent dialogs', () => {
     await waitFor(() => expect(answers()[0].outcome).toEqual({ type: 'value', value: '#!/bin/sh\ncargo fmt\n' }));
   });
 
-  it('treats Escape as cancelled', async () => {
+  it('stays open on Escape and a click outside, and closes with Cancel', async () => {
     const { answers } = await mountDialog({ type: 'input', title: 'Hook name', placeholder: null, timeoutMs: null });
+    const dialog = await screen.findByRole('dialog');
 
-    await fireEvent.keyDown(await screen.findByRole('dialog'), { key: 'Escape' });
+    await fireEvent.keyDown(dialog, { key: 'Escape' });
+    await fireEvent.click(document.querySelector('button[aria-hidden="true"]') as HTMLElement);
+    expect(answers()).toEqual([]);
 
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() => expect(answers()).toEqual([{ id: 'req-1', outcome: { type: 'cancelled' } }]));
   });
 

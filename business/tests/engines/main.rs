@@ -5,6 +5,8 @@
 
 #[path = "../support/agent_support/mod.rs"]
 mod agent_support;
+#[path = "../support/ask_support/mod.rs"]
+mod ask_support;
 #[path = "../support/claude_engine_support/mod.rs"]
 mod claude_engine_support;
 #[path = "../support/claude_recorded/mod.rs"]

@@ -48,7 +48,12 @@ impl RpcDialect for OmpDialect {
     }
 
     fn optional_after_handshake(&self) -> Vec<Value> {
-        vec![subscription_frame()]
+        // Every question of an `ask` at once, so an answer can change until the last is submitted. An older OMP refuses
+        // it and sends them one at a time as `select` dialogs. Tool approvals are `select` dialogs either way.
+        vec![
+            subscription_frame(),
+            json!({ "type": "set_ask_dialog", "enabled": true }),
+        ]
     }
 
     fn encode(&self, action: &AgentAction, id: &str, context: &EncodeContext<'_>) -> Result<Value> {

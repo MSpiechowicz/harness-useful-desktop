@@ -380,12 +380,6 @@ export const chat = {
   'chat.trust.scope': 'It applies to this session only. The app asks again the next time {harness} starts. The session restarts and continues where it left off.',
   'chat.trust.action': 'Restart and trust this project',
 
-  'chat.request.agentAsks': 'The agent is asking',
-  'chat.request.closes': 'Closes by itself when the time runs out',
-  'chat.request.yes': 'Yes',
-  'chat.request.no': 'No',
-  'chat.request.cancel': 'Cancel',
-  'chat.request.submit': 'Submit',
 
   'chat.user.label': 'Your message',
   'chat.user.copy': 'Copy prompt',

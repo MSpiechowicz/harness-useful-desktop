@@ -4,6 +4,8 @@
 
 #[path = "../support/agent_support/mod.rs"]
 mod agent_support;
+#[path = "../support/ask_support/mod.rs"]
+mod ask_support;
 #[path = "../support/claude_frames/mod.rs"]
 mod claude_frames;
 #[path = "../support/claude_mapper_support/mod.rs"]
@@ -72,6 +74,7 @@ mod omp_roles;
 mod omp_set_role;
 mod omp_views;
 mod opencode2_asks_mapper;
+mod opencode2_forms_mapper;
 mod opencode2_mapper;
 mod opencode2_merged_names;
 mod opencode2_plugin_actions;

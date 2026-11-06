@@ -42,14 +42,15 @@
 
 <Overlay {open} labelledby={titleId} describedby={description ? descriptionId : undefined} {dismissible} {initialFocus} onclose={close}>
   <div class={cx('flex max-h-[85vh] flex-col rounded-xl border border-line-strong bg-glass shadow-pop backdrop-blur-xl', SIZES[size])}>
-    <!-- The close button is centred on the title line; its negative margins keep the 36px control from making the line
-         taller or pushing the glyph in from the edge. The title's letters start 16px below the top edge (9px of
+    <!-- The close button is centred on the title's first line, also when the title wraps; its negative margins keep the
+         36px control from making that line taller or pushing the glyph in from the edge. The title's letters start 16px below the top edge (9px of
          padding plus the leading above them), the same as the room under the footer's buttons. -->
-    <header class={cx('flex flex-col gap-1 px-6 pt-[9px]', subject ? 'pb-4' : !children && 'pb-5')}>
-      <div class="flex items-center justify-between gap-4">
-        <h2 id={titleId} class="text-xl text-fg">{title}</h2>
+    <header class={cx('flex shrink-0 flex-col gap-1 px-6 pt-[9px]', subject ? 'pb-4' : !children && 'pb-5')}>
+      <div class="flex items-start justify-between gap-4">
+        <!-- A title longer than this scrolls, so it can never push the body and the buttons off the screen. -->
+        <h2 id={titleId} class="max-h-[25vh] min-w-0 overflow-y-auto break-words text-xl text-fg">{title}</h2>
         {#if dismissible}
-          <IconButton icon={X} label={t('components.dialog.close')} class="-my-2 -mr-1.5 shrink-0" data-dismiss onclick={close} />
+          <IconButton icon={X} label={t('components.dialog.close')} class="-my-1 -mr-1.5 shrink-0" data-dismiss onclick={close} />
         {/if}
       </div>
 
@@ -66,13 +67,13 @@
     {/if}
 
     {#if children}
-      <div class="overflow-y-auto px-6 py-5">
+      <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         {@render children()}
       </div>
     {/if}
 
     {#if footer}
-      <footer class="flex justify-end gap-2 border-t border-line px-6 py-[16px]">
+      <footer class="flex shrink-0 justify-end gap-2 border-t border-line px-6 py-[16px]">
         {@render footer()}
       </footer>
     {/if}

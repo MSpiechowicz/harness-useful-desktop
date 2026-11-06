@@ -26,7 +26,8 @@ import { dropSend, startSend } from './pending-send';
 import { labelFromPrompt, type ChatLabel } from './naming';
 import { firstUserPrompt } from './first-prompt';
 import { prependHistory } from './messages';
-import { applyEvent, clearTranscript, dropRequest, reduceEnvelope } from './reducer';
+import { deliverAnswer } from './deliver-answer';
+import { applyEvent, clearTranscript, dropRequest, openRequest, reduceEnvelope } from './reducer';
 import { mergeCatalog } from './slash';
 import { SentImages } from './sent-images.svelte';
 import { initialChatState } from './state';
@@ -343,12 +344,11 @@ export class ChatSession {
 
   /** Answers an agent UI request; the dialog closes immediately and the answer follows. */
   async respond(requestId: string, outcome: UiOutcome): Promise<void> {
+    const request = this.chat.openRequests.find((open) => open.id === requestId);
     this.apply((state) => dropRequest(state, requestId));
 
-    try {
-      await this.transport.invoke('agent_ui_respond', { key: this.key, response: { id: requestId, outcome } });
-    } catch (error) {
-      this.notifications.push({ title: t('chat.toast.noAnswer'), description: IpcFailure.from(error).message, tone: 'danger' });
+    if ((await deliverAnswer(this.transport, this.key, requestId, outcome, (toast) => this.notifications.push(toast))) && request) {
+      this.apply((state) => openRequest(state, request));
     }
   }
 

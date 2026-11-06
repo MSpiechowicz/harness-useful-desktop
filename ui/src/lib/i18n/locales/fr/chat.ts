@@ -390,12 +390,6 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.trust.scope': 'Valable pour cette session uniquement. L’app redemande au prochain démarrage de {harness}. La session redémarre et reprend là où elle s’était arrêtée.',
   'chat.trust.action': 'Redémarrer et approuver ce projet',
 
-  'chat.request.agentAsks': 'L’agent demande',
-  'chat.request.closes': 'Se ferme tout seul à la fin du délai',
-  'chat.request.yes': 'Oui',
-  'chat.request.no': 'Non',
-  'chat.request.cancel': 'Annuler',
-  'chat.request.submit': 'Envoyer',
 
   'chat.user.label': 'Votre message',
   'chat.user.copy': 'Copier le message',

@@ -121,7 +121,7 @@ async fn omp_prompt_streams_deltas_tools_and_completes_with_its_request_id() {
     assert_eq!(
         result,
         &AgentEvent::PromptResult {
-            request_id: Some("req-5".to_owned()),
+            request_id: Some("req-6".to_owned()),
             status: PromptStatus::Completed,
             error: None,
             retryable: false,

@@ -30,7 +30,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use self::asks::Asks;
-pub use self::asks::{Answer, PERMISSION_OPTIONS, Reply, ReplyKind};
+pub use self::asks::{PERMISSION_OPTIONS, Reply, ReplyKind};
 pub use self::children::SubagentSettings;
 pub(crate) use self::message::{
     history_messages, is_summary, part_type, record_messages, settled_records, text, tool_outcome,
@@ -184,7 +184,7 @@ impl Mapper {
     }
 
     /// The answer to dialog `response.id`; the engine sends it (or shows the next question).
-    pub fn answer(&mut self, response: &UiResponse) -> Result<Answer> {
+    pub fn answer(&mut self, response: &UiResponse) -> Result<Reply> {
         self.asks.answer(response)
     }
 

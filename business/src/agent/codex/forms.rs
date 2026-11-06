@@ -1,5 +1,5 @@
 //! Codex's questions and an MCP server's form as the chat's question dialog
-//! ([`QuestionDialog`]: one dialog per question, in order, the answers together after the last).
+//! ([`QuestionDialog`]: one dialog holding every question, the answers together).
 //!
 //! - **The model's questions** (`item/tool/requestUserInput`, Plan mode only): each question with
 //!   its options; the answers go back keyed by the question's id. A secret question is asked like

@@ -5,6 +5,7 @@
 
 use crate::claude_engine_support;
 
+use crate::ask_support::{answers, labels, pick, pick_and_type, questions_of, typed};
 use claude_engine_support::{Chat, marker, prompt, start, start_in, stop_cleanly};
 use harness_business::model::{
     AgentAction, AgentEvent, AgentReply, ApprovalMode, IpcErrorCode, NoticeLevel, UiOutcome, UiPurpose, UiRequest,
@@ -248,56 +249,78 @@ async fn a_recorded_multi_select_question_is_answered_with_its_labels() {
 
     let question = dialog(&chat, "bbb7f33f-6e53-4681-ad89-6e1977429fc2").await;
     assert_eq!(question.purpose, Some(UiPurpose::Question));
-    assert_eq!(
-        question.kind,
-        UiRequestKind::Input {
-            title: "Which colours do you like? (any of Red, Green, Blue, separated by commas)".to_owned(),
-            placeholder: Some("Red, Green, Blue".to_owned()),
-            timeout_ms: None,
-        }
-    );
-    answer(&chat, &question.id, "red, Green").await;
+    let [colours] = questions_of(&question) else {
+        panic!("one question");
+    };
+    assert_eq!(colours.question, "Which colours do you like?");
+    assert_eq!(labels(colours), ["Red", "Green", "Blue"]);
+    assert!(colours.multi && colours.custom);
+    chat.session()
+        .respond(answers(&question.id, vec![pick(0, &["Red", "Green"])]))
+        .await
+        .expect("answered");
 
     chat.settled(1).await;
     stop_cleanly(&chat).await;
 }
 
 #[tokio::test]
-async fn questions_are_asked_one_at_a_time_take_typed_answers_and_can_be_dismissed() {
+async fn questions_are_one_dialog_take_typed_answers_and_can_be_dismissed() {
     let chat = start("claude_questions.jsonl").await;
     let first = "0d7e0c11-0000-4000-8000-000000000001";
 
-    let database = dialog(&chat, first).await;
-    assert_eq!(
-        select(&database),
-        (
-            "Question 1 of 2: Which database?",
-            vec!["Postgres", "Mongo", "Type your own answer…"],
-            vec![Some("Relational"), Some("Documents"), None]
-        )
-    );
-    let wrong = UiResponse {
-        id: first.to_owned(),
-        outcome: UiOutcome::Value {
-            value: "Oracle".to_owned(),
-        },
+    let both = dialog(&chat, first).await;
+    assert_eq!(both.purpose, Some(UiPurpose::Question));
+    let [database, colours] = questions_of(&both) else {
+        panic!("both questions in one dialog");
     };
-    let refused = chat.session().respond(wrong).await.expect_err("not an option");
-    assert_eq!(refused.code(), IpcErrorCode::InvalidInput);
-    answer(&chat, first, "Mongo").await;
-
-    let colours = dialog(&chat, &format!("{first}:2")).await;
-    assert!(
-        matches!(&colours.kind, UiRequestKind::Input { title, .. } if title.starts_with("Question 2 of 2: Which colours do you like?"))
+    assert_eq!(
+        (database.id.as_str(), database.question.as_str()),
+        ("0", "Which database?")
     );
-    answer(&chat, &colours.id, "blue, Purple").await;
+    assert_eq!(labels(database), ["Postgres", "Mongo"], "no typed-answer option");
+    assert_eq!(
+        database
+            .options
+            .iter()
+            .map(|option| option.description.as_deref())
+            .collect::<Vec<_>>(),
+        [Some("Relational"), Some("Documents")]
+    );
+    assert!(!database.multi && database.custom);
+    assert_eq!(
+        (colours.id.as_str(), colours.question.as_str()),
+        ("1", "Which colours do you like?")
+    );
+    assert!(colours.multi);
+
+    for wrong in [
+        vec![pick(0, &["Oracle"]), pick(1, &["Blue"])],
+        vec![pick(0, &["Mongo"])],
+        vec![pick(1, &["Blue"]), pick(0, &["Mongo"])],
+        vec![pick(0, &["Mongo", "Postgres"]), pick(1, &["Blue"])],
+    ] {
+        let refused = chat
+            .session()
+            .respond(answers(first, wrong))
+            .await
+            .expect_err("a wrong answer");
+        assert_eq!(refused.code(), IpcErrorCode::InvalidInput);
+    }
+    chat.session()
+        .respond(answers(
+            first,
+            vec![pick(0, &["Mongo"]), pick_and_type(1, &["Blue"], "Purple")],
+        ))
+        .await
+        .expect("the dialog stayed open after the wrong answers");
 
     let second = "0d7e0c11-0000-4000-8000-000000000002";
     dialog(&chat, second).await;
-    answer(&chat, second, "Type your own answer…").await;
-    let typed = dialog(&chat, &format!("{second}:1:own")).await;
-    assert!(matches!(&typed.kind, UiRequestKind::Input { title, .. } if title == "Which database?"));
-    answer(&chat, &typed.id, "  SQLite please ").await;
+    chat.session()
+        .respond(answers(second, vec![typed(0, "  SQLite please ")]))
+        .await
+        .expect("a typed answer");
 
     let third = "0d7e0c11-0000-4000-8000-000000000003";
     dialog(&chat, third).await;

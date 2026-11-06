@@ -1,13 +1,11 @@
-//! One OpenCode 2 form (`form.created`) as chat dialogs, one per field, in order (see the `asks`
+//! One OpenCode 2 form (`form.created`) as one chat dialog holding its fields (see the `asks`
 //! module), as the OpenCode 1 mapper asks a question request's questions.
 //!
 //! - The field's text is the question: for the `question` tool's forms its `description` (the
-//!   `title` is the question's short header), for other forms its `title`. Several fields are
-//!   titled `Question <n> of <count>: <text>`.
-//! - A `string` field with options is a `select` of their labels, with a trailing [`OWN_ANSWER`]
-//!   option when it takes `custom` text (choosing it asks for the text in an `input`); without
-//!   options an `input`. A `multiselect` is an `input` of comma-separated choices (typed ones
-//!   too), a `boolean` a `Yes` / `No` `select`, a `number` or `integer` an `input`.
+//!   `title` is the question's short header), for other forms its `title`.
+//! - A `string` field with options is a single choice, with a typed answer when it takes `custom`
+//!   text; without options a typed answer. A `multiselect` is a multi-choice, a `boolean` a
+//!   `Yes` / `No` choice, a `number` or `integer` a typed number.
 //! - Answers carry the chosen options' values; a blank typed answer leaves the field unanswered.
 //! - A form with an `external` field (a sign-in page to open) cannot be asked here.
 
@@ -15,27 +13,20 @@ use std::collections::BTreeMap;
 
 use super::asks::text;
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentEvent, UiPurpose, UiRequest, UiRequestKind};
+use crate::model::{
+    AgentEvent, AskAnswer, AskInput, AskOption, AskQuestion, UiPurpose, UiRequest, UiRequestKind, answers_by_position,
+};
 use crate::opencode_server_v2::wire::{Form, FormField, FormReplyBody, FormValue};
 use crate::security::redact_text;
-
-/// The option of a single-choice field that asks for a typed answer instead.
-pub(super) const OWN_ANSWER: &str = "Type your own answer…";
 
 /// The options of a `boolean` field.
 const YES_NO: [&str; 2] = ["Yes", "No"];
 
-/// A form being answered, one field at a time.
+/// A form being answered.
 pub(super) struct FormAsk {
     /// `frm_…`.
     pub(super) id: String,
     fields: Vec<Field>,
-    /// The answers so far, by field key.
-    answers: BTreeMap<String, FormValue>,
-    /// The field being asked.
-    step: usize,
-    /// The current field was answered with [`OWN_ANSWER`]: its typed answer comes next.
-    typing: bool,
 }
 
 struct Field {
@@ -63,7 +54,7 @@ enum FieldKind {
 }
 
 impl FormAsk {
-    /// The form's fields as dialogs; `None` without a field, or with one the chat cannot ask.
+    /// The form's fields as a dialog; `None` without a field, or with one the chat cannot ask.
     pub(super) fn new(form: &Form) -> Option<Self> {
         let question = text(&form.metadata, "kind").as_deref() == Some("question");
         let fields: Option<Vec<Field>> = form.fields.iter().map(|field| Field::new(field, question)).collect();
@@ -72,83 +63,45 @@ impl FormAsk {
         Some(Self {
             id: form.id.clone(),
             fields,
-            answers: BTreeMap::new(),
-            step: 0,
-            typing: false,
         })
     }
 
-    /// Takes `value` as the answer to the current field. Returns the id of the dialog that comes
-    /// next (the typed answer, or the next field), `None` once every field is answered.
-    pub(super) fn answer(&mut self, value: &str) -> Result<Option<String>> {
-        let current = self.current()?;
-        let step = self.step + 1;
+    /// The reply holding `answers`, one per field in order; a wrong one fails with the dialog still open.
+    pub(super) fn reply(&self, answers: &[AskAnswer]) -> Result<FormReplyBody> {
+        let mut answer = BTreeMap::new();
 
-        if !self.typing && current.is_own_answer(value) {
-            self.typing = true;
+        for (index, given) in answers_by_position(answers, self.fields.len())? {
+            let field = &self.fields[index];
 
-            return Ok(Some(format!("{}:{step}:own", self.id)));
-        }
-
-        let answer = if self.typing {
-            typed(value).map(FormValue::Text)
-        } else {
-            current.answer(value)?
-        };
-        let key = current.key.clone();
-
-        if let Some(answer) = answer {
-            self.answers.insert(key, answer);
-        }
-
-        self.typing = false;
-        self.step += 1;
-
-        if self.step < self.fields.len() {
-            return Ok(Some(format!("{}:{}", self.id, self.step + 1)));
-        }
-
-        Ok(None)
-    }
-
-    /// The answers, for the reply.
-    pub(super) fn reply(&mut self) -> FormReplyBody {
-        FormReplyBody {
-            answer: std::mem::take(&mut self.answers),
-        }
-    }
-
-    /// The dialog of the current field (or of its typed answer), as `id`.
-    pub(super) fn dialog(&self, id: &str) -> AgentEvent {
-        let current = &self.fields[self.step.min(self.fields.len() - 1)];
-
-        let title = match self.fields.len() {
-            1 => current.text.clone(),
-            count => format!("Question {} of {count}: {}", self.step + 1, current.text),
-        };
-
-        let kind = if self.typing {
-            UiRequestKind::Input {
-                title,
-                placeholder: None,
-                timeout_ms: None,
+            if let Some(value) = field.answer(given)? {
+                answer.insert(field.key.clone(), value);
             }
-        } else {
-            current.kind(title)
-        };
+        }
+
+        Ok(FormReplyBody { answer })
+    }
+
+    /// The dialog of every field, as `id`.
+    pub(super) fn dialog(&self, id: &str) -> AgentEvent {
+        let questions = self
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(index, field)| field.shown(index))
+            .collect();
 
         AgentEvent::UiRequest {
             request: UiRequest {
                 purpose: Some(UiPurpose::Question),
-                ..UiRequest::new(id, kind)
+                ..UiRequest::new(
+                    id,
+                    UiRequestKind::Questions {
+                        questions,
+                        timeout_ms: None,
+                    },
+                )
             },
         }
-    }
-
-    fn current(&self) -> Result<&Field> {
-        self.fields
-            .get(self.step)
-            .ok_or_else(|| BusinessError::Internal("form without a current field".to_owned()))
     }
 }
 
@@ -172,19 +125,31 @@ impl Field {
             title.or(description)
         };
 
-        let options = field
-            .options
-            .iter()
-            .map(|option| Choice {
-                label: if option.label.is_empty() {
-                    option.value.clone()
+        let mut options: Vec<Choice> = Vec::with_capacity(field.options.len());
+
+        for option in &field.options {
+            let label = if option.label.is_empty() {
+                &option.value
+            } else {
+                &option.label
+            };
+            let taken = options.iter().any(|choice| choice.label == *label);
+
+            options.push(Choice {
+                // Labels pick the option, so two alike name their values: each row answers with its own.
+                label: if taken {
+                    format!("{label} ({})", option.value)
                 } else {
-                    option.label.clone()
+                    label.clone()
                 },
                 value: option.value.clone(),
-                detail: option.description.clone().filter(|detail| !detail.is_empty()),
-            })
-            .collect();
+                detail: option
+                    .description
+                    .as_deref()
+                    .filter(|detail| !detail.is_empty())
+                    .map(redact_text),
+            });
+        }
 
         Some(Self {
             key: field.key.clone(),
@@ -202,108 +167,81 @@ impl Field {
         }
     }
 
-    /// One choice from a few options (or yes / no) is a `select`, anything else an `input`.
-    fn is_select(&self) -> bool {
-        self.kind == FieldKind::Bool || (self.kind == FieldKind::Text && !self.options.is_empty())
-    }
-
-    /// A single choice that also takes a typed answer, offered as [`OWN_ANSWER`].
-    fn offers_own_answer(&self) -> bool {
-        self.kind == FieldKind::Text && self.is_select() && self.custom
-    }
-
-    /// True when `value` is the [`OWN_ANSWER`] option rather than an option of the field.
-    fn is_own_answer(&self, value: &str) -> bool {
-        self.offers_own_answer() && value == OWN_ANSWER && !self.labels().contains(&value)
-    }
-
-    fn kind(&self, title: String) -> UiRequestKind {
-        if self.is_select() {
-            let mut options: Vec<String> = self.labels().into_iter().map(str::to_owned).collect();
-            let mut details: Vec<Option<String>> = match self.kind {
-                FieldKind::Bool => vec![None, None],
-                _ => self.options.iter().map(|choice| choice.detail.clone()).collect(),
-            };
-
-            if self.offers_own_answer() {
-                options.push(OWN_ANSWER.to_owned());
-                details.push(None);
-            }
-
-            return UiRequestKind::Select {
-                title,
-                options,
-                details,
-                timeout_ms: None,
-            };
-        }
-
-        if self.kind != FieldKind::Many || self.options.is_empty() {
-            return UiRequestKind::Input {
-                title,
-                placeholder: None,
-                timeout_ms: None,
-            };
-        }
-
-        let labels = self.labels().join(", ");
-
-        UiRequestKind::Input {
-            title: format!("{title} (any of {labels}, separated by commas)"),
-            placeholder: Some(labels),
-            timeout_ms: None,
-        }
-    }
-
-    /// The answer `value` gives; `None` for a blank typed answer.
-    fn answer(&self, value: &str) -> Result<Option<FormValue>> {
-        let invalid = || BusinessError::InvalidInput(format!("{value} is not one of the options"));
-
-        match self.kind {
-            FieldKind::Bool => {
-                let position = YES_NO.iter().position(|option| *option == value).ok_or_else(invalid)?;
-
-                Ok(Some(FormValue::Bool(position == 0)))
-            }
-            FieldKind::Text if self.is_select() => {
-                let choice = self
-                    .options
-                    .iter()
-                    .find(|choice| choice.label == value)
-                    .ok_or_else(invalid)?;
-
-                Ok(Some(FormValue::Text(choice.value.clone())))
-            }
-            FieldKind::Text => Ok(typed(value).map(FormValue::Text)),
-            FieldKind::Many => Ok(self.choices(value)),
-            FieldKind::Number | FieldKind::Integer => self.number(value),
-        }
-    }
-
-    /// The comma-separated choices of a `multiselect`, as option values (typed ones as written).
-    fn choices(&self, value: &str) -> Option<FormValue> {
-        let chosen: Vec<String> = value
-            .split(',')
-            .map(str::trim)
-            .filter(|part| !part.is_empty())
-            .map(|part| {
-                let known = self
-                    .options
-                    .iter()
-                    .find(|choice| choice.label.eq_ignore_ascii_case(part) || choice.value.eq_ignore_ascii_case(part));
-
-                known.map_or_else(|| part.to_owned(), |choice| choice.value.clone())
-            })
-            .collect();
-
-        (!chosen.is_empty()).then_some(FormValue::Many(chosen))
-    }
-
-    fn number(&self, value: &str) -> Result<Option<FormValue>> {
-        let Some(typed) = typed(value) else {
-            return Ok(None);
+    /// The field as shown, as question `index` of its form.
+    fn shown(&self, index: usize) -> AskQuestion {
+        let options = match self.kind {
+            FieldKind::Bool => YES_NO
+                .iter()
+                .map(|label| AskOption {
+                    label: (*label).to_owned(),
+                    description: None,
+                })
+                .collect(),
+            FieldKind::Number | FieldKind::Integer => Vec::new(),
+            _ => self
+                .options
+                .iter()
+                .map(|choice| AskOption {
+                    label: choice.label.clone(),
+                    description: choice.detail.clone(),
+                })
+                .collect(),
         };
 
+        AskQuestion {
+            custom: self.custom && self.kind != FieldKind::Bool,
+            input: match self.kind {
+                FieldKind::Number => AskInput::Number,
+                FieldKind::Integer => AskInput::Integer,
+                _ => AskInput::Text,
+            },
+            ..AskQuestion::new(
+                index.to_string(),
+                self.text.clone(),
+                options,
+                self.kind == FieldKind::Many,
+            )
+        }
+    }
+
+    /// The value `given` answers with, `None` for no answer. Options answer with their values.
+    fn answer(&self, given: &AskAnswer) -> Result<Option<FormValue>> {
+        given.check(
+            &self.labels(),
+            self.kind == FieldKind::Many,
+            self.custom && self.kind != FieldKind::Bool,
+        )?;
+
+        let value_of = |label: &String| {
+            self.options
+                .iter()
+                .find(|choice| choice.label == *label)
+                .map_or_else(|| label.clone(), |choice| choice.value.clone())
+        };
+        let picked = given.selected_options.first();
+        let typed = given.typed();
+
+        match self.kind {
+            FieldKind::Bool => Ok(picked.map(|label| FormValue::Bool(label == YES_NO[0]))),
+            FieldKind::Text => Ok(picked
+                .map(value_of)
+                .or_else(|| typed.map(str::to_owned))
+                .map(FormValue::Text)),
+            FieldKind::Many => {
+                let chosen: Vec<String> = given
+                    .selected_options
+                    .iter()
+                    .map(value_of)
+                    .chain(typed.map(str::to_owned))
+                    .collect();
+
+                Ok((!chosen.is_empty()).then_some(FormValue::Many(chosen)))
+            }
+            FieldKind::Number | FieldKind::Integer => typed.map_or(Ok(None), |text| self.number(text)),
+        }
+    }
+
+    fn number(&self, typed: &str) -> Result<Option<FormValue>> {
         let invalid = || BusinessError::InvalidInput(format!("{typed} is not a number"));
 
         let number = if self.kind == FieldKind::Integer {
@@ -321,11 +259,4 @@ impl Field {
 
         Ok(Some(FormValue::Number(number)))
     }
-}
-
-/// A typed answer: its trimmed text, or no answer when it is blank.
-fn typed(value: &str) -> Option<String> {
-    let answer = value.trim();
-
-    (!answer.is_empty()).then(|| answer.to_owned())
 }

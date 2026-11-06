@@ -633,7 +633,7 @@ Generated types:
   `--mdns` without `=false` and no `--port 4096`. In the Claude Code files (`business/src/claude_stream/`,
   `agent/claude/`, `harnesses/claude/`), no `"--bare"` literal. Everywhere, no `--permission-mode bypassPermissions`,
   no `SetPermissionMode` to `bypassPermissions` and no `--permission-prompts none`, all without an opt-out. Opt-out with `guard-allow: <id>` on the same line:
-  `--approve` (PI "trust this project once" only), `get_login_providers`, a `"login"` literal, `set_ask_dialog`,
+  `--approve` (PI "trust this project once" only), `get_login_providers`, a `"login"` literal,
   `{@html}` (sanitized Markdown component only), and `fetch`/`XMLHttpRequest`/`WebSocket`/`EventSource` in
   `ui/src` (the webview must not open connections).
 - **`check-ipc-contract.ts`**: the Rust and TypeScript command lists match (see above).

@@ -1,15 +1,18 @@
 //! The extension UI sub-protocol (`extension_ui_request` / `extension_ui_response`).
 //!
 //! Dialog methods (`select`, `confirm`, `input`, `editor`) become [`UiRequest`]s the user answers;
-//! fire-and-forget methods become events. OMP's `cancel` closes an open dialog. `ask` is only sent
-//! to hosts that opt in to ask dialogs, which the desktop never does, so one that arrives anyway
-//! (like any unknown method) is answered with `cancelled` so the agent never waits forever.
+//! fire-and-forget methods become events. OMP's `cancel` closes an open dialog. `ask` carries every
+//! question of a call at once, because the OMP dialect opts in with `set_ask_dialog`. An unknown
+//! method is answered with `cancelled` so the agent never waits forever.
 
 use serde_json::{Value, json};
 
 use super::normalize::{plain_text, string, strings, unsigned};
 use super::rpc::Inbound;
-use crate::model::{AgentEvent, NoticeLevel, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
+use crate::model::{
+    AgentEvent, AskAnswer, AskInput, AskOption, AskQuestion, NoticeLevel, UiOutcome, UiPurpose, UiRequest,
+    UiRequestKind, UiResponse,
+};
 use crate::security::redact_text;
 
 /// The answer OMP's `ask` tool adds to every question (`OTHER_OPTION` in `tools/ask.ts`). A question can
@@ -18,6 +21,10 @@ const ASK_OTHER_OPTION: &str = "Other (type your own)";
 
 /// How an OMP tool approval's title starts (`tools/approval.ts`).
 const APPROVAL_TITLE: &str = "Allow tool: ";
+
+/// How the header of an OMP ratchet approval starts, and its options.
+const RATCHET_HEADER: &str = "ratchet · ";
+const RATCHET_OPTIONS: [&str; 3] = ["Approve", "Revise", "Abort"];
 
 /// Placement used when a widget does not name one.
 const DEFAULT_WIDGET_PLACEMENT: &str = "aboveEditor";
@@ -63,6 +70,23 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
             vec![Inbound::UiRequest(UiRequest {
                 purpose,
                 ..UiRequest::new(id.clone(), kind)
+            })]
+        }
+        "ask"
+            if frame
+                .get("questions")
+                .and_then(Value::as_array)
+                .is_some_and(|list| !list.is_empty()) =>
+        {
+            vec![Inbound::UiRequest(UiRequest {
+                purpose: Some(UiPurpose::Question),
+                ..UiRequest::new(
+                    id.clone(),
+                    UiRequestKind::Questions {
+                        questions: ask_questions(frame),
+                        timeout_ms: timeout_ms(),
+                    },
+                )
             })]
         }
         "confirm" => dialog(UiRequestKind::Confirm {
@@ -121,6 +145,67 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
     }
 }
 
+/// The questions of an `ask`. Their text is redacted, their labels stay exact: OMP refuses one it did not offer.
+fn ask_questions(frame: &Value) -> Vec<AskQuestion> {
+    let shown = |text: &str| redact_text(&plain_text(text));
+
+    frame
+        .get("questions")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .map(|question| {
+            let header = string(question, "header");
+            let text = string(question, "question").unwrap_or_default();
+            let options: Vec<AskOption> = question
+                .get("options")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .map(|option| AskOption {
+                    // Sent back as it came: OMP refuses a label it did not offer.
+                    label: string(option, "label").unwrap_or_default(),
+                    description: string(option, "description").map(|text| shown(&text)),
+                })
+                .collect();
+
+            AskQuestion {
+                // What a ratchet approval covers stays whole, as on any approval: a mask could hide part of it.
+                question: if is_ratchet_approval(header.as_deref(), &options) {
+                    text
+                } else {
+                    shown(&text)
+                },
+                header: header.as_deref().map(shown),
+                options,
+                id: string(question, "id").unwrap_or_default(),
+                multi: question.get("multi").and_then(Value::as_bool).unwrap_or(false),
+                custom: true,
+                input: AskInput::Text,
+                recommended: unsigned(question, "recommended"),
+            }
+        })
+        .collect()
+}
+
+/// True for the shape of OMP's ratchet approval (`ratchet/prelude-definition.ts`). A model can write the same, so
+/// this only leaves its own text unmasked: it does not make the question count as an approval.
+fn is_ratchet_approval(header: Option<&str>, options: &[AskOption]) -> bool {
+    header.is_some_and(|header| header.starts_with(RATCHET_HEADER))
+        && options.iter().map(|option| option.label.as_str()).eq(RATCHET_OPTIONS)
+}
+
+/// `{id, selectedOptions, customInput}`, leaving out a missing `customInput`: OMP refuses a null.
+fn ask_answer(answer: &AskAnswer) -> Value {
+    let mut encoded = json!({ "id": answer.id, "selectedOptions": answer.selected_options });
+
+    if let Some(custom) = &answer.custom_input {
+        encoded["customInput"] = json!(custom);
+    }
+
+    encoded
+}
+
 /// `optionDetails[i].description`, aligned with `options`.
 fn option_details(frame: &Value) -> Vec<Option<String>> {
     let count = frame.get("options").and_then(Value::as_array).map_or(0, Vec::len);
@@ -152,6 +237,11 @@ pub fn encode_ui_response(response: &UiResponse) -> Value {
         UiOutcome::Confirmed { confirmed } => {
             json!({ "type": "extension_ui_response", "id": response.id, "confirmed": confirmed })
         }
+        UiOutcome::Answers { answers } => {
+            let answers: Vec<Value> = answers.iter().map(ask_answer).collect();
+
+            json!({ "type": "extension_ui_response", "id": response.id, "answers": answers })
+        }
         UiOutcome::Cancelled => cancelled_response(&response.id),
     }
 }
@@ -175,6 +265,104 @@ mod tests {
             })) => title,
             _ => panic!("a select is a dialog"),
         }
+    }
+
+    /// The questions of an `ask` frame, which is one question dialog.
+    fn asked(frame: &Value) -> Vec<AskQuestion> {
+        let requests = decode_ui_request(frame);
+        let [Inbound::UiRequest(request)] = requests.as_slice() else {
+            panic!("an ask is one dialog");
+        };
+        let UiRequestKind::Questions { questions, .. } = &request.kind else {
+            panic!("an ask holds its questions");
+        };
+
+        assert_eq!(request.purpose, Some(UiPurpose::Question));
+
+        questions.clone()
+    }
+
+    #[test]
+    fn an_ask_opens_one_dialog_of_every_question() {
+        let frame = json!({
+            "id": "a1",
+            "method": "ask",
+            "questions": [
+                { "id": "area", "question": "Which area?", "options": [{ "label": "Mark", "description": "The H" }], "recommended": 0 },
+                { "id": "how", "question": "How far?", "options": [{ "label": "A" }, { "label": "B" }], "multi": true },
+            ],
+        });
+
+        let questions = asked(&frame);
+
+        assert_eq!(questions.len(), 2);
+        assert_eq!(questions[0].recommended, Some(0));
+        assert_eq!(questions[0].options[0].description.as_deref(), Some("The H"));
+        assert!(questions[1].multi);
+    }
+
+    #[test]
+    fn a_ratchet_approval_keeps_its_stage_and_its_text_unmasked_and_another_question_does_not() {
+        let secret = format!("gh{}_{}", "p", "a".repeat(36));
+        let ask = |header: &str, options: &[&str]| {
+            let options: Vec<Value> = options.iter().map(|label| json!({ "label": label })).collect();
+            let frame = json!({ "id": "a", "method": "ask", "questions": [
+                { "id": "q", "header": header, "question": format!("Ship?\n\n{secret}"), "options": options },
+            ] });
+            asked(&frame).swap_remove(0)
+        };
+
+        let ratchet = ask("ratchet · plan", &["Approve", "Revise", "Abort"]);
+        assert_eq!(ratchet.header.as_deref(), Some("ratchet · plan"));
+        assert!(ratchet.question.contains(&secret));
+
+        assert!(!ask("ratchet · plan", &["Approve", "Abort"]).question.contains(&secret));
+        assert!(!ask("Scope", &["Approve", "Revise", "Abort"]).question.contains(&secret));
+    }
+
+    #[test]
+    fn answers_are_held_to_the_size_limit_of_any_other_text() {
+        let outcome = |bytes: usize| UiOutcome::Answers {
+            answers: vec![AskAnswer {
+                id: "0".to_owned(),
+                selected_options: vec!["a".repeat(bytes / 2)],
+                custom_input: Some("b".repeat(bytes / 2)),
+            }],
+        };
+
+        assert!(outcome(1024).check_size().is_ok());
+        assert!(outcome(crate::model::MAX_ACTION_TEXT_BYTES + 2).check_size().is_err());
+    }
+
+    #[test]
+    fn answers_go_back_in_the_shape_omp_accepts() {
+        let answer = |custom: Option<&str>| AskAnswer {
+            id: "area".to_owned(),
+            selected_options: if custom.is_some() {
+                Vec::new()
+            } else {
+                vec!["Mark".to_owned()]
+            },
+            custom_input: custom.map(str::to_owned),
+        };
+        let response = UiResponse {
+            id: "a1".to_owned(),
+            outcome: UiOutcome::Answers {
+                answers: vec![answer(None), answer(Some("Mine"))],
+            },
+        };
+
+        assert_eq!(
+            encode_ui_response(&response),
+            json!({
+                "type": "extension_ui_response",
+                "id": "a1",
+                "answers": [
+                    { "id": "area", "selectedOptions": ["Mark"] },
+                    { "id": "area", "selectedOptions": [], "customInput": "Mine" },
+                ],
+            })
+        );
     }
 
     #[test]

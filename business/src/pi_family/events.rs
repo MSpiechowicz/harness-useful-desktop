@@ -138,6 +138,7 @@ fn decode_session_info(frame: &Value, kind: &str) -> Vec<Inbound> {
                 events.push(AgentEvent::Title { title });
             }
         }
+        "notice" if is_tool_mount_notice(frame) => {}
         "notice" => events.push(AgentEvent::Notice {
             level: notice_level(frame.get("level")),
             message: redact_text(&string(frame, "message").unwrap_or_default()),
@@ -305,6 +306,12 @@ fn retry(frame: &Value, kind: &str) -> AgentEvent {
     }
 }
 
+/// OMP's list of the MCP tools it mounted or unmounted under `xd://`: bookkeeping that is no use in a chat. One arrives
+/// for each server as it connects. A warning or an error from the same source still shows.
+fn is_tool_mount_notice(frame: &Value) -> bool {
+    string(frame, "source").as_deref() == Some("xdev") && string(frame, "level").as_deref() == Some("info")
+}
+
 /// An extension handler threw; only the extension's file name and the redacted error are shown.
 fn extension_error(frame: &Value) -> AgentEvent {
     let path = string(frame, "extensionPath").unwrap_or_default();
@@ -317,5 +324,32 @@ fn extension_error(frame: &Value) -> AgentEvent {
     AgentEvent::Notice {
         level: crate::model::NoticeLevel::Error,
         message: format!("{name} failed: {error}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn notices(frame: Value) -> usize {
+        decode_common(&frame, &mut DecodeState::new("/project")).len()
+    }
+
+    #[test]
+    fn omp_tool_mount_notices_stay_out_of_the_chat() {
+        let mount = |level: &str| json!({ "type": "notice", "level": level, "message": "xd://: mounted mcp__harness_code_code_map", "source": "xdev" });
+
+        assert_eq!(notices(mount("info")), 0);
+        assert_eq!(notices(mount("warning")), 1);
+        assert_eq!(
+            notices(json!({ "type": "notice", "level": "info", "message": "Compacted", "source": "other" })),
+            1
+        );
+        assert_eq!(
+            notices(json!({ "type": "notice", "level": "info", "message": "No source" })),
+            1
+        );
     }
 }

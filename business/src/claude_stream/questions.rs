@@ -1,33 +1,27 @@
-//! `AskUserQuestion` questions as chat dialogs, one per question, in order, shaped as the
-//! OpenCode chats ask theirs (Verified fact 12).
+//! `AskUserQuestion` questions as one chat dialog holding all of them, so an answer can still change
+//! until the last is submitted. Codex's questions and forms use it too.
 //!
-//! - Marked as questions, so the UI never shows one as an approval card. Several questions are
-//!   titled `Question <n> of <count>: <text>`.
-//! - A single choice is a `select` of the option labels (their descriptions as details) and a
-//!   trailing [`OWN_ANSWER`], which asks for a typed answer in an `input` (Claude Code takes any
-//!   text as an answer). Several choices are an `input` of comma-separated labels (typed ones
-//!   too, a known label with a comma in it counts whole), a question without options an `input`.
-//! - The answers go back together after the last one, keyed by the question text, the labels
-//!   joined with `", "` ([`question_answers`](super::wire::outbound::question_answers)). A blank
-//!   typed answer leaves its question unanswered.
+//! - Marked as a question, so the UI never shows it as an approval card.
+//! - Options keep their descriptions. A typed answer is always taken: Claude Code takes any text as
+//!   an answer. A question without options is typed only.
+//! - The answers go back together, keyed by the question text, the labels joined with `", "`
+//!   ([`question_answers`](super::wire::outbound::question_answers)). A blank typed answer leaves its
+//!   question unanswered.
 
 use super::mapper::{Question, QuestionAsk};
-use crate::error::{BusinessError, Result};
-use crate::model::{AgentEvent, UiPurpose, UiRequest, UiRequestKind};
+use crate::error::Result;
+use crate::model::{
+    AgentEvent, AskAnswer, AskOption, AskQuestion, UiPurpose, UiRequest, UiRequestKind, answers_by_position,
+};
 use crate::security::redact_text;
-
-/// The option of a single choice that asks for a typed answer instead.
-pub const OWN_ANSWER: &str = "Type your own answer…";
 
 /// The questions of one `AskUserQuestion` call being answered.
 #[derive(Debug, Clone)]
 pub struct QuestionDialog {
     request_id: String,
     questions: Vec<Question>,
-    /// The answers so far, in question order (empty for an unanswered question).
+    /// The answers, in question order, once given (empty for an unanswered question).
     answers: Vec<Vec<String>>,
-    /// The current question was answered with [`OWN_ANSWER`]: its typed answer comes next.
-    typing: bool,
 }
 
 impl QuestionDialog {
@@ -44,43 +38,47 @@ impl QuestionDialog {
             request_id: ask.request_id.clone(),
             questions,
             answers: Vec::new(),
-            typing: false,
         })
     }
 
-    /// The dialog of the first question, under the CLI's request id.
+    /// The dialog of every question, under the CLI's request id.
     pub fn first(&self) -> AgentEvent {
-        self.dialog(&self.request_id)
+        AgentEvent::UiRequest {
+            request: UiRequest {
+                purpose: Some(UiPurpose::Question),
+                ..UiRequest::new(
+                    self.request_id.clone(),
+                    UiRequestKind::Questions {
+                        questions: self.questions.iter().enumerate().map(shown).collect(),
+                        timeout_ms: None,
+                    },
+                )
+            },
+        }
     }
 
-    /// Takes `value` as the answer to the current question. Returns the next dialog (the typed
-    /// answer, or the next question) with its id, `None` once every question is answered.
-    pub fn answer(&mut self, value: &str) -> Result<Option<(String, AgentEvent)>> {
-        let current = self.current()?;
-        let step = self.answers.len() + 1;
+    /// Takes `answers`, one per question in order. A wrong one fails and takes none of them.
+    pub fn accept(&mut self, answers: &[AskAnswer]) -> Result<()> {
+        let mut accepted = Vec::with_capacity(self.questions.len());
 
-        if !self.typing && is_single(current) && value == OWN_ANSWER && !labels(current).contains(&value) {
-            self.typing = true;
-            let id = format!("{}:{step}:own", self.request_id);
+        for (index, answer) in answers_by_position(answers, self.questions.len())? {
+            let question = &self.questions[index];
 
-            return Ok(Some((id.clone(), self.dialog(&id))));
+            answer.check(&labels(question), question.multi_select, true)?;
+
+            accepted.push(
+                answer
+                    .selected_options
+                    .iter()
+                    .cloned()
+                    .chain(answer.typed().map(str::to_owned))
+                    .collect(),
+            );
         }
 
-        let answer = if self.typing {
-            typed(value)
-        } else {
-            picked(current, value)?
-        };
-        self.typing = false;
-        self.answers.push(answer);
+        self.answers = accepted;
 
-        if self.answers.len() < self.questions.len() {
-            let id = format!("{}:{}", self.request_id, self.answers.len() + 1);
-
-            return Ok(Some((id.clone(), self.dialog(&id))));
-        }
-
-        Ok(None)
+        Ok(())
     }
 
     /// Each answered question's text with its labels.
@@ -91,37 +89,6 @@ impl QuestionDialog {
             .filter(|(_, labels)| !labels.is_empty())
             .map(|(question, labels)| (question.question.clone(), labels.clone()))
             .collect()
-    }
-
-    fn current(&self) -> Result<&Question> {
-        self.questions
-            .get(self.answers.len())
-            .ok_or_else(|| BusinessError::Internal("questions without a current one".to_owned()))
-    }
-
-    /// The dialog of the current question (or of its typed answer), as `id`.
-    fn dialog(&self, id: &str) -> AgentEvent {
-        let step = self.answers.len().min(self.questions.len() - 1);
-        let current = &self.questions[step];
-        let text = redact_text(&current.question);
-
-        let title = match self.questions.len() {
-            1 => text,
-            count => format!("Question {} of {count}: {text}", step + 1),
-        };
-
-        let kind = if self.typing {
-            input(title, None)
-        } else {
-            kind(current, title)
-        };
-
-        AgentEvent::UiRequest {
-            request: UiRequest {
-                purpose: Some(UiPurpose::Question),
-                ..UiRequest::new(id, kind)
-            },
-        }
     }
 }
 
@@ -135,122 +102,26 @@ fn labels(question: &Question) -> Vec<&str> {
         .collect()
 }
 
-/// One choice from options: a `select`.
-fn is_single(question: &Question) -> bool {
-    !question.multi_select && !labels(question).is_empty()
-}
+/// `question` as shown: its text and descriptions redacted, its labels exact (they are the answers).
+fn shown((index, question): (usize, &Question)) -> AskQuestion {
+    let options = question
+        .options
+        .iter()
+        .filter(|option| !option.label.is_empty())
+        .map(|option| AskOption {
+            label: option.label.clone(),
+            description: option
+                .description
+                .as_deref()
+                .filter(|text| !text.is_empty())
+                .map(redact_text),
+        })
+        .collect();
 
-fn kind(question: &Question, title: String) -> UiRequestKind {
-    let labels = labels(question);
-
-    if is_single(question) {
-        let mut options: Vec<String> = labels.iter().map(|label| (*label).to_owned()).collect();
-        let mut details: Vec<Option<String>> = question
-            .options
-            .iter()
-            .filter(|option| !option.label.is_empty())
-            .map(|option| {
-                option
-                    .description
-                    .as_deref()
-                    .filter(|text| !text.is_empty())
-                    .map(redact_text)
-            })
-            .collect();
-
-        options.push(OWN_ANSWER.to_owned());
-        details.push(None);
-
-        return UiRequestKind::Select {
-            title,
-            options,
-            details,
-            timeout_ms: None,
-        };
-    }
-
-    if labels.is_empty() {
-        return input(title, None);
-    }
-
-    let listed = labels.join(", ");
-
-    input(format!("{title} (any of {listed}, separated by commas)"), Some(listed))
-}
-
-fn input(title: String, placeholder: Option<String>) -> UiRequestKind {
-    UiRequestKind::Input {
-        title,
-        placeholder,
-        timeout_ms: None,
-    }
-}
-
-/// The labels `value` answers `question` with.
-fn picked(question: &Question, value: &str) -> Result<Vec<String>> {
-    let labels = labels(question);
-
-    if is_single(question) {
-        let label = labels
-            .into_iter()
-            .find(|label| *label == value)
-            .ok_or_else(|| BusinessError::InvalidInput(format!("{value} is not one of the options")))?;
-
-        return Ok(vec![label.to_owned()]);
-    }
-
-    if labels.is_empty() {
-        return Ok(typed(value));
-    }
-
-    Ok(chosen(labels, value))
-}
-
-/// The labels a comma-separated answer names: at each point the longest known label (any case,
-/// commas in it included) that ends at a comma or the end, else the typed text up to the next
-/// comma.
-fn chosen(mut labels: Vec<&str>, value: &str) -> Vec<String> {
-    labels.sort_by_key(|label| std::cmp::Reverse(label.len()));
-
-    let mut chosen = Vec::new();
-    let mut rest = value;
-
-    loop {
-        rest = rest.trim_start_matches(|character: char| character == ',' || character.is_whitespace());
-
-        if rest.is_empty() {
-            return chosen;
-        }
-
-        let known = labels.iter().find(|label| starts_with_label(rest, label));
-
-        let (part, tail) = match known {
-            Some(label) => ((*label).to_owned(), &rest[label.len()..]),
-            None => {
-                let end = rest.find(',').unwrap_or(rest.len());
-                (rest[..end].trim().to_owned(), &rest[end..])
-            }
-        };
-
-        chosen.push(part);
-        rest = tail;
-    }
-}
-
-/// True when `text` starts with `label` (any case), followed by a comma or nothing.
-fn starts_with_label(text: &str, label: &str) -> bool {
-    let Some(head) = text.get(..label.len()) else {
-        return false;
-    };
-
-    let after = text[label.len()..].trim_start();
-
-    head.eq_ignore_ascii_case(label) && (after.is_empty() || after.starts_with(','))
-}
-
-/// A typed answer: its trimmed text, or no answer when it is blank.
-fn typed(value: &str) -> Vec<String> {
-    let answer = value.trim();
-
-    (!answer.is_empty()).then(|| answer.to_owned()).into_iter().collect()
+    AskQuestion::new(
+        index.to_string(),
+        redact_text(&question.question),
+        options,
+        question.multi_select,
+    )
 }

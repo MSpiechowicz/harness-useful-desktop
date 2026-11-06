@@ -8,7 +8,7 @@
 //!   withdraws it (`control_cancel_request`: the dialog closes) or the user stops the turn
 //!   (denied, see `prompts.rs`). An "Always allow" answer the chat keeps also allows the open prompts it
 //!   covers, and their dialogs close.
-//! - **Questions:** one dialog per question; the answers go back after the last one, a dismissed
+//! - **Questions:** one dialog holding every question; the answers go back together, a dismissed
 //!   dialog denies the call.
 //! - **Other asks:** the app declares no dialog kinds, so a `request_user_dialog` is refused at
 //!   once, and an MCP server's elicitation is declined at once: the chat cannot show either yet,
@@ -32,7 +32,7 @@ use crate::claude_stream::wire::outbound::{
     ask_hook_output, control_error, control_success, hook_output, permission_allow, permission_deny, question_answers,
 };
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentEvent, MAX_ACTION_TEXT_BYTES, NoticeLevel, UiOutcome, UiResponse};
+use crate::model::{AgentEvent, NoticeLevel, UiOutcome, UiResponse};
 use crate::security::redact_text;
 
 /// What the model is told when the user dismissed its questions.
@@ -63,7 +63,7 @@ enum Open {
     },
     Question {
         ask: QuestionAsk,
-        /// The id of the dialog on screen (the request id, then one per question).
+        /// The id of the dialog on screen (the request id).
         dialog: String,
         questions: QuestionDialog,
     },
@@ -183,13 +183,10 @@ impl Dialogs {
             .position(|open| open.dialog() == response.id)
             .ok_or_else(|| BusinessError::NotFound(format!("open dialog {}", response.id)))?;
 
-        if let Open::Question { dialog, questions, .. } = &mut self.open[position]
-            && let UiOutcome::Value { value } = &response.outcome
-            && let Some((next, event)) = questions.answer(value)?
+        if let Open::Question { questions, .. } = &mut self.open[position]
+            && let UiOutcome::Answers { answers } = &response.outcome
         {
-            *dialog = next;
-            out.events.push(event);
-            return Ok(());
+            questions.accept(answers)?;
         }
 
         // A wrong option fails before the ask leaves the list, so its dialog stays open.
@@ -205,7 +202,7 @@ impl Dialogs {
             }
             Open::Question { ask, questions, .. } => {
                 let answer = match &response.outcome {
-                    UiOutcome::Value { .. } => question_answers(&ask.request_id, &ask.input, &questions.answers()),
+                    UiOutcome::Answers { .. } => question_answers(&ask.request_id, &ask.input, &questions.answers()),
                     _ => permission_deny(&ask.request_id, DISMISSED),
                 };
                 out.answers.push(answer);
@@ -274,13 +271,7 @@ impl Dialogs {
 impl Chat {
     /// Answers an open dialog; fails for ids that are not open (answered, withdrawn or unknown).
     pub(super) async fn answer_dialog(&self, response: UiResponse) -> Result<()> {
-        if let UiOutcome::Value { value } = &response.outcome
-            && value.len() > MAX_ACTION_TEXT_BYTES
-        {
-            return Err(BusinessError::InvalidInput(format!(
-                "value exceeds {MAX_ACTION_TEXT_BYTES} bytes"
-            )));
-        }
+        response.outcome.check_size()?;
 
         let mut out = Outcome::default();
 

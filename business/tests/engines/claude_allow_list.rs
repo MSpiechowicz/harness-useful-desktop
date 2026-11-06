@@ -1,7 +1,7 @@
 //! What the Claude Code chat's own "Always allow" answers cover: file tools on files inside the
 //! project only, every other call by its exact input (`Bash` by its exact command with every other
 //! field equal), and never a call the CLI allows no lasting rule for, blocked on a path or flagged
-//! by a safety check. Also how a typed multi-select answer names labels with commas in them.
+//! by a safety check. Also how a multi-select answer keeps labels with commas in them whole.
 
 use std::path::Path;
 
@@ -10,6 +10,8 @@ use harness_business::claude_stream::mapper::{PermissionAsk, Question, QuestionA
 use harness_business::claude_stream::permissions::{Always, permission_dialog};
 use harness_business::claude_stream::questions::QuestionDialog;
 use harness_business::model::{AgentEvent, UiRequestKind};
+
+use crate::ask_support::{pick, pick_and_type, typed};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
@@ -178,7 +180,7 @@ fn a_file_outside_the_project_and_other_tools_are_kept_by_their_exact_input() {
 }
 
 #[test]
-fn a_typed_multi_select_answer_keeps_labels_with_commas_whole() {
+fn a_multi_select_answer_keeps_labels_with_commas_whole() {
     let option = |label: &str| QuestionOption {
         label: label.to_owned(),
         description: None,
@@ -196,19 +198,36 @@ fn a_typed_multi_select_answer_keeps_labels_with_commas_whole() {
         questions: vec![question.clone()],
     };
 
-    for (typed, labels) in [
-        ("yes, with tests, docs", vec!["Yes, with tests", "Docs"]),
-        ("Yes, Docs", vec!["Yes", "Docs"]),
-        ("Docs,Yes, with tests", vec!["Docs", "Yes, with tests"]),
-        ("Yes, with care", vec!["Yes", "with care"]),
-        (" , Something else ,", vec!["Something else"]),
+    for (answer, labels) in [
+        (pick(0, &["Yes, with tests", "Docs"]), vec!["Yes, with tests", "Docs"]),
+        (pick(0, &["Yes", "Docs"]), vec!["Yes", "Docs"]),
+        (pick(0, &["Docs", "Yes, with tests"]), vec!["Docs", "Yes, with tests"]),
+        (pick_and_type(0, &["Yes"], " with care "), vec!["Yes", "with care"]),
+        (typed(0, "  Something else "), vec!["Something else"]),
     ] {
         let mut dialog = QuestionDialog::new(&ask).expect("a question");
-        assert!(dialog.answer(typed).expect("an answer").is_none(), "the last question");
+        dialog.accept(std::slice::from_ref(&answer)).expect("an answer");
 
         let labels: Vec<String> = labels.into_iter().map(str::to_owned).collect();
-        assert_eq!(dialog.answers(), vec![(question.question.clone(), labels)], "{typed}");
+        assert_eq!(
+            dialog.answers(),
+            vec![(question.question.clone(), labels)],
+            "{answer:?}"
+        );
     }
+
+    let mut dialog = QuestionDialog::new(&ask).expect("a question");
+    for wrong in [vec![pick(0, &["Yes, with"])], vec![], vec![pick(1, &["Yes"])]] {
+        assert!(dialog.accept(&wrong).is_err(), "{wrong:?}");
+    }
+    assert_eq!(dialog.answers(), vec![], "a wrong answer takes none");
+
+    dialog.accept(&[typed(0, "  ")]).expect("blank");
+    assert_eq!(
+        dialog.answers(),
+        vec![],
+        "a blank answer leaves the question unanswered"
+    );
 }
 
 /// The CLI trims a path and expands `~` to the home folder, so a kept project-files answer covers

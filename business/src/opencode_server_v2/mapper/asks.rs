@@ -43,15 +43,6 @@ const SUBAGENT_DETAIL_MODE: &str = "The subagent's own tools then follow this ch
 /// How long an `always` answer applies: the chat keeps it, OpenCode saves nothing.
 const UNTIL_END: &str = " until this chat ends";
 
-/// What answering a dialog means for OpenCode.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Answer {
-    /// Nothing to send yet: the next field of the form is shown.
-    Next(Vec<AgentEvent>),
-    /// Send this reply.
-    Send(Reply),
-}
-
 /// A reply to an ask of `session`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reply {
@@ -236,44 +227,35 @@ impl Asks {
     }
 
     /// The answer to dialog `response.id` (see the module docs).
-    pub(super) fn answer(&mut self, response: &UiResponse) -> Result<Answer> {
+    pub(super) fn answer(&mut self, response: &UiResponse) -> Result<Reply> {
         let position = self
             .open
             .iter()
             .position(|ask| ask.dialog == response.id)
             .ok_or_else(|| BusinessError::NotFound(format!("open dialog {}", response.id)))?;
 
-        let ask = &mut self.open[position];
+        let ask = &self.open[position];
 
-        let kind = match &mut ask.kind {
+        let kind = match &ask.kind {
             AskKind::Permission { id } => ReplyKind::Permission {
                 id: id.clone(),
                 decision: permission_decision(&response.outcome)?,
             },
             AskKind::Form(form) => match &response.outcome {
-                UiOutcome::Value { value } => {
-                    if let Some(next_id) = form.answer(value)? {
-                        let next = form.dialog(&next_id);
-                        ask.dialog = next_id;
-
-                        return Ok(Answer::Next(vec![next]));
-                    }
-
-                    ReplyKind::Form {
-                        id: form.id.clone(),
-                        body: form.reply(),
-                    }
-                }
+                UiOutcome::Answers { answers } => ReplyKind::Form {
+                    id: form.id.clone(),
+                    body: form.reply(answers)?,
+                },
                 _ => ReplyKind::FormCancel { id: form.id.clone() },
             },
         };
 
         let ask = self.open.remove(position);
 
-        Ok(Answer::Send(Reply {
+        Ok(Reply {
             session: ask.session,
             kind,
-        }))
+        })
     }
 
     /// What a permission request is about, in full on one redacted line (see the module docs).

@@ -4,9 +4,10 @@
 use crate::agent_support;
 use crate::opencode_engine_support;
 
+use crate::ask_support::{answers, labels, outcome, pick, pick_and_type, questions_of, typed};
 use agent_support::options;
 use harness_business::BusinessError;
-use harness_business::model::{AgentAction, AgentEvent, UiOutcome, UiPurpose, UiRequestKind};
+use harness_business::model::{AgentAction, AgentEvent, IpcErrorCode, UiOutcome, UiPurpose, UiRequestKind};
 use opencode_engine_support::{
     Chat, SESSION, answer, choose, dialog, kind, prompt, start, start_as, start_mode, terminated, until_marker,
 };
@@ -95,19 +96,33 @@ async fn choose_err(chat: &Chat, id: &str) -> BusinessError {
 }
 
 #[tokio::test]
-async fn questions_are_selects_or_inputs_answered_together() {
+async fn questions_are_one_dialog_answered_together() {
     let chat = start("opencode_questions.jsonl").await;
     prompt(&chat, "Say hello").await;
 
     let single = dialog(&chat, "que_1").await;
-    assert_eq!(options_of(&single.kind), ["Alpha", "Beta", "Type your own answer…"]);
-    choose(&chat, "que_1", "Beta").await;
+    assert_eq!(single.purpose, Some(UiPurpose::Question));
+    assert_eq!(labels(&questions_of(&single)[0]), ["Alpha", "Beta"]);
+    answer(&chat, "que_1", outcome(vec![pick(0, &["Beta"])])).await;
 
     let many = dialog(&chat, "que_2").await;
-    assert!(matches!(many.kind, UiRequestKind::Input { .. }));
-    choose(&chat, "que_2", "alpha, Gamma").await;
-    dialog(&chat, "que_2:2").await;
-    choose(&chat, "que_2:2", "nothing").await;
+    let [tools, more] = questions_of(&many) else {
+        panic!("both questions in one dialog");
+    };
+    assert!(tools.multi && !more.multi);
+    assert!(more.options.is_empty());
+    let refused = chat
+        .session()
+        .respond(answers("que_2", vec![pick(0, &["Gamma"]), typed(1, "nothing")]))
+        .await
+        .expect_err("not an option");
+    assert_eq!(refused.code(), IpcErrorCode::InvalidInput);
+    answer(
+        &chat,
+        "que_2",
+        outcome(vec![pick_and_type(0, &["Alpha"], "Gamma"), typed(1, " nothing ")]),
+    )
+    .await;
 
     dialog(&chat, "que_3").await;
     answer(&chat, "que_3", UiOutcome::Cancelled).await;
@@ -116,8 +131,8 @@ async fn questions_are_selects_or_inputs_answered_together() {
 
     let yes_no = dialog(&chat, "que_5").await;
     assert_eq!(yes_no.purpose, Some(UiPurpose::Question), "never an approval card");
-    assert_eq!(options_of(&yes_no.kind), ["Yes", "No", "Type your own answer…"]);
-    choose(&chat, "que_5", "No").await;
+    assert_eq!(labels(&questions_of(&yes_no)[0]), ["Yes", "No"]);
+    answer(&chat, "que_5", outcome(vec![pick(0, &["No"])])).await;
 
     until_marker(&chat).await;
     assert!(chat.session().is_running(), "every answer matched the scenario");
@@ -199,12 +214,7 @@ async fn an_answer_that_did_not_reach_opencode_shows_the_dialog_again() {
     dialog(&chat, "que_1").await;
     let gone = chat
         .session()
-        .respond(harness_business::model::UiResponse {
-            id: "que_1".to_owned(),
-            outcome: UiOutcome::Value {
-                value: "Alpha".to_owned(),
-            },
-        })
+        .respond(answers("que_1", vec![pick(0, &["Alpha"])]))
         .await
         .expect_err("the ask is gone");
     assert!(gone.to_string().contains("HTTP 404"), "{gone}");

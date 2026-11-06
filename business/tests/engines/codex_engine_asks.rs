@@ -4,9 +4,10 @@
 
 use crate::codex_engine_support;
 
+use crate::ask_support::{answers, labels, pick, questions_of, typed};
 use codex_engine_support::{CodexChat, Setup, prompt, start};
 use harness_business::BusinessError;
-use harness_business::model::{AgentEvent, NoticeLevel, UiPurpose, UiRequest, UiRequestKind};
+use harness_business::model::{AgentEvent, IpcErrorCode, NoticeLevel, UiPurpose, UiRequest, UiRequestKind};
 use pretty_assertions::assert_eq;
 
 /// The title and options of a `select` dialog.
@@ -14,14 +15,6 @@ fn select(request: &UiRequest) -> (String, Vec<String>) {
     match &request.kind {
         UiRequestKind::Select { title, options, .. } => (title.clone(), options.clone()),
         other => panic!("not a select: {other:?}"),
-    }
-}
-
-/// The title of an `input` dialog.
-fn input_title(request: &UiRequest) -> String {
-    match &request.kind {
-        UiRequestKind::Input { title, .. } => title.clone(),
-        other => panic!("not an input: {other:?}"),
     }
 }
 
@@ -90,26 +83,44 @@ async fn always_allow_answers_for_the_session_when_codex_offers_it() {
 }
 
 #[tokio::test]
-async fn questions_and_forms_are_asked_one_dialog_at_a_time() {
+async fn questions_and_forms_are_each_one_dialog_of_all_their_questions() {
     let chat = start("codex_engine_questions.jsonl").await;
     chat.act(prompt("Ask me.")).await;
 
-    let colour = answer(&chat, 0, "blue").await;
-    let (title, options) = select(&colour);
-    assert_eq!(colour.purpose, Some(UiPurpose::Question));
-    assert_eq!(title, "Question 1 of 2: Which colour?");
-    assert_eq!(&options[..2], ["red", "blue"]);
+    let asked = chat.dialog(0).await;
+    assert_eq!(asked.purpose, Some(UiPurpose::Question));
+    let [colour, name] = questions_of(&asked) else {
+        panic!("both questions in one dialog");
+    };
+    assert_eq!((colour.id.as_str(), colour.question.as_str()), ("0", "Which colour?"));
+    assert_eq!(labels(colour), ["red", "blue"]);
+    assert_eq!((name.id.as_str(), name.question.as_str()), ("1", "Your name?"));
+    assert!(name.options.is_empty(), "typed only");
 
-    let name = answer(&chat, 1, "Ada").await;
-    assert_eq!(input_title(&name), "Question 2 of 2: Your name?");
+    let refused = chat
+        .session
+        .respond(answers(&asked.id, vec![pick(0, &["green"]), typed(1, "Ada")]))
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code(), IpcErrorCode::InvalidInput);
+    chat.session
+        .respond(answers(&asked.id, vec![pick(0, &["blue"]), typed(1, "Ada")]))
+        .await
+        .expect("the dialog stayed open after the wrong answer");
 
-    let count = answer(&chat, 2, "3").await;
-    assert_eq!(
-        input_title(&count),
-        "Question 1 of 2: tracker asks for Count. Create the ticket?"
-    );
-    let urgent = answer(&chat, 3, "Yes").await;
-    assert_eq!(&select(&urgent).1[..2], ["Yes", "No"]);
+    let form = chat.dialog(1).await;
+    assert_eq!(form.purpose, Some(UiPurpose::Question));
+    let [count, urgent] = questions_of(&form) else {
+        panic!("both fields in one dialog");
+    };
+    assert_eq!(count.question, "tracker asks for Count. Create the ticket?");
+    assert_eq!(urgent.question, "tracker asks for Urgent. Create the ticket?");
+    assert!(count.options.is_empty(), "a number is typed");
+    assert_eq!(labels(urgent), ["Yes", "No"]);
+    chat.session
+        .respond(answers(&form.id, vec![typed(0, "3"), pick(1, &["Yes"])]))
+        .await
+        .expect("the form is answered");
 
     let events = chat.settled(1).await;
     assert!(events.iter().any(|event| matches!(
@@ -120,7 +131,7 @@ async fn questions_and_forms_are_asked_one_dialog_at_a_time() {
         .iter()
         .filter(|event| matches!(event, AgentEvent::UiRequest { .. }))
         .count();
-    assert_eq!(shown, 4, "the URL, the tool call and the token refresh show no dialog");
+    assert_eq!(shown, 2, "the URL, the tool call and the token refresh show no dialog");
 
     chat.finish().await;
 }
@@ -179,7 +190,7 @@ async fn a_long_command_is_shown_in_full_as_written_and_a_form_masks_secrets() {
     assert_eq!(title, format!("Allow shell: {command}?"));
 
     let form = chat.dialog(1).await;
-    let shown = input_title(&form);
+    let shown = &questions_of(&form)[0].question;
     assert!(shown.starts_with("tracker asks for Code. Sign in with"), "{shown}");
     assert!(!shown.contains("Zx9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0Lm"), "{shown}");
     chat.session

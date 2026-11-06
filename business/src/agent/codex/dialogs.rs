@@ -37,7 +37,7 @@ use crate::codex_rpc::wire::answers::{
     permissions_deny, permissions_grant, user_input_answers,
 };
 use crate::error::{BusinessError, Result};
-use crate::model::{AgentEvent, MAX_ACTION_TEXT_BYTES, NoticeLevel, UiOutcome, UiPurpose, UiResponse};
+use crate::model::{AgentEvent, NoticeLevel, UiOutcome, UiPurpose, UiResponse};
 use crate::security::redact_text;
 
 /// The most asks open at once; Codex's next one is declined.
@@ -57,7 +57,7 @@ pub(super) struct Dialogs {
 /// An ask whose dialog is on screen.
 struct Open {
     request_id: RequestId,
-    /// The id of the dialog on screen (the request id, then one per question).
+    /// The id of the dialog on screen (the request id).
     dialog: String,
     kind: OpenKind,
 }
@@ -194,12 +194,9 @@ impl Dialogs {
         let open = &mut self.open[position];
 
         if let OpenKind::Questions(asked) | OpenKind::Form { asked, .. } = &mut open.kind
-            && let UiOutcome::Value { value } = &response.outcome
-            && let Some((next, event)) = asked.dialog.answer(value)?
+            && let UiOutcome::Answers { answers } = &response.outcome
         {
-            open.dialog = next;
-            out.events.push(event);
-            return Ok(());
+            asked.dialog.accept(answers)?;
         }
 
         // A wrong option fails before the ask leaves the list, so its dialog stays open.
@@ -210,7 +207,10 @@ impl Dialogs {
         };
 
         let open = self.open.remove(position);
-        let given = matches!(response.outcome, UiOutcome::Value { .. });
+        let given = match open.kind {
+            OpenKind::Questions(_) | OpenKind::Form { .. } => matches!(response.outcome, UiOutcome::Answers { .. }),
+            _ => matches!(response.outcome, UiOutcome::Value { .. }),
+        };
         out.answers.push(answer(&open, picked.unwrap_or(Choice::Reject), given));
 
         Ok(())
@@ -233,15 +233,7 @@ impl Dialogs {
 impl Chat {
     /// Answers an open dialog; fails for ids that are not open (answered, withdrawn or unknown).
     pub(super) async fn answer_dialog(&self, response: UiResponse) -> Result<()> {
-        let size = match &response.outcome {
-            UiOutcome::Value { value } => value.len(),
-            _ => 0,
-        };
-
-        if size > MAX_ACTION_TEXT_BYTES {
-            let error = format!("value exceeds {MAX_ACTION_TEXT_BYTES} bytes");
-            return Err(BusinessError::InvalidInput(error));
-        }
+        response.outcome.check_size()?;
 
         let answers = {
             let mut live = self.lock();
@@ -262,7 +254,7 @@ impl Chat {
 }
 
 /// The answer to `open` for the user's `picked` approval choice, or its questions (`given`: the
-/// last one was answered, not dismissed).
+/// questions were answered, not dismissed).
 fn answer(open: &Open, picked: Choice, given: bool) -> Value {
     let id = &open.request_id;
     let decision = match picked {

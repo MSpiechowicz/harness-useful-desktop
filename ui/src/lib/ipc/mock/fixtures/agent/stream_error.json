@@ -694,7 +694,7 @@
     "seq": 15,
     "event": {
       "type": "promptResult",
-      "requestId": "req-5",
+      "requestId": "req-6",
       "status": "error",
       "error": "429 Too Many Requests: rate limit exceeded",
       "retryable": true

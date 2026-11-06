@@ -340,13 +340,6 @@ const RULES: readonly Rule[] = [
     optOut: true,
   },
   {
-    id: 'ask-dialog',
-    reason: 'set_ask_dialog must never be sent (allowed only in deny-list code)',
-    pattern: /set_ask_dialog/,
-    extensions: SOURCE,
-    optOut: true,
-  },
-  {
     id: 'shell-spawn',
     reason: 'never spawn a shell; use a fixed binary with explicit argv',
     pattern: SHELL_COMMAND,

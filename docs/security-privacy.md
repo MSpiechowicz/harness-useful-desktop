@@ -455,7 +455,10 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   receive arguments that pass `is_safe_arg` after the leading dashes are removed. The webview sends typed actions,
   never command lines.
 - **Flags never passed.** `--auto-approve`, `--auto`, `--yolo`, `--dangerously-skip-permissions`, `--no-ui`, login and
-  credential RPCs (`get_login_providers`), `set_ask_dialog`. For Claude Code also `--allow-dangerously-skip-permissions`,
+  credential RPCs (`get_login_providers`). `set_ask_dialog` is sent to OMP, by a decision of 2026-11-06: questions arrive all at
+  once, so an answer can still be changed, as in every other harness. Tool approvals stay separate `select` dialogs. It
+  also reaches extensions' questions and OMP's ratchet stage approvals (off by default), which then show as a question
+  from the agent. Only the exact `Approve` label approves one. For Claude Code also `--allow-dangerously-skip-permissions`,
   `--permission-mode bypassPermissions`, a switch to `bypassPermissions` over the control protocol, `--permission-prompts
   none` and `--bare` (see [Claude Code](#claude-code)). OpenCode is never run with `auth login`, `providers login`,
   `auth logout`, `mcp auth`, `mcp logout`, `account`, `db`, `mcp list`, `mcp debug` (the last two start MCP servers) or
@@ -804,7 +807,7 @@ The chat with OpenCode runs one `opencode serve` per chat and talks to it over H
   and OpenCode runs the `` !`cmd` `` shell snippets in a template without a permission check, as in its terminal app. A
   routine or hook prompt that starts with `/name` runs that command the same way. The commands are OpenCode's own
   (`/init`, `/review`) and those of your config, MCP servers and skills. The app adds none.
-- **Questions and approvals** reach the same dialogs as in OMP. A dismissed question is rejected, and rejecting an
+- **Questions and approvals** reach the same dialogs as in OMP. A cancelled question is rejected, and rejecting an
   approval rejects every other open ask of that session, as OpenCode does. An answer that does not reach the server
   (no answer, or a server error) shows the dialog again, so an ask is never left without one.
 - **Exports.** The HTML export is written to the `exports` folder of the app's data folder (never the project, which
@@ -958,8 +961,8 @@ fork, clone, rename, compact, export, `!command`) work, and are described below.
   withdraw a prompt (`control_cancel_request`), which closes its dialog, and an abort of the turn denies the open
   ones (`agent/claude/dialogs.rs`, `prompts.rs`). At most 256 asks are open at once (`MAX_OPEN_ASKS`,
   `agent/claude/io.rs`), the next one is denied with "Too many requests are waiting for the user". A question
-  (`AskUserQuestion`) is one dialog per question, answered with the options you pick, and a dismissed dialog denies
-  the call. A `request_user_dialog` of Claude Code is answered with an error and an MCP server's elicitation is
+  (`AskUserQuestion`) is one dialog holding every question, answered with the options you pick or text you type, and
+  only Cancel closes it without an answer, which denies the call. A `request_user_dialog` of Claude Code is answered with an error and an MCP server's elicitation is
   declined, each with a notice in the chat, because the chat cannot show them yet.
 - **Always allow.** It is offered only when it can be kept safely and lasts until the chat's process ends, never longer.
   Two shapes exist. When Claude Code sends `permission_suggestions` (and the chat is not in Always ask mode), only the

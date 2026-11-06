@@ -315,13 +315,7 @@ impl RpcSession {
     pub async fn respond(&self, response: UiResponse) -> Result<()> {
         self.process.ensure_running()?;
 
-        if let crate::model::UiOutcome::Value { value } = &response.outcome
-            && value.len() > MAX_ACTION_TEXT_BYTES
-        {
-            return Err(BusinessError::InvalidInput(format!(
-                "value exceeds {MAX_ACTION_TEXT_BYTES} bytes"
-            )));
-        }
+        response.outcome.check_size()?;
 
         if !self.shared.close_dialog(&response.id) {
             return Err(BusinessError::NotFound(format!("open dialog {}", response.id)));
