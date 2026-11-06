@@ -47,7 +47,14 @@ fn omp_runs_in_rpc_mode_with_optional_approval_override_and_resume() {
     };
     assert_eq!(
         args(&Omp, full),
-        ["--mode", "rpc-ui", "--approval-mode", "always-ask", "--resume", "0199c1f2"]
+        [
+            "--mode",
+            "rpc-ui",
+            "--approval-mode",
+            "always-ask",
+            "--resume",
+            "0199c1f2"
+        ]
     );
 }
 
