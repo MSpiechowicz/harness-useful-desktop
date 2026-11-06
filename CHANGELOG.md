@@ -1,3 +1,10 @@
+# [0.63.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.62.0...v0.63.0) (2026-11-06)
+
+
+### Features
+
+* **memory:** make saving notes and scripts opt-in per project ([58ea5b7](https://github.com/MSpiechowicz/harness-useful-desktop/commit/58ea5b7210704f8c94ea04fd6a7362f7404b2496)), closes [#55](https://github.com/MSpiechowicz/harness-useful-desktop/issues/55)
+
 # [0.62.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.61.1...v0.62.0) (2026-11-06)
 
 
