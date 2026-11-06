@@ -14,3 +14,6 @@ export const LIST_MIN_PX = 240;
 
 /** The room the centre of a workspace view keeps when the list is dragged wide. */
 export const CENTRE_MIN_PX = 480;
+
+/** How far from the visible area a code block starts being highlighted, so it is coloured by the time it scrolls in. */
+export const HIGHLIGHT_LOOKAHEAD_PX = 400;

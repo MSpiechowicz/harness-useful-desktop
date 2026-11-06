@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { HIGHLIGHT_LOOKAHEAD_PX } from '$lib/design/layout';
   import { t } from '$lib/i18n/i18n.svelte';
   import { highlight, type HighlightedLine } from '$lib/markdown/highlight';
   import { grammarFor } from '$lib/markdown/languages';
@@ -26,8 +27,36 @@
 
   let highlighted = $state.raw<{ code: string; lines: HighlightedLine[] } | null>(null);
 
+  // Highlighting runs on the UI thread, and a review prompt can hold a hundred blocks: only those near the screen pay for it, once.
+  let near = $state(typeof IntersectionObserver === 'undefined');
+
+  function whenNear(element: HTMLElement): { destroy: () => void } | undefined {
+    if (near) {
+      return undefined;
+    }
+
+    const margin = `${HIGHLIGHT_LOOKAHEAD_PX}px`;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          near = true;
+          observer.disconnect();
+        }
+      },
+      // `rootMargin` reaches past the window, `scrollMargin` past the scrolling list the block sits in.
+      { rootMargin: margin, scrollMargin: margin },
+    );
+    observer.observe(element);
+
+    return { destroy: () => observer.disconnect() };
+  }
+
   // Highlight lazily and off the render path; a result for stale code is discarded.
   $effect(() => {
+    if (!near) {
+      return;
+    }
+
     const source = code;
     const label = lang;
     let current = true;
@@ -69,7 +98,7 @@
   const view = $derived(highlighted && code.startsWith(highlighted.code) ? { lines: highlighted.lines, tail: code.slice(highlighted.code.length) } : null);
 </script>
 
-<figure class={cx('chat-radius overflow-hidden border border-line bg-canvas', className)}>
+<figure use:whenNear class={cx('chat-radius overflow-hidden border border-line bg-canvas', className)}>
   <!-- pr-[9px] + the copy icon's 5px inset inside its 28px button = the label's 14px on the left. -->
   <figcaption class="flex h-8 items-center justify-between border-b border-line bg-surface-2 pr-[9px] pl-3.5 text-xs text-fg-2">
     <span class="font-mono font-medium">{lang || 'text'}</span>

@@ -1,3 +1,25 @@
+## [0.60.3](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.2...v0.60.3) (2026-11-06)
+
+
+### Bug Fixes
+
+* **chat:** stop syntax highlighting from freezing a large review ([1499740](https://github.com/MSpiechowicz/harness-useful-desktop/commit/14997401501fea0420e899d71b63b9c6a027a944)), closes [#54](https://github.com/MSpiechowicz/harness-useful-desktop/issues/54)
+
+## [0.60.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.1...v0.60.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **hooks:** retry a failed Harness Code call and assess every PR ([1a39c50](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1a39c500a73f9abcbb30feced1af23853b77910a))
+* **hooks:** skip the PR assessment when the release-assessment setting is off ([7cf2b5f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7cf2b5f121d0e59aa7353ea86397e80d4d3af600))
+
+## [0.60.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.0...v0.60.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **chat:** show sparkles on the thought process row ([93124a0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/93124a04ef689f717b8fad8f9bed35148b315cb7))
+
 # [0.60.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.59.1...v0.60.0) (2026-11-05)
 
 

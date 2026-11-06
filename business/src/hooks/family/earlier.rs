@@ -85,12 +85,30 @@ const USEFUL_SKILLS_STEP_V1: &str = useful_skills_tiers!(
     "Before your first edit, pick a lane from the request and state it in one line: \"Lane: small | medium | full — reason\"."
 );
 
-/// The step version with the "Complexity:" status label and no step for the user's open choices.
+/// The "Complexity:" status label, before every PR had to carry a release assessment.
 const USEFUL_SKILLS_STEP_V2: &str = useful_skills_tiers!(
     "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
 );
 
+/// The PR assessment sentence, before it left out a release-assessment setting that is off.
+const USEFUL_SKILLS_STEP_V3: &str = concat!(
+    useful_skills_tiers!(
+        "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
+    ),
+    " Before you open any PR, whatever the tier, run the us-assess-release skill on the final commit and put its Review guide in the PR body."
+);
+
+/// The step before the user's open choices: the PR assessment sentence as released, and no "Questions:" status line.
+const USEFUL_SKILLS_STEP_V4: &str = concat!(
+    useful_skills_tiers!(
+        "Before your first edit, rate the complexity of the request and state it in one line: \"Complexity: small | medium | full — reason\"."
+    ),
+    " Before you open any PR, whatever the tier, run the us-assess-release skill on the final commit and put its Review guide in the PR body, unless the release-assessment setting is off."
+);
+
 pub(super) const USEFUL_SKILLS: &[&str] = &[
+    USEFUL_SKILLS_STEP_V4,
+    USEFUL_SKILLS_STEP_V3,
     USEFUL_SKILLS_STEP_V2,
     USEFUL_SKILLS_STEP_V1,
     USEFUL_SKILLS_V3,
@@ -183,7 +201,16 @@ const CODE_GRAPH_FIRST_STEP_V3: &str = "Your first tool call on every message MU
      grep and file reads only for literal text and for details the graph does not show. Status line: \"Code: \
      code_map ui/src/hooks\".";
 
+/// The "Code Graph:" status label, before a failed call had to be retried.
+const CODE_GRAPH_FIRST_STEP_V4: &str = "Your first tool call on every message MUST be a Harness Code tool, before \
+     any grep, find, ls or file read, with project_path (the repository root): code_map for an area (focus = the \
+     path the request names), code_symbol when you know a name. Memory and knowledge searches go in that same first \
+     batch. Then use code_impact before changing a signature or behaviour and code_path for how A reaches B. Use \
+     grep and file reads only for literal text and for details the graph does not show. Status line: \"Code Graph: \
+     code_map ui/src/hooks\".";
+
 pub(super) const CODE_GRAPH_FIRST: &[&str] = &[
+    CODE_GRAPH_FIRST_STEP_V4,
     CODE_GRAPH_FIRST_STEP_V3,
     CODE_GRAPH_FIRST_STEP_V2,
     CODE_GRAPH_FIRST_STEP_V1,

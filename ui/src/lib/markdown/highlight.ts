@@ -8,6 +8,8 @@ export type HighlightedLine = { content: string; color?: string; bold: boolean; 
 const THEME = 'harness';
 /** Very large blocks stay plain; tokenizing them would stall the UI for no reader benefit. */
 const MAX_CHARS = 60_000;
+/** A longer line stays plain: one minified line costs seconds of blocked UI, tens of seconds near `MAX_CHARS`. */
+const MAX_LINE_CHARS = 2_000;
 
 let highlighter: Promise<HighlighterCore> | undefined;
 const loaded = new Set<Grammar>();
@@ -58,7 +60,7 @@ export async function highlight(code: string, lang: string): Promise<Highlighted
       loaded.add(grammar);
     }
 
-    return engine.codeToTokensBase(code, { lang: grammar, theme: THEME }).map(lineOf);
+    return engine.codeToTokensBase(code, { lang: grammar, theme: THEME, tokenizeMaxLineLength: MAX_LINE_CHARS }).map(lineOf);
   } catch {
     return null;
   }
