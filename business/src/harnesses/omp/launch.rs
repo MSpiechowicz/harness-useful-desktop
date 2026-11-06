@@ -1,8 +1,12 @@
-//! `omp --mode rpc`: command line and configured approval mode.
+//! `omp --mode rpc-ui`: command line and configured approval mode.
 //!
 //! Flags mirror `cli/flag-tables.ts` (18.6.1): `--approval-mode <always-ask|write|yolo>` overrides
 //! `tools.approvalMode` for one session and `--resume <id prefix|path>` resumes a session. Flags
 //! that skip approvals or detach the extension UI are never passed, and sessions always persist.
+//!
+//! A chat uses `rpc-ui` because plain `rpc` runs without a UI and OMP then leaves out its `ask` tool,
+//! so an agent could only write its questions as text. `ask` reaches the app as `select` dialogs.
+//! A helper chat has no tools, so it stays on `rpc`.
 
 use std::path::Path;
 
@@ -39,10 +43,11 @@ pub fn parse_approval_mode(label: &str) -> Option<ApprovalMode> {
     }
 }
 
-/// `omp --mode rpc [--approval-mode <mode>] [--resume <id>]` in the project. An Auto override is
-/// refused.
+/// `omp --mode rpc-ui [--approval-mode <mode>] [--resume <id>]` in the project, or `--mode rpc` for a
+/// helper chat. An Auto override is refused.
 pub fn omp_launch_spec(request: &LaunchRequest<'_>) -> Result<ExecSpec> {
-    let mut args = vec!["--mode".to_owned(), "rpc".to_owned()];
+    let mode = if request.utility { "rpc" } else { "rpc-ui" };
+    let mut args = vec!["--mode".to_owned(), mode.to_owned()];
 
     if let Some(mode) = request.approval_override {
         let Some(label) = cli_approval_mode(mode) else {

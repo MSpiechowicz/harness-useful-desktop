@@ -37,7 +37,7 @@ fn omp_runs_in_rpc_mode_with_optional_approval_override_and_resume() {
     let project = PathBuf::from("/work/demo");
     let base = launch(&binary, &project);
 
-    assert_eq!(args(&Omp, base), ["--mode", "rpc"]);
+    assert_eq!(args(&Omp, base), ["--mode", "rpc-ui"]);
 
     let full = LaunchRequest {
         approval_override: Some(ApprovalMode::AlwaysAsk),
@@ -47,7 +47,7 @@ fn omp_runs_in_rpc_mode_with_optional_approval_override_and_resume() {
     };
     assert_eq!(
         args(&Omp, full),
-        ["--mode", "rpc", "--approval-mode", "always-ask", "--resume", "0199c1f2"]
+        ["--mode", "rpc-ui", "--approval-mode", "always-ask", "--resume", "0199c1f2"]
     );
 }
 
@@ -167,7 +167,7 @@ fn batch_script_launchers_accept_the_rpc_arguments() {
     let project = PathBuf::from("C:/work/demo");
 
     let plain = Omp.launch_spec(&launch(&batch, &project)).expect("safe arguments");
-    assert_eq!(plain.args, [OsString::from("--mode"), OsString::from("rpc")]);
+    assert_eq!(plain.args, [OsString::from("--mode"), OsString::from("rpc-ui")]);
 }
 
 #[test]
