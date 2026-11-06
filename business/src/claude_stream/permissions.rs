@@ -109,10 +109,12 @@ pub fn ask_all_hooks() -> Vec<HookRegistration> {
 /// The dialog of `ask`, under the CLI's request id (see the module docs).
 pub fn permission_dialog(ask: &PermissionAsk, project: &Path, always: Option<&Always>) -> AgentEvent {
     let asker = if ask.from_subagent { " for a subagent" } else { "" };
-    let title = match (subject(ask, project), &ask.title) {
-        (Some(subject), _) => format!("Allow {}{asker}: {subject}?", ask.label),
-        (None, Some(title)) if !ask.from_subagent => title.split_whitespace().collect::<Vec<_>>().join(" "),
-        (None, _) => format!("Allow {}{asker}?", ask.label),
+    let input = ask.from_subagent.then(|| subagent_input(ask, project)).flatten();
+    let title = match (&input, subject(ask, project), &ask.title) {
+        (Some(input), _, _) => format!("Allow {}{asker}: {input}?", ask.label),
+        (None, Some(subject), _) => format!("Allow {}{asker}: {subject}?", ask.label),
+        (None, None, Some(title)) if !ask.from_subagent => title.split_whitespace().collect::<Vec<_>>().join(" "),
+        (None, None, _) => format!("Allow {}{asker}?", ask.label),
     };
 
     let mut options = vec![ALLOW_ONCE.to_owned()];
@@ -127,7 +129,7 @@ pub fn permission_dialog(ask: &PermissionAsk, project: &Path, always: Option<&Al
     details.push(None);
 
     let kind = UiRequestKind::Select {
-        title: redact_text(&title),
+        title: if input.is_some() { title } else { redact_text(&title) },
         options,
         details,
         timeout_ms: None,
@@ -201,6 +203,22 @@ fn rule_names(rule: &Value) -> Vec<String> {
         .collect()
 }
 
+/// What a subagent's `ask` covers, exactly as sent. Its call is not in the transcript, so the title is the only
+/// place to judge it: a mask here could hide part of a command, and the chat shows its own calls unmasked too.
+fn subagent_input(ask: &PermissionAsk, project: &Path) -> Option<String> {
+    let field = |key: &str| text(&ask.input, key);
+
+    match ask.tool.as_str() {
+        BASH => field("command"),
+        READ => field("file_path").map(|path| relative(&path, project)),
+        _ => ask
+            .input
+            .as_object()
+            .filter(|input| !input.is_empty())
+            .map(|_| ask.input.to_string()),
+    }
+}
+
 /// What `ask` is about, on one redacted line (see the module docs).
 fn subject(ask: &PermissionAsk, project: &Path) -> Option<String> {
     let field = |keys: &[&str]| keys.iter().find_map(|key| text(&ask.input, key));
@@ -211,10 +229,6 @@ fn subject(ask: &PermissionAsk, project: &Path) -> Option<String> {
         NOTEBOOK_EDIT => field(&["notebook_path"]).map(|path| relative(&path, project)),
         "WebFetch" | "WebSearch" => field(&["url", "query"]),
         TASK | "Agent" => field(&["description", "subagent_type"]),
-        // A subagent's call is not in the transcript, so its input shows only here, spaces and all.
-        _ if ask.from_subagent && ask.input.as_object().is_some_and(|input| !input.is_empty()) => {
-            return Some(redact_text(&ask.input.to_string()));
-        }
         _ => None,
     };
 

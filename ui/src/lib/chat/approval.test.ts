@@ -35,6 +35,10 @@ describe('approvalCalls', () => {
     expect(approvalCalls(chat(call('a', 'running', 'read')), prompt())).toEqual([]);
   });
 
+  it('does not tie a prompt that names no tool to one of several calls', () => {
+    expect(approvalCalls(chat(call('a', 'running'), call('b', 'running')), prompt({ title: 'Reset saved work?' }))).toEqual([]);
+  });
+
   it('takes the call the agent names, also among parallel ones', () => {
     const state = chat(call('a', 'running'), call('b', 'running'));
 

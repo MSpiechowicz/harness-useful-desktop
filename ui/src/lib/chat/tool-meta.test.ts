@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { humanToolName, shortSkillOf, skillApproval, skillOf } from './tool-meta';
+import { approvalArgument, humanToolName, shortSkillOf, skillApproval, skillOf } from './tool-meta';
 import type { ToolCallState } from './types';
 
 describe('humanToolName', () => {
@@ -53,5 +53,24 @@ describe('skillOf', () => {
     expect(skillOf(call('Read', { name: 'a.ts' }))).toBeNull();
     expect(skillOf(call('Skill', {}))).toBeNull();
     expect(shortSkillOf(call('Skill', null))).toBeNull();
+  });
+});
+
+describe('approvalArgument', () => {
+  const call = (name: string, args: ToolCallState['args']) => ({ name, args }) as ToolCallState;
+
+  it('shows where a command runs, not its noise', () => {
+    expect(approvalArgument(call('bash', { command: 'rm -rf build', cwd: '/prod', timeout: 5 }))).toBe('{"cwd":"/prod"}');
+    expect(approvalArgument(call('bash', { command: 'ls', description: 'list' }))).toBeNull();
+  });
+
+  it('hides no argument of another tool behind its main one', () => {
+    expect(approvalArgument(call('mcp__x__post', { url: 'https://a', body: 'b' }))).toBe('{"url":"https://a","body":"b"}');
+    expect(approvalArgument(call('mcp__x__get', { url: 'https://a' }))).toBe('https://a');
+    expect(approvalArgument(call('github', { op: 'delete' }))).toBe('{"op":"delete"}');
+  });
+
+  it('keeps a file tool to its path', () => {
+    expect(approvalArgument(call('Edit', { file_path: 'a.ts', old_string: 'x', new_string: 'y' }))).toBe('a.ts');
   });
 });

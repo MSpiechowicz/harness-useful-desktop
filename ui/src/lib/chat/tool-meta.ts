@@ -105,14 +105,32 @@ export function shortSkillOf(call: ToolCallState): string | null {
   return skill?.split(':').pop() || skill;
 }
 
-/** What an approval shows of a call with no command: its main argument in full, else all its arguments. */
-export function approvalArgument(args: JsonValue | null): string | null {
+/** Arguments that add nothing to what a shell command does. */
+const COMMAND_NOISE = new Set(['command', 'description', 'timeout']);
+
+/**
+ * What an approval shows beside a call's command, or instead of one: what else the command is given (where it runs),
+ * the path of a file tool, and every argument of any other tool, so none is hidden behind its main one.
+ */
+export function approvalArgument(call: ToolCallState): string | null {
+  const { args } = call;
+  if (!isJsonObject(args) || Object.keys(args).length === 0) {
+    return null;
+  }
+
+  if (commandOf(call) !== null) {
+    const rest = Object.entries(args).filter(([name]) => !COMMAND_NOISE.has(name));
+
+    return rest.length > 0 ? JSON.stringify(Object.fromEntries(rest)) : null;
+  }
+
+  const kind = toolKind(call.name);
   const single = fullPrimaryArg(args);
-  if (single !== null) {
+  if (single !== null && (kind === 'edit' || kind === 'write' || kind === 'read' || Object.keys(args).length === 1)) {
     return single;
   }
 
-  return isJsonObject(args) && Object.keys(args).length > 0 ? JSON.stringify(args) : null;
+  return JSON.stringify(args);
 }
 
 /** The shell command a bash-like call runs, when it has one. */

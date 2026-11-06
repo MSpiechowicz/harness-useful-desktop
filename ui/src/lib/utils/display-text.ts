@@ -8,5 +8,16 @@ export function displayText(text: string, max: number): string {
 
 /** `text` of another program as a dialog shows it: without hidden characters, its line breaks and tabs kept. */
 export function visibleText(text: string): string {
-  return text.replace(HIDDEN, (hidden) => (hidden === '\n' || hidden === '\t' ? hidden : ''));
+  return text.replace(/\r\n?|[\u2028\u2029]/g, '\n').replace(HIDDEN, (hidden) => (hidden === '\n' || hidden === '\t' ? hidden : ''));
+}
+
+/** `text` an approval covers as it can be judged: each hidden character is named where it stands, nothing is dropped. */
+export function markedText(text: string): string {
+  return text.replace(HIDDEN, (hidden) => {
+    if (hidden === '\n' || hidden === '\t') {
+      return hidden;
+    }
+
+    return `⟦U+${(hidden.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, '0')}⟧`;
+  });
 }

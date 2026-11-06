@@ -27,7 +27,7 @@
 
   // Editors and inputs start from what the agent suggested.
   $effect(() => {
-    text = request.kind.type === 'editor' ? visibleText(request.kind.prefill ?? '') : '';
+    text = request.kind.type === 'editor' ? (request.kind.prefill ?? '') : '';
   });
 
   function cancel(): void {

@@ -298,6 +298,34 @@ fn a_subagent_approval_shows_the_input_of_a_tool_it_does_not_know() {
 }
 
 #[test]
+fn a_subagent_approval_never_masks_what_it_covers() {
+    for command in [
+        "export GH_TOKEN=$(run_payload) && git status",
+        "# harmless comment\nrun_payload now",
+    ] {
+        let bash = PermissionAsk {
+            from_subagent: true,
+            ..ask("Bash", json!({ "command": command }))
+        };
+
+        assert!(dialog_title(&bash).contains(command));
+    }
+}
+
+#[test]
+fn a_subagent_approval_shows_everything_a_known_tool_is_given() {
+    let write = PermissionAsk {
+        from_subagent: true,
+        ..ask(
+            "Write",
+            json!({ "file_path": "/work/demo/a.txt", "content": "the content" }),
+        )
+    };
+
+    assert!(dialog_title(&write).contains("the content"));
+}
+
+#[test]
 fn a_subagent_approval_keeps_the_spaces_in_its_input() {
     let spaced = PermissionAsk {
         from_subagent: true,

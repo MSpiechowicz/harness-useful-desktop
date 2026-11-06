@@ -29,7 +29,9 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
 
     let dialog = |kind: UiRequestKind| vec![Inbound::UiRequest(UiRequest::new(id.clone(), kind))];
     let event = |event: AgentEvent| vec![Inbound::Event(event)];
-    let title = || redact_text(&plain_text(&string(frame, "title").unwrap_or_default()));
+    // An approval's title says what it covers, so a mask there could hide it (or the tool it names).
+    let shown_title = || plain_text(&string(frame, "title").unwrap_or_default());
+    let title = || redact_text(&shown_title());
     let timeout_ms = || unsigned(frame, "timeout");
 
     match method {
@@ -40,7 +42,7 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
                 .any(|option| option == ASK_OTHER_OPTION)
                 .then_some(UiPurpose::Question);
             let kind = UiRequestKind::Select {
-                title: title(),
+                title: if purpose.is_some() { title() } else { shown_title() },
                 options,
                 details: option_details(frame),
                 timeout_ms: timeout_ms(),
@@ -52,8 +54,8 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
             })]
         }
         "confirm" => dialog(UiRequestKind::Confirm {
-            title: title(),
-            message: redact_text(&string(frame, "message").unwrap_or_default()),
+            title: shown_title(),
+            message: string(frame, "message").unwrap_or_default(),
             timeout_ms: timeout_ms(),
         }),
         "input" => {
@@ -150,6 +152,18 @@ pub fn cancelled_response(id: &str) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_approval_title_keeps_the_tool_it_names() {
+        let title = "Allow tool: mcp__Acme2Server__getCustomerInvoiceSummaryV2";
+        let frame = json!({ "id": "1", "method": "select", "title": title, "options": ["Approve", "Deny"] });
+        let requests = decode_ui_request(&frame);
+        let [Inbound::UiRequest(request)] = requests.as_slice() else {
+            panic!("expected one dialog");
+        };
+
+        assert!(matches!(&request.kind, UiRequestKind::Select { title: shown, .. } if shown == title));
+    }
 
     fn select_purpose(options: &[&str]) -> Option<UiPurpose> {
         let frame = json!({ "id": "1", "method": "select", "title": "Allow tool: bash", "options": options });

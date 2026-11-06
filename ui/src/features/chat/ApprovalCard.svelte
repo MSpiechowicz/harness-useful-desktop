@@ -8,7 +8,7 @@
   import { approvalArgument, commandOf, skillApproval, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
   import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
-  import { visibleText } from '$lib/utils/display-text';
+  import { markedText, visibleText } from '$lib/utils/display-text';
   import { overflowing } from '$lib/utils/overflowing';
 
   import Countdown from './Countdown.svelte';
@@ -29,12 +29,13 @@
   // Several parallel calls may be asking: none is picked, each is shown in full.
   const candidates = $derived(calls.length > 1 ? calls : []);
   const Icon = $derived(subject ? TOOL_ICONS[toolKind(subject.name)] : ShieldAlert);
-  const command = $derived(subject ? commandOf(subject) : null);
+  const rawCommand = $derived(subject ? commandOf(subject) : null);
+  const command = $derived(rawCommand === null ? null : markedText(rawCommand));
   // Nothing about what is approved is cut off: the command and the argument are shown in full.
-  const argument = $derived(subject ? (skillApproval(subject) ?? approvalArgument(subject.args)) : null);
+  const argument = $derived(subject ? (skillApproval(subject) ?? approvalArgument(subject)) : null);
   // A Codex ask can be about something else than the command of its card (input for it, or one command it runs): the title
   // then names what is asked, which the command below does not show.
-  const asksOther = $derived(command !== null && session.info.harness === 'codex' && !prompt.title.includes(command));
+  const asksOther = $derived(rawCommand !== null && session.info.harness === 'codex' && !prompt.title.includes(rawCommand));
   // The title may repeat a long command; it is clamped only when the command below shows it in full. Anything else it names
   // (every path a change or a grant covers, what a Codex ask is about) is never cut: a long title scrolls instead.
   const clampTitle = $derived(command !== null && !asksOther);
@@ -43,7 +44,7 @@
   // The scrolling title is a tab stop only while it has more to show.
   let titleOverflows = $state(false);
 
-  const title = $derived(visibleText(prompt.title));
+  const title = $derived(markedText(prompt.title));
 
   function answer(option: string): void {
     void session.respond(prompt.id, { type: 'value', value: option });
@@ -83,7 +84,11 @@
           <h3 class="max-h-48 overflow-y-auto text-base font-semibold break-words whitespace-pre-wrap text-fg" tabindex={titleOverflows ? 0 : undefined} {@attach overflowing(prompt.title, (overflows) => (titleOverflows = overflows))}>{title}</h3>
         {/if}
         {#if subject}
-          <p class="text-sm text-fg-2">{reading ?? toolTitle(subject)}{#if argument && !command} · <span class="font-mono break-all">{argument}</span>{/if}</p>
+          <p class="text-sm text-fg-2">{markedText(reading ?? toolTitle(subject))}</p>
+          {#if argument}
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
+            <p class="max-h-48 overflow-y-auto font-mono text-xs break-all whitespace-pre-wrap text-fg-2" tabindex="0">{markedText(argument)}</p>
+          {/if}
         {/if}
         {#if prompt.approveDetail}<p class="text-sm text-fg-2">{visibleText(prompt.approveDetail)}</p>{/if}
       </div>
@@ -98,10 +103,15 @@
         <p class="text-sm text-fg-2">{t('chat.approvalCard.oneOf')}</p>
         {#each candidates as call (call.id)}
           {@const candidate = commandOf(call)}
+          {@const rest = approvalArgument(call)}
           {#if candidate}
-            <TerminalBlock text="" command={candidate} capCommand />
+            <TerminalBlock text="" command={markedText(candidate)} capCommand />
           {:else}
-            <p class="text-sm text-fg-2">{toolTitle(call)}{#if approvalArgument(call.args)} · <span class="font-mono break-all text-xs">{approvalArgument(call.args)}</span>{/if}</p>
+            <p class="text-sm text-fg-2">{markedText(toolTitle(call))}</p>
+          {/if}
+          {#if rest}
+            <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
+            <p class="max-h-48 overflow-y-auto font-mono text-xs break-all whitespace-pre-wrap text-fg-2" tabindex="0">{markedText(rest)}</p>
           {/if}
         {/each}
       </div>

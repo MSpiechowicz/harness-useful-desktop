@@ -72,7 +72,7 @@ const TITLE_TOOL = /^Allow tool: (\S+)/;
 
 /**
  * The tool calls an approval may be about: the one the agent names, else the open calls of the tool its title names,
- * else every open call. An approval the agent marks but ties to no call (a subagent's) is about none of them, and a
+ * else the only open call. An approval the agent marks but ties to no call (a subagent's) is about none of them, and a
  * named call the transcript does not show (yet) gives none, so the card never shows another call's command as its own.
  */
 export function approvalCalls(state: ChatState, prompt: Pick<ApprovalPrompt, 'toolCallId' | 'marked' | 'title'>): ToolCallState[] {
@@ -89,5 +89,9 @@ export function approvalCalls(state: ChatState, prompt: Pick<ApprovalPrompt, 'to
   const open = Object.values(state.toolCalls).filter((call) => call.status === 'running' || call.status === 'pending');
   const tool = TITLE_TOOL.exec(prompt.title)?.[1];
 
-  return tool === undefined ? open : open.filter((call) => call.name === tool);
+  if (tool !== undefined) {
+    return open.filter((call) => call.name === tool);
+  }
+
+  return open.length === 1 ? open : [];
 }
