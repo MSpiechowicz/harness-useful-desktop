@@ -298,6 +298,16 @@ fn a_subagent_approval_shows_the_input_of_a_tool_it_does_not_know() {
 }
 
 #[test]
+fn a_subagent_approval_keeps_the_spaces_in_its_input() {
+    let spaced = PermissionAsk {
+        from_subagent: true,
+        ..ask("Skill", json!({ "skill": "a  b" }))
+    };
+
+    assert!(dialog_title(&spaced).contains("a  b"));
+}
+
+#[test]
 fn a_main_chat_approval_keeps_the_description_of_a_tool_it_does_not_know() {
     let mcp = PermissionAsk {
         description: Some("Delete an issue".to_owned()),
