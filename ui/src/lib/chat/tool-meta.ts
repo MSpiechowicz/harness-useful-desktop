@@ -79,15 +79,22 @@ export function fullPrimaryArg(args: JsonValue | null): string | null {
   return null;
 }
 
-/** The skill a call loads, when it is a skill call: Claude Code names it in `skill` with its plugin in front, OpenCode in `name`. */
+/** The skill a call loads as the harness names it: Claude Code's `Skill` says it in `skill` with its plugin in front, OpenCode's `skill` in `name`. */
 export function skillOf(call: ToolCallState): string | null {
-  if (call.name.toLowerCase() !== 'skill' || !isJsonObject(call.args)) {
+  if (!isJsonObject(call.args)) {
     return null;
   }
 
-  const skill = call.args.skill ?? call.args.name;
+  const named = call.name === 'Skill' ? call.args.skill : call.name === 'skill' ? call.args.name : null;
 
-  return typeof skill === 'string' && skill.trim() !== '' ? (skill.trim().split(':').pop() ?? null) : null;
+  return typeof named === 'string' && named.trim() !== '' ? named.trim() : null;
+}
+
+/** The same skill for a card line: without its plugin, or the whole name when nothing follows the plugin. */
+export function shortSkillOf(call: ToolCallState): string | null {
+  const skill = skillOf(call);
+
+  return skill?.split(':').pop() || skill;
 }
 
 /** The shell command a bash-like call runs, when it has one. */

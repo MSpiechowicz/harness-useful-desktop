@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { humanToolName, skillOf } from './tool-meta';
+import { humanToolName, shortSkillOf, skillOf } from './tool-meta';
 import type { ToolCallState } from './types';
 
 describe('humanToolName', () => {
@@ -26,14 +26,25 @@ describe('humanToolName', () => {
 describe('skillOf', () => {
   const call = (name: string, args: ToolCallState['args']) => ({ name, args }) as ToolCallState;
 
-  it('names the skill without its plugin, under each harness', () => {
-    expect(skillOf(call('Skill', { skill: 'harness-useful-skills:us-grill-me' }))).toBe('us-grill-me');
-    expect(skillOf(call('skill', { name: 'us-grill-me' }))).toBe('us-grill-me');
+  it('keeps the plugin for an approval and drops it on a card line', () => {
+    const skill = call('Skill', { skill: 'some-plugin:us-grill-me' });
+
+    expect(skillOf(skill)).toBe('some-plugin:us-grill-me');
+    expect(shortSkillOf(skill)).toBe('us-grill-me');
+  });
+
+  it('reads the argument that harness runs', () => {
+    expect(skillOf(call('skill', { skill: 'shown', name: 'runs' }))).toBe('runs');
+    expect(skillOf(call('Skill', { skill: 'runs', name: 'shown' }))).toBe('runs');
+  });
+
+  it('never gives an empty name', () => {
+    expect(shortSkillOf(call('Skill', { skill: 'some-plugin:' }))).toBe('some-plugin:');
   });
 
   it('leaves other tools and a call that names nothing alone', () => {
     expect(skillOf(call('Read', { name: 'a.ts' }))).toBeNull();
     expect(skillOf(call('Skill', {}))).toBeNull();
-    expect(skillOf(call('Skill', null))).toBeNull();
+    expect(shortSkillOf(call('Skill', null))).toBeNull();
   });
 });
