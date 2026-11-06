@@ -9,8 +9,12 @@ use serde_json::{Value, json};
 
 use super::normalize::{plain_text, string, strings, unsigned};
 use super::rpc::Inbound;
-use crate::model::{AgentEvent, NoticeLevel, UiOutcome, UiRequest, UiRequestKind, UiResponse};
+use crate::model::{AgentEvent, NoticeLevel, UiOutcome, UiPurpose, UiRequest, UiRequestKind, UiResponse};
 use crate::security::redact_text;
+
+/// The answer OMP's `ask` tool adds to every question (`OTHER_OPTION` in `tools/ask.ts`). A question can
+/// not leave it out and an OMP approval never has it, so it tells them apart when the labels look alike.
+const ASK_OTHER_OPTION: &str = "Other (type your own)";
 
 /// Placement used when a widget does not name one.
 const DEFAULT_WIDGET_PLACEMENT: &str = "aboveEditor";
@@ -29,12 +33,24 @@ pub fn decode_ui_request(frame: &Value) -> Vec<Inbound> {
     let timeout_ms = || unsigned(frame, "timeout");
 
     match method {
-        "select" => dialog(UiRequestKind::Select {
-            title: title(),
-            options: strings(frame, "options"),
-            details: option_details(frame),
-            timeout_ms: timeout_ms(),
-        }),
+        "select" => {
+            let options = strings(frame, "options");
+            let purpose = options
+                .iter()
+                .any(|option| option == ASK_OTHER_OPTION)
+                .then_some(UiPurpose::Question);
+            let kind = UiRequestKind::Select {
+                title: title(),
+                options,
+                details: option_details(frame),
+                timeout_ms: timeout_ms(),
+            };
+
+            vec![Inbound::UiRequest(UiRequest {
+                purpose,
+                ..UiRequest::new(id.clone(), kind)
+            })]
+        }
         "confirm" => dialog(UiRequestKind::Confirm {
             title: title(),
             message: string(frame, "message").unwrap_or_default(),
@@ -126,6 +142,21 @@ pub fn cancelled_response(id: &str) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn select_purpose(options: &[&str]) -> Option<UiPurpose> {
+        let frame = json!({ "id": "1", "method": "select", "title": "Allow tool: bash", "options": options });
+
+        match decode_ui_request(&frame).pop() {
+            Some(Inbound::UiRequest(request)) => request.purpose,
+            _ => panic!("a select is a dialog"),
+        }
+    }
+
+    #[test]
+    fn a_question_from_the_ask_tool_is_never_taken_for_an_approval() {
+        assert_eq!(select_purpose(&["Approve", "Deny", ASK_OTHER_OPTION]), Some(UiPurpose::Question));
+        assert_eq!(select_purpose(&["Approve", "Deny"]), None);
+    }
 
     #[test]
     fn extension_text_reaches_the_desktop_without_terminal_colors() {
