@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { humanToolName, shortSkillOf, skillOf } from './tool-meta';
+import { humanToolName, shortSkillOf, skillApproval, skillOf } from './tool-meta';
 import type { ToolCallState } from './types';
 
 describe('humanToolName', () => {
@@ -36,6 +36,13 @@ describe('skillOf', () => {
   it('reads the argument that harness runs', () => {
     expect(skillOf(call('skill', { skill: 'shown', name: 'runs' }))).toBe('runs');
     expect(skillOf(call('Skill', { skill: 'runs', name: 'shown' }))).toBe('runs');
+  });
+
+  it('shows an approval what the skill is given', () => {
+    const skill = call('Skill', { skill: 'deploy', args: '--env prod --force' });
+
+    expect(skillApproval(skill)).toBe('deploy --env prod --force');
+    expect(shortSkillOf(skill)).toBe('deploy');
   });
 
   it('never gives an empty name', () => {

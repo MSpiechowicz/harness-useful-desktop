@@ -65,8 +65,9 @@ export function pendingDialog(state: ChatState): UiRequest | null {
 }
 
 /**
- * The tool call an approval is about: the one the agent names, else the latest one that has not finished.
- * A named call the transcript does not show (yet) gives null, so the card never shows another call's command.
+ * The tool call an approval is about: the one the agent names, else the only one that has not finished.
+ * A named call the transcript does not show (yet), or several open calls when the agent names none, give null,
+ * so the card never shows another call's command.
  */
 export function approvalSubject(state: ChatState, prompt: Pick<ApprovalPrompt, 'toolCallId'>): ToolCallState | null {
   if (prompt.toolCallId !== null) {
@@ -75,5 +76,5 @@ export function approvalSubject(state: ChatState, prompt: Pick<ApprovalPrompt, '
 
   const open = Object.values(state.toolCalls).filter((call) => call.status === 'running' || call.status === 'pending');
 
-  return open[open.length - 1] ?? null;
+  return open.length === 1 ? open[0] : null;
 }
