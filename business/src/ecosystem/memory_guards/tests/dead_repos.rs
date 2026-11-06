@@ -71,7 +71,13 @@ fn entries() -> Entries {
 
 impl Entries {
     fn dead(&self) -> Vec<String> {
-        let mut dead = vec![self.ghost.clone(), self.spelled.clone(), self.link.clone()];
+        let mut dead = vec![self.ghost.clone(), self.spelled.clone()];
+
+        // Without symbolic links `link` is a plain folder, which names itself.
+        if cfg!(unix) {
+            dead.push(self.link.clone());
+        }
+
         dead.sort();
 
         dead

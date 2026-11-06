@@ -132,7 +132,8 @@ fn changes_made_through_separate_lock_handles_all_apply() {
             std::thread::spawn(move || {
                 for index in 0..10 {
                     let _lock = FileLock::take(&guards, std::time::Duration::from_secs(30)).unwrap();
-                    let patch = add(MemoryGuardKind::Notes, &format!("/gone/{worker}/{index}"));
+                    let gone = data.join("gone").join(format!("{worker}-{index}"));
+                    let patch = add(MemoryGuardKind::Notes, &gone.display().to_string());
                     change::apply(&data, &patch, Some(Pin(None))).unwrap();
                 }
             })
@@ -162,7 +163,8 @@ fn a_lock_held_elsewhere_is_busy_after_the_wait_and_the_file_is_untouched() {
     assert_eq!(fs::read(global_path(&data)).unwrap(), before);
 
     drop(held);
-    update_global(&data, &add(MemoryGuardKind::Notes, "/gone/after")).unwrap();
+    let gone = data.join("gone").join("after");
+    update_global(&data, &add(MemoryGuardKind::Notes, &gone.display().to_string())).unwrap();
 
     #[cfg(unix)]
     assert_eq!(mode(&guards.join("global.lock")), 0o600);
