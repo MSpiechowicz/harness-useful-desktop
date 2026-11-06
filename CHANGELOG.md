@@ -1,3 +1,11 @@
+## [0.60.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.1...v0.60.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **hooks:** retry a failed Harness Code call and assess every PR ([1a39c50](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1a39c500a73f9abcbb30feced1af23853b77910a))
+* **hooks:** skip the PR assessment when the release-assessment setting is off ([7cf2b5f](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7cf2b5f121d0e59aa7353ea86397e80d4d3af600))
+
 ## [0.60.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.0...v0.60.1) (2026-11-06)
 
 
