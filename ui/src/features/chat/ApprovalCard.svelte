@@ -5,7 +5,7 @@
   import Kbd from '$lib/components/Kbd.svelte';
   import { approvalSubject, type ApprovalPrompt } from '$lib/chat/approval';
   import type { ChatSession } from '$lib/chat/session.svelte';
-  import { commandOf, fullPrimaryArg, skillOf, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
+  import { commandOf, fullPrimaryArg, skillApproval, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
   import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
   import { overflowing } from '$lib/utils/overflowing';
@@ -27,7 +27,7 @@
   const Icon = $derived(subject ? TOOL_ICONS[toolKind(subject.name)] : ShieldAlert);
   const command = $derived(subject ? commandOf(subject) : null);
   // Nothing about what is approved is cut off: the command and the argument are shown in full.
-  const argument = $derived(subject ? (skillOf(subject) ?? fullPrimaryArg(subject.args)) : null);
+  const argument = $derived(subject ? (skillApproval(subject) ?? fullPrimaryArg(subject.args)) : null);
   // A Codex ask can be about something else than the command of its card (input for it, or one command it runs): the title
   // then names what is asked, which the command below does not show.
   const asksOther = $derived(command !== null && session.info.harness === 'codex' && !prompt.title.includes(command));

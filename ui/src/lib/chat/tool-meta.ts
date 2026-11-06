@@ -90,6 +90,14 @@ export function skillOf(call: ToolCallState): string | null {
   return typeof named === 'string' && named.trim() !== '' ? named.trim() : null;
 }
 
+/** The skill and the arguments Claude Code passes it, in full, for an approval. */
+export function skillApproval(call: ToolCallState): string | null {
+  const skill = skillOf(call);
+  const args = isJsonObject(call.args) ? call.args.args : null;
+
+  return skill !== null && typeof args === 'string' && args.trim() !== '' ? `${skill} ${args.trim()}` : skill;
+}
+
 /** The same skill for a card line: without its plugin, or the whole name when nothing follows the plugin. */
 export function shortSkillOf(call: ToolCallState): string | null {
   const skill = skillOf(call);
