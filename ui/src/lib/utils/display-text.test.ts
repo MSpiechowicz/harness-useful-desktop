@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { displayText } from './display-text';
+import { displayText, visibleText } from './display-text';
 
 describe('text of another program as it is shown', () => {
   it('drops control, bidi and zero-width characters and trims', () => {
@@ -10,5 +10,11 @@ describe('text of another program as it is shown', () => {
   it('cuts to a number of characters, never in the middle of one', () => {
     expect(displayText('😀😀😀', 2)).toBe('😀😀');
     expect(displayText('abc def', 4)).toBe('abc');
+  });
+});
+
+describe('visibleText', () => {
+  it('drops hidden characters and keeps the lines', () => {
+    expect(visibleText('Allow\u202E tool\u200B:\nline\ttwo\u0007')).toBe('Allow tool:\nline\ttwo');
   });
 });

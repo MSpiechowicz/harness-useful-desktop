@@ -6,6 +6,7 @@
   import { autofocus } from '$lib/a11y/autofocus';
   import { rovingIndex } from '$lib/utils/roving';
   import { t } from '$lib/i18n/i18n.svelte';
+  import { visibleText } from '$lib/utils/display-text';
 
   import Countdown from './Countdown.svelte';
 
@@ -19,12 +20,14 @@
   const kind = $derived(request.kind);
   const timeoutMs = $derived(kind.type === 'editor' ? null : kind.timeoutMs);
 
+  const title = $derived(visibleText(kind.title));
+
   let text = $state('');
   let optionButtons: (HTMLButtonElement | undefined)[] = $state([]);
 
   // Editors and inputs start from what the agent suggested.
   $effect(() => {
-    text = request.kind.type === 'editor' ? (request.kind.prefill ?? '') : '';
+    text = request.kind.type === 'editor' ? visibleText(request.kind.prefill ?? '') : '';
   });
 
   function cancel(): void {
@@ -64,14 +67,18 @@
   }
 </script>
 
-<Dialog open title={kind.title} size={kind.type === 'editor' ? 'lg' : 'md'} onclose={cancel}>
+<Dialog open {title} size={kind.type === 'editor' ? 'lg' : 'md'} onclose={cancel}>
+  {#if request.purpose === 'question'}
+    <p class="mb-3 text-sm text-fg-3" data-agent-asks>{t('chat.request.agentAsks')}</p>
+  {/if}
+
   {#if timeoutMs}
     <div class="mb-3 flex items-center gap-2 text-sm text-fg-3">{t('chat.request.closes')} <Countdown {timeoutMs} requestId={request.id} ontimeout={cancel} /></div>
   {/if}
 
   {#if kind.type === 'select'}
     {@const options = kind.options}
-    <ul class="flex flex-col gap-1.5" aria-label={kind.title}>
+    <ul class="flex flex-col gap-1.5" aria-label={title}>
       {#each options as option, index (index)}
         <li>
           <button
@@ -81,20 +88,22 @@
             onclick={() => pick(option)}
             onkeydown={(event) => onOptionKeydown(event, options, index)}
           >
-            <span class="text-base text-fg"><span class="mr-2 text-fg-3">{index + 1}</span>{option}</span>
-            {#if kind.details[index]}<span class="text-sm text-fg-2">{kind.details[index]}</span>{/if}
+            <span class="text-base text-fg"><span class="mr-2 text-fg-3">{index + 1}</span>{visibleText(option)}</span>
+            {#if kind.details[index]}<span class="text-sm text-fg-2">{visibleText(kind.details[index] ?? '')}</span>{/if}
           </button>
         </li>
       {/each}
     </ul>
   {:else if kind.type === 'confirm'}
-    <p class="text-base break-words whitespace-pre-wrap text-fg-2">{kind.message}</p>
+    <p class="text-base break-words whitespace-pre-wrap text-fg-2">{visibleText(kind.message)}</p>
   {:else if kind.type === 'input'}
     <input
       bind:value={text}
       use:autofocus
-      aria-label={kind.title}
-      placeholder={kind.placeholder ?? ''}
+      aria-label={title}
+      type={request.secret ? 'password' : 'text'}
+      autocomplete="off"
+      placeholder={visibleText(kind.placeholder ?? '')}
       onkeydown={(event) => event.key === 'Enter' && submitText()}
       class="h-control w-full rounded-md border border-line-strong bg-surface-2 px-3 text-base text-fg outline-none focus:border-focus"
     />
@@ -102,7 +111,7 @@
     <textarea
       bind:value={text}
       use:autofocus
-      aria-label={kind.title}
+      aria-label={title}
       rows="12"
       spellcheck="false"
       onkeydown={onEditorKeydown}

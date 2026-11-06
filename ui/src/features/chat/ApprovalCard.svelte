@@ -8,6 +8,7 @@
   import { commandOf, fullPrimaryArg, TOOL_ICONS, toolKind, toolTitle } from '$lib/chat/tool-meta';
   import { t, type MessageKey } from '$lib/i18n/i18n.svelte';
   import type { HarnessId } from '$lib/ipc/bindings/HarnessId';
+  import { visibleText } from '$lib/utils/display-text';
   import { overflowing } from '$lib/utils/overflowing';
 
   import Countdown from './Countdown.svelte';
@@ -38,6 +39,8 @@
   const reading = $derived(readingKey && subject?.intent?.trim() ? t(readingKey, { reading: subject.intent.trim() }) : null);
   // The scrolling title is a tab stop only while it has more to show.
   let titleOverflows = $state(false);
+
+  const title = $derived(visibleText(prompt.title));
 
   function answer(option: string): void {
     void session.respond(prompt.id, { type: 'value', value: option });
@@ -71,15 +74,15 @@
 
       <div class="flex min-w-0 flex-1 flex-col gap-1">
         {#if clampTitle}
-          <h3 class="line-clamp-2 text-base font-semibold break-words whitespace-pre-wrap text-fg" title={prompt.title}>{prompt.title}</h3>
+          <h3 class="line-clamp-2 text-base font-semibold break-words whitespace-pre-wrap text-fg" title={title}>{title}</h3>
         {:else}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -- a scrollable region must be reachable by keyboard -->
-          <h3 class="max-h-48 overflow-y-auto text-base font-semibold break-words whitespace-pre-wrap text-fg" tabindex={titleOverflows ? 0 : undefined} {@attach overflowing(prompt.title, (overflows) => (titleOverflows = overflows))}>{prompt.title}</h3>
+          <h3 class="max-h-48 overflow-y-auto text-base font-semibold break-words whitespace-pre-wrap text-fg" tabindex={titleOverflows ? 0 : undefined} {@attach overflowing(prompt.title, (overflows) => (titleOverflows = overflows))}>{title}</h3>
         {/if}
         {#if subject}
           <p class="text-sm text-fg-2">{reading ?? toolTitle(subject)}{#if argument && !command} · <span class="font-mono break-all">{argument}</span>{/if}</p>
         {/if}
-        {#if prompt.approveDetail}<p class="text-sm text-fg-2">{prompt.approveDetail}</p>{/if}
+        {#if prompt.approveDetail}<p class="text-sm text-fg-2">{visibleText(prompt.approveDetail)}</p>{/if}
       </div>
 
       {#if prompt.timeoutMs}<Countdown timeoutMs={prompt.timeoutMs} requestId={prompt.id} ontimeout={() => answer(prompt.deny)} />{/if}
@@ -89,15 +92,15 @@
 
     <div class="flex flex-wrap items-center gap-2">
       <Button variant="primary" onclick={() => answer(prompt.approve)}>
-        {prompt.approve}
+        {visibleText(prompt.approve)}
         {#snippet trailing()}<Kbd keys="alt+y" />{/snippet}
       </Button>
       <Button variant="danger" onclick={() => answer(prompt.deny)}>
-        {prompt.deny}
+        {visibleText(prompt.deny)}
         {#snippet trailing()}<Kbd keys="alt+n" />{/snippet}
       </Button>
       {#each prompt.others as other (other.option)}
-        <Button onclick={() => answer(other.option)}>{other.option}</Button>
+        <Button onclick={() => answer(other.option)}>{visibleText(other.option)}</Button>
       {/each}
       <span class="ml-auto text-xs text-fg-3"><Kbd keys="escape" /> {t('chat.approvalCard.denies')}</span>
     </div>
