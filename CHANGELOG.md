@@ -1,3 +1,10 @@
+## [0.61.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.61.0...v0.61.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* **hooks:** spell out the note tool arguments agents keep guessing ([a9c055a](https://github.com/MSpiechowicz/harness-useful-desktop/commit/a9c055acb2493b271a25e10e85dd785eddcd71a2))
+
 # [0.61.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.60.3...v0.61.0) (2026-11-06)
 
 
