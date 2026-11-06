@@ -39,6 +39,7 @@ export const chat = {
   'chat.nativeMode.bypassPermissions': 'Bypass permissions',
 
   'chat.approvalCard.label': 'Approval needed',
+  'chat.approvalCard.oneOf': 'One of these calls is asking:',
   'chat.approvalCard.denies': 'denies',
   'chat.approvalCard.readsAs.codex': 'Codex reads this as: {reading}',
 

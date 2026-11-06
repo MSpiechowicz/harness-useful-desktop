@@ -18,6 +18,8 @@ export interface ApprovalPrompt {
   timeoutMs: number | null;
   /** The tool call the agent says this approval is about; null when it does not say. */
   toolCallId: string | null;
+  /** True when the agent marks this as an approval, so one without a tool call is about nothing in this transcript. */
+  marked: boolean;
 }
 
 /** The approval a request asks for; null for any other dialog, and always for a question, whatever its options say. */
@@ -44,6 +46,7 @@ export function asApproval(request: UiRequest): ApprovalPrompt | null {
     others: kind.options.filter((option) => option !== approve && option !== deny).map((option) => ({ option, detail: detailOf(option) })),
     timeoutMs: kind.timeoutMs,
     toolCallId: request.toolCallId ?? null,
+    marked: request.purpose === 'approval',
   };
 }
 
@@ -64,17 +67,27 @@ export function pendingDialog(state: ChatState): UiRequest | null {
   return state.openRequests.find((request) => asApproval(request) === null) ?? null;
 }
 
+/** The tool an OMP approval title names: `Allow tool: bash`. */
+const TITLE_TOOL = /^Allow tool: (\S+)/;
+
 /**
- * The tool call an approval is about: the one the agent names, else the only one that has not finished.
- * A named call the transcript does not show (yet), or several open calls when the agent names none, give null,
- * so the card never shows another call's command.
+ * The tool calls an approval may be about: the one the agent names, else the open calls of the tool its title names,
+ * else every open call. An approval the agent marks but ties to no call (a subagent's) is about none of them, and a
+ * named call the transcript does not show (yet) gives none, so the card never shows another call's command as its own.
  */
-export function approvalSubject(state: ChatState, prompt: Pick<ApprovalPrompt, 'toolCallId'>): ToolCallState | null {
+export function approvalCalls(state: ChatState, prompt: Pick<ApprovalPrompt, 'toolCallId' | 'marked' | 'title'>): ToolCallState[] {
   if (prompt.toolCallId !== null) {
-    return state.toolCalls[prompt.toolCallId] ?? null;
+    const named = state.toolCalls[prompt.toolCallId];
+
+    return named ? [named] : [];
+  }
+
+  if (prompt.marked) {
+    return [];
   }
 
   const open = Object.values(state.toolCalls).filter((call) => call.status === 'running' || call.status === 'pending');
+  const tool = TITLE_TOOL.exec(prompt.title)?.[1];
 
-  return open.length === 1 ? open[0] : null;
+  return tool === undefined ? open : open.filter((call) => call.name === tool);
 }

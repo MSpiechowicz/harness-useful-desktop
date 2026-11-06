@@ -7,8 +7,9 @@ use std::path::Path;
 
 use harness_business::claude_stream::allow_list::{AllowKey, AllowList};
 use harness_business::claude_stream::mapper::{PermissionAsk, Question, QuestionAsk, QuestionOption};
-use harness_business::claude_stream::permissions::Always;
+use harness_business::claude_stream::permissions::{Always, permission_dialog};
 use harness_business::claude_stream::questions::QuestionDialog;
+use harness_business::model::{AgentEvent, UiRequestKind};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
@@ -268,4 +269,40 @@ fn odd_names_protected_tool_files_hard_links_and_review_asks_need_their_own_answ
         std::fs::hard_link(outside.path().join("keys"), project.join("src/keys")).expect("hard link");
         assert!(!list.covers(&write("src/keys")), "a hard link to a file elsewhere");
     }
+}
+
+/// The title of the dialog for `ask`.
+fn dialog_title(ask: &PermissionAsk) -> String {
+    match permission_dialog(ask, Path::new("/work/demo"), None) {
+        AgentEvent::UiRequest { request } => match request.kind {
+            UiRequestKind::Select { title, .. } => title,
+            other => panic!("expected a select, got {other:?}"),
+        },
+        other => panic!("expected a dialog, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_subagent_approval_shows_the_input_of_a_tool_it_does_not_know() {
+    let skill = PermissionAsk {
+        from_subagent: true,
+        description: Some("A harmless skill".to_owned()),
+        ..ask("Skill", json!({ "skill": "deploy", "args": "--env prod --force" }))
+    };
+
+    let title = dialog_title(&skill);
+    assert!(
+        title.contains("deploy") && title.contains("--env prod --force"),
+        "{title}"
+    );
+}
+
+#[test]
+fn a_main_chat_approval_keeps_the_description_of_a_tool_it_does_not_know() {
+    let mcp = PermissionAsk {
+        description: Some("Delete an issue".to_owned()),
+        ..ask("mcp__x__delete", json!({ "id": 1 }))
+    };
+
+    assert!(dialog_title(&mcp).contains("Delete an issue"));
 }

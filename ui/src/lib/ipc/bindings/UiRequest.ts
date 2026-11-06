@@ -21,6 +21,6 @@ kind: UiRequestKind,
 purpose?: UiPurpose, 
 /**
  * The tool call an approval is about, as named in its `toolStart`, when the agent says which
- * (OpenCode). Without it the UI takes the newest unfinished call.
+ * (OpenCode). Without it the UI matches open calls by the tool the title names and never picks among several.
  */
 toolCallId?: string, };
