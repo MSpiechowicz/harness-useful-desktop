@@ -1,3 +1,10 @@
+# [0.64.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.63.0...v0.64.0) (2026-11-07)
+
+
+### Features
+
+* **ecosystem:** match the plan limits card to the dashboard ([7a5f3b0](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7a5f3b00348d1e3cac091186b99bfd453445bade)), closes [#56](https://github.com/MSpiechowicz/harness-useful-desktop/issues/56)
+
 # [0.63.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.62.0...v0.63.0) (2026-11-06)
 
 
