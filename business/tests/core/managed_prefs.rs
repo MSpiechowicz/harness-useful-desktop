@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 use harness_business::env::OsKind;
 use harness_business::error::BusinessError;
 use harness_business::model::{
-    AppPrefs, BinaryOverride, HarnessId, IpcErrorCode, MainBranchChoice, MotionPref, ThemePref, UpdatePolicy,
+    AppPrefs, BinaryOverride, HarnessId, IpcErrorCode, LimitBarsPref, LimitGaugePref, MainBranchChoice, MotionPref,
+    ThemePref, UpdatePolicy,
 };
 use harness_business::prefs::{MAX_MAIN_BRANCHES, PREFS_FILE, PrefsStore};
 use pretty_assertions::assert_eq;
@@ -60,6 +61,9 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         memory_notes_ask_default: true,
         memory_scripts_ask_default: true,
         background_fetch: false,
+        limit_bars: LimitBarsPref::Left,
+        limit_forecast: false,
+        limit_gauge: LimitGaugePref::Battery,
         ..base
     }
 }

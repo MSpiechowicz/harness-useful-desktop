@@ -3,13 +3,14 @@
 //!
 //! [`read_limits`] asks the dashboard for `limits` and `budget_status` (shaped like
 //! `ui/src/lib/dashboard/models.ts` reads them: `windows[]` with `provider`, `window`, `scope`,
-//! `usedPercent`, `resetsAt`, `status`, and `budgets[]` with `scope`, `period`, `project`,
+//! `usedPercent` or, when the dashboard shows the bars as what is left, `leftPercent` instead of it,
+//! `resetsAt`, `status`, and `budgets[]` with `scope`, `period`, `project`,
 //! `capUsd`, `usedPercent`) within [`LIMITS_TIMEOUT`]. [`close_gauges`] picks what is used
 //! [`CLOSE_PERCENT`] or more, [`close_limits`] writes the lines of the step, and [`LimitLevels`] tells
 //! which of them newly crossed a level ([`CLOSE_PERCENT`], then [`NEAR_PERCENT`]) since the chat was
 //! last told. Everything but the reading is pure.
 //!
-//! A window with no `usedPercent` (its reading no longer applies), a stale one or one that has
+//! A window with neither `usedPercent` nor `leftPercent` (its reading no longer applies), a stale one or one that has
 //! reset since the reading says nothing. A chat of a harness whose subscription the data names
 //! ([`providers_of`]) sees that provider's windows only, other harnesses see every window; budgets
 //! have no provider: a budget of no project always shows, one of a project only in a chat of that project.
@@ -247,7 +248,7 @@ fn window_gauge(window: &Value, providers: &[String]) -> Option<Gauge> {
         return None;
     }
 
-    let percent = window.get("usedPercent")?.as_f64()?;
+    let percent = used_percent(window)?;
     let length = text(window, "window").map(window_name).unwrap_or_default();
     let scope = text(window, "scope").map(name).filter(|scope| !scope.is_empty());
 
@@ -269,6 +270,18 @@ fn window_gauge(window: &Value, providers: &[String]) -> Option<Gauge> {
         percent,
         resets_at: text(window, "resetsAt").and_then(|at| at.parse().ok()),
     })
+}
+
+/// How much of a window is used. The dashboard sends `usedPercent`, or `leftPercent` instead of it when the
+/// user shows the bars as what is left: then used is the rest. `null` (no reading) gives `None`.
+fn used_percent(window: &Value) -> Option<f64> {
+    if let Some(used) = window.get("usedPercent").and_then(Value::as_f64) {
+        return Some(used);
+    }
+
+    let left = window.get("leftPercent")?.as_f64()?;
+
+    Some((100.0 - left).clamp(0.0, 100.0))
 }
 
 /// Whether a budget is the chat's to see: it has no project, or its project is the chat's. The dashboard names

@@ -1,5 +1,6 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import type { PanelRange } from '$lib/stores/dashboard.svelte';
+import { ownEntry } from '$lib/utils/own-entry';
 
 /** How each range reads in a sentence. */
 export const RANGE_PHRASE: Record<PanelRange, string> = {
@@ -16,5 +17,5 @@ export const RANGE_PHRASE: Record<PanelRange, string> = {
 
 /** The phrase for the range the data covers (not the one just chosen, while that still loads). */
 export function phraseOf(covered: string | null | undefined, chosen: PanelRange): string {
-  return RANGE_PHRASE[(covered ?? chosen) as PanelRange] ?? RANGE_PHRASE[chosen];
+  return ownEntry(RANGE_PHRASE, covered ?? chosen) ?? RANGE_PHRASE[chosen];
 }

@@ -16,6 +16,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.section.projects': 'Projekty',
   'settings.section.updates': 'Aktualizacje',
   'settings.section.privacy': 'Prywatność i bezpieczeństwo',
+  'settings.section.ecosystem': 'Ekosystem',
   'settings.section.sync': 'Udostępnij konfigurację',
   'settings.section.about': 'O aplikacji',
 
@@ -26,6 +27,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.projects': 'ostatnie foldery git fetch pobieranie zdalne gałąź',
   'settings.keywords.updates': 'wersja aktualizacja nowa wydanie instalacja sprawdź',
   'settings.keywords.privacy': 'dane telemetria diagnostyka wyczyść prywatność',
+  'settings.keywords.ecosystem': 'ekosystem limity planu wskaźnik wykres prognoza zużyte pozostałe',
   'settings.keywords.sync': 'eksport import udostępnianie kopia kod plik rozszerzenia wtyczki pakiety marketplace mcp serwery komputer',
   'settings.keywords.about': 'wersja kompilacja o aplikacji',
 
@@ -42,6 +44,12 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.thinking.description': 'Rozumowanie agenta, zwinięte pod każdą odpowiedzią. Można je też przełączyć w nagłówku czatu.',
   'settings.usage.title': 'Pokazuj koszt pod odpowiedziami',
   'settings.usage.description': 'Model, liczba tokenów i koszt na końcu każdej odpowiedzi. Można je też przełączyć w nagłówku czatu.',
+  'settings.limits.bars.title': 'Limity planu pokazują',
+  'settings.limits.bars.description': 'Pokazuj, ile z każdego limitu zużyto lub ile zostało.',
+  'settings.limits.bars.used': 'Zużyte',
+  'settings.limits.bars.left': 'Pozostałe',
+  'settings.limits.forecast.title': 'Pokazuj prognozę',
+  'settings.limits.forecast.description': 'Rysuje, dokąd zmierza każdy limit do resetu, oraz legendę, która to wyjaśnia.',
   'settings.aiNames.title': 'Nazywaj czaty za pomocą AI',
   'settings.aiNames.description': 'Krótka nazwa i opis każdego czatu, napisane przez agenta czatu zaraz po pierwszej wiadomości.',
   'settings.aiNames.cost': 'Kosztuje jedno bardzo małe zapytanie na czat, na modelu czatu.',

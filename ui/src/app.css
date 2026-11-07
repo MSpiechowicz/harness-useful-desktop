@@ -37,6 +37,7 @@
   --color-danger: var(--danger);
   --color-info: var(--info);
   --color-danger-fill: var(--danger-fill);
+  --color-success-fill: var(--success-fill);
   --color-success-wash: var(--success-wash);
   --color-warning-wash: var(--warning-wash);
   --color-danger-wash: var(--danger-wash);
@@ -58,6 +59,7 @@
   --font-sans: var(--font-ui);
   --font-mono: var(--font-code);
 
+  --text-2xs: 11px;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-base: 14px;

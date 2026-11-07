@@ -22,8 +22,8 @@
     onchange: (value: V) => void;
     /** Names what the button filters ("When"), so it reads "When: All". The button then shows the filter on, and a clear x when it narrows the list. */
     prefix?: string;
-    /** The icon of the button whatever is chosen; by default the chosen option's own icon, or a filter funnel. */
-    icon?: IconComponent;
+    /** The icon of the button whatever is chosen; by default the chosen option's own icon, or a filter funnel. `null` draws none, for a plain dropdown. */
+    icon?: IconComponent | null;
     /** Takes the filter back to the first option; given with `prefix`, it puts the clear x in the button. */
     onclear?: () => void;
     /** The accessible name of the clear x, e.g. "Clear the When filter". */
@@ -36,6 +36,10 @@
     search?: MenuSearchTexts;
     /** Makes it a menu of actions instead of a filter: the button says what choosing does ("Link a repository") and shows no chosen value, and the choices are plain items that `onchange` is told of. `value` is then unused. */
     action?: { label: string; icon: IconComponent };
+    /** Keeps the button one width whatever is chosen: every label is stacked in one cell, so the longest sets the width and picking another shifts nothing beside it. */
+    steady?: boolean;
+    /** The button fills the width it is given, its label at the start and the chevron at the end, and the menu matches it in width and text size. */
+    fill?: boolean;
     /** Which side of the button the menu opens on; `auto` for a button inside a scrolling form or dialog, which would cut the menu off. */
     side?: 'top' | 'bottom' | 'auto';
     /** Turns an action menu off: its button cannot be pressed. The caller says why next to it. */
@@ -44,20 +48,37 @@
     describedby?: string;
   }
 
-  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false, search, action, side = 'bottom', disabled = false, describedby }: Props = $props();
+  let { label, options, value, onchange, prefix, icon, onclear, clearLabel, align = 'end', wide = false, search, action, steady = false, fill = false, side = 'bottom', disabled = false, describedby }: Props = $props();
 
   const reasonId = uid('filter-reason');
   let needle = $state('');
   const shown = $derived(matchOptions(options, needle));
 
   const current = $derived(options.find((option) => option.value === value) ?? options[0]);
-  const TriggerIcon = $derived(icon ?? current?.icon ?? ListFilter);
+  const TriggerIcon = $derived(icon === null ? null : (icon ?? current?.icon ?? ListFilter));
   const narrowing = $derived(options.length > 0 && value !== options[0].value);
   const counted = $derived(options.some((option) => option.count !== undefined));
 </script>
 
-<!-- A filter picks from a few ready-made choices; typing is for search. -->
-<Popover {label} kind="menu" {align} {side} matchTrigger={!action} class={cx('min-w-0!', search ? 'w-72' : counted || wide ? 'w-60' : 'w-48')}>
+<!-- The chosen label. A steady button stacks all of them in one cell and shows only the chosen one. -->
+{#snippet chosen()}
+  {#if steady}
+    <span class="inline-grid min-w-0 align-bottom">
+      {#each options as option (option.value)}
+        <span class={cx('truncate text-left [grid-area:1/1]', option.value !== current.value && 'invisible')} aria-hidden="true">{option.label}</span>
+      {/each}
+    </span>
+  {:else}
+    {current.label}
+  {/if}
+{/snippet}
+
+{#snippet triggerIcon()}
+  {#if TriggerIcon}<TriggerIcon size={ICON.sm} aria-hidden="true" />{/if}
+{/snippet}
+
+<!-- A filter picks from a few ready-made choices; typing is for search. Its button does not shrink when pressed, unlike an action's. -->
+<Popover {label} kind="menu" {align} {side} matchTrigger={!action} rootClass={fill ? 'w-full' : undefined} class={cx('min-w-0!', fill ? 'w-full' : search ? 'w-72' : counted || wide ? 'w-60' : 'w-48')}>
   {#snippet trigger({ props, open })}
     {#if action}
       <!-- Off but still focusable (aria-disabled), so a keyboard or screen-reader user reaches the button and hears why. -->
@@ -83,10 +104,10 @@
           {...props}
           type="button"
           aria-label={`${prefix}: ${current.label}`}
-          class="inline-flex h-full items-center gap-2 rounded-md pr-2.5 pl-3 text-base font-medium whitespace-nowrap text-fg transition-transform duration-[var(--dur-fast)] ease-[var(--ease-out-expo)] active:scale-[0.97]"
+          class="inline-flex h-full items-center gap-2 rounded-md pr-2.5 pl-3 text-base font-medium whitespace-nowrap text-fg"
         >
-          <TriggerIcon size={ICON.sm} class="text-fg-3" aria-hidden="true" />
-          <span><span class={narrowing ? 'font-normal text-fg-2' : 'font-normal text-fg-3'}>{prefix}:</span> <span class={narrowing ? 'text-accent-text' : undefined}>{current.label}</span></span>
+          {#if TriggerIcon}<TriggerIcon size={ICON.sm} class="text-fg-3" aria-hidden="true" />{/if}
+          <span><span class={narrowing ? 'font-normal text-fg-2' : 'font-normal text-fg-3'}>{prefix}:</span> <span class={narrowing ? 'text-accent-text' : undefined}>{@render chosen()}</span></span>
           <ChevronDown size={ICON.sm} class={cx('text-fg-3 transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-expo)]', open && 'rotate-180')} aria-hidden="true" />
         </button>
 
@@ -102,9 +123,8 @@
         {/if}
       </div>
     {:else}
-      <Button {...props} aria-label={`${label}: ${current.label}`}>
-        {#snippet leading()}<TriggerIcon size={ICON.sm} aria-hidden="true" />{/snippet}
-        {current.label}
+      <Button {...props} aria-label={`${label}: ${current.label}`} leading={TriggerIcon ? triggerIcon : undefined} class={cx('active:scale-100!', fill && 'w-full justify-between!')}>
+        {@render chosen()}
         {#snippet trailing()}<ChevronDown size={ICON.sm} aria-hidden="true" />{/snippet}
       </Button>
     {/if}
@@ -122,7 +142,8 @@
           aria-describedby={why ? `${reasonId}-${index}` : undefined}
           data-menu-item=""
           class={cx(
-            'flex items-center justify-between gap-2 rounded-sm px-2.5 py-2 text-left text-sm transition-colors duration-[var(--dur-fast)] hover:bg-hover focus-visible:bg-hover',
+            'flex items-center justify-between gap-2 rounded-sm px-2.5 py-2 text-left transition-colors duration-[var(--dur-fast)] hover:bg-hover focus-visible:bg-hover',
+            fill ? 'text-base' : 'text-sm',
             option.value === value ? 'text-fg' : 'text-fg-2',
             option.disabled && 'cursor-not-allowed hover:bg-transparent',
             option.disabled && !why && 'opacity-50',

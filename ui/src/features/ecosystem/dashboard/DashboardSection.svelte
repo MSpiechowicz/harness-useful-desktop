@@ -18,8 +18,6 @@
 
   const availability = $derived(dashboard.availability);
   const item = $derived(ecosystem.status?.items.find((candidate) => candidate.id === 'dashboard'));
-  // The hero's spinner speaks for the whole page until the family is read.
-  const familyPending = $derived(ecosystem.status === null && ecosystem.state !== 'error');
 
   async function recheck(): Promise<void> {
     if (checking) {
@@ -45,11 +43,7 @@
 </script>
 
 {#if availability === null}
-  {#if familyPending}
-    <div class="h-56"></div>
-  {:else}
-    <LoadingSpinner label={t('ecosystem.section.checking')} class="h-56" />
-  {/if}
+  <LoadingSpinner label={t('ecosystem.section.checking')} class="h-56" />
 {:else if availability.type === 'notInstalled'}
   <DashboardInstallCard {item} />
 {:else if availability.type === 'failed'}

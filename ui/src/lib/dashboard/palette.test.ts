@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { modelMaker } from './maker';
-import { LIMIT_COLORS, generalPool, limitFill, limitInk, makerModelHex, modelShade, poolHex, providerHex } from './palette';
+import { generalPool, makerModelHex, modelShade, poolHex, providerHex } from './palette';
 
 describe('dashboard palette', () => {
   it('gives each harness the color the dashboard gives it, per theme', () => {
@@ -14,14 +14,6 @@ describe('dashboard palette', () => {
   it('draws a provider without a color of its own in the neutral gray', () => {
     expect(providerHex('xai', 'light')).toBe('#b5b3ab');
     expect(providerHex('xai', 'dark')).toBe('#5f5e59');
-  });
-
-  it('keeps the provider color while plenty is left, then warns', () => {
-    expect(limitFill('ok', 'claude', 'light')).toBe('#de602c');
-    expect(limitFill('low', 'claude', 'light')).toBe(LIMIT_COLORS.serious.light);
-    expect(limitFill('critical', 'claude', 'dark')).toBe(LIMIT_COLORS.critical.dark);
-    expect(limitInk('low', 'dark')).toBe('#e0a23a');
-    expect(limitInk('critical', 'light')).toBe('#b42323');
   });
 });
 

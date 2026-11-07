@@ -20,14 +20,14 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Shows the view with these commands not answering until the returned function is called. */
-function showHolding(held: CommandName[]): () => void {
+/** Shows the view with the matching commands not answering until the returned function is called. */
+function showHolding(held: (name: CommandName, args: { query?: { tool?: string } }) => boolean): () => void {
   const { spy } = freshBackend();
   const real = spy.getMockImplementation() as typeof ipc.invoke;
   let release: () => void = () => {};
   const gate = new Promise<void>((resolve) => (release = resolve));
 
-  spy.mockImplementation(((name: CommandName, args: never) => (held.includes(name) ? gate.then(() => real(name as never, args)) : real(name as never, args))) as typeof ipc.invoke);
+  spy.mockImplementation(((name: CommandName, args: never) => (held(name, args ?? {}) ? gate.then(() => real(name as never, args)) : real(name as never, args))) as typeof ipc.invoke);
   render(EcosystemView);
 
   return release;
@@ -38,34 +38,45 @@ function spinners(): (string | null)[] {
 }
 
 describe('Ecosystem view while it loads', () => {
-  it('shows one spinner, in the diagram, until the family is read', async () => {
-    showHolding(['ecosystem_status', 'dashboard_availability', 'dashboard_query']);
+  const SPINNER = ['Looking for the Harness family'];
 
-    await waitFor(() => expect(spinners()).toEqual(['Looking for the Harness family']));
-  });
-
-  it('keeps that one spinner when the dashboard answers before the family', async () => {
-    showHolding(['ecosystem_status', 'dashboard_query']);
-
-    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: PANEL_TITLE })).toBeInTheDocument());
-    expect(spinners()).toEqual(['Looking for the Harness family']);
-  });
-
-  it('moves to the dashboard check once the family is read', async () => {
-    showHolding(['dashboard_availability', 'dashboard_query']);
-
-    await waitFor(() => expect(spinners()).toEqual(['Checking the dashboard']));
-  });
-
-  it('shows one spinner for the panel, not one per card, until its first answer', async () => {
-    const release = showHolding(['dashboard_query']);
-
-    await waitFor(() => expect(spinners()).toEqual(['Loading usage']));
+  function nothingShown(): void {
+    expect(screen.queryByRole('heading', { level: 2, name: PANEL_TITLE })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Family' })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3, name: 'Where the spend goes' })).not.toBeInTheDocument();
+  }
+
+  it('shows one spinner for the whole view while nothing has answered', async () => {
+    showHolding((name) => name === 'ecosystem_status' || name === 'dashboard_availability' || name === 'dashboard_query');
+
+    await waitFor(() => expect(spinners()).toEqual(SPINNER));
+    nothingShown();
+  });
+
+  it('keeps that spinner when the dashboard answers before the family', async () => {
+    const release = showHolding((name) => name === 'ecosystem_status');
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(spinners()).toEqual(SPINNER);
+    nothingShown();
+
+    release();
+    await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: 'Where the spend goes' })).toBeInTheDocument());
+    expect(spinners()).toEqual([]);
+  });
+
+  it('keeps that spinner while a single card has not answered, then shows everything together', async () => {
+    const release = showHolding((name, args) => name === 'dashboard_query' && args.query?.tool === 'limits');
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(spinners()).toEqual(SPINNER);
+    nothingShown();
 
     release();
 
-    await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: 'Where the spend goes' })).toBeInTheDocument());
-    await waitFor(() => expect(spinners()).toEqual([]));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: 'Plan limits' })).toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 3, name: 'Where the spend goes' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: PANEL_TITLE })).toBeInTheDocument();
+    expect(spinners()).toEqual([]);
   });
 });

@@ -65,6 +65,8 @@
   --danger: #f87171;
   --info: #79b8ff;
   --danger-fill: #c9302c;
+  /* The same green in both themes, like the danger fill: white text on it stays above 4.5:1 (the success text color is lighter in the dark theme). */
+  --success-fill: #0a7058;
   --success-wash: rgb(45 212 168 / 0.12);
   --warning-wash: rgb(242 184 75 / 0.12);
   --danger-wash: rgb(248 113 113 / 0.12);
@@ -279,6 +281,28 @@
   --kernel-badge-out: -6px;
   /* A data blip is this big. */
   --kernel-blip: 6px;
+  /* Plan limits (the Ecosystem card): the status chip under a gauge, its width the longest text in any language ("Épuisé mer. 04:37"), one set for a row of them,
+     and a narrower one when four or more gauges share a row. */
+  --limit-chip-w: 116px;
+  --limit-chip-w-dense: 95px;
+  /* The bars: the height of a block row, a thinner one for four or more limits, the gap and rounding of a block, and the narrowest a column of bars gets
+     before the next one wraps under it (wider when four or more share a one-line header). */
+  --limit-bar-h: 10px;
+  --limit-bar-h-small: 7px;
+  --limit-block-gap: 2px;
+  --limit-block-radius: 2px;
+  --limit-bars-col: 240px;
+  --limit-bars-col-dense: 300px;
+  /* The key to the gauges: a short bar in the gauge's color, solid or pale. */
+  --limit-swatch-w: 16px;
+  --limit-swatch-h: 4px;
+  /* A lone limit: the room between its gauge and its details. */
+  --limit-solo-gap: 22px;
+  /* The line above the gauges (the stale note and the key): its height. */
+  --limit-head-h: 20px;
+  /* The card's charts: one height for every style and provider, as tall as three limits in the tallest style. More scroll inside it. */
+  --limit-body-h: 204px;
+  --limit-head-gap: 14px;
   --gutter: 24px;
   --chat-measure: 880px;
   --chat-col: calc(var(--chat-measure) + 2 * var(--gutter));
@@ -300,5 +324,5 @@
  *              multi-row cards and lists lg, dialogs xl. Chat windows use md (`chat-radius`),
  *              including single-line tool rows, so they match the composer.
  *   elevation  raised / float / pop (shadow-raised / shadow-float / shadow-pop)
- *   text       12 / 13 / 14 / 16 / 20 / 24 / 32 px
+ *   text       11 / 12 / 13 / 14 / 16 / 20 / 24 / 32 px
  */

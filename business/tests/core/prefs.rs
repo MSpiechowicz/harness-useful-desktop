@@ -14,7 +14,7 @@ fn abs(name: &str) -> String {
     PathBuf::from(root).join(name).to_string_lossy().into_owned()
 }
 
-fn file_names(dir: &std::path::Path) -> Vec<String> {
+pub(super) fn file_names(dir: &std::path::Path) -> Vec<String> {
     let mut names: Vec<String> = fs::read_dir(dir)
         .unwrap()
         .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
@@ -36,7 +36,7 @@ fn unusable_defaults() -> AppPrefs {
 }
 
 /// Loads a `prefs.json` holding `json` (an older file, so possibly without `autoRefreshCatalogs`).
-fn load_file(json: &str) -> AppPrefs {
+pub(super) fn load_file(json: &str) -> AppPrefs {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join(PREFS_FILE), json).unwrap();
 

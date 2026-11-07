@@ -175,8 +175,8 @@ pub use memory_scripts::{
     ScriptReviewCounts, ScriptScope, ScriptSort, ScriptSummary, ScriptTrustItem,
 };
 pub use prefs::{
-    AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, MainBranchChoice, MotionPref, ThemePref,
-    UpdatePolicy,
+    AppPrefs, BinaryOverride, ChatDefaults, DEFAULT_LANGUAGE, LANGUAGES, LimitBarsPref, LimitGaugePref,
+    MainBranchChoice, MotionPref, ThemePref, UpdatePolicy,
 };
 pub use project::{ProjectInfo, ProjectScope};
 pub use review::{

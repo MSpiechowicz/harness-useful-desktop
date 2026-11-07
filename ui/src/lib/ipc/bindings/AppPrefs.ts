@@ -2,6 +2,8 @@
 import type { BinaryOverride } from "./BinaryOverride";
 import type { ChatDefaults } from "./ChatDefaults";
 import type { HarnessId } from "./HarnessId";
+import type { LimitBarsPref } from "./LimitBarsPref";
+import type { LimitGaugePref } from "./LimitGaugePref";
 import type { MainBranchChoice } from "./MainBranchChoice";
 import type { MotionPref } from "./MotionPref";
 import type { ThemePref } from "./ThemePref";
@@ -191,6 +193,21 @@ memoryScriptsAskDefault: boolean,
  * the window is visible, default on). Off: git only reaches the network when a button is clicked.
  */
 backgroundFetch: boolean, 
+/**
+ * Whether the plan limit bars show what is used or what is left (default used).
+ * Any other stored value loads as the default instead of making the file unusable.
+ */
+limitBars: LimitBarsPref, 
+/**
+ * Whether the plan limits show the forecast of when a limit runs out (default on). Only a
+ * stored `false` hides it: any other value loads as on.
+ */
+limitForecast: boolean, 
+/**
+ * How the plan limits are drawn (default bars).
+ * Any other stored value loads as the default instead of making the file unusable.
+ */
+limitGauge: LimitGaugePref, 
 /**
  * The main branch picked per project (at most one entry per project). Server-managed: only
  * `git_set_main_branch` changes it.

@@ -8,10 +8,15 @@ import type { Handlers } from './types';
 
 type EcosystemCommands = 'ecosystem_status' | 'dashboard_availability' | 'dashboard_query';
 
-/** Browser-preview switches: `?dashboard=missing|failed|slow` and `?ecosystem=failed`. */
+/**
+ * Browser-preview switches: `?dashboard=missing|failed|slow`, `?ecosystem=failed` and `?limits=left|dense`.
+ * `left` sends the plan limits the way the dashboard does when its own setting counts down (`leftPercent`), `dense` adds
+ * windows until a plan has five. Without `limits` they are as recorded.
+ */
 export interface EcosystemSwitches {
   dashboard: 'ok' | 'missing' | 'failed' | 'slow';
   ecosystem: 'ok' | 'failed';
+  limits?: 'left' | 'dense';
 }
 
 const SLOW_MS = 1800;
@@ -36,10 +41,12 @@ export function readSwitches(search: string = globalThis.location?.search ?? '')
   const params = new URLSearchParams(search);
   const dashboard = params.get('dashboard');
   const ecosystem = params.get('ecosystem');
+  const limits = params.get('limits');
 
   return {
     dashboard: dashboard === 'missing' || dashboard === 'failed' || dashboard === 'slow' ? dashboard : 'ok',
     ecosystem: ecosystem === 'failed' ? 'failed' : 'ok',
+    limits: limits === 'left' || limits === 'dense' ? limits : undefined,
   };
 }
 
@@ -142,11 +149,36 @@ function branchCost(args: Record<string, JsonValue>): DashboardResult {
 /** When the limits sample was taken; its reset times are moved so they stay ahead of the real clock. */
 const LIMITS_SAMPLED_AT = Date.parse('2026-10-09T12:30:00Z');
 
-function limits(): DashboardResult {
+/** Windows added by `?limits=dense`, so one plan has five: a daily one close to its end and one with no length to measure a pace against. */
+const EXTRA_WINDOWS: Record<string, JsonValue>[] = [
+  { provider: 'claude', plan: 'max', window: '1d', usedPercent: 92, resetsAt: '2026-10-09T18:00:00.000Z', observedAt: '2026-10-09T12:27:00.000Z', ageMinutes: 3, status: 'fresh' },
+  { provider: 'claude', plan: 'max', window: 'monthly', usedPercent: 33.4, resetsAt: '2026-10-31T00:00:00.000Z', observedAt: '2026-10-09T12:27:00.000Z', ageMinutes: 3, status: 'fresh' },
+];
+
+/** What the dashboard sends when its own setting counts down: the share left in place of the share used. */
+function countDown(window: Record<string, JsonValue>): void {
+  const used = window.usedPercent;
+
+  if (typeof used === 'number') {
+    delete window.usedPercent;
+    window.leftPercent = Math.round((100 - used) * 10) / 10;
+  }
+}
+
+function limits(variant: EcosystemSwitches['limits']): DashboardResult {
   const result = fixtureOf(samples.limits);
   const shift = Date.now() - LIMITS_SAMPLED_AT;
+  const data = dataOf(result);
 
-  for (const window of dataOf(result).windows as Record<string, JsonValue>[]) {
+  if (variant === 'dense') {
+    data.windows = [...(data.windows as Record<string, JsonValue>[]), ...structuredClone(EXTRA_WINDOWS)];
+  }
+
+  for (const window of data.windows as Record<string, JsonValue>[]) {
+    if (variant === 'left') {
+      countDown(window);
+    }
+
     for (const key of ['resetsAt', 'observedAt']) {
       const value = window[key];
 
@@ -159,12 +191,12 @@ function limits(): DashboardResult {
   return result;
 }
 
-const READERS: Record<DashboardTool, (args: Record<string, JsonValue>) => DashboardResult> = {
+const READERS: Record<DashboardTool, (args: Record<string, JsonValue>, switches: EcosystemSwitches) => DashboardResult> = {
   usageSummary: usage,
   breakdown,
   sessionCost,
   branchCost,
-  limits,
+  limits: (_, switches) => limits(switches.limits),
   budgetStatus: () => fixtureOf(samples.budgetStatus),
   failures: (args) => {
     const result = fixtureOf(samples.failures);
@@ -225,7 +257,7 @@ export function ecosystemHandlers(switches: EcosystemSwitches = readSwitches()):
         await delay(SLOW_MS / 2);
       }
 
-      return READERS[query.tool](argsOf(query.tool, query.args));
+      return READERS[query.tool](argsOf(query.tool, query.args), switches);
     },
   };
 }

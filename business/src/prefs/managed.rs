@@ -140,6 +140,9 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         memory_notes_ask_default,
         memory_scripts_ask_default,
         background_fetch,
+        limit_bars,
+        limit_forecast,
+        limit_gauge,
         // Server-managed: kept from `stored`.
         active_project: _,
         recent_projects: _,
@@ -179,6 +182,9 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         memory_notes_ask_default,
         memory_scripts_ask_default,
         background_fetch,
+        limit_bars,
+        limit_forecast,
+        limit_gauge,
         ..stored
     }
 }

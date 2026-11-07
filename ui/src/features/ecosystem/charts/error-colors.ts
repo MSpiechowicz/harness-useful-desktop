@@ -1,4 +1,5 @@
 import { theme } from '$lib/stores/theme.svelte';
+import { ownEntry } from '$lib/utils/own-entry';
 
 interface Pair {
   light: string;
@@ -26,5 +27,5 @@ const OTHER: Pair = { light: '#b5b3ab', dark: '#5f5e59' };
 
 /** The color of failure cause `cause`; unknown causes and the folded rest are gray. */
 export function causeColor(cause: string | null): string {
-  return (cause ? (CAUSE_COLORS[cause] ?? OTHER) : OTHER)[theme.resolved];
+  return (cause ? (ownEntry(CAUSE_COLORS, cause) ?? OTHER) : OTHER)[theme.resolved];
 }

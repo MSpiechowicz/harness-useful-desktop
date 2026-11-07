@@ -17,6 +17,7 @@
   import LangPicker from '$lib/components/LangPicker.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { LimitBarsPref } from '$lib/ipc/bindings/LimitBarsPref';
   import type { MotionPref } from '$lib/ipc/bindings/MotionPref';
   import type { ThemePref } from '$lib/ipc/bindings/ThemePref';
   import { motion } from '$lib/stores/motion.svelte';
@@ -61,6 +62,20 @@
         return t('settings.theme.light');
       },
       icon: Sun,
+    },
+  ];
+  const LIMIT_BARS_OPTIONS: StripOption<LimitBarsPref>[] = [
+    {
+      value: 'used',
+      get label() {
+        return t('settings.limits.bars.used');
+      },
+    },
+    {
+      value: 'left',
+      get label() {
+        return t('settings.limits.bars.left');
+      },
     },
   ];
   const MOTION_OPTIONS: StripOption<MotionPref>[] = [
@@ -286,6 +301,24 @@
           <KnowledgeSection id="knowledge" />
 
           <CodeSection id="code" />
+
+          <SettingsSection id="ecosystem" title={t('settings.section.ecosystem')}>
+            <SettingRow title={t('settings.limits.bars.title')} description={t('settings.limits.bars.description')}>
+              {#snippet control()}
+                <SegmentedControl
+                  label={t('settings.limits.bars.title')}
+                  options={LIMIT_BARS_OPTIONS}
+                  bind:value={() => prefs.value?.limitBars ?? 'used', (limitBars) => void prefs.update({ limitBars })}
+                />
+              {/snippet}
+            </SettingRow>
+
+            <SettingRow title={t('settings.limits.forecast.title')} description={t('settings.limits.forecast.description')}>
+              {#snippet control()}
+                <Switch label={t('settings.limits.forecast.title')} bind:checked={() => prefs.value?.limitForecast ?? true, (limitForecast) => void prefs.update({ limitForecast })} />
+              {/snippet}
+            </SettingRow>
+          </SettingsSection>
 
           <SyncSection id="sync" />
 

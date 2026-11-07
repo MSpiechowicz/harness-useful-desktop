@@ -16,6 +16,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.section.projects': 'Projekte',
   'settings.section.updates': 'Updates',
   'settings.section.privacy': 'Datenschutz & Sicherheit',
+  'settings.section.ecosystem': 'Ökosystem',
   'settings.section.sync': 'Setup teilen',
   'settings.section.about': 'Info',
 
@@ -26,6 +27,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.projects': 'zuletzt geöffnet ordner git fetch abrufen remote branch',
   'settings.keywords.updates': 'version update aktualisierung release installieren suchen neu',
   'settings.keywords.privacy': 'daten telemetrie diagnose löschen datenschutz',
+  'settings.keywords.ecosystem': 'ökosystem plan-limits anzeige diagramm prognose verbraucht übrig',
   'settings.keywords.sync': 'export import teilen sichern kopieren code datei erweiterungen plugins pakete marktplätze mcp server rechner',
   'settings.keywords.about': 'version build info',
 
@@ -42,6 +44,12 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.thinking.description': 'Die Überlegungen des Agenten, unter jeder Antwort eingeklappt. Lässt sich auch im Chat-Kopf umschalten.',
   'settings.usage.title': 'Kosten unter Antworten anzeigen',
   'settings.usage.description': 'Modell, Tokenanzahl und Kosten am Ende jeder Antwort. Lässt sich auch im Chat-Kopf umschalten.',
+  'settings.limits.bars.title': 'Plan-Limits zeigen',
+  'settings.limits.bars.description': 'Zeigt, wie viel von jedem Limit verbraucht oder wie viel übrig ist.',
+  'settings.limits.bars.used': 'Verbraucht',
+  'settings.limits.bars.left': 'Übrig',
+  'settings.limits.forecast.title': 'Prognose anzeigen',
+  'settings.limits.forecast.description': 'Zeigt, wohin jedes Limit bis zum Reset läuft, und die Legende dazu.',
   'settings.aiNames.title': 'Chats mit KI benennen',
   'settings.aiNames.description': 'Ein kurzer Name und eine Beschreibung für jeden Chat, geschrieben vom Agenten des Chats direkt nach Ihrer ersten Nachricht.',
   'settings.aiNames.cost': 'Kostet eine sehr kleine Anfrage pro Chat, mit dem Modell des Chats.',

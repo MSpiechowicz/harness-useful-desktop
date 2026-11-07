@@ -55,6 +55,9 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "memoryNotesAskDefault": false,
             "memoryScriptsAskDefault": false,
             "backgroundFetch": true,
+            "limitBars": "used",
+            "limitForecast": true,
+            "limitGauge": "bars",
             "mainBranches": []
         })
     );

@@ -16,6 +16,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.section.projects': 'Projets',
   'settings.section.updates': 'Mises à jour',
   'settings.section.privacy': 'Confidentialité et sécurité',
+  'settings.section.ecosystem': 'Écosystème',
   'settings.section.sync': 'Partager la configuration',
   'settings.section.about': 'À propos',
 
@@ -26,6 +27,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.projects': 'récents dossiers git fetch récupérer distant branche',
   'settings.keywords.updates': 'version mise à jour release installer rechercher nouvelle',
   'settings.keywords.privacy': 'données télémétrie diagnostic effacer confidentialité',
+  'settings.keywords.ecosystem': 'écosystème limites du forfait jauge graphique prévision utilisé restant',
   'settings.keywords.sync': 'exporter importer partager sauvegarde copier code fichier extensions plugins paquets marketplaces mcp serveurs machine',
   'settings.keywords.about': 'version build à propos',
 
@@ -42,6 +44,12 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.thinking.description': 'Le raisonnement de l’agent, replié sous chaque réponse. Peut aussi être activé depuis l’en-tête du chat.',
   'settings.usage.title': 'Afficher le coût sous les réponses',
   'settings.usage.description': 'Le modèle, le nombre de jetons et le coût à la fin de chaque réponse. Peut aussi être activé depuis l’en-tête du chat.',
+  'settings.limits.bars.title': 'Les limites du forfait affichent',
+  'settings.limits.bars.description': 'Affiche la part utilisée de chaque limite ou ce qu’il en reste.',
+  'settings.limits.bars.used': 'Utilisé',
+  'settings.limits.bars.left': 'Restant',
+  'settings.limits.forecast.title': 'Afficher la prévision',
+  'settings.limits.forecast.description': 'Trace où va chaque limite d’ici la réinitialisation, avec la légende qui l’explique.',
   'settings.aiNames.title': 'Nommer les chats avec l’IA',
   'settings.aiNames.description': 'Un nom et une description courts pour chaque chat, écrits par l’agent du chat juste après votre premier message.',
   'settings.aiNames.cost': 'Coûte une très petite requête par chat, sur le modèle du chat.',

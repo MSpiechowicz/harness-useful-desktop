@@ -81,6 +81,40 @@ fn only_windows_used_80_percent_or_more_are_close_fullest_first_and_at_most_thre
     );
 }
 
+/// `window` as the dashboard sends it when its bars show what is left: `leftPercent` instead of `usedPercent`.
+fn left_window(provider: &str, window_length: &str, left: Value) -> Value {
+    let mut window = window(provider, window_length, Value::Null);
+    let fields = window.as_object_mut().unwrap();
+
+    fields.remove("usedPercent");
+    fields.insert("leftPercent".to_owned(), left);
+
+    window
+}
+
+#[test]
+fn a_window_that_reports_what_is_left_counts_as_used_the_rest() {
+    let reading = reading(
+        vec![
+            left_window("claude", "5h", json!(14)),
+            left_window("claude", "7d", json!(20.1)),
+            left_window("claude", "1d", json!(-3)),
+            left_window("codex", "3d", json!(null)),
+        ],
+        Vec::new(),
+    );
+
+    let every = ["claude", "codex"].map(str::to_owned);
+
+    assert_eq!(
+        lines(&reading, &every),
+        [
+            "Close to a limit: Claude daily window 100% used, resets 14:00 UTC.",
+            "Close to a limit: Claude 5-hour window 86% used, resets 14:00 UTC.",
+        ]
+    );
+}
+
 #[test]
 fn nothing_close_says_nothing() {
     let reading = reading(vec![window("claude", "5h", json!(40))], Vec::new());

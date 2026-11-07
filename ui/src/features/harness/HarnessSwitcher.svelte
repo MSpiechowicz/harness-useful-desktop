@@ -20,7 +20,7 @@
 {#if switchable && current}
   <Popover label={t('harness.switcher.label')} kind="menu" align="end" class="w-60 min-w-0!">
     {#snippet trigger({ props })}
-      <Button {...props} aria-label={`${t('harness.switcher.label')} (${current.info.shortName})`}>
+      <Button {...props} class="active:scale-100!" aria-label={`${t('harness.switcher.label')} (${current.info.shortName})`}>
         {#snippet leading()}<HarnessBadge info={current.info} size="xs" />{/snippet}
         {current.info.shortName}
         {#snippet trailing()}<ChevronDown size={ICON.sm} aria-hidden="true" />{/snippet}

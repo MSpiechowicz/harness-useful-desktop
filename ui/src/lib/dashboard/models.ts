@@ -172,12 +172,27 @@ export interface LimitWindow {
   window: string;
   /** A sub-limit within the window, e.g. one model family's own cap; null for the plan-wide limit. */
   scope: string | null;
-  /** 0..100, or null when the last reading no longer applies. */
+  /** 0..100, or null when the window has reset since the reading: it is whole again. */
   usedPercent: number | null;
   resetsAt: string | null;
   /** Minutes since the dashboard recorded this reading; null when it did not say. */
   ageMinutes: number | null;
   status: string;
+}
+
+/**
+ * The share of a window that is used. The dashboard's MCP writes `leftPercent` instead of `usedPercent` when its own
+ * setting counts down, so a reading in either shape draws the same whatever this app's Used/Left setting is.
+ */
+function usedPercentOf(window: Json): number | null {
+  const used = number(window, 'usedPercent');
+  if (used !== null) {
+    return used;
+  }
+
+  const left = number(window, 'leftPercent');
+
+  return left === null ? null : Math.max(0, Math.min(100, 100 - left));
 }
 
 export function readLimits(result: DashboardResult): LimitWindow[] {
@@ -188,7 +203,7 @@ export function readLimits(result: DashboardResult): LimitWindow[] {
     plan: text(window, 'plan'),
     window: text(window, 'window') ?? '',
     scope: text(window, 'scope'),
-    usedPercent: number(window, 'usedPercent'),
+    usedPercent: usedPercentOf(window),
     resetsAt: text(window, 'resetsAt'),
     ageMinutes: number(window, 'ageMinutes'),
     status: text(window, 'status') ?? 'unknown',

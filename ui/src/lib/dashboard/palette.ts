@@ -1,10 +1,9 @@
 import { contrast, deltaE, oklch, oklchToHex, visionLabs, worstDeltaE, type Lab } from './color-math';
-import type { LeftTone } from './limits';
 import { modelMaker, type Maker } from './maker';
 
 /**
  * The Harness Dashboard's data colors, ported from its web palette (web/src/lib/palette.ts and colors.svelte.ts) so
- * every provider, model and plan-limit bar looks the same in both apps: one reserved family per harness, model
+ * every provider, model and plan-limit chart looks the same in both apps: one reserved family per harness, model
  * shades generated around the maker's provider color, the general pool for everything else, and a neutral gray.
  */
 export type Mode = 'light' | 'dark';
@@ -225,35 +224,4 @@ export function makerModelHex(model: string, peers: readonly string[], mode: Mod
   const rank = peers.filter((peer) => modelFamily(peer) === provider).indexOf(model);
 
   return modelShade(provider, mode, Math.max(rank, 0));
-}
-
-/** The dashboard's plan-limit bar colors: the track, the "little left" and "almost none left" fills, and their ink. */
-export const LIMIT_COLORS = {
-  track: { light: '#e9e8e3', dark: '#2c2c2a' },
-  /** The text and tick in the warning state, and the hatching of the gap ahead of pace. */
-  warnInk: { light: '#9a5800', dark: '#e0a23a' },
-  badInk: { light: '#b42323', dark: '#e66767' },
-  /** Fill from 10% to 25% left. */
-  serious: { light: '#ec835a', dark: '#ec835a' },
-  /** Fill below 10% left. */
-  critical: { light: '#d03b3b', dark: '#d03b3b' },
-  ink: { light: '#0b0b0b', dark: '#ffffff' },
-} as const satisfies Record<string, Pair>;
-
-/** The bar's fill: the provider's color while plenty is left, then the dashboard's serious and critical colors. */
-export function limitFill(tone: LeftTone, provider: string, mode: Mode): string {
-  if (tone === 'ok') {
-    return providerHex(provider, mode);
-  }
-
-  return LIMIT_COLORS[tone === 'low' ? 'serious' : 'critical'][mode];
-}
-
-/** The percentage's text color: plain ink, the warning ink, or the bad ink. */
-export function limitInk(tone: LeftTone, mode: Mode): string {
-  if (tone === 'ok') {
-    return LIMIT_COLORS.ink[mode];
-  }
-
-  return LIMIT_COLORS[tone === 'low' ? 'warnInk' : 'badInk'][mode];
 }

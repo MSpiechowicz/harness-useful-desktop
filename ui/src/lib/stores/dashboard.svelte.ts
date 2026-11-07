@@ -128,9 +128,9 @@ export class DashboardStore {
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** No query of the panel has answered yet, not even with a failure. */
-  get firstRead(): boolean {
-    return [this.usage, this.byModel, this.byProvider, this.failures, this.tips, this.limits, this.budgets].every((slot) => slot.data === null && slot.status !== 'error');
+  /** Every query of the panel has answered, with its data or a failure. */
+  get allRead(): boolean {
+    return [this.usage, this.byModel, this.byProvider, this.failures, this.tips, this.limits, this.budgets].every((slot) => slot.data !== null || slot.status === 'error');
   }
 
   /** Whether the dashboard answers. Positive answers are trusted for minutes, negative ones for seconds. */

@@ -55,6 +55,9 @@ export function defaultPrefs(): AppPrefs {
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
     backgroundFetch: true,
+    limitBars: 'used',
+    limitForecast: true,
+    limitGauge: 'bars',
     mainBranches: [],
   };
 }

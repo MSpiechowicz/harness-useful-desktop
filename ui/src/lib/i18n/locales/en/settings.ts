@@ -13,6 +13,7 @@ export const settings = {
   'settings.section.projects': 'Projects',
   'settings.section.updates': 'Updates',
   'settings.section.privacy': 'Privacy & security',
+  'settings.section.ecosystem': 'Ecosystem',
   'settings.section.sync': 'Share setup',
   'settings.section.about': 'About',
 
@@ -24,6 +25,7 @@ export const settings = {
   'settings.keywords.projects': 'recent folders git fetch remote branch',
   'settings.keywords.updates': 'version upgrade release install check new',
   'settings.keywords.privacy': 'data telemetry diagnostics clear',
+  'settings.keywords.ecosystem': 'ecosystem plan limits gauge chart forecast used left',
   'settings.keywords.sync': 'export import share backup copy code file extensions plugins packages marketplaces mcp servers machine',
   'settings.keywords.about': 'version build',
 
@@ -40,6 +42,12 @@ export const settings = {
   'settings.thinking.description': "The agent's reasoning, folded under each reply. Also toggled from the chat header.",
   'settings.usage.title': 'Show cost under replies',
   'settings.usage.description': 'The model, token count and cost at the end of each reply. Also toggled from the chat header.',
+  'settings.limits.bars.title': 'Plan limits show',
+  'settings.limits.bars.description': 'Show how much of each limit is used or how much is left.',
+  'settings.limits.bars.used': 'Used',
+  'settings.limits.bars.left': 'Left',
+  'settings.limits.forecast.title': 'Show the forecast',
+  'settings.limits.forecast.description': 'Draw where each limit is heading by the reset and the legend that explains it.',
   'settings.aiNames.title': 'Name chats with AI',
   'settings.aiNames.description': "A short name and description for each chat, written by the chat's own agent right after your first message.",
   'settings.aiNames.cost': "Costs one very small request per chat, on the chat's own model.",

@@ -162,9 +162,6 @@ export function layoutKernel(count: number, narrow: boolean, statusWidth = 0): K
   return narrow || count > MAX_WIDE_MODULES ? layoutNarrow(count, statusWidth) : layoutWide(count, statusWidth);
 }
 
-/** The stage of the full family of six, which a hero keeps free while it is still looking for the members. */
-export const PLACEHOLDER_STAGE = layoutKernel(6, false);
-
 /** `M x y L x y ...` for an SVG path. */
 export function pathData(points: readonly Point[]): string {
   return points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');

@@ -83,3 +83,27 @@ describe('an action menu that is off', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 });
+
+describe('a steady button', () => {
+  const gauges = [
+    { value: 'a', label: 'Bars' },
+    { value: 'b', label: 'Segmented arc' },
+  ];
+
+  it('keeps every label in the button, reads out only the chosen one, and does not change when another is chosen', async () => {
+    const { rerender } = render(FilterMenu, { label: 'Style', options: gauges, value: 'a', onchange: () => {}, steady: true });
+    const button = screen.getByRole('button', { name: 'Style: Bars' });
+
+    expect(button.textContent).toContain('Segmented arc');
+
+    await rerender({ label: 'Style', options: gauges, value: 'b', onchange: () => {}, steady: true });
+
+    expect(screen.getByRole('button', { name: 'Style: Segmented arc' }).textContent).toContain('Bars');
+  });
+
+  it('shows only the chosen label otherwise', () => {
+    render(FilterMenu, { label: 'Style', options: gauges, value: 'a', onchange: () => {} });
+
+    expect(screen.getByRole('button', { name: 'Style: Bars' }).textContent).not.toContain('Segmented arc');
+  });
+});

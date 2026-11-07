@@ -16,6 +16,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.section.projects': 'Projetos',
   'settings.section.updates': 'Atualizações',
   'settings.section.privacy': 'Privacidade e segurança',
+  'settings.section.ecosystem': 'Ecossistema',
   'settings.section.sync': 'Compartilhar configuração',
   'settings.section.about': 'Sobre',
 
@@ -27,6 +28,7 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.keywords.projects': 'pastas recentes git fetch buscar remoto branch',
   'settings.keywords.updates': 'versão atualizar upgrade lançamento instalar verificar nova',
   'settings.keywords.privacy': 'dados telemetria diagnóstico limpar',
+  'settings.keywords.ecosystem': 'ecossistema limites do plano medidor gráfico previsão usado restante',
   'settings.keywords.sync': 'exportar importar compartilhar backup copiar código arquivo extensões plugins pacotes marketplaces servidores mcp máquina',
   'settings.keywords.about': 'versão build',
 
@@ -43,6 +45,12 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.thinking.description': 'O raciocínio do agente, recolhido sob cada resposta. Também pode ser alternado pelo cabeçalho do chat.',
   'settings.usage.title': 'Mostrar o custo sob as respostas',
   'settings.usage.description': 'O modelo, a contagem de tokens e o custo ao fim de cada resposta. Também pode ser alternado pelo cabeçalho do chat.',
+  'settings.limits.bars.title': 'Os limites do plano mostram',
+  'settings.limits.bars.description': 'Mostra quanto de cada limite foi usado ou quanto resta.',
+  'settings.limits.bars.used': 'Usado',
+  'settings.limits.bars.left': 'Restante',
+  'settings.limits.forecast.title': 'Mostrar a previsão',
+  'settings.limits.forecast.description': 'Desenha para onde cada limite caminha até a renovação e a legenda que explica.',
   'settings.aiNames.title': 'Nomear chats com IA',
   'settings.aiNames.description': 'Um nome curto e uma descrição para cada chat, escritos pelo próprio agente do chat logo depois da sua primeira mensagem.',
   'settings.aiNames.cost': 'Custa uma requisição bem pequena por chat, no próprio modelo do chat.',

@@ -7,6 +7,7 @@
   import type { Budget } from '$lib/dashboard/models';
   import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard } from '$lib/stores/dashboard.svelte';
+  import { ownEntry } from '$lib/utils/own-entry';
 
   import Meter from '../charts/Meter.svelte';
   import CardEmpty from './CardEmpty.svelte';
@@ -40,7 +41,7 @@
     {:else}
       <ul class="flex flex-col gap-4">
         {#each budgets as budget, row (row)}
-          {@const status = STATUS[budget.status] ?? { label: () => budget.status, tone: 'neutral' as const }}
+          {@const status = ownEntry(STATUS, budget.status) ?? { label: () => budget.status, tone: 'neutral' as const }}
           {@const projectedOver = budget.projectedUsd !== null && budget.projectedUsd > budget.capUsd}
 
           <li class="flex flex-col gap-1.5">

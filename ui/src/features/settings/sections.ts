@@ -4,6 +4,7 @@ import CodeXml from '@lucide/svelte/icons/code-xml';
 import Download from '@lucide/svelte/icons/download';
 import Info from '@lucide/svelte/icons/info';
 import FolderClock from '@lucide/svelte/icons/folder-clock';
+import Orbit from '@lucide/svelte/icons/orbit';
 import Palette from '@lucide/svelte/icons/palette';
 import Rocket from '@lucide/svelte/icons/rocket';
 import Share2 from '@lucide/svelte/icons/share-2';
@@ -74,6 +75,16 @@ export const SETTINGS_SECTIONS: readonly { id: SettingsSectionId; label: string;
     icon: CodeXml,
     get keywords() {
       return t('settings.code.keywords');
+    },
+  },
+  {
+    id: 'ecosystem',
+    get label() {
+      return t('settings.section.ecosystem');
+    },
+    icon: Orbit,
+    get keywords() {
+      return t('settings.keywords.ecosystem');
     },
   },
   {

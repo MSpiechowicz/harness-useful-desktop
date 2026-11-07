@@ -73,6 +73,7 @@ mod live_omp;
 mod managed_prefs;
 mod model;
 mod prefs;
+mod prefs_limits;
 mod prefs_updates;
 mod process;
 mod process_orphans;

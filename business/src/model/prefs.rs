@@ -31,6 +31,40 @@ pub enum MotionPref {
     Off,
 }
 
+/// Which way the plan limit bars fill.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum LimitBarsPref {
+    /// Show how much of a limit is used.
+    #[default]
+    Used,
+    /// Show how much of a limit is left.
+    Left,
+}
+
+/// How the plan limits are drawn.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum LimitGaugePref {
+    /// Horizontal bars.
+    #[default]
+    Bars,
+    /// Tachometer dials.
+    Tach,
+    /// Segmented bars.
+    Segments,
+    /// Level meters.
+    Vu,
+    /// Thermometers.
+    Thermo,
+    /// Waffle grids.
+    Waffle,
+    /// Battery cells.
+    Battery,
+}
+
 /// What the app does when an update is available.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -209,6 +243,21 @@ pub struct AppPrefs {
     /// Whether the app fetches the open project's remote in the background (every few minutes while
     /// the window is visible, default on). Off: git only reaches the network when a button is clicked.
     pub background_fetch: bool,
+    /// Whether the plan limit bars show what is used or what is left (default used).
+    /// Any other stored value loads as the default instead of making the file unusable.
+    #[serde(with = "lenient")]
+    #[ts(as = "LimitBarsPref")]
+    pub limit_bars: LimitBarsPref,
+    /// Whether the plan limits show the forecast of when a limit runs out (default on). Only a
+    /// stored `false` hides it: any other value loads as on.
+    #[serde(with = "lenient")]
+    #[ts(as = "bool")]
+    pub limit_forecast: bool,
+    /// How the plan limits are drawn (default bars).
+    /// Any other stored value loads as the default instead of making the file unusable.
+    #[serde(with = "lenient")]
+    #[ts(as = "LimitGaugePref")]
+    pub limit_gauge: LimitGaugePref,
     /// The main branch picked per project (at most one entry per project). Server-managed: only
     /// `git_set_main_branch` changes it.
     pub main_branches: Vec<MainBranchChoice>,
@@ -265,6 +314,9 @@ impl Default for AppPrefs {
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,
             background_fetch: true,
+            limit_bars: LimitBarsPref::Used,
+            limit_forecast: true,
+            limit_gauge: LimitGaugePref::Bars,
             main_branches: Vec::new(),
         }
     }
@@ -288,5 +340,52 @@ mod lenient_language {
             Value::String(language) => Ok(language),
             _ => Ok(DEFAULT_LANGUAGE.to_owned()),
         }
+    }
+}
+
+/// What a display choice reads as when its stored value does not parse.
+trait Fallback {
+    fn fallback() -> Self;
+}
+
+impl Fallback for LimitBarsPref {
+    fn fallback() -> Self {
+        Self::default()
+    }
+}
+
+impl Fallback for LimitGaugePref {
+    fn fallback() -> Self {
+        Self::default()
+    }
+}
+
+/// The forecast is on unless a stored `false` says otherwise.
+impl Fallback for bool {
+    fn fallback() -> Self {
+        true
+    }
+}
+
+/// Display choices as stored: written as they are; read from any JSON value, taking the
+/// [`Fallback`] for one that does not parse, so one hand-edited value cannot make the whole file
+/// unusable. (A missing key takes the struct default.)
+mod lenient {
+    use serde::de::DeserializeOwned;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde_json::Value;
+
+    use super::Fallback;
+
+    pub fn serialize<T: Serialize, S: Serializer>(choice: &T, serializer: S) -> Result<S::Ok, S::Error> {
+        choice.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, T: DeserializeOwned + Fallback, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<T, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+
+        Ok(serde_json::from_value(value).unwrap_or_else(|_| T::fallback()))
     }
 }

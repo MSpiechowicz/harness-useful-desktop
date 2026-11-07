@@ -1,11 +1,9 @@
 <script lang="ts">
 
-  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import SegmentedControl from '$lib/components/SegmentedControl.svelte';
   import type { StripOption } from '$lib/components/strip';
   import { t } from '$lib/i18n/i18n.svelte';
   import { dashboard, PANEL_RANGES, type PanelRange } from '$lib/stores/dashboard.svelte';
-  import { ecosystem } from '$lib/stores/ecosystem.svelte';
 
   import BreakdownCard from './BreakdownCard.svelte';
   import BudgetsCard from './BudgetsCard.svelte';
@@ -35,30 +33,21 @@
     <SegmentedControl label={t('ecosystem.panel.range')} options={OPTIONS} bind:value={() => dashboard.range, (range) => void dashboard.setRange(range)} />
   </header>
 
-  <!-- One spinner until the first answer, not one per card. After it, a card still waiting for its own answer shows its own. -->
-  {#if dashboard.firstRead}
-    {#if ecosystem.status === null && ecosystem.state !== 'error'}
-      <div class="h-96"></div>
-    {:else}
-      <LoadingSpinner label={t('ecosystem.usage.loading')} class="h-96" />
-    {/if}
-  {:else}
-    <UsageTiles slot={dashboard.usage} range={dashboard.range} onretry={() => void dashboard.openPanel(true)} />
+  <UsageTiles slot={dashboard.usage} range={dashboard.range} onretry={() => void dashboard.openPanel(true)} />
 
-    <div class="grid gap-4 @3xl:grid-cols-2">
-      <BreakdownCard range={dashboard.range} index={2} />
-      <CacheCard range={dashboard.range} index={3} />
-    </div>
+  <div class="grid gap-4 @3xl:grid-cols-2">
+    <BreakdownCard range={dashboard.range} index={2} />
+    <CacheCard range={dashboard.range} index={3} />
+  </div>
 
-    <div class="grid gap-4 @3xl:grid-cols-2">
-      <LimitsCard index={4} />
-      <BudgetsCard index={5} />
-    </div>
+  <div class="grid gap-4 @3xl:grid-cols-2">
+    <LimitsCard index={4} />
+    <BudgetsCard index={5} />
+  </div>
 
-    <div class="grid gap-4 @3xl:grid-cols-2">
-      <FailuresCard range={dashboard.range} index={6} />
-      <RecentFailuresCard range={dashboard.range} index={7} />
-    </div>
-    <TipsCard index={8} />
-  {/if}
+  <div class="grid gap-4 @3xl:grid-cols-2">
+    <FailuresCard range={dashboard.range} index={6} />
+    <RecentFailuresCard range={dashboard.range} index={7} />
+  </div>
+  <TipsCard index={8} />
 </section>

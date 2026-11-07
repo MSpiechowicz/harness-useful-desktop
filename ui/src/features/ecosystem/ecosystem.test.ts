@@ -161,22 +161,20 @@ describe('Ecosystem view', () => {
     expect(nearCap).toHaveAttribute('aria-valuetext', '85%, high');
     expect(screen.getAllByText(/projected \$210\.90, over the cap/)).toHaveLength(1);
 
-    const fiveHour = screen.getByRole('meter', { name: /^Claude Max 5-hour limit: 57% left/ });
-    expect(fiveHour).toHaveAttribute('aria-valuenow', '57');
-    expect(fiveHour).toHaveAttribute('aria-valuetext', '57% left');
+    const fiveHour = screen.getByRole('meter', { name: /^Claude Max 5-hour limit: 43% used/ });
+    expect(fiveHour).toHaveAttribute('aria-valuenow', '43');
+    expect(fiveHour).toHaveAttribute('aria-valuetext', '43% used');
     expect(screen.getByText('Weekly limit · Fable')).toBeInTheDocument();
-    expect(screen.getByRole('meter', { name: /^Claude Max Weekly limit · Fable: 88% left/ })).toHaveAttribute('aria-valuenow', '88');
-    // One provider per page: the other waits behind its tab, with a name that says where it sits.
+    expect(screen.getByRole('meter', { name: /^Claude Max Weekly limit · Fable: 12% used/ })).toHaveAttribute('aria-valuenow', '12');
+    // One provider at a time: the other waits in the dropdown.
     expect(screen.queryByRole('meter', { name: /^Codex/ })).toBeNull();
-    const claudeTab = screen.getByRole('tab', { name: 'Provider 1 of 2: Claude Max' });
-    expect(claudeTab).toHaveAttribute('aria-selected', 'true');
+    await fireEvent.click(screen.getByRole('button', { name: 'Provider: Claude Max' }));
+    await fireEvent.click(screen.getByRole('menuitemradio', { name: 'Codex Pro' }));
 
-    await fireEvent.keyDown(claudeTab, { key: 'ArrowRight' });
-
-    expect(screen.getByRole('tab', { name: 'Provider 2 of 2: Codex Pro' })).toHaveAttribute('aria-selected', 'true');
-    // A window that reset after it was recorded reads whole again, without a pace.
-    const reset = screen.getByRole('meter', { name: 'Codex Pro 5-hour limit: 100% left, has reset since last seen' });
-    expect(reset).toHaveAttribute('aria-valuenow', '100');
+    expect(screen.getByRole('button', { name: 'Provider: Codex Pro' })).toBeInTheDocument();
+    // A window that reset after it was recorded reads empty again, with a chip and no pace.
+    const reset = screen.getByRole('meter', { name: 'Codex Pro 5-hour limit: 0% used, Not used yet, has reset since last seen' });
+    expect(reset).toHaveAttribute('aria-valuenow', '0');
     expect(screen.queryByRole('meter', { name: /^Claude/ })).toBeNull();
   });
 
@@ -289,6 +287,27 @@ describe('Ecosystem view that cannot read the companions', () => {
     expect(calls('ecosystem_status').length).toBe(before + RETRY_BACKOFF_MS.length);
     expect(stateWhenAsked).toEqual(RETRY_BACKOFF_MS.map(() => 'error'));
     expect(screen.getByText('Could not look for the Harness family', { selector: 'h2' })).toBeInTheDocument();
+  });
+});
+
+describe('Ecosystem view retrying after it could not read the family', () => {
+  it('says it is looking again while the retry runs, not that it failed', async () => {
+    const { spy } = await show({ ecosystem: 'failed' });
+    await screen.findByText('Could not look for the Harness family', { selector: 'h2' });
+    const hero = within(document.querySelector<HTMLElement>('[aria-labelledby="ecosystem-hero-title"]')!);
+    expect(hero.getByRole('status')).toHaveTextContent('The installed Harness family members could not be read.');
+
+    const real = spy.getMockImplementation() as typeof ipc.invoke;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    spy.mockImplementation(((name: string, args: unknown) => (name === 'ecosystem_status' ? gate.then(() => real(name as never, args as never)) : real(name as never, args as never))) as typeof ipc.invoke);
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(hero.getByRole('status')).toHaveTextContent('Looking for the Harness family…'));
+
+    release();
+    await waitFor(() => expect(hero.queryByRole('status')).not.toHaveTextContent('Looking for the Harness family…'));
   });
 });
 

@@ -1,15 +1,14 @@
 <script lang="ts">
-  import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import { rise } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
   import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
 
   import EcosystemKernel from './EcosystemKernel.svelte';
   import Emphasis from './Emphasis.svelte';
-  import { PLACEHOLDER_STAGE, WIDE_STAGE_PX } from './kernel/kernel-layout';
+  import { WIDE_STAGE_PX } from './kernel/kernel-layout';
 
   interface Props {
-    /** `null` while the detection is still running (or failed). */
+    /** `null` when the detection failed, and while it is read again after that. */
     items: EcosystemItem[] | null;
     failed?: boolean;
   }
@@ -36,19 +35,13 @@
     <p class="max-w-prose text-base text-fg-2"><Emphasis text={t('ecosystem.hero.body')} /></p>
     <!-- Once the family is read, the diagram's own status line says how much of it is installed. -->
     {#if !items}
-      <!-- While it looks, the spinner is the status that is read out. -->
-      <p class="tabular text-sm text-fg-3" role={failed ? 'status' : undefined}>{failed ? t('ecosystem.hero.failed') : t('ecosystem.hero.looking')}</p>
+      <p class="tabular text-sm text-fg-3" role="status">{failed ? t('ecosystem.hero.failed') : t('ecosystem.view.looking')}</p>
     {/if}
   </div>
 
   <div class="mt-6 @5xl:mt-0">
     {#if items}
       <EcosystemKernel {items} {narrow} />
-    {:else if !failed}
-      <!-- The one spinner of the page until the family is read, in the diagram's place: the sections below stay empty and quiet meanwhile. -->
-      <div class="mx-auto max-w-full" style:width="{PLACEHOLDER_STAGE.width}px" style:height="{PLACEHOLDER_STAGE.height}px">
-        <LoadingSpinner label={t('ecosystem.companions.looking')} />
-      </div>
     {/if}
   </div>
 </section>
