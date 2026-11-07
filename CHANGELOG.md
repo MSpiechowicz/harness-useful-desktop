@@ -1,3 +1,10 @@
+# [0.65.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.64.0...v0.65.0) (2026-11-07)
+
+
+### Features
+
+* **ecosystem:** turn the family cards into an accordion rail ([246db9c](https://github.com/MSpiechowicz/harness-useful-desktop/commit/246db9ce973e1030dc1517688085ce313a531546))
+
 # [0.64.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.63.0...v0.64.0) (2026-11-07)
 
 
