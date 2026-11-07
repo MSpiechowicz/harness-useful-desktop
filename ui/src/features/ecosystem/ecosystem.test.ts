@@ -7,6 +7,7 @@ import { dashboard } from '$lib/stores/dashboard.svelte';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { DASHBOARD_INSTALL_POLL_MS, RETRY_BACKOFF_MS } from '$lib/stores/live';
 import { prefs } from '$lib/stores/prefs.svelte';
+import { toasts } from '$lib/stores/toasts.svelte';
 
 import { samplePrefs } from '../../../tests/helpers';
 import { freshBackend } from '../../../tests/ecosystem-backend';
@@ -37,32 +38,25 @@ describe('Ecosystem view', () => {
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Tools that make agents measurable' })).toBeInTheDocument();
 
-    const dashboardCard = await screen.findByRole('article', { name: /Harness Dashboard/ });
-    expect(within(dashboardCard).getByText('Installed')).toBeInTheDocument();
-    expect(within(dashboardCard).getByText('v1.22.1')).toBeInTheDocument();
+    // Each member is one compact row with its state, and its details one click away.
+    const dashboardRow = await screen.findByRole('article', { name: /Harness Dashboard/ });
+    expect(within(dashboardRow).getByText('Installed · v1.22.1')).toBeInTheDocument();
+    expect(within(dashboardRow).queryByRole('button', { name: /^Install/ })).toBeNull();
 
-    // Where it was found is secondary detail, one click away.
-    await fireEvent.click(within(dashboardCard).getByRole('button', { name: 'Details' }));
-    expect(within(dashboardCard).getByText('binary ~/.local/bin/harness-dashboard')).toBeInTheDocument();
+    await fireEvent.click(within(dashboardRow).getByRole('button', { name: /Harness Dashboard/ }));
+    await fireEvent.click(within(dashboardRow).getByRole('button', { name: 'Details' }));
+    expect(within(dashboardRow).getByText('binary ~/.local/bin/harness-dashboard')).toBeInTheDocument();
 
-    // The memory server is a companion like the others: its own card, state and version.
     const memory = screen.getByRole('article', { name: /Harness Memory/ });
-    expect(within(memory).getByText('Installed')).toBeInTheDocument();
-    expect(within(memory).getByText('v1.0.0')).toBeInTheDocument();
-    expect(within(memory).getByText('One project memory for every coding agent, kept on this machine.')).toBeInTheDocument();
+    expect(within(memory).getByText('Installed · v1.0.0')).toBeInTheDocument();
 
-    // Harness Knowledge has its own card in the family, with the install steps of a member that is not installed yet.
-    const knowledge = screen.getByRole('article', { name: /Harness Knowledge/ });
-    expect(within(knowledge).getByText('Not installed')).toBeInTheDocument();
-    expect(within(knowledge).getByText('Project documentation that every coding agent can search.')).toBeInTheDocument();
+    // A member that is not installed says so and offers the install in its row.
+    for (const name of ['Harness Knowledge', 'Harness Code', 'Harness Sidebar']) {
+      const row = screen.getByRole('article', { name: new RegExp(name) });
+      expect(within(row).getByText('Not installed')).toBeInTheDocument();
+      expect(within(row).getByRole('button', { name: `Install ${name}` })).toBeInTheDocument();
+    }
 
-    // Harness Code is a member of the family like Knowledge: its own card, not installed on a fresh machine.
-    const code = screen.getByRole('article', { name: /Harness Code/ });
-    expect(within(code).getByText('Not installed')).toBeInTheDocument();
-    expect(within(code).getByText('A code graph that every coding agent can ask before it greps.')).toBeInTheDocument();
-
-    const sidebar = screen.getByRole('article', { name: /Harness Sidebar/ });
-    expect(within(sidebar).getByText('Not installed')).toBeInTheDocument();
     // The GitHub release lookup lands just after the local reading.
     // The count is said once, under the diagram, not again in the text beside it.
     expect(await screen.findByRole('group', { name: '3 of 6 modules loaded · 1 update' })).toBeInTheDocument();
@@ -78,31 +72,121 @@ describe('Ecosystem view', () => {
     await show();
 
     const skills = await screen.findByRole('article', { name: /Harness Skills/ });
-    expect(await within(skills).findByText('Update available')).toBeInTheDocument();
+    expect(await within(skills).findByText(/^Update to v/)).toBeInTheDocument();
+    expect(within(skills).getByRole('button', { name: 'Update Harness Skills' })).toBeInTheDocument();
     expect(within(skills).getByText('v0.2.40')).toBeInTheDocument();
     expect(within(skills).getByRole('button', { name: /How to update/ })).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('shows copyable install steps for a missing companion and never runs them', async () => {
+  it('keeps one row open at a time', async () => {
+    await show();
+    const skills = await screen.findByRole('article', { name: /Harness Skills/ });
+    const toggle = within(skills).getByRole('button', { name: /^Harness Skills/ });
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'true'));
+
+    const memory = screen.getByRole('article', { name: /Harness Memory/ });
+    await fireEvent.click(within(memory).getByRole('button', { name: /^Harness Memory/ }));
+
+    expect(within(memory).getByRole('button', { name: /^Harness Memory/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    // Closing the open row leaves none open, not the one that opened by itself.
+    await fireEvent.click(within(memory).getByRole('button', { name: /^Harness Memory/ }));
+    expect(within(memory).getByRole('button', { name: /^Harness Memory/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens the row of a module chosen in the diagram', async () => {
+    await show();
+    const code = await screen.findByRole('article', { name: /Harness Code/ });
+    const diagram = await screen.findByRole('group', { name: /modules loaded/ });
+
+    await fireEvent.click(within(diagram).getByRole('button', { name: /^Harness Code/ }));
+
+    expect(within(code).getByRole('button', { name: /^Harness Code/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(code).toHaveFocus();
+  });
+
+  it('runs an installer only after its plan was confirmed', async () => {
+    const { calls } = await show();
+    const code = await screen.findByRole('article', { name: /Harness Code/ });
+
+    await fireEvent.click(within(code).getByRole('button', { name: 'Install Harness Code' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Install Harness Code?' });
+    expect(calls('setup_install_code')).toHaveLength(0);
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }));
+
+    await waitFor(() => expect(calls('setup_install_code')).toHaveLength(1));
+
+    // A first install says which version it put there, not that it is the latest.
+    await waitFor(() => expect(toasts.items.find((toast) => toast.title === 'Harness Code installed')?.description).toMatch(/^Version .+ is ready to use\.$/));
+  });
+
+  it('does not call it a failure when the automatic updater is already installing the member', async () => {
+    toasts.items = [];
+    const { spy } = await show();
+    const code = await screen.findByRole('article', { name: /Harness Code/ });
+    const answer = spy.getMockImplementation()!;
+    spy.mockImplementation(((name: string, args: unknown) => (name === 'setup_install_code' ? Promise.reject({ code: 'invalidInput', message: 'harness-code is already being installed' }) : answer(name as never, args as never))) as never);
+
+    await fireEvent.click(within(code).getByRole('button', { name: 'Install Harness Code' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Install Harness Code?' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }));
+
+    await waitFor(() => expect(toasts.items.map((toast) => [toast.title, toast.tone])).toEqual([['Harness Code is already being installed', 'neutral']]));
+    expect(within(code).getByRole('button', { name: 'Install Harness Code' })).toBeEnabled();
+  });
+
+  it('shows copyable install steps for a member without an installer and never runs them', async () => {
     const { calls } = await show();
     const sidebar = await screen.findByRole('article', { name: /Harness Sidebar/ });
 
-    const steps = within(sidebar).getByRole('list', { name: 'Install steps' });
-    expect(within(steps).getAllByRole('listitem')).toHaveLength(3);
-    expect(within(steps).getByText('omp plugin marketplace add MSpiechowicz/harness-useful-sidebar')).toBeInTheDocument();
+    await fireEvent.click(within(sidebar).getByRole('button', { name: 'Install Harness Sidebar' }));
+
+    await within(sidebar).findByRole('list', { name: 'Install steps' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    // The button brings the steps back after they were collapsed in the open row.
+    const howTo = within(sidebar).getByRole('button', { name: /How to install/ });
+    await fireEvent.click(howTo);
+    expect(howTo).toHaveAttribute('aria-expanded', 'false');
+    await fireEvent.click(within(sidebar).getByRole('button', { name: 'Install Harness Sidebar' }));
+    expect(howTo).toHaveAttribute('aria-expanded', 'true');
+    const shown = await within(sidebar).findByRole('list', { name: 'Install steps' });
+    expect(within(shown).getAllByRole('listitem')).toHaveLength(3);
+    expect(within(shown).getByText('omp plugin marketplace add MSpiechowicz/harness-useful-sidebar')).toBeInTheDocument();
 
     const clipboard = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: clipboard }, configurable: true });
-    await fireEvent.click(within(steps).getAllByRole('button', { name: /^Copy:/ })[1]);
+    await fireEvent.click(within(shown).getAllByRole('button', { name: /^Copy:/ })[1]);
 
     expect(clipboard).toHaveBeenCalledWith('omp plugin install harness-useful-sidebar@harness-useful-sidebar --scope user');
     expect(calls('extension_action')).toHaveLength(0);
+    expect(calls('setup_install_dashboard')).toHaveLength(0);
+  });
+
+  it('tells a failed installer in a toast and offers the button again', async () => {
+    const { calls, spy } = await show();
+    const code = await screen.findByRole('article', { name: /Harness Code/ });
+    const answer = spy.getMockImplementation()!;
+    spy.mockImplementation(((name: string, args: unknown) => (name === 'setup_install_code' ? Promise.reject(new Error('no network')) : answer(name as never, args as never))) as never);
+
+    await fireEvent.click(within(code).getByRole('button', { name: 'Install Harness Code' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Install Harness Code?' });
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Install' }));
+
+    await waitFor(() => expect(toasts.items.some((toast) => toast.title === 'Harness Code install failed' && toast.tone === 'danger')).toBe(true));
+    expect(calls('setup_install_code')).toHaveLength(0);
+    expect(within(code).getByRole('button', { name: 'Install Harness Code' })).toBeEnabled();
   });
 
   it('opens the repository only through the allow-listed external opener', async () => {
     const { calls } = await show();
     const card = await screen.findByRole('article', { name: /Harness Skills/ });
 
+    await within(card).findByRole('button', { name: /^GitHub/ });
     await fireEvent.click(within(card).getByRole('button', { name: /^GitHub/ }));
 
     await waitFor(() => expect(calls('open_external').map((call) => call.url)).toEqual(['https://github.com/MSpiechowicz/harness-useful-skills']));

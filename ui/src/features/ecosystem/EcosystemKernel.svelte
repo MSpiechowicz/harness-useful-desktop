@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+
   import { FAMILY_NAMES } from '$lib/brand/family';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { EcosystemId } from '$lib/ipc/bindings/EcosystemId';
   import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
   import { motion } from '$lib/stores/motion.svelte';
   import { updates } from '$lib/stores/updates.svelte';
@@ -18,9 +21,11 @@
     items: EcosystemItem[];
     /** The room is short: the modules stack in two columns under the chip instead of flanking it. */
     narrow?: boolean;
+    /** A module was chosen: its row in the Family rail opens. */
+    onchoose?: (id: EcosystemId) => void;
   }
 
-  let { items, narrow = false }: Props = $props();
+  let { items, narrow = false, onchoose }: Props = $props();
 
   // The diagram of the Harness family. Harness Desktop is the kernel chip in the middle and every member a module seated in
   // a socket beside it: lit in its own colour when loaded, a blue badge when an update waits, an empty dashed socket when
@@ -58,11 +63,16 @@
   }
 
   /** Choosing a module brings its card in the list below into view. */
-  function showCard(member: KernelMember): void {
+  async function showCard(member: KernelMember): Promise<void> {
+    onchoose?.(member.id);
+
     const card = document.getElementById(cardTitleId(member.id))?.closest('article');
 
-    card?.scrollIntoView?.({ behavior: animated ? 'smooth' : 'auto', block: 'center' });
     card?.focus({ preventScroll: true });
+
+    // Once its row has started to open, so it is centred where it now is.
+    await tick();
+    card?.scrollIntoView?.({ behavior: animated ? 'smooth' : 'auto', block: 'center' });
   }
 </script>
 
@@ -100,7 +110,7 @@
       hot={hot === member.id}
       dimmed={hotModule !== null && hotModule !== member.id}
       onhot={(over) => heat(member.id, over)}
-      onselect={() => showCard(member)}
+      onselect={() => void showCard(member)}
     />
   {/each}
 </div>

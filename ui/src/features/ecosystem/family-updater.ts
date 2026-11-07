@@ -8,6 +8,7 @@ import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 import { toasts, type ToastsStore } from '$lib/stores/toasts.svelte';
 
+import { isAlreadyRunning } from '../onboarding/companion-installer.svelte';
 import { onboarding } from '../onboarding/onboarding-state.svelte';
 import { setup } from '../onboarding/setup-state.svelte';
 
@@ -204,10 +205,6 @@ function attemptKey(item: EcosystemItem): string {
 }
 
 /** The backend answers `invalidInput` ("<binary> is already being installed") while an install of that member runs. */
-function isAlreadyRunning(failure: IpcFailure): boolean {
-  return failure.code === 'invalidInput' && /already being installed/i.test(failure.message);
-}
-
 export const familyUpdater = new FamilyUpdater({
   transport: ipc,
   status: () => ecosystem.status,

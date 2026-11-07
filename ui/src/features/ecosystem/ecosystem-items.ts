@@ -2,6 +2,8 @@ import type { EcosystemId } from '$lib/ipc/bindings/EcosystemId';
 import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
 
+import { COMPANIONS, type Companion } from '../onboarding/setup-model';
+
 /** One companion's state in words, for badges and the illustration's text alternative. */
 export function itemState(item: EcosystemItem): 'installed' | 'missing' | 'unsupported' {
   if (!item.supportedOnThisOs) {
@@ -31,4 +33,14 @@ export const SHORT_NAMES: Record<EcosystemId, string> = { dashboard: 'Dashboard'
 /** The id of a card's title: the diagram of the family finds the card of a module by it. */
 export function cardTitleId(id: EcosystemId): string {
   return `ecosystem-${id}`;
+}
+
+/** The member's own installer the app can run. The others (a plugin of a harness) only have steps to copy. */
+export function rowInstaller(id: EcosystemId): Companion | null {
+  return (COMPANIONS as readonly EcosystemId[]).includes(id) ? (id as Companion) : null;
+}
+
+/** The row that starts open: the first member with an update waiting. */
+export function firstUpdating(items: EcosystemItem[]): EcosystemId | null {
+  return items.find((item) => itemState(item) === 'installed' && item.updateAvailable)?.id ?? null;
 }

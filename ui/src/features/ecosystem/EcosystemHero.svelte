@@ -1,6 +1,7 @@
 <script lang="ts">
   import { rise } from '$lib/design/motion';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { EcosystemId } from '$lib/ipc/bindings/EcosystemId';
   import type { EcosystemItem } from '$lib/ipc/bindings/EcosystemItem';
 
   import EcosystemKernel from './EcosystemKernel.svelte';
@@ -11,9 +12,11 @@
     /** `null` when the detection failed, and while it is read again after that. */
     items: EcosystemItem[] | null;
     failed?: boolean;
+    /** A module of the diagram was chosen. */
+    onchoose?: (id: EcosystemId) => void;
   }
 
-  let { items, failed = false }: Props = $props();
+  let { items, failed = false, onchoose }: Props = $props();
 
   // The hero's padding (24px a side, see its classes) and border (1px) around the stage: a hero narrower than the wide stage plus
   // these stacks the modules instead. Before the first measurement (zero) the wide stage shows.
@@ -41,7 +44,7 @@
 
   <div class="mt-6 @5xl:mt-0">
     {#if items}
-      <EcosystemKernel {items} {narrow} />
+      <EcosystemKernel {items} {narrow} {onchoose} />
     {/if}
   </div>
 </section>

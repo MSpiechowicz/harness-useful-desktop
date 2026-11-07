@@ -14,6 +14,13 @@ export interface InstallOutcome {
   failure: string;
   /** The binary's version after a successful run. */
   version: string | null;
+  /** Another run of this installer holds it: this one did nothing. */
+  alreadyRunning: boolean;
+}
+
+/** The backend's refusal while another run of the same installer is going. */
+export function isAlreadyRunning(failure: IpcFailure): boolean {
+  return failure.code === 'invalidInput' && /already being installed/i.test(failure.message);
 }
 
 /** The command that runs each installer; the log lines it streams come back on `onLog`. */
@@ -54,9 +61,11 @@ export class CompanionInstaller {
       const result = await this.transport.invoke(COMMANDS[this.installer], args);
       this.result = result;
 
-      return { ok: result.ok, failure: result.ok ? '' : (result.summary ?? ''), version: result.version };
+      return { ok: result.ok, failure: result.ok ? '' : (result.summary ?? ''), version: result.version, alreadyRunning: false };
     } catch (error) {
-      return { ok: false, failure: IpcFailure.from(error).message, version: null };
+      const failure = IpcFailure.from(error);
+
+      return { ok: false, failure: failure.message, version: null, alreadyRunning: isAlreadyRunning(failure) };
     }
   }
 }

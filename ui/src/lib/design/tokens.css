@@ -206,6 +206,9 @@
   --page-wide: 1280px;
   /* The one width of a side panel: the list column, the details column, the slide-over and the list drawer. */
   --side-panel: 448px;
+  /* The Family rail beside the usage panel of the Ecosystem view, and the one width of its scrollbar. The room for the scrollbar is always kept, so rows never move when it appears. */
+  --family-rail: 336px;
+  --family-rail-scrollbar: 6px;
   /* The search field of a view header: full, and compact below the list-drawer breakpoint (DRAWER_BELOW_PX in layout.ts). */
   --search-field: 340px;
   --search-field-compact: 220px;

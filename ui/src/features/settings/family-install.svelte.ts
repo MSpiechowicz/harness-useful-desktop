@@ -4,8 +4,8 @@ import { IpcFailure } from '$lib/ipc/transport';
 import { ecosystem } from '$lib/stores/ecosystem.svelte';
 import { prefs } from '$lib/stores/prefs.svelte';
 
-import { CompanionInstaller } from '../onboarding/companion-installer.svelte';
-import { companionPlan, type Plan } from '../onboarding/setup-model';
+import { CompanionInstaller, type InstallOutcome } from '../onboarding/companion-installer.svelte';
+import { companionPlan, type Companion, type Plan } from '../onboarding/setup-model';
 
 export type InstallPhase = 'idle' | 'reading' | 'running' | 'failed';
 
@@ -51,29 +51,28 @@ export const INSTALL_COPY: Record<InstallMember, InstallCopy> = {
 };
 
 /**
- * Installing or updating a Harness family member from where it is missed (the Knowledge view, the settings): read what the installer would do, ask,
+ * Installing or updating a Harness family member: read what the installer would do, ask,
  * run it, then look at the installed server again. Nothing runs before the user confirmed the plan.
  */
-export class FamilyInstallFlow {
+export class CompanionInstallFlow {
   phase = $state<InstallPhase>('idle');
   plan = $state.raw<Plan | null>(null);
   confirming = $state(false);
   failure = $state('');
+  /** How the last run ended. */
+  outcome: InstallOutcome | null = null;
 
   private readonly installer: CompanionInstaller;
 
   constructor(
-    readonly member: InstallMember,
+    readonly companion: Companion,
     /** An installed but too old member is updated, a missing one installed. */
     readonly update: () => boolean,
     /** Looks at the installed member again once the installer ran. */
     private readonly onfinished: () => Promise<void>,
+    private readonly readFailed: MessageKey,
   ) {
-    this.installer = new CompanionInstaller(member, ipc);
-  }
-
-  get copy(): InstallCopy {
-    return INSTALL_COPY[this.member];
+    this.installer = new CompanionInstaller(companion, ipc);
   }
 
   get busy(): boolean {
@@ -85,11 +84,11 @@ export class FamilyInstallFlow {
     this.phase = 'reading';
 
     try {
-      this.plan = companionPlan(this.member, (await ipc.invoke('setup_status', undefined))[this.member]);
+      this.plan = companionPlan(this.companion, (await ipc.invoke('setup_status', undefined))[this.companion]);
       this.phase = 'idle';
       this.confirming = true;
     } catch (error) {
-      this.giveUp(t(this.copy.readFailed, { reason: IpcFailure.from(error).message }));
+      this.giveUp(t(this.readFailed, { reason: IpcFailure.from(error).message }));
     }
   }
 
@@ -97,6 +96,8 @@ export class FamilyInstallFlow {
     this.phase = 'running';
 
     const outcome = await this.installer.run();
+
+    this.outcome = outcome;
 
     if (!outcome.ok) {
       this.giveUp(this.installer.result?.timedOut ? t('onboarding.setup.companion.timedOut') : t('onboarding.setup.companion.failed', { reason: outcome.failure || t('onboarding.setup.companion.noReason') }));
@@ -115,5 +116,20 @@ export class FamilyInstallFlow {
   private giveUp(reason: string): void {
     this.failure = reason;
     this.phase = 'failed';
+  }
+}
+
+/** The flow where a member is missed (the Knowledge view, the settings), with the words of that member. */
+export class FamilyInstallFlow extends CompanionInstallFlow {
+  constructor(
+    readonly member: InstallMember,
+    update: () => boolean,
+    onfinished: () => Promise<void>,
+  ) {
+    super(member, update, onfinished, INSTALL_COPY[member].readFailed);
+  }
+
+  get copy(): InstallCopy {
+    return INSTALL_COPY[this.member];
   }
 }

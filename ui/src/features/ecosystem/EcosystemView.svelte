@@ -11,6 +11,7 @@
   import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
   import ViewHeader from '$lib/components/ViewHeader.svelte';
   import { t } from '$lib/i18n/i18n.svelte';
+  import type { EcosystemId } from '$lib/ipc/bindings/EcosystemId';
   import { dashboard } from '$lib/stores/dashboard.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { ECOSYSTEM_POLL_MS } from '$lib/stores/live';
@@ -18,9 +19,9 @@
 
   import { onboarding } from '../onboarding/onboarding-state.svelte';
   import DashboardSection from './dashboard/DashboardSection.svelte';
-  import EcosystemCard from './EcosystemCard.svelte';
-  import EcosystemHero from './EcosystemHero.svelte';
-  import { installedSummary, updatesSummary } from './ecosystem-items';
+    import EcosystemHero from './EcosystemHero.svelte';
+  import { firstUpdating, installedSummary, updatesSummary } from './ecosystem-items';
+  import EcosystemRow from './EcosystemRow.svelte';
 
   const items = $derived(ecosystem.status?.items ?? null);
   const failed = $derived(ecosystem.state === 'error' && items === null);
@@ -48,6 +49,10 @@
     return parts.filter(Boolean).join(' · ');
   });
 
+  // One row of the Family rail is open at a time. Until the user chooses, that is the first member with an update waiting.
+  let chosen = $state<EcosystemId | null | undefined>(undefined);
+  const openRow = $derived(chosen === undefined ? firstUpdating(items ?? []) : chosen);
+
   onMount(() => {
     void ecosystem.load();
     void dashboard.openPanel();
@@ -74,21 +79,29 @@
       <LoadingSpinner label={t('ecosystem.companions.looking')} />
     {:else}
       <div class="page-wide flex flex-col gap-6 py-6">
-        <EcosystemHero {items} {failed} />
+        <EcosystemHero {items} {failed} onchoose={(id) => (chosen = id)} />
 
-        <div class="grid gap-6 @6xl:grid-cols-[minmax(0,1fr)_23rem] @6xl:items-start">
+        <div class="grid gap-6 @6xl:grid-cols-[minmax(0,1fr)_var(--family-rail)] @6xl:items-start">
           <div class="min-w-0"><DashboardSection /></div>
 
-          <section aria-labelledby="companions-title" class="flex min-w-0 flex-col gap-4">
+          <!-- Beside the usage panel the rail stays in view while the page scrolls, and scrolls by itself when it is taller than the window. -->
+          <section aria-labelledby="companions-title" class="flex min-h-0 min-w-0 flex-col gap-4 @6xl:sticky @6xl:top-6 @6xl:max-h-[calc(100dvh-var(--pane-header-h)-3rem)]">
             <div class="flex min-w-0 flex-col">
               <h2 id="companions-title" class="text-xl text-fg">{t('ecosystem.companions.title')}</h2>
               <p class="truncate text-sm text-fg-3">{t('ecosystem.companions.subtitle')}</p>
             </div>
 
             {#if items}
-              <div class="grid gap-4 @3xl:grid-cols-2 @6xl:grid-cols-1">
+              <!-- The rows share these columns, so every Install and Update button is as wide as the longest label. -->
+              <div class="family-rows grid min-h-0 grid-cols-[minmax(0,1fr)_auto_auto] content-start gap-y-0.5 rounded-lg border border-line bg-surface-1 p-1 shadow-raised">
                 {#each items as item, index (item.id)}
-                  <EcosystemCard {item} {index} />
+                  <EcosystemRow
+                    {item}
+                    {index}
+                    open={openRow === item.id}
+                    ontoggle={() => (chosen = openRow === item.id ? null : item.id)}
+                    onopen={() => (chosen = item.id)}
+                  />
                 {/each}
               </div>
             {:else}
@@ -106,3 +119,36 @@
     {/if}
   </div>
 </div>
+
+<style>
+  /* The scrollbar's room is always kept and always this wide: `scrollbar-gutter` reserves another width than the one it then draws in WebKitGTK, which moves the rows. */
+  @container (min-width: 72rem) {
+    .family-rows {
+      overflow-y: scroll;
+      padding-right: 0;
+      /* The app's thin scrollbar colours would switch off the width below in WebKit. */
+      scrollbar-color: auto;
+      scrollbar-width: auto;
+    }
+
+    @supports not selector(::-webkit-scrollbar) {
+      .family-rows {
+        scrollbar-color: var(--border-strong) transparent;
+        scrollbar-width: thin;
+      }
+    }
+
+    .family-rows::-webkit-scrollbar {
+      width: var(--family-rail-scrollbar);
+    }
+
+    .family-rows::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .family-rows::-webkit-scrollbar-thumb {
+      border-radius: calc(var(--family-rail-scrollbar) / 2);
+      background: var(--border-strong);
+    }
+  }
+</style>
