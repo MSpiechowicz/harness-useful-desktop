@@ -247,7 +247,7 @@
 
   $effect(() => {
     void installedVersions;
-    void prefs.value?.checkCompanionUpdates;
+    void prefs.value?.checkHarnessUpdates;
 
     if (intro.phase === 'done' && !onboarding.visible) {
       untrack(() => void harnessUpdates.refresh());

@@ -42,6 +42,7 @@ impl PrefsStore {
 
         prefs.update_policy = UpdatePolicy::AutoInstall;
         prefs.check_companion_updates = true;
+        prefs.check_harness_updates = true;
         prefs.auto_update_extensions = true;
         prefs.auto_refresh_catalogs = true;
         prefs.updates_turned_on = true;
@@ -129,6 +130,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         remember_recent_projects,
         update_policy,
         check_companion_updates,
+        check_harness_updates,
         auto_update_extensions,
         auto_refresh_catalogs,
         open_any_link,
@@ -171,6 +173,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         remember_recent_projects,
         update_policy,
         check_companion_updates,
+        check_harness_updates,
         auto_update_extensions,
         auto_refresh_catalogs,
         open_any_link,

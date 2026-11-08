@@ -76,6 +76,13 @@ updatePolicy: UpdatePolicy,
  */
 checkCompanionUpdates: boolean, 
 /**
+ * Whether the app looks up the latest npm version of the harness CLIs and offers their updates.
+ * Independent of `check_companion_updates`; when off, `harness_releases` makes no request. A
+ * stored file without this field takes the value of `check_companion_updates`, which also
+ * covered this lookup before (see `PrefsStore::load_checked`).
+ */
+checkHarnessUpdates: boolean, 
+/**
  * Whether the app keeps the active harness's plugins, marketplace catalogs and packages up to date by
  * itself, announcing each batch in a toast. Independent of `update_policy`, which is about the app.
  */

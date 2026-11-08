@@ -98,7 +98,7 @@ where
 /// The `checkCompanionUpdates` preference. Fails closed: off when a prefs file exists (or was
 /// moved aside as corrupt) but cannot be used, since the user may have turned the check off in
 /// it; on (the default) only when nothing was ever stored.
-pub(crate) async fn companion_checks_on(prefs: &SharedPrefs) -> bool {
+async fn companion_checks_on(prefs: &SharedPrefs) -> bool {
     stored_prefs(prefs)
         .await
         .is_some_and(|prefs| prefs.check_companion_updates)

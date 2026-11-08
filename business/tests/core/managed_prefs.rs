@@ -51,6 +51,7 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         default_harness: Some(HarnessId::Pi),
         update_policy: UpdatePolicy::Off,
         check_companion_updates: false,
+        check_harness_updates: false,
         auto_update_extensions: false,
         auto_refresh_catalogs: false,
         open_any_link: true,

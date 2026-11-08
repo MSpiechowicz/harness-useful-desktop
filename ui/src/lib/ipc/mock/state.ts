@@ -33,6 +33,7 @@ export function defaultPrefs(): AppPrefs {
     recentProjects: [],
     updatePolicy: 'autoInstall',
     checkCompanionUpdates: true,
+    checkHarnessUpdates: true,
     autoUpdateExtensions: true,
     autoRefreshCatalogs: true,
     openAnyLink: false,

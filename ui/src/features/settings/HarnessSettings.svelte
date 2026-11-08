@@ -2,8 +2,10 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import { harness } from '$lib/stores/harness.svelte';
   import { harnessUpdates } from '$lib/stores/harness-updates.svelte';
+  import { prefs } from '$lib/stores/prefs.svelte';
   import Button from '$lib/components/Button.svelte';
   import HarnessBadge from '$lib/components/HarnessBadge.svelte';
+  import Switch from '$lib/components/Switch.svelte';
   import Tooltip from '$lib/components/Tooltip.svelte';
   import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
 
@@ -58,3 +60,10 @@
     {/snippet}
   </SettingRow>
 {/each}
+
+<!-- The npm lookup behind the Update buttons and the offer toast (harness_releases): off means no request at all. -->
+<SettingRow title={t('settings.harness.checkUpdates.title')} description={t('settings.harness.checkUpdates.description')}>
+  {#snippet control()}
+    <Switch label={t('settings.harness.checkUpdates.title')} disabled={prefs.value === null} bind:checked={() => prefs.value?.checkHarnessUpdates ?? false, (checkHarnessUpdates) => void prefs.update({ checkHarnessUpdates })} />
+  {/snippet}
+</SettingRow>

@@ -164,6 +164,11 @@ pub struct AppPrefs {
     /// Whether the Ecosystem view looks up the latest GitHub release of the companion tools.
     /// Independent of `update_policy`; when off, `ecosystem_releases` makes no request.
     pub check_companion_updates: bool,
+    /// Whether the app looks up the latest npm version of the harness CLIs and offers their updates.
+    /// Independent of `check_companion_updates`; when off, `harness_releases` makes no request. A
+    /// stored file without this field takes the value of `check_companion_updates`, which also
+    /// covered this lookup before (see `PrefsStore::load_checked`).
+    pub check_harness_updates: bool,
     /// Whether the app keeps the active harness's plugins, marketplace catalogs and packages up to date by
     /// itself, announcing each batch in a toast. Independent of `update_policy`, which is about the app.
     pub auto_update_extensions: bool,
@@ -293,6 +298,7 @@ impl Default for AppPrefs {
             recent_projects: Vec::new(),
             update_policy: UpdatePolicy::AutoInstall,
             check_companion_updates: true,
+            check_harness_updates: true,
             auto_update_extensions: true,
             auto_refresh_catalogs: true,
             open_any_link: false,

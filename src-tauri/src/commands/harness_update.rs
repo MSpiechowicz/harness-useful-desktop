@@ -9,14 +9,14 @@ use harness_business::model::{HarnessId, HarnessInstalled, HarnessRelease, Harne
 use harness_business::process::{ProcessRunner, find_override};
 use tauri::{AppHandle, State};
 
-use super::ecosystem::companion_checks_on;
+use super::ecosystem::stored_prefs;
 use super::harness::{find, stored_overrides};
 use crate::error::CommandResult;
 use crate::releases::{NPM, fetch_release, release_client};
 use crate::state::AppState;
 
 /// The latest npm version of each harness in `installed`, compared with its installed version.
-/// Empty, without any request, while the `checkCompanionUpdates` preference is off or the prefs file
+/// Empty, without any request, while the `checkHarnessUpdates` preference is off or the prefs file
 /// cannot be used. Failed lookups are left out (never an error); see [`crate::releases`] for what
 /// is requested.
 #[tauri::command]
@@ -49,7 +49,12 @@ where
     F: Fn(&'static str) -> Fut,
     Fut: Future<Output = Option<Vec<u8>>>,
 {
-    if !companion_checks_on(&state.prefs).await {
+    // Fails closed like the family check: an unusable file may hold the user's "off".
+    let checks_on = stored_prefs(&state.prefs)
+        .await
+        .is_some_and(|prefs| prefs.check_harness_updates);
+
+    if !checks_on {
         return Vec::new();
     }
 
@@ -96,7 +101,7 @@ mod tests {
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::test_support::{TempDir, state_with_update_checks};
+    use crate::test_support::{TempDir, state_with_harness_checks, state_with_update_checks};
 
     /// A runner that must never be called.
     struct NoProcess;
@@ -115,9 +120,9 @@ mod tests {
     }
 
     #[test]
-    fn with_companion_checks_off_nothing_is_requested() {
+    fn with_harness_checks_off_nothing_is_requested() {
         let dir = TempDir::new("harness-releases-off");
-        let state = state_with_update_checks(&dir, false);
+        let state = state_with_harness_checks(&dir, false);
 
         let found = block_on(releases(&state, &pi(), |_url| async {
             panic!("a version was requested although update checks are off")
@@ -127,9 +132,23 @@ mod tests {
     }
 
     #[test]
-    fn with_companion_checks_on_every_package_is_looked_up() {
+    fn with_an_unusable_prefs_file_nothing_is_requested() {
+        let dir = TempDir::new("harness-releases-corrupt");
+        let state = state_with_harness_checks(&dir, true);
+        let prefs = state.prefs.with(|store| store.path());
+        std::fs::write(&prefs, r#"{"version":1,"checkHarnessUpdates":false,"theme":"bogus"}"#).unwrap();
+
+        let refuse = |_url| async { panic!("a version was requested although the prefs could not be read") };
+
+        assert!(block_on(releases(&state, &pi(), refuse)).is_empty());
+        // The corrupt file is now moved aside; the next call must not take that for "never set".
+        assert!(block_on(releases(&state, &pi(), refuse)).is_empty());
+    }
+
+    #[test]
+    fn with_harness_checks_on_every_package_is_looked_up_whatever_the_family_check_says() {
         let dir = TempDir::new("harness-releases-on");
-        let state = state_with_update_checks(&dir, true);
+        let state = state_with_update_checks(&dir, false);
         let requested = Mutex::new(Vec::new());
 
         let found = block_on(releases(&state, &pi(), |url| {

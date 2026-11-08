@@ -108,10 +108,7 @@ impl PrefsStore {
         };
 
         match serde_json::from_str::<AppPrefs>(&text) {
-            Ok(prefs) => (
-                normalize(carry_catalog_refresh_choice(prefs, &text)),
-                PrefsOrigin::Stored,
-            ),
+            Ok(prefs) => (normalize(carry_older_choices(prefs, &text)), PrefsOrigin::Stored),
             Err(error) => {
                 // serde_json errors carry a position, not file contents.
                 tracing::warn!(%error, "corrupt prefs file");
@@ -204,22 +201,29 @@ fn unusable_defaults() -> AppPrefs {
     }
 }
 
-/// The one key [`carry_catalog_refresh_choice`] looks for.
-#[derive(Deserialize)]
-struct CatalogRefreshKey {
+/// The keys [`carry_older_choices`] looks for.
+#[derive(Default, Deserialize)]
+struct CarriedKeys {
     #[serde(rename = "autoRefreshCatalogs")]
     auto_refresh_catalogs: Option<IgnoredAny>,
+    #[serde(rename = "checkHarnessUpdates")]
+    check_harness_updates: Option<IgnoredAny>,
 }
 
-/// `prefs` read from `text`, with `autoRefreshCatalogs` taken from `autoUpdateExtensions` when
-/// the file predates it: whoever turned automatic updates off gets no background catalog traffic
-/// after upgrading either. A file that has the key keeps its value. Fresh installs (no file) get
-/// the default, on.
-fn carry_catalog_refresh_choice(mut prefs: AppPrefs, text: &str) -> AppPrefs {
-    let has_key = serde_json::from_str::<CatalogRefreshKey>(text).is_ok_and(|key| key.auto_refresh_catalogs.is_some());
+/// `prefs` read from `text`, with a switch the file predates taken from the older switch that
+/// covered it: whoever turned automatic updates off gets no background catalog traffic after
+/// upgrading either (`autoRefreshCatalogs` from `autoUpdateExtensions`), and whoever turned the
+/// family check off gets no npm lookup (`checkHarnessUpdates` from `checkCompanionUpdates`). A
+/// file that has the key keeps its value. Fresh installs (no file) get the default, on.
+fn carry_older_choices(mut prefs: AppPrefs, text: &str) -> AppPrefs {
+    let keys = serde_json::from_str::<CarriedKeys>(text).unwrap_or_default();
 
-    if !has_key {
+    if keys.auto_refresh_catalogs.is_none() {
         prefs.auto_refresh_catalogs = prefs.auto_update_extensions;
+    }
+
+    if keys.check_harness_updates.is_none() {
+        prefs.check_harness_updates = prefs.check_companion_updates;
     }
 
     prefs

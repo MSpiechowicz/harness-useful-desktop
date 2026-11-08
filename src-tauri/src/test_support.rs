@@ -32,7 +32,7 @@ pub use code::code_data_setup;
 pub use git::{open_git_project, setup_git, stranger_beside};
 pub use memory::{REQUEST_ID, memory_data_setup, write_script_request};
 pub use opencode2::agent_setup_opencode2;
-pub use update_checks::state_with_update_checks;
+pub use update_checks::{state_with_harness_checks, state_with_update_checks};
 
 /// A uniquely named directory under the OS temp dir, removed on drop. Its path is canonical, so
 /// containment checks compare like with like (macOS `/var` → `/private/var`).

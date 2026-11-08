@@ -116,7 +116,7 @@ export function harnessHandlers(state: MockState): Pick<Handlers, HarnessCommand
 
     // Like the backend: nothing while the lookup is off, else every installed harness compared with its latest version.
     harness_releases: ({ installed }) => {
-      return state.prefs.checkCompanionUpdates
+      return state.prefs.checkHarnessUpdates
         ? installed.map(({ harness, version }) => {
             const latestVersion = MOCK_LATEST_VERSIONS[harness];
 

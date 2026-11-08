@@ -35,6 +35,7 @@ fn default_prefs_serialize_with_camel_case_fields() {
             "recentProjects": [],
             "updatePolicy": "autoInstall",
             "checkCompanionUpdates": true,
+            "checkHarnessUpdates": true,
             "autoUpdateExtensions": true,
             "autoRefreshCatalogs": true,
             "openAnyLink": false,

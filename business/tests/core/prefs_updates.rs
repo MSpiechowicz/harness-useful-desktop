@@ -18,6 +18,7 @@ fn store_with(json: &str) -> (TempDir, PrefsStore) {
 fn all_automatic(prefs: &AppPrefs) -> bool {
     prefs.update_policy == UpdatePolicy::AutoInstall
         && prefs.check_companion_updates
+        && prefs.check_harness_updates
         && prefs.auto_update_extensions
         && prefs.auto_refresh_catalogs
 }
@@ -226,4 +227,23 @@ fn the_ui_cannot_clear_a_notice_that_a_database_made_due() {
     store.save_ui(&from_ui).unwrap();
 
     assert!(!store.load().memory_opt_in_notice_done, "only the server marks it");
+}
+
+#[test]
+fn a_file_from_before_the_harness_check_takes_it_from_the_family_check() {
+    let (_on_dir, on) = store_with(r#"{ "version": 1, "checkCompanionUpdates": true }"#);
+    let (_off_dir, off) = store_with(r#"{ "version": 1, "checkCompanionUpdates": false }"#);
+
+    assert!(on.load().check_harness_updates);
+    assert!(!off.load().check_harness_updates);
+}
+
+#[test]
+fn a_stored_harness_check_choice_is_kept_whatever_the_family_check_says() {
+    let (_on_dir, on) = store_with(r#"{ "version": 1, "checkCompanionUpdates": false, "checkHarnessUpdates": true }"#);
+    let (_off_dir, off) =
+        store_with(r#"{ "version": 1, "checkCompanionUpdates": true, "checkHarnessUpdates": false }"#);
+
+    assert!(on.load().check_harness_updates);
+    assert!(!off.load().check_harness_updates);
 }
