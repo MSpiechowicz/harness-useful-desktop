@@ -206,7 +206,10 @@
     };
   });
 
-  // Keep the end in view as rows are added or grow, one write per frame; `atBottom` follows the content too, not only the scrolling.
+  // Keep the end in view as rows are added or grow; `atBottom` follows the content too, not only the scrolling.
+  // Written here and not in an animation frame: heights and the viewport arrive from ResizeObservers, which run before the paint,
+  // so this lands in the same frame. A frame later the grown text, or the text a new card covers, is painted past the edge first
+  // and the view visibly jumps down and back up.
   $effect(() => {
     void [offsets[items.length], viewport, stick, following];
     const element = scroller;
@@ -214,15 +217,11 @@
       return;
     }
 
-    const frame = requestAnimationFrame(() => {
-      if (stick && following) {
-        element.scrollTop = element.scrollHeight;
-      }
+    if (stick && following) {
+      element.scrollTop = element.scrollHeight;
+    }
 
-      syncBottom();
-    });
-
-    return () => cancelAnimationFrame(frame);
+    syncBottom();
   });
 
   /** Brings a row to the top of the view, or with `center` to the middle of it. */

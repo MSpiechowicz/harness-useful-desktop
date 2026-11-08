@@ -9,13 +9,12 @@ const VIEWPORT = 400;
 
 const rows = (count: number) => Array.from({ length: count }, (_, index) => index);
 
-// The list writes its follow position in an animation frame; the test moves that clock itself.
+// No animation frame ever passes here: the follow write has to land before the paint, a frame later the text has already jumped.
 beforeEach(() => vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] }));
 afterEach(() => vi.useRealTimers());
 
 async function settle(): Promise<void> {
   await tick();
-  vi.advanceTimersByTime(20);
 }
 
 /** The list element with the geometry of a scrolled box, which happy-dom does not lay out. */
