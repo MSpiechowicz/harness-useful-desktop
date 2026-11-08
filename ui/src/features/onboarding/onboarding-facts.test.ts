@@ -23,12 +23,15 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  // An hour after the mock's last session, so "Last used" does not change with the day the tests run.
+  vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-09T13:00:30Z') });
   localStorage.clear();
   await prefs.update({ defaultHarness: null, onboardingCompleted: false });
   await harness.load();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
