@@ -1,3 +1,12 @@
+# [0.66.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.65.0...v0.66.0) (2026-11-08)
+
+
+### Features
+
+* **harness:** add a switch for the harness CLI update checks ([98758c5](https://github.com/MSpiechowicz/harness-useful-desktop/commit/98758c5038294253ddfe32592ad5deab075f8581))
+* **harness:** suggest and run updates of the harness CLIs ([49abbe6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/49abbe65dafa8ec211c9af7c851e3c8724785d30)), closes [#57](https://github.com/MSpiechowicz/harness-useful-desktop/issues/57)
+* **memory:** tell about saves and pausing with toasts, not chat lines ([b78334b](https://github.com/MSpiechowicz/harness-useful-desktop/commit/b78334ba8fbdfa738c080847ddc293a68219ef6a))
+
 # [0.65.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.64.0...v0.65.0) (2026-11-07)
 
 
