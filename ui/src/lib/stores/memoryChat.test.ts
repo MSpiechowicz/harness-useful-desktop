@@ -164,6 +164,18 @@ describe('changing what a chat may save', () => {
     expect(store.get('agent-1')?.guards.paused).toBe(true);
   });
 
+  it('says so with a toast when saving is paused and when it is resumed', async () => {
+    const { store, toasts } = await running(recordingTransport().transport);
+
+    await store.setPaused('agent-1', true);
+    await store.setPaused('agent-1', false);
+
+    expect(toasts.items.map(({ title, tone }) => ({ title, tone }))).toEqual([
+      { title: 'Saving paused', tone: 'neutral' },
+      { title: 'Saving resumed', tone: 'success' },
+    ]);
+  });
+
   it('puts the switch back and says so when Harness Memory cannot be told', async () => {
     const failing: Transport = { invoke: () => Promise.reject(new IpcFailure({ code: 'io', message: 'the data folder is read-only' })) };
     const { store, toasts } = await running(failing);

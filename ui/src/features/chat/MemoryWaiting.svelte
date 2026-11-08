@@ -3,8 +3,8 @@
 
   import Button from '$lib/components/Button.svelte';
   import { ICON } from '$lib/components/icon';
-  import { heldCounts } from '$lib/chat/memory-held';
-  import { t, tn } from '$lib/i18n/i18n.svelte';
+  import { heldSummary } from '$lib/chat/memory-held';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { memoryChat } from '$lib/stores/memoryChat.svelte';
   import { memoryHeld } from '$lib/stores/memoryHeld.svelte';
 
@@ -19,27 +19,8 @@
 
   const memory = $derived(memoryChat.get(agentKey));
   const items = $derived(memory ? memoryHeld.of(memory.key) : []);
-  const counts = $derived(heldCounts(items));
   const saving = $derived(items.some((item) => memoryHeld.busy.has(item.heldId)));
-
-  // What the card says the agent wants: "1 note", "1 script", or "1 note and 2 scripts".
-  const wants = $derived.by(() => {
-    const notes = tn('memory.guards.waiting.notes', counts.notes);
-    const scripts = tn('memory.guards.waiting.scripts', counts.scripts);
-
-    if (counts.notes > 0 && counts.scripts > 0) {
-      return t('memory.guards.waiting.both', { notes, scripts });
-    }
-
-    return counts.notes > 0 ? notes : scripts;
-  });
-
-  /** Saves the waiting items one after the other, so a failure on one does not hide the rest. */
-  async function saveAll(): Promise<void> {
-    for (const item of items) {
-      await memoryHeld.save(item);
-    }
-  }
+  const wants = $derived(heldSummary(items));
 </script>
 
 <!-- The saves an agent holds for review: nothing is written until the user presses Save. Pinned after the last turn while any wait. -->
@@ -52,7 +33,7 @@
       <p class="text-xs text-fg-3">{t('memory.guards.waiting.subtitle')}</p>
     </div>
 
-    <Button disabled={saving} onclick={() => void saveAll()}>{t('memory.guards.waiting.saveAll')}</Button>
+    <Button disabled={saving} onclick={() => void memoryHeld.saveAll(items)}>{t('memory.guards.waiting.saveAll')}</Button>
   </header>
 
   {#each items as item (item.heldId)}

@@ -1,3 +1,4 @@
+import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { HeldItem } from '$lib/ipc/bindings/HeldItem';
 import type { NoteDraft } from '$lib/ipc/bindings/NoteDraft';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
@@ -147,11 +148,18 @@ export function heldView(item: HeldItem): HeldView {
   return { type: 'note', heldId: item.heldId, noteId: id, note, current: before };
 }
 
-/** The first line of the card: how many of each the agent wants to save, as counts for the plural messages. */
-export function heldCounts(items: readonly HeldItem[]): { notes: number; scripts: number } {
-  const scripts = items.filter((item) => item.kind === 'script').length;
+/** How many of each these are: "1 note", "2 scripts", or "1 note and 2 scripts". */
+export function heldSummary(items: readonly HeldItem[]): string {
+  const scriptCount = items.filter((item) => item.kind === 'script').length;
+  const noteCount = items.length - scriptCount;
+  const notes = tn('memory.guards.waiting.notes', noteCount);
+  const scripts = tn('memory.guards.waiting.scripts', scriptCount);
 
-  return { notes: items.length - scripts, scripts };
+  if (noteCount > 0 && scriptCount > 0) {
+    return t('memory.guards.waiting.both', { notes, scripts });
+  }
+
+  return noteCount > 0 ? notes : scripts;
 }
 
 /** What a held item is called in a short line: a note's title or a script's name. */

@@ -1,20 +1,11 @@
-import { heldTitle } from '$lib/chat/memory-held';
+import { heldSummary, heldTitle } from '$lib/chat/memory-held';
 import { t } from '$lib/i18n/i18n.svelte';
 import type { HeldItem } from '$lib/ipc/bindings/HeldItem';
-import type { HeldKind } from '$lib/ipc/bindings/HeldKind';
 import type { JsonValue } from '$lib/ipc/bindings/serde_json/JsonValue';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
-/** What the user did with a waiting save, kept for the chat to say so under the card. */
-export interface HeldOutcome {
-  id: string;
-  what: 'saved' | 'skipped';
-  kind: HeldKind;
-  title: string;
-}
-
-const REMEMBERED_OUTCOMES = 3;
+import { toasts, type ToastsStore } from './toasts.svelte';
 
 /**
  * The saves agents made while "Ask before saving" was on, waiting for the user, of every chat (Harness Memory keeps them
@@ -27,24 +18,20 @@ export class MemoryHeldStore {
   failures = $state.raw<Record<string, string>>({});
   /** The held ids being saved or skipped now. */
   busy = $state.raw<ReadonlySet<string>>(new Set());
-  private outcomes = $state.raw<Record<string, HeldOutcome[]>>({});
 
   /** The chats whose waiting saves are listed: the open ones. */
   private watched = new Set<string>();
   /** Only the newest read of a chat may apply its result. */
   private reads = new Map<string, number>();
-  private counter = 0;
 
-  constructor(private readonly transport: Transport) {}
+  constructor(
+    private readonly transport: Transport,
+    private readonly notifications: Pick<ToastsStore, 'push'>,
+  ) {}
 
   /** The waiting saves of a chat, newest first. */
   of(chatKey: string | null): HeldItem[] {
     return chatKey === null ? [] : this.items.filter((item) => item.chatKey === chatKey);
-  }
-
-  /** What was saved or skipped in a chat from its card, oldest first. */
-  outcomesOf(chatKey: string | null): HeldOutcome[] {
-    return chatKey === null ? [] : (this.outcomes[chatKey] ?? []);
   }
 
   /** Lists the waiting saves of exactly these chats: a chat that opened is read at once, one that closed is forgotten. */
@@ -108,12 +95,37 @@ export class MemoryHeldStore {
    * user saw (the item's own unless an editor was opened on an earlier one): the backend saves only that.
    */
   async save(item: HeldItem, edited: JsonValue | null = null, revision: string | null = item.revision): Promise<boolean> {
-    return this.act(item, 'saved', () => this.transport.invoke('memory_held_save', { heldId: item.heldId, edited, revision }));
+    const saved = await this.write(item, edited, revision);
+
+    if (saved) {
+      this.announceSaved([item]);
+    }
+
+    return saved;
+  }
+
+  /** Saves these one after the other, so a failure on one does not hide the rest, and says so with one toast for what was saved. */
+  async saveAll(items: readonly HeldItem[]): Promise<void> {
+    const saved: HeldItem[] = [];
+
+    for (const item of items) {
+      if (await this.write(item, null, item.revision)) {
+        saved.push(item);
+      }
+    }
+
+    this.announceSaved(saved);
   }
 
   /** Drops a waiting save without saving anything, when it is still the version the user saw. True when it was dropped. */
-  skip(item: HeldItem, revision: string | null = item.revision): Promise<boolean> {
-    return this.act(item, 'skipped', () => this.transport.invoke('memory_held_skip', { heldId: item.heldId, revision }));
+  async skip(item: HeldItem, revision: string | null = item.revision): Promise<boolean> {
+    const skipped = await this.act(item, () => this.transport.invoke('memory_held_skip', { heldId: item.heldId, revision }));
+
+    if (skipped) {
+      this.notifications.push({ title: t(item.kind === 'note' ? 'memory.guards.toast.skippedNote' : 'memory.guards.toast.skippedScript'), description: heldTitle(item) });
+    }
+
+    return skipped;
   }
 
   /** Says, in the item, that the agent changed it after the user saw it. */
@@ -121,13 +133,16 @@ export class MemoryHeldStore {
     this.failures = { ...this.failures, [heldId]: t('memory.guards.waiting.changed') };
   }
 
-  private async act(item: HeldItem, what: HeldOutcome['what'], run: () => Promise<unknown>): Promise<boolean> {
+  private write(item: HeldItem, edited: JsonValue | null, revision: string | null): Promise<boolean> {
+    return this.act(item, () => this.transport.invoke('memory_held_save', { heldId: item.heldId, edited, revision }));
+  }
+
+  private async act(item: HeldItem, run: () => Promise<unknown>): Promise<boolean> {
     this.mark(item.heldId, true);
     this.forgetFailure(item.heldId);
 
     try {
       await run();
-      this.remember(item, what);
       this.items = this.items.filter((other) => other.heldId !== item.heldId);
 
       return true;
@@ -162,11 +177,15 @@ export class MemoryHeldStore {
     this.failures = { ...this.failures, [item.heldId]: reason };
   }
 
-  private remember(item: HeldItem, what: HeldOutcome['what']): void {
-    this.counter += 1;
-    const outcome: HeldOutcome = { id: `${item.heldId}-${this.counter}`, what, kind: item.kind, title: heldTitle(item) };
+  /** One toast for what was saved at once: one item by its title, more by how many. */
+  private announceSaved(saved: readonly HeldItem[]): void {
+    if (saved.length === 1) {
+      const [item] = saved;
 
-    this.outcomes = { ...this.outcomes, [item.chatKey]: [...(this.outcomes[item.chatKey] ?? []), outcome].slice(-REMEMBERED_OUTCOMES) };
+      this.notifications.push({ title: t(item.kind === 'note' ? 'memory.guards.toast.savedNote' : 'memory.guards.toast.savedScript'), description: heldTitle(item), tone: 'success' });
+    } else if (saved.length > 1) {
+      this.notifications.push({ title: t('memory.guards.toast.savedAll'), description: heldSummary(saved), tone: 'success' });
+    }
   }
 
   private forgetFailure(heldId: string): void {
@@ -190,4 +209,4 @@ export class MemoryHeldStore {
   }
 }
 
-export const memoryHeld = new MemoryHeldStore(ipc);
+export const memoryHeld = new MemoryHeldStore(ipc, toasts);

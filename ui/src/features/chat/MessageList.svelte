@@ -48,7 +48,7 @@
 
   // What the chat's agent holds for the user's review, and what was done with it, sits after the last turn. It is not part of the conversation.
   const memoryItem: TranscriptItem = { kind: 'memory', key: 'memory', order: Number.MAX_SAFE_INTEGER };
-  const rows = $derived(hasMemoryRow(session.key, session.chat.items.length > 0) ? [...session.chat.items, memoryItem] : session.chat.items);
+  const rows = $derived(hasMemoryRow(session.key) ? [...session.chat.items, memoryItem] : session.chat.items);
 
   // "Review" in the Memory popover brings the waiting saves into view.
   let reviews = untrack(() => memoryChat.reviewRequests(session.key));

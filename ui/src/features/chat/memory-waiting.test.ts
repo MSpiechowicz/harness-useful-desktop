@@ -175,13 +175,14 @@ describe('the card of saves waiting for review', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('saves everything that waits, one after the other', async () => {
+  it('saves everything that waits in one go', async () => {
+    const saveAll = vi.spyOn(memoryHeld, 'saveAll').mockResolvedValue();
     show();
 
     await fireEvent.click(screen.getByRole('button', { name: 'Save all' }));
 
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(4));
-    expect(save.mock.calls.map(([held]) => held.heldId)).toEqual([HELD_SCRIPT_SAVE_ID, HELD_NOTE_UPDATE_ID, HELD_NOTE_SAVE_ID, HELD_NOTE_APPEND_ID]);
+    expect(saveAll).toHaveBeenCalledOnce();
+    expect(saveAll.mock.calls[0][0].map((held) => held.heldId)).toEqual([HELD_SCRIPT_SAVE_ID, HELD_NOTE_UPDATE_ID, HELD_NOTE_SAVE_ID, HELD_NOTE_APPEND_ID]);
   });
 
   it('saves what the user changed in the editor as the edited save, and closes the editor', async () => {
@@ -352,20 +353,5 @@ describe('the card of saves waiting for review', () => {
     show([]);
 
     expect(screen.queryByRole('region', { name: 'Saves waiting for your review' })).toBeNull();
-  });
-});
-
-describe('what the chat says when saving is paused', () => {
-  it('says so under the conversation and resumes from there', async () => {
-    // The guards go to the mock backend, which takes them as Harness Memory does.
-    vi.stubEnv('VITE_TRANSPORT', 'mock');
-    show([]);
-    await memoryChat.setPaused(AGENT, true);
-
-    expect(await screen.findByText('Saving paused for this chat. Agents still read notes and scripts.')).toBeInTheDocument();
-
-    await fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
-
-    await waitFor(() => expect(memoryChat.get(AGENT)?.guards.paused).toBe(false));
   });
 });

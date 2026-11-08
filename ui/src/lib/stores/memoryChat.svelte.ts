@@ -293,12 +293,12 @@ export class MemoryChatStore {
     }
   }
 
-  /** Changes what the agents of a chat may save. Rolled back, with a toast, when Harness Memory cannot be told. */
-  async setGuards(agentKey: string, change: (guards: MemoryChatGuards) => MemoryChatGuards): Promise<void> {
+  /** Changes what the agents of a chat may save. Rolled back, with a toast, when Harness Memory cannot be told. True when it was told. */
+  async setGuards(agentKey: string, change: (guards: MemoryChatGuards) => MemoryChatGuards): Promise<boolean> {
     const memory = this.chats.get(agentKey);
 
     if (!memory) {
-      return;
+      return false;
     }
 
     const before = memory.guards;
@@ -314,12 +314,16 @@ export class MemoryChatStore {
 
         await this.transport.invoke('memory_chat_guards_set', { key: memory.key, guards, revision: this.nextRevision(memory.key, result.revision) });
       }
+
+      return true;
     } catch (error) {
       if (this.chats.get(agentKey)?.guards === next) {
         this.chats.set(agentKey, { ...memory, guards: before });
       }
 
       this.failed(error);
+
+      return false;
     }
   }
 
@@ -332,12 +336,15 @@ export class MemoryChatStore {
     return revision;
   }
 
-  setKind(agentKey: string, kind: GuardKind, change: Partial<MemoryChatGuards[GuardKind]>): Promise<void> {
+  setKind(agentKey: string, kind: GuardKind, change: Partial<MemoryChatGuards[GuardKind]>): Promise<boolean> {
     return this.setGuards(agentKey, (guards) => withKind(guards, kind, change));
   }
 
-  setPaused(agentKey: string, paused: boolean): Promise<void> {
-    return this.setGuards(agentKey, (guards) => ({ ...guards, paused }));
+  /** Pauses or resumes saving in a chat, and says so with a toast once Harness Memory was told. */
+  async setPaused(agentKey: string, paused: boolean): Promise<void> {
+    if (await this.setGuards(agentKey, (guards) => ({ ...guards, paused }))) {
+      this.notifications.push(paused ? { title: t('memory.guards.toast.paused'), description: t('memory.guards.pausedNote') } : { title: t('memory.guards.toast.resumed'), description: t('memory.guards.toast.resumedNote'), tone: 'success' });
+    }
   }
 
   /** "Check again": asks the chat's agent to save what it learned now. Says why, with a toast, when it cannot. */
