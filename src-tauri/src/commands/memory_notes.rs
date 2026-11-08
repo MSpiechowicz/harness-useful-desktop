@@ -12,8 +12,9 @@ use harness_business::ecosystem::{
     ListWindow, NotesQuery, Repos, delete_all_notes, delete_note, discard_local, hide_entry, save_note,
 };
 use harness_business::model::{
-    AuthorFilter, LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, NoteDetail, NoteDraft,
-    NoteKind, NoteLangFilter, NoteSaved, NoteSort, NoteUsefulFilter, ScriptPlace, ScriptScope, SortOrder,
+    AuthorFilter, LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryNotesPage, MemoryRepos, MemorySavePlace,
+    NoteDetail, NoteDraft, NoteKind, NoteLangFilter, NoteSaved, NoteSort, NoteUsefulFilter, ScriptPlace, ScriptScope,
+    SortOrder,
 };
 use tauri::State;
 
@@ -156,18 +157,28 @@ pub async fn memory_notes_delete_all(
 
 /// Creates a note, or with `replace_id` rewrites that note (an edit, or replacing the note that
 /// has the title; its scope stays). `exists` (nothing saved) with the other note's id when a note
-/// of the project's repository, or of the edited note's scope, has the title. `invalidInput` for
-/// a draft over a limit or a new repository note without a project, `notFound` when the note to
-/// replace is gone or the server is not installed, `unsupported` when the server predates saving
-/// from the app, `forbidden` for a project that is not open or recent.
+/// of the project's repository, or of the edited note's scope, has the title. An edit passes
+/// `expected_revision`, the revision of the note the editor opened: a server that checks it
+/// answers `conflict` (nothing saved) when the note changed since or is gone, and one that does
+/// not saves as before. `invalidInput` for a draft over a limit, a negative revision or a new
+/// repository note without a project, `notFound` when the note to replace is gone (without
+/// `expected_revision`) or the server is not installed, `unsupported` when the server predates
+/// saving from the app, `forbidden` for a project that is not open or recent. A new note may pass
+/// `place` (`remote` or `local`) while its scope is routed to "Remote + this computer": the answer
+/// says where it went (`place`, null when the server does not say). `invalidInput` for a `place`
+/// with `replace_id`, `unsupported` for one when the server lacks `save-place` (see
+/// `MemoryRemote.savePlaceSupported`), `process` with the server's redacted line when the team
+/// database cannot be reached: nothing is saved on either side.
 #[tauri::command]
 pub async fn memory_note_save(
     state: State<'_, AppState>,
     project: Option<String>,
     draft: NoteDraft,
     replace_id: Option<i64>,
+    expected_revision: Option<i64>,
+    place: Option<MemorySavePlace>,
 ) -> CommandResult<NoteSaved> {
-    save(&state, project, &draft, replace_id).await
+    save(&state, project, &draft, replace_id, expected_revision, place).await
 }
 
 async fn save(
@@ -175,6 +186,8 @@ async fn save(
     project: Option<String>,
     draft: &NoteDraft,
     replace_id: Option<i64>,
+    expected_revision: Option<i64>,
+    place: Option<MemorySavePlace>,
 ) -> CommandResult<NoteSaved> {
     let project = project_root(state, project).await?;
     let route = state.save_route().await;
@@ -187,6 +200,8 @@ async fn save(
         project.as_deref(),
         draft,
         replace_id,
+        expected_revision,
+        place,
     )
     .await?)
 }
@@ -301,7 +316,12 @@ mod tests {
     }
 
     fn saved(outcome: NoteSaveOutcome, id: i64) -> NoteSaved {
-        NoteSaved { outcome, id: Some(id) }
+        NoteSaved {
+            outcome,
+            id: Some(id),
+            queued: false,
+            place: None,
+        }
     }
 
     #[test]
@@ -318,6 +338,8 @@ mod tests {
                 state,
                 path_arg(stranger),
                 &draft("A new note", ScriptScope::Repo),
+                None,
+                None,
                 None,
             ))
             .map(|_| ()),
@@ -400,29 +422,29 @@ mod tests {
         let (state, project) = (&setup.state, &setup.project);
         let new = draft("A note from the app", ScriptScope::Repo);
 
-        let error = block_on(save(state, path_arg(project), &new, None)).expect_err("not installed");
+        let error = block_on(save(state, path_arg(project), &new, None, None, None)).expect_err("not installed");
         assert_eq!(error.code(), IpcErrorCode::NotFound);
 
         if place_memory_server(&setup.home).is_none() {
             return;
         }
 
-        let created = block_on(save(state, path_arg(project), &new, None)).expect("created");
+        let created = block_on(save(state, path_arg(project), &new, None, None, None)).expect("created");
         assert_eq!(created, saved(NoteSaveOutcome::Created, 9), "read past the frame line");
 
         let taken = draft("Watcher misses renames", ScriptScope::Repo);
-        let exists = block_on(save(state, path_arg(project), &taken, None)).expect("refused");
+        let exists = block_on(save(state, path_arg(project), &taken, None, None, None)).expect("refused");
         assert_eq!(
             exists,
             saved(NoteSaveOutcome::Exists, 3),
             "the repository note with that title"
         );
 
-        let replaced = block_on(save(state, path_arg(project), &taken, Some(3))).expect("replaced");
+        let replaced = block_on(save(state, path_arg(project), &taken, Some(3), None, None)).expect("replaced");
         assert_eq!(replaced, saved(NoteSaveOutcome::Updated, 3));
 
         let renamed = draft("Cache the tools probe", ScriptScope::Repo);
-        let exists = block_on(save(state, path_arg(project), &renamed, Some(2))).expect("refused");
+        let exists = block_on(save(state, path_arg(project), &renamed, Some(2), None, None)).expect("refused");
         assert_eq!(
             exists,
             saved(NoteSaveOutcome::Exists, 5),
@@ -430,20 +452,21 @@ mod tests {
         );
 
         let global = draft("Prefer bun over npm", ScriptScope::Global);
-        let exists = block_on(save(state, None, &global, None)).expect("refused");
+        let exists = block_on(save(state, None, &global, None, None, None)).expect("refused");
         assert_eq!(
             exists,
             saved(NoteSaveOutcome::Exists, 7),
             "the global note with that title is not rewritten"
         );
 
-        let replaced = block_on(save(state, None, &global, Some(7))).expect("replaced by id");
+        let replaced = block_on(save(state, None, &global, Some(7), None, None)).expect("replaced by id");
         assert_eq!(replaced, saved(NoteSaveOutcome::Updated, 7));
 
-        let error = block_on(save(state, None, &taken, Some(3))).expect_err("a repository note without its project");
+        let error = block_on(save(state, None, &taken, Some(3), None, None))
+            .expect_err("a repository note without its project");
         assert_eq!(error.code(), IpcErrorCode::NotFound);
 
-        let error = block_on(save(state, None, &new, None)).expect_err("a repository note needs a project");
+        let error = block_on(save(state, None, &new, None, None, None)).expect_err("a repository note needs a project");
         assert_eq!(error.code(), IpcErrorCode::InvalidInput);
 
         block_on(state.memory_scripts.shutdown());

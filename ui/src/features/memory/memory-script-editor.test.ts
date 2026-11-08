@@ -357,7 +357,7 @@ describe('a script that waits for review', () => {
   function answerNeeded(invoke: ReturnType<typeof fakeMemory>): void {
     const written = sampleScripts().find((script) => script.name === 'deploy-check');
 
-    answerSaves(invoke, () => ({ outcome: 'replaced', id: 27, script: written ? { ...written, trusted: false, approval: 'needed' } : null }));
+    answerSaves(invoke, () => ({ outcome: 'replaced', id: 27, script: written ? { ...written, trusted: false, approval: 'needed' } : null, place: null }));
   }
 
   it('says in the editor that saving the code makes it the user\'s own and saving without changes keeps it waiting', async () => {

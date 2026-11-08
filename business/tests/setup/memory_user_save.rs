@@ -6,12 +6,12 @@ use std::path::PathBuf;
 
 use harness_business::BusinessError;
 use harness_business::ecosystem::MemoryFeatures;
-use harness_business::ecosystem::memory_user_save::{CHANGED_MESSAGE, GONE_MESSAGE};
+use harness_business::ecosystem::memory_user_save::{CHANGED_MESSAGE, GONE_MESSAGE, NOTE_CHANGED_MESSAGE};
 use harness_business::ecosystem::{HeldSave, SaveRoute, guarded_server, list_held, save_held, save_note, skip_held};
 use harness_business::model::{
     HeldSaved, HeldTool, NoteDraft, NoteKind, NoteSaveOutcome, ScriptSaveOutcome, ScriptScope,
 };
-use memory_stand_in::{CURRENT, Setup, script};
+use memory_stand_in::{CURRENT, Setup, Vars, script};
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 
@@ -27,6 +27,7 @@ fn held_save(held_id: &str) -> HeldSave<'_> {
         held_id,
         revision: None,
         edited: None,
+        place: None,
     }
 }
 
@@ -79,6 +80,8 @@ async fn a_note_is_saved_and_updated_through_the_user_commands() {
                 Some(&project),
                 &draft,
                 replace,
+                None,
+                None,
             )
             .await
         }
@@ -136,6 +139,136 @@ async fn a_note_is_saved_and_updated_through_the_user_commands() {
     );
 }
 
+/// Saves note `draft` on `route`: an edit of note `replace` that opened revision `expected`.
+async fn edit(
+    setup: &Setup,
+    route: SaveRoute,
+    replace: Option<i64>,
+    expected: Option<i64>,
+) -> Result<harness_business::model::NoteSaved, BusinessError> {
+    let project = setup.project();
+
+    save_note(
+        &setup.env,
+        &setup.scripts,
+        setup.runner(),
+        route,
+        Some(&project),
+        &note("Retry the build"),
+        replace,
+        expected,
+        None,
+    )
+    .await
+}
+
+/// Whether the command run last carries `--expect-revision`.
+fn sends_revision(setup: &Setup) -> bool {
+    last_args(setup).iter().any(|arg| arg == "--expect-revision")
+}
+
+#[tokio::test]
+async fn an_edit_of_a_note_that_changed_since_it_was_opened_is_a_conflict() {
+    let setup = Setup::installed(CURRENT, &[]);
+    let route = SaveRoute::CliExpectRevision;
+
+    let saved = edit(&setup, route, Some(5), Some(4))
+        .await
+        .expect("the revision it opened");
+    assert_eq!((saved.outcome, saved.id), (NoteSaveOutcome::Updated, Some(5)));
+
+    let args = last_args(&setup);
+    assert_eq!(args[..3], ["notes", "update", "5"]);
+    assert_eq!(args[args.len() - 2..], ["--expect-revision", "4"]);
+
+    let runs = setup.runs().len();
+    let changed = edit(&setup, route, Some(5), Some(3)).await;
+    assert!(
+        matches!(changed, Err(BusinessError::Conflict(ref text)) if text == NOTE_CHANGED_MESSAGE),
+        "{changed:?}"
+    );
+    assert_eq!(
+        setup.runs().len(),
+        runs + 1,
+        "the server was asked once, nothing was retried"
+    );
+
+    let gone = edit(&setup, route, Some(404), Some(4)).await;
+    assert!(matches!(gone, Err(BusinessError::Conflict(_))), "{gone:?}");
+
+    let moved = edit(&setup, route, Some(405), Some(4)).await;
+    assert!(
+        matches!(moved, Err(BusinessError::Process(ref text)) if text.contains("is gone, so nothing was saved")),
+        "a refusal for the project is not a conflict of revisions: {moved:?}"
+    );
+
+    let negative = edit(&setup, route, Some(5), Some(-1)).await;
+    assert!(matches!(negative, Err(BusinessError::InvalidInput(_))), "{negative:?}");
+
+    let unchecked = edit(&setup, route, Some(404), None).await;
+    assert!(
+        matches!(unchecked, Err(BusinessError::NotFound(ref text)) if text == "note 404"),
+        "an edit that names no revision is a missing note as before: {unchecked:?}"
+    );
+}
+
+#[tokio::test]
+async fn the_revision_is_sent_only_with_an_edit_on_a_server_that_checks_it() {
+    let setup = Setup::installed(CURRENT, &[]);
+
+    // A server that does not list `note-expect-revision` would refuse the option as a usage error.
+    let saved = edit(&setup, SaveRoute::Cli, Some(5), Some(3))
+        .await
+        .expect("saved as before");
+    assert_eq!(saved.outcome, NoteSaveOutcome::Updated);
+    assert!(!sends_revision(&setup), "{:?}", last_args(&setup));
+
+    // A new note has no revision to check.
+    let created = edit(&setup, SaveRoute::CliExpectRevision, None, Some(3))
+        .await
+        .expect("created");
+    assert_eq!(created.outcome, NoteSaveOutcome::Created);
+    assert_eq!(last_args(&setup)[..2], ["notes", "save"]);
+    assert!(!sends_revision(&setup), "{:?}", last_args(&setup));
+
+    let without = edit(&setup, SaveRoute::CliExpectRevision, Some(5), None)
+        .await
+        .expect("saved");
+    assert_eq!(without.outcome, NoteSaveOutcome::Updated);
+    assert!(!sends_revision(&setup), "{:?}", last_args(&setup));
+
+    // Through MCP an edit goes as it always did: no user command runs.
+    let runs = setup.runs().len();
+    let mcp = edit(&setup, SaveRoute::Mcp, Some(5), Some(3))
+        .await
+        .expect("saved through mcp");
+    assert_eq!(mcp.outcome, NoteSaveOutcome::Updated);
+    assert_eq!(setup.runs().len(), runs);
+}
+
+const GUARDS: Vars = &[("FAKE_MEMORY_FEATURES", "save-guards")];
+const GUARDS_AND_REVISIONS: Vars = &[("FAKE_MEMORY_FEATURES", "save-guards,note-expect-revision")];
+const REVISIONS_ONLY: Vars = &[("FAKE_MEMORY_FEATURES", "note-expect-revision")];
+const OLDER: Vars = &[("FAKE_MEMORY_FEATURES", "none")];
+
+#[tokio::test]
+async fn the_installed_servers_features_pick_the_save_route() {
+    let route_of = |vars: Vars| async move {
+        let setup = Setup::installed(CURRENT, vars);
+
+        SaveRoute::of(MemoryFeatures::new().support(&setup.env, setup.runner()).await)
+    };
+
+    assert_eq!(route_of(GUARDS).await, SaveRoute::Cli);
+    assert_eq!(route_of(GUARDS_AND_REVISIONS).await, SaveRoute::CliExpectRevision);
+    assert_eq!(
+        route_of(REVISIONS_ONLY).await,
+        SaveRoute::Mcp,
+        "no user commands to carry it"
+    );
+    assert_eq!(route_of(OLDER).await, SaveRoute::Mcp);
+}
+
 #[tokio::test]
 async fn a_script_is_saved_through_the_user_command_and_read_again() {
     let setup = Setup::installed(CURRENT, &[]);
@@ -150,6 +283,7 @@ async fn a_script_is_saved_through_the_user_command_and_read_again() {
             Some(&project),
             &script("open-prs"),
             true,
+            None,
             None,
         )
         .await
@@ -197,10 +331,10 @@ async fn held_saves_are_listed_saved_and_skipped_through_the_server() {
         revision: Some(REVISION),
         ..held_save(HELD)
     };
-    let saved = save_held(&setup.env, setup.runner(), &server, save)
+    let saved = save_held(&setup.env, setup.runner(), &MemoryFeatures::new(), &server, save)
         .await
         .expect("saved");
-    assert_eq!(saved, HeldSaved::Note { id: 12 });
+    assert_eq!(saved, HeldSaved::Note { id: 12, queued: false });
     assert_eq!(last_stdin(&setup), edited);
     assert_eq!(
         last_args(&setup),
@@ -223,6 +357,7 @@ async fn held_saves_are_listed_saved_and_skipped_through_the_server() {
     let gone = save_held(
         &setup.env,
         setup.runner(),
+        &MemoryFeatures::new(),
         &server,
         held_save("8e3f5a4c-1d0a-4b9c-8e7f-7a6b5c4d3e2f"),
     )
@@ -237,14 +372,28 @@ async fn held_saves_are_listed_saved_and_skipped_through_the_server() {
     assert!(matches!(missing, Err(BusinessError::NotFound(_))), "{missing:?}");
 
     let runs = setup.runs().len();
-    let bad = save_held(&setup.env, setup.runner(), &server, held_save("../escape")).await;
+    let bad = save_held(
+        &setup.env,
+        setup.runner(),
+        &MemoryFeatures::new(),
+        &server,
+        held_save("../escape"),
+    )
+    .await;
     assert!(matches!(bad, Err(BusinessError::InvalidInput(_))), "{bad:?}");
 
     let bad_revision = HeldSave {
         revision: Some("--all"),
         ..held_save(HELD)
     };
-    let bad = save_held(&setup.env, setup.runner(), &server, bad_revision).await;
+    let bad = save_held(
+        &setup.env,
+        setup.runner(),
+        &MemoryFeatures::new(),
+        &server,
+        bad_revision,
+    )
+    .await;
     assert!(matches!(bad, Err(BusinessError::InvalidInput(_))), "{bad:?}");
 
     let bad = skip_held(&setup.env, setup.runner(), &server, HELD, Some("--all")).await;
@@ -265,7 +414,7 @@ async fn a_held_save_the_agent_changed_since_the_user_saw_it_is_not_saved() {
         revision: Some(&seen),
         ..held_save(HELD)
     };
-    let refused = save_held(&setup.env, setup.runner(), &server, stale).await;
+    let refused = save_held(&setup.env, setup.runner(), &MemoryFeatures::new(), &server, stale).await;
 
     assert!(
         matches!(refused, Err(BusinessError::Changed(ref text)) if text == CHANGED_MESSAGE),

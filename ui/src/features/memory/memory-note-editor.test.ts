@@ -332,7 +332,7 @@ describe('editing a note', () => {
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit note' })).not.toBeInTheDocument());
-    expect(calls(invoke, 'memory_note_save')).toEqual([{ project: PROJECT, replaceId: 4, draft: expect.objectContaining({ title: 'Blank window after a Wayland hot reload', tags: ['linux', 'wayland'], scope: 'repo', kind: 'fix' }) }]);
+    expect(calls(invoke, 'memory_note_save')).toEqual([{ project: PROJECT, replaceId: 4, expectedRevision: 1, draft: expect.objectContaining({ title: 'Blank window after a Wayland hot reload', tags: ['linux', 'wayland'], scope: 'repo', kind: 'fix' }) }]);
     expect(toastTitles()).toContain('Note saved');
 
     const panel = await screen.findByRole('region', { name: 'Blank window after a Wayland hot reload' });

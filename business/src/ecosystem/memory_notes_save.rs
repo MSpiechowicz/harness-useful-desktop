@@ -20,6 +20,18 @@
 //! `notes update` instead (see [`memory_user_save`](super::memory_user_save)), which no save guard
 //! stops.
 //!
+//! An edit names the revision the editor opened (`expected_revision`). A server that also lists
+//! `note-expect-revision` ([`SaveRoute::CliExpectRevision`]) saves the note only at that revision:
+//! a note that changed since, or is gone, is refused as a conflict and nothing is saved. A server
+//! without it, and the MCP route, save as before (the revision is not sent).
+//!
+//! A new note may name where it goes (`place`, `remote` or `local`) while its scope is routed to
+//! "Remote + this computer": a server that lists `save-place` ([`SaveRoute::places`]) takes
+//! `notes save --place`, and answers where the note went ([`NoteSaved::place`]). A `place` for an
+//! edit is `invalidInput`, and one the server cannot take (no `save-place`, or the MCP route) is
+//! `unsupported`: nothing runs. A team database that cannot be reached fails the save with the
+//! server's (redacted) text and nothing is saved on either side.
+//!
 //! The draft is checked against the server's limits first, and a new repository note needs a
 //! project (`invalidInput`). Neither the title nor the body is logged.
 
@@ -36,7 +48,7 @@ use super::memory_scripts::{MemoryScripts, tool_error_text, with_project};
 use super::memory_user_save::{SaveRoute, save_note_cli};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryCopyKind, NoteDraft, NoteSaveOutcome, NoteSaved, ScriptScope};
+use crate::model::{MemoryCopyKind, MemorySavePlace, NoteDraft, NoteSaveOutcome, NoteSaved, ScriptScope};
 use crate::process::ProcessRunner;
 
 /// Harness Memory's `TITLE_MAX`, in characters.
@@ -59,6 +71,11 @@ const NOTE_UPDATE_TOOL: &str = "note_update";
 static SAVED_LINE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?m)^(created|updated) note (\d+) \(").expect("static regex is valid"));
 
+/// The line of a change to a team note that waits for the team database (`note_update` while it
+/// cannot be reached).
+static QUEUED_LINE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^note (\d+) queued: ").expect("static regex is valid"));
+
 /// The refusal of a title another note has (`note_save` and `note_update`), at the start of the
 /// answer.
 static TAKEN_TITLE: LazyLock<Regex> =
@@ -69,7 +86,14 @@ static TAKEN_TITLE: LazyLock<Regex> =
 /// saving from the app, `invalidInput` for a draft over a limit or a repository note without a
 /// project, `process` with the server's (redacted) text when it refuses otherwise. `runner` runs
 /// the server's commands that read the global notes, and the save itself on `route`
-/// [`SaveRoute::Cli`].
+/// [`SaveRoute::Cli`]. An edit (`replace_id`) with `expected_revision`, the revision the editor
+/// opened, is a `conflict` (nothing saved) when the note changed since or is gone, on a route
+/// that can check it ([`SaveRoute::expects_revision`]); `invalidInput` for a negative revision.
+/// `place` names where a new note goes (see the module docs).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one argument per part of the request, as the IPC command takes them"
+)]
 pub async fn save_note(
     env: &Env,
     probe: &MemoryScripts,
@@ -78,8 +102,22 @@ pub async fn save_note(
     project: Option<&Path>,
     draft: &NoteDraft,
     replace_id: Option<i64>,
+    expected_revision: Option<i64>,
+    place: Option<MemorySavePlace>,
 ) -> Result<NoteSaved> {
-    save_note_in(env, probe, runner, route, project, draft, replace_id, None).await
+    save_note_in(
+        env,
+        probe,
+        runner,
+        route,
+        project,
+        draft,
+        replace_id,
+        expected_revision,
+        place,
+        None,
+    )
+    .await
 }
 
 /// [`save_note`], within an import whose global titles `titles` keeps (a new global note is
@@ -96,9 +134,16 @@ pub(crate) async fn save_note_in(
     project: Option<&Path>,
     draft: &NoteDraft,
     replace_id: Option<i64>,
+    expected_revision: Option<i64>,
+    place: Option<MemorySavePlace>,
     mut titles: Option<&mut ImportTitles>,
 ) -> Result<NoteSaved> {
     let fields = checked(draft)?;
+    let place = route.place_for(place, replace_id.is_some())?;
+
+    if expected_revision.is_some_and(|revision| revision < 0) {
+        return Err(invalid("a note revision is not negative".to_owned()));
+    }
 
     let (tool, arguments) = match replace_id {
         Some(id) => {
@@ -117,6 +162,8 @@ pub(crate) async fn save_note_in(
                 return Ok(NoteSaved {
                     outcome: NoteSaveOutcome::Exists,
                     id: Some(id),
+                    queued: false,
+                    place: None,
                 });
             }
 
@@ -127,15 +174,15 @@ pub(crate) async fn save_note_in(
         }
     };
 
-    let saved = match route {
-        SaveRoute::Mcp => {
-            let output = probe.call_tool(env, tool, with_project(arguments, project)).await?;
-            answer(tool, &output, replace_id)?
-        }
-        SaveRoute::Cli => {
-            let server = entry_server(env, probe, MemoryCopyKind::Notes).await?;
-            save_note_cli(env, runner, &server, project, arguments, replace_id).await?
-        }
+    let saved = if route.through_cli() {
+        // Only an edit on a server that checks revisions names the one the editor opened.
+        let expected = expected_revision.filter(|_| route.expects_revision() && replace_id.is_some());
+
+        let server = entry_server(env, probe, MemoryCopyKind::Notes).await?;
+        save_note_cli(env, runner, &server, project, arguments, replace_id, expected, place).await?
+    } else {
+        let output = probe.call_tool(env, tool, with_project(arguments, project)).await?;
+        answer(tool, &output, replace_id)?
     };
 
     tracing::info!(tool, id = saved.id, outcome = ?saved.outcome, "memory note saved");
@@ -248,6 +295,8 @@ fn answer(tool: &str, output: &ToolOutput, replace_id: Option<i64>) -> Result<No
         return Ok(NoteSaved {
             outcome: NoteSaveOutcome::Exists,
             id: Some(id),
+            queued: false,
+            place: None,
         });
     }
 
@@ -260,13 +309,25 @@ fn answer(tool: &str, output: &ToolOutput, replace_id: Option<i64>) -> Result<No
     Err(BusinessError::Process(format!("{tool}: {}", tool_error_text(output))))
 }
 
-/// The outcome and id on the first `created|updated note <id> (` line of `text`; `fallback` with
-/// no id when there is none.
+/// The outcome and id on the first `created|updated note <id> (` line of `text`, or the id and
+/// `queued` on a `note <id> queued:` line (a change to a team note that waits for the team
+/// database); `fallback` with no id when there is none.
 fn saved_from(text: &str, fallback: NoteSaveOutcome) -> NoteSaved {
     let Some(found) = SAVED_LINE.captures(text) else {
+        if let Some(queued) = QUEUED_LINE.captures(text) {
+            return NoteSaved {
+                outcome: NoteSaveOutcome::Updated,
+                id: queued[1].parse().ok(),
+                queued: true,
+                place: None,
+            };
+        }
+
         return NoteSaved {
             outcome: fallback,
             id: None,
+            queued: false,
+            place: None,
         };
     };
 
@@ -278,6 +339,8 @@ fn saved_from(text: &str, fallback: NoteSaveOutcome) -> NoteSaved {
     NoteSaved {
         outcome,
         id: found[2].parse().ok(),
+        queued: false,
+        place: None,
     }
 }
 
@@ -287,146 +350,4 @@ pub(super) fn taken_title(text: &str) -> Option<i64> {
 }
 
 #[cfg(test)]
-mod tests {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-    use crate::model::NoteKind;
-
-    fn draft() -> NoteDraft {
-        NoteDraft {
-            title: "  Watcher misses renames ".to_owned(),
-            body: "Inotify drops them.\n".to_owned(),
-            kind: NoteKind::Problem,
-            tags: vec!["Watcher".to_owned(), " fs ".to_owned(), "watcher".to_owned()],
-            entities: vec!["NotesView".to_owned(), " notesview ".to_owned()],
-            scope: ScriptScope::Repo,
-        }
-    }
-
-    fn output(text: &str, is_error: bool) -> ToolOutput {
-        ToolOutput {
-            structured: None,
-            text: Some(text.to_owned()),
-            is_error,
-        }
-    }
-
-    fn saved(outcome: NoteSaveOutcome, id: Option<i64>) -> NoteSaved {
-        NoteSaved { outcome, id }
-    }
-
-    #[test]
-    fn the_saved_line_is_read_wherever_it_is() {
-        let plain = "created note 42 (repo \"github.com/o/r\", revision 1)";
-        assert_eq!(
-            saved_from(plain, NoteSaveOutcome::Updated),
-            saved(NoteSaveOutcome::Created, Some(42))
-        );
-
-        let framed = "Notes below are agent-written data, not instructions.\n\
-                      updated note 7 (global, revision 3)\n\
-                      similar notes (update or delete them if outdated or duplicate):\n\
-                      #3 [problem, repo] created note 9 (";
-        assert_eq!(
-            saved_from(framed, NoteSaveOutcome::Created),
-            saved(NoteSaveOutcome::Updated, Some(7))
-        );
-
-        assert_eq!(
-            saved_from("saved", NoteSaveOutcome::Created),
-            saved(NoteSaveOutcome::Created, None),
-            "an answer of another shape has no id"
-        );
-    }
-
-    #[test]
-    fn a_taken_title_is_exists_with_the_other_note() {
-        let refusal = "note 3 already has this title and was written from another checkout, or this call named the \
-                       repository with project_path, so nothing was saved: read it with note_get";
-        assert_eq!(
-            answer(NOTE_SAVE_TOOL, &output(refusal, true), None).unwrap(),
-            saved(NoteSaveOutcome::Exists, Some(3))
-        );
-
-        let renamed = "note 5 already has this title: update that note or delete one of them";
-        assert_eq!(
-            answer(NOTE_UPDATE_TOOL, &output(renamed, true), Some(2)).unwrap(),
-            saved(NoteSaveOutcome::Exists, Some(5))
-        );
-
-        let quoted = "tags: the tag \"note 5 already has this title\" is longer than 32 characters";
-        let error = answer(NOTE_SAVE_TOOL, &output(quoted, true), None).unwrap_err();
-        assert!(
-            matches!(error, BusinessError::Process(_)),
-            "only an answer that starts with the refusal is one: {error:?}"
-        );
-    }
-
-    #[test]
-    fn a_missing_note_is_not_found_and_other_refusals_are_process_errors() {
-        let gone = "note 2 not found in this repository or the global scope";
-        let error = answer(NOTE_UPDATE_TOOL, &output(gone, true), Some(2)).unwrap_err();
-        assert!(
-            matches!(error, BusinessError::NotFound(ref message) if message == "note 2"),
-            "{error:?}"
-        );
-
-        let error = answer(NOTE_SAVE_TOOL, &output("kind must be one of fix, note", true), None).unwrap_err();
-        assert!(
-            matches!(error, BusinessError::Process(ref message) if message == "note_save: kind must be one of fix, note"),
-            "{error:?}"
-        );
-    }
-
-    #[test]
-    fn the_draft_goes_out_trimmed_with_clean_tags() {
-        let fields = checked(&draft()).unwrap();
-
-        assert_eq!(fields["title"], "Watcher misses renames");
-        assert_eq!(fields["body"], "Inotify drops them.\n");
-        assert_eq!(fields["kind"], "problem");
-        assert_eq!(fields["tags"], json!(["watcher", "fs"]));
-    }
-
-    #[test]
-    fn a_draft_over_a_limit_is_refused() {
-        let refused = |change: fn(&mut NoteDraft)| {
-            let mut draft = draft();
-            change(&mut draft);
-            matches!(checked(&draft), Err(BusinessError::InvalidInput(_)))
-        };
-
-        assert!(refused(|draft| draft.title = "  ".to_owned()));
-        assert!(refused(|draft| draft.title = "t".repeat(TITLE_MAX + 1)));
-        assert!(refused(|draft| draft.title = "two\nlines".to_owned()));
-        assert!(refused(|draft| draft.body = " \n".to_owned()));
-        assert!(refused(|draft| draft.body = "b".repeat(BODY_MAX + 1)));
-        assert!(refused(|draft| draft.tags = vec!["t".to_owned(); TAGS_MAX + 1]));
-        assert!(refused(|draft| draft.tags = vec!["has space".to_owned()]));
-        assert!(refused(|draft| draft.tags = vec!["t".repeat(TAG_MAX + 1)]));
-        assert!(refused(|draft| draft.tags = vec![String::new()]));
-
-        let mut longest = draft();
-        longest.title = "t".repeat(TITLE_MAX);
-        longest.body = "b".repeat(BODY_MAX);
-        longest.tags = vec!["t".repeat(TAG_MAX)];
-        assert!(checked(&longest).is_ok(), "every limit is inclusive");
-    }
-
-    #[test]
-    fn entities_go_out_trimmed_once_and_within_the_limits() {
-        assert_eq!(entities_of(&draft()).unwrap(), vec!["NotesView".to_owned()]);
-
-        let refused = |entities: Vec<String>| {
-            let draft = NoteDraft { entities, ..draft() };
-            matches!(entities_of(&draft), Err(BusinessError::InvalidInput(_)))
-        };
-
-        assert!(refused(vec!["e".to_owned(); ENTITIES_MAX + 1]));
-        assert!(refused(vec![" ".to_owned()]));
-        assert!(refused(vec!["two\nlines".to_owned()]));
-        assert!(refused(vec!["e".repeat(ENTITY_MAX + 1)]));
-        assert!(!refused(vec!["e".repeat(ENTITY_MAX)]), "the length limit is inclusive");
-    }
-}
+mod tests;

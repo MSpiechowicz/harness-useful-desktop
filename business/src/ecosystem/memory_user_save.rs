@@ -4,12 +4,23 @@
 //!
 //! - `notes save --json --client harness-desktop [--project P]` takes `{title, body, kind, tags, entities, scope}` and
 //!   answers `{"id", "title", "scope"}`;
-//! - `notes update <id> --json --client harness-desktop [--project P]` takes `{title, body, kind, tags}` and answers
-//!   `{"id", "title"}`; a note it cannot see (a repository note needs `--project`) is `notFound`;
+//! - `notes update <id> --json --client harness-desktop [--project P] [--expect-revision N]` takes `{title, body,
+//!   kind, tags}` and answers `{"id", "title"}` (`title` is `null` when the change gives none); while the
+//!   team database cannot be reached a change to a team note is kept on this computer and answered
+//!   `{"id", "title", "queued": true, "message"}`, which is [`NoteSaved::queued`]; a note it cannot see (a repository note needs `--project`) is
+//!   `notFound`. With `--expect-revision` (a server that lists `note-expect-revision`) it saves only the note at
+//!   revision `N`: another revision is refused `changed` (and a note that is gone `notFound`), which the app
+//!   answers as a `conflict`;
+//! - `notes save` and `scripts save` take `--place remote|local` (a server that lists `save-place`, see
+//!   [`SaveRoute::places`]) for a new entry of a scope routed `remote+local`, and answer `"place"` with where it
+//!   went ([`NoteSaved::place`]); a team database that cannot be reached is refused with its own text and nothing
+//!   is saved;
 //! - `scripts save --json --client harness-desktop [--project P]` takes `{name, description, language, body, timeoutSecs,
 //!   scope}` and answers `{"name", "scope", "id", "created", "approval"}`, trusted as
 //!   `script_save` trusts it (never code waiting for approval: the caller approves the user's code);
-//! - `held save|skip` ([`memory_held`](super::memory_held)) use the same answers.
+//! - `held save|skip` ([`memory_held`](super::memory_held)) use the same answers; a held change to a team
+//!   note kept offline is `{"saved": {"kind": "note", "id", "queued": true, "message"}}`
+//!   ([`HeldSaved::Note`](crate::model::HeldSaved::Note)).
 //!
 //! A refusal prints `{"error": CODE, "message"}` on stdout and exits 1, `CODE` one of `notFound`,
 //! `gone`, `invalid` and `refused` (see [`refusal`]); a title another note has is `refused` with
@@ -30,7 +41,7 @@ use super::memory_features::FeaturesSupport;
 use super::memory_notes_save::taken_title;
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{NoteSaveOutcome, NoteSaved};
+use crate::model::{MemorySavePlace, NoteSaveOutcome, NoteSaved};
 use crate::process::ProcessRunner;
 
 /// How long one save may take (30 s: a team database far away).
@@ -42,6 +53,9 @@ pub const GONE_MESSAGE: &str = "the note was deleted after the agent changed it,
 /// What the app says for a held save the agent changed after the user saw it (`changed`).
 pub const CHANGED_MESSAGE: &str = "the agent changed this save after you saw it, so nothing was saved";
 
+/// What the app says for an edit of a note that changed, or was deleted, since the editor opened it.
+pub const NOTE_CHANGED_MESSAGE: &str = "the note changed since you opened it";
+
 /// How the user's notes and scripts are saved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SaveRoute {
@@ -49,27 +63,102 @@ pub enum SaveRoute {
     Mcp,
     /// Through the user-only commands (a server with `save-guards`).
     Cli,
+    /// [`SaveRoute::Cli`] of a server that also lists `note-expect-revision`: an edit of a note
+    /// names the revision the editor opened, and the server refuses it when the note is another.
+    CliExpectRevision,
+    /// [`SaveRoute::Cli`] of a server that also lists `save-place`: a new note or script may name
+    /// where it goes (`--place`).
+    CliPlace,
+    /// [`SaveRoute::CliExpectRevision`] of a server that also lists `save-place`.
+    CliExpectRevisionPlace,
 }
 
 impl SaveRoute {
-    /// [`SaveRoute::Cli`] when the installed server lists `save-guards`.
+    /// The route of a server that lists `save-guards`, with `note-expect-revision` and
+    /// `save-place` when it lists them too; [`SaveRoute::Mcp`] when it lacks `save-guards`.
     pub fn of(features: FeaturesSupport) -> Self {
-        if features.save_guards() { Self::Cli } else { Self::Mcp }
+        if !features.save_guards() {
+            return Self::Mcp;
+        }
+
+        match (features.note_expect_revision(), features.save_place()) {
+            (false, false) => Self::Cli,
+            (true, false) => Self::CliExpectRevision,
+            (false, true) => Self::CliPlace,
+            (true, true) => Self::CliExpectRevisionPlace,
+        }
+    }
+
+    /// Whether the user's saves go through the user-only commands.
+    pub fn through_cli(self) -> bool {
+        self != Self::Mcp
+    }
+
+    /// Whether an edit of a note may name the revision it opened.
+    pub fn expects_revision(self) -> bool {
+        matches!(self, Self::CliExpectRevision | Self::CliExpectRevisionPlace)
+    }
+
+    /// Whether a new note or script may name where it is saved.
+    pub fn places(self) -> bool {
+        matches!(self, Self::CliPlace | Self::CliExpectRevisionPlace)
+    }
+
+    /// The place to pass on for a new entry: `Ok(None)` when none was asked, `unsupported` when
+    /// the server does not take one, `invalidInput` for an edit (`edit`), which keeps its entry
+    /// where it is.
+    pub(crate) fn place_for(self, place: Option<MemorySavePlace>, edit: bool) -> Result<Option<MemorySavePlace>> {
+        let Some(place) = place else {
+            return Ok(None);
+        };
+
+        if edit {
+            return Err(BusinessError::InvalidInput(
+                "an edit keeps the note or script where it is, so it takes no place".to_owned(),
+            ));
+        }
+
+        if !self.places() {
+            return Err(BusinessError::Unsupported(format!(
+                "this {MEMORY_BINARY} cannot save to a chosen place; update Harness Memory"
+            )));
+        }
+
+        Ok(Some(place))
     }
 }
 
-/// `notes save --json --client harness-desktop [--project P]`.
-pub fn note_save_args(project: Option<&Path>) -> Vec<OsString> {
+/// `--place remote|local`.
+pub(crate) fn place_args(place: Option<MemorySavePlace>) -> Vec<OsString> {
+    match place {
+        Some(MemorySavePlace::Remote) => vec!["--place".into(), "remote".into()],
+        Some(MemorySavePlace::Local) => vec!["--place".into(), "local".into()],
+        None => Vec::new(),
+    }
+}
+
+/// The `place` of a save answer, when it names one.
+pub(crate) fn answered_place(answer: &Value) -> Option<MemorySavePlace> {
+    match answer.get("place").and_then(Value::as_str) {
+        Some("remote") => Some(MemorySavePlace::Remote),
+        Some("local") => Some(MemorySavePlace::Local),
+        _ => None,
+    }
+}
+
+/// `notes save --json --client harness-desktop [--project P] [--place remote|local]`.
+pub fn note_save_args(project: Option<&Path>, place: Option<MemorySavePlace>) -> Vec<OsString> {
     let mut args: Vec<OsString> = ["notes", "save", "--json", "--client", CLIENT_NAME]
         .map(OsString::from)
         .into();
     args.extend(project_args(project));
+    args.extend(place_args(place));
 
     args
 }
 
-/// `notes update <id> --json --client harness-desktop [--project P]`.
-pub fn note_update_args(id: i64, project: Option<&Path>) -> Vec<OsString> {
+/// `notes update <id> --json --client harness-desktop [--project P] [--expect-revision N]`.
+pub fn note_update_args(id: i64, project: Option<&Path>, expected_revision: Option<i64>) -> Vec<OsString> {
     let mut args: Vec<OsString> = vec![
         "notes".into(),
         "update".into(),
@@ -80,22 +169,34 @@ pub fn note_update_args(id: i64, project: Option<&Path>) -> Vec<OsString> {
     ];
     args.extend(project_args(project));
 
+    if let Some(revision) = expected_revision {
+        args.extend(["--expect-revision".into(), revision.to_string().into()]);
+    }
+
     args
 }
 
-/// `scripts save --json --client harness-desktop [--project P]`.
-pub fn script_save_args(project: Option<&Path>) -> Vec<OsString> {
+/// `scripts save --json --client harness-desktop [--project P] [--place remote|local]`.
+pub fn script_save_args(project: Option<&Path>, place: Option<MemorySavePlace>) -> Vec<OsString> {
     let mut args: Vec<OsString> = ["scripts", "save", "--json", "--client", CLIENT_NAME]
         .map(OsString::from)
         .into();
     args.extend(project_args(project));
+    args.extend(place_args(place));
 
     args
 }
 
 /// Saves note `fields` (`{title, body, kind, tags, entities, scope}`) with `notes save`, or with
 /// `notes update <id>` (`{title, body, kind, tags}`) over note `replace_id`. A title another note
-/// has is `exists` with that note's id; a note it cannot see is `notFound`.
+/// has is `exists` with that note's id; a note it cannot see is `notFound`. With `expected_revision`
+/// (an edit, `notes update --expect-revision`) a note that changed since, or is gone, is a
+/// `conflict` and nothing is saved (a `changed` for the project of the save is not one). A new note
+/// with a `place` is saved there (`notes save --place`), and the answer says where it went.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one argument per part of the request, as the save takes them"
+)]
 pub(crate) async fn save_note_cli(
     env: &Env,
     runner: &dyn ProcessRunner,
@@ -103,6 +204,8 @@ pub(crate) async fn save_note_cli(
     project: Option<&Path>,
     mut fields: Map<String, Value>,
     replace_id: Option<i64>,
+    expected_revision: Option<i64>,
+    place: Option<MemorySavePlace>,
 ) -> Result<NoteSaved> {
     let (name, args, outcome) = match replace_id {
         Some(id) => {
@@ -110,9 +213,11 @@ pub(crate) async fn save_note_cli(
                 fields.remove(field);
             }
 
-            ("notes update", note_update_args(id, project), NoteSaveOutcome::Updated)
+            let args = note_update_args(id, project, expected_revision);
+
+            ("notes update", args, NoteSaveOutcome::Updated)
         }
-        None => ("notes save", note_save_args(project), NoteSaveOutcome::Created),
+        None => ("notes save", note_save_args(project, place), NoteSaveOutcome::Created),
     };
 
     let refusal = match run_save(env, runner, server, name, args, Some(&Value::Object(fields))).await {
@@ -120,6 +225,8 @@ pub(crate) async fn save_note_cli(
             return Ok(NoteSaved {
                 outcome,
                 id: data.get("id").and_then(Value::as_i64),
+                queued: data.get("queued").and_then(Value::as_bool) == Some(true),
+                place: answered_place(&data),
             });
         }
         Err(refusal) => refusal,
@@ -129,23 +236,38 @@ pub(crate) async fn save_note_cli(
         return Ok(NoteSaved {
             outcome: NoteSaveOutcome::Exists,
             id: Some(id),
+            queued: false,
+            place: None,
         });
     }
 
+    // A refusal for the folder of the save (`changed` with the reason `project`) says nothing of the
+    // note's revision: it stays the server's own refusal.
+    let stale = match refusal.code.as_deref() {
+        Some("changed") => !refusal.moved_project,
+        Some("notFound") => true,
+        _ => false,
+    };
+
     match (refusal.code.as_deref(), replace_id) {
+        (Some("changed" | "notFound"), Some(id)) if stale && expected_revision.is_some() => {
+            tracing::info!(id, "the edited memory note changed since it was opened");
+            Err(BusinessError::Conflict(NOTE_CHANGED_MESSAGE.to_owned()))
+        }
         (Some("notFound"), Some(id)) => Err(BusinessError::NotFound(format!("note {id}"))),
         _ => Err(refusal.error),
     }
 }
 
 /// Saves script `fields` (as `script_save` takes them, `timeout_secs` included) with `scripts
-/// save`; its answer.
+/// save`, to `place` when given; its answer.
 pub(crate) async fn save_script_cli(
     env: &Env,
     runner: &dyn ProcessRunner,
     server: &Path,
     project: Option<&Path>,
     mut fields: Map<String, Value>,
+    place: Option<MemorySavePlace>,
 ) -> Result<Value> {
     if let Some(timeout) = fields.remove("timeout_secs") {
         fields.insert("timeoutSecs".to_owned(), timeout);
@@ -158,7 +280,7 @@ pub(crate) async fn save_script_cli(
         runner,
         server,
         "scripts save",
-        script_save_args(project),
+        script_save_args(project, place),
         Some(&input),
     )
     .await
@@ -171,6 +293,9 @@ pub(crate) async fn save_script_cli(
 pub(crate) struct Refusal {
     /// The `error` field of the answer.
     pub code: Option<String>,
+    /// Whether the answer says (`"reason": "project"`) that the refusal is about the folder of the
+    /// save, not about the note or its revision.
+    pub moved_project: bool,
     /// What the server said.
     pub message: String,
     /// The error the answer stands for.
@@ -181,6 +306,7 @@ impl From<BusinessError> for Refusal {
     fn from(error: BusinessError) -> Self {
         Self {
             code: None,
+            moved_project: false,
             message: String::new(),
             error,
         }
@@ -275,117 +401,13 @@ pub(crate) fn refusal(stdout: &str, message: String) -> Refusal {
         _ => BusinessError::Process(message.clone()),
     };
 
-    Refusal { code, message, error }
+    Refusal {
+        code,
+        moved_project,
+        message,
+        error,
+    }
 }
 
 #[cfg(test)]
-mod tests {
-    use pretty_assertions::assert_eq;
-
-    use super::*;
-
-    fn strings(args: Vec<OsString>) -> Vec<String> {
-        args.into_iter().map(|arg| arg.into_string().unwrap()).collect()
-    }
-
-    #[test]
-    fn the_save_commands_name_the_app_and_the_project_when_there_is_one() {
-        let project = Path::new("/work/repo");
-
-        assert_eq!(
-            strings(note_save_args(Some(project))),
-            [
-                "notes",
-                "save",
-                "--json",
-                "--client",
-                "harness-desktop",
-                "--project",
-                "/work/repo"
-            ]
-        );
-        assert_eq!(
-            strings(note_save_args(None)),
-            ["notes", "save", "--json", "--client", "harness-desktop"]
-        );
-        assert_eq!(
-            strings(note_update_args(12, Some(project))),
-            [
-                "notes",
-                "update",
-                "12",
-                "--json",
-                "--client",
-                "harness-desktop",
-                "--project",
-                "/work/repo"
-            ]
-        );
-        assert_eq!(
-            strings(note_update_args(12, None)),
-            ["notes", "update", "12", "--json", "--client", "harness-desktop"]
-        );
-        assert_eq!(
-            strings(script_save_args(Some(project))),
-            [
-                "scripts",
-                "save",
-                "--json",
-                "--client",
-                "harness-desktop",
-                "--project",
-                "/work/repo"
-            ]
-        );
-    }
-
-    #[test]
-    fn a_refusal_is_read_from_its_code() {
-        let gone = refusal(r#"{"error": "gone", "message": "note 4 is gone"}"#, "line".to_owned());
-        assert!(matches!(gone.error, BusinessError::Conflict(ref text) if text == GONE_MESSAGE));
-
-        let changed = refusal(
-            r#"{"error": "changed", "message": "held save changed"}"#,
-            "line".to_owned(),
-        );
-        assert!(matches!(changed.error, BusinessError::Changed(ref text) if text == CHANGED_MESSAGE));
-
-        let moved = refusal(
-            r#"{"error": "changed", "reason": "project", "message": "the folder this save was held for is gone, so nothing was saved"}"#,
-            "line".to_owned(),
-        );
-        assert_eq!(moved.code.as_deref(), Some("changed"));
-        assert!(
-            matches!(moved.error, BusinessError::Process(ref text) if text.contains("is gone, so nothing was saved"))
-        );
-
-        let missing = refusal(
-            r#"{"error": "notFound", "message": ""}"#,
-            "harness-memory: no held save".to_owned(),
-        );
-        assert!(matches!(missing.error, BusinessError::NotFound(ref text) if text == "harness-memory: no held save"));
-
-        let invalid = refusal(
-            r#"{"error": "invalid", "message": "unknown field `x`"}"#,
-            "line".to_owned(),
-        );
-        assert!(matches!(invalid.error, BusinessError::InvalidInput(ref text) if text == "unknown field `x`"));
-
-        let taken = refusal(
-            r#"{"error": "refused", "message": "note 3 already has this title"}"#,
-            "line".to_owned(),
-        );
-        assert_eq!(taken.code.as_deref(), Some("refused"));
-        assert_eq!(taken_title(&taken.message), Some(3));
-
-        let plain = refusal("not json", "harness-memory: database locked".to_owned());
-        assert_eq!(plain.code, None);
-        assert!(matches!(plain.error, BusinessError::Process(ref text) if text == "harness-memory: database locked"));
-    }
-
-    #[test]
-    fn only_a_server_with_save_guards_takes_the_user_commands() {
-        assert_eq!(SaveRoute::of(FeaturesSupport::Unknown), SaveRoute::Mcp);
-        assert_eq!(SaveRoute::of(FeaturesSupport::Unsupported), SaveRoute::Mcp);
-    }
-}
+mod tests;

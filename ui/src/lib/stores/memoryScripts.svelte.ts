@@ -1,6 +1,7 @@
 import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { MessageKey } from '$lib/i18n/locales/en';
 import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
+import type { MemorySavePlace } from '$lib/ipc/bindings/MemorySavePlace';
 import type { MemoryScriptsPage } from '$lib/ipc/bindings/MemoryScriptsPage';
 import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
 import type { ScriptDraft } from '$lib/ipc/bindings/ScriptDraft';
@@ -259,13 +260,21 @@ export const SCRIPT_CHANGED = 'changed';
  * Writes a script, then re-reads the list and the open script so what is on screen is what was saved. A script saved here is trusted on this computer.
  * Without `replace` a name that is taken is `exists` and nothing is written, with it the script of that name is overwritten (an edit, or a confirmed replace).
  * An edit names the version it opened as `base`: if the script is another one by now, nothing is written and the answer is `SCRIPT_CHANGED`, for the editor to say.
+ * `place` is for a new script only, and only where scripts are kept in "Remote + this computer": the side the script goes to. It is left out for a replace or an edit.
+ * A script saved to the remote answers without the script (`script` is null): the list is read again for it.
  * Any other failure is said in a toast, and answers null.
  */
-export async function saveScript(project: string | null, draft: ScriptDraft, replace: boolean, base?: string): Promise<ScriptSaved | typeof SCRIPT_CHANGED | null> {
+export async function saveScript(project: string | null, draft: ScriptDraft, replace: boolean, base?: string, place?: MemorySavePlace): Promise<ScriptSaved | typeof SCRIPT_CHANGED | null> {
   let saved: ScriptSaved;
 
   try {
-    saved = await ipc.invoke('memory_script_save', base === undefined ? { project, draft, replace } : { project, draft, replace, base });
+    saved = await ipc.invoke('memory_script_save', {
+      project,
+      draft,
+      replace,
+      ...(base === undefined ? {} : { base }),
+      ...(place === undefined ? {} : { place }),
+    });
   } catch (error) {
     const cause = IpcFailure.from(error);
 

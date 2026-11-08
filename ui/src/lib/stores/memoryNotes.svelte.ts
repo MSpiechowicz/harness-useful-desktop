@@ -1,6 +1,8 @@
 import { t } from '$lib/i18n/i18n.svelte';
 import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
 import type { MemoryNotesPage } from '$lib/ipc/bindings/MemoryNotesPage';
+import type { MemorySavePlace } from '$lib/ipc/bindings/MemorySavePlace';
+import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
 import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
 import type { NoteDraft } from '$lib/ipc/bindings/NoteDraft';
 import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
@@ -207,18 +209,35 @@ export async function deleteNote(id: number, reach: Reach, confirm: () => Promis
   return true;
 }
 
+/** What a save of an edit found: the note changed or was deleted since the editor opened it, so nothing was written. */
+export const NOTE_CHANGED = 'changed';
+
 /**
  * Writes a note, then re-reads the list and the open note so what is on screen is what was saved. With `replaceId` the note with that id is rewritten
  * (an edit, or a replace of the note that had the title), without it a note is created. `exists` means a repository note already has the title and nothing was written.
- * A failure is said in a toast, and answers null.
+ * An edit names the revision it opened as `expectedRevision`: if the note is another one by now, nothing is written and the answer is `NOTE_CHANGED`, for the editor to say.
+ * `place` is for a new note only, and only where the scope is kept in "Remote + this computer": the side the note goes to. It is left out for a replace or an edit.
+ * Any other failure is said in a toast, and answers null.
  */
-export async function saveNote(project: string | null, draft: NoteDraft, replaceId?: number): Promise<NoteSaved | null> {
+export async function saveNote(project: string | null, draft: NoteDraft, replaceId?: number, expectedRevision?: number, place?: MemorySavePlace): Promise<NoteSaved | typeof NOTE_CHANGED | null> {
   let saved: NoteSaved;
 
   try {
-    saved = await ipc.invoke('memory_note_save', replaceId === undefined ? { project, draft } : { project, draft, replaceId });
+    saved = await ipc.invoke('memory_note_save', {
+      project,
+      draft,
+      ...(replaceId === undefined ? {} : { replaceId }),
+      ...(expectedRevision === undefined ? {} : { expectedRevision }),
+      ...(place === undefined ? {} : { place }),
+    });
   } catch (error) {
-    toasts.push({ title: t('memory.editor.note.toast.failed'), description: saveFailureText(IpcFailure.from(error)), tone: 'danger' });
+    const cause = IpcFailure.from(error);
+
+    if (expectedRevision !== undefined && cause.code === 'conflict') {
+      return NOTE_CHANGED;
+    }
+
+    toasts.push({ title: t('memory.editor.note.toast.failed'), description: saveFailureText(cause), tone: 'danger' });
 
     return null;
   }
@@ -228,4 +247,28 @@ export async function saveNote(project: string | null, draft: NoteDraft, replace
   }
 
   return saved;
+}
+
+/** The note as it is now, read again for an editor that found it changed: `gone` when it no longer exists, null (said in a toast) when it could not be read. */
+export async function rereadNote(id: number, reach: Reach): Promise<NoteContent | 'gone' | null> {
+  try {
+    const detail = await readNote(noteDetailKey(id, false), reach);
+
+    remember(reach, noteDetailKey(id, false), detail);
+    await Promise.all([noteList.refresh({ quiet: true }), noteDetail.refresh({ quiet: true })]);
+
+    return detail.note;
+  } catch (error) {
+    const cause = IpcFailure.from(error);
+
+    if (cause.code === 'notFound') {
+      await noteList.refresh({ quiet: true });
+
+      return 'gone';
+    }
+
+    toasts.push({ title: t('memory.editor.note.reload.failed'), description: cause.message, tone: 'danger' });
+
+    return null;
+  }
 }
