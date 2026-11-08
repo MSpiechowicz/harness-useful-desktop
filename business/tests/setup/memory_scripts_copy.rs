@@ -5,11 +5,11 @@
 //! script's leaving nothing to discard, and a review of one kind kept apart from the other's.
 
 use harness_business::BusinessError;
-use harness_business::ecosystem::{NotesCopyCache, preview_notes_copy};
+use harness_business::ecosystem::NotesCopyCache;
 use harness_business::model::{LocalNoteIds, MemoryCopyKind, NoteIdsWord, NotesCopyFilter};
 use memory_notes_copy_support::{
     REVIEWED, apply, args, assert_nothing_to_discard, assert_undeleted_is_left_over, copy_without_overwriting, ids,
-    preview,
+    preview, try_preview,
 };
 use memory_stand_in::{CURRENT, Setup, Vars};
 use pretty_assertions::assert_eq;
@@ -154,14 +154,7 @@ async fn scripts_kept_here_are_never_pushed_and_an_older_server_is_unsupported()
     setup.scripts.shutdown().await;
 
     let older = Setup::installed(CURRENT, OLDER);
-    let refused = preview_notes_copy(
-        &older.env,
-        &older.scripts,
-        older.runner(),
-        &NotesCopyCache::new(),
-        SCRIPTS,
-    )
-    .await;
+    let refused = try_preview(&older, &NotesCopyCache::new(), SCRIPTS).await;
     assert!(matches!(refused, Err(BusinessError::Unsupported(_))), "{refused:?}");
     older.scripts.shutdown().await;
 }

@@ -1,13 +1,8 @@
-//! `harness-memory features`, `harness-memory push --json`, `harness-memory notes
-//! hide|unhide|discard-local` stand-ins and the team-and-local fields of `notes list|get`, answered
-//! from fixed fixtures (nothing is kept between runs).
+//! `harness-memory features` (the module `listed`), `harness-memory push --json`, `harness-memory
+//! pull --json` (the module `pulled`), `harness-memory notes hide|unhide|discard-local` stand-ins and
+//! the team-and-local fields of `notes list|get`, answered from fixed fixtures (nothing is kept
+//! between runs).
 //!
-//! - `features` prints `notes-remote-local`, `notes-hide`, `push-json`, `scripts-remote-local`,
-//!   `scripts-hide`, `scripts-push-json`, `embedder`, `settings`, `notes-lang`, `notes-useful`, `notes-authors` and `notes-author-filter`, one per line;
-//!   `FAKE_MEMORY_FEATURES=none` is a server that predates the command (usage error, exit 2) and
-//!   `FAKE_MEMORY_FEATURES=<a,b>` lists those instead. Without the variable, the same text in
-//!   `.fake-memory-features` of the working directory does the same (for a copy of the stand-in that
-//!   cannot have its own environment).
 //! - Each note of `notes list|get` gets `readOnly` (a team note of a scope routed `remote+local` by
 //!   `HARNESS_MEMORY_REPOSITORY_NOTES` or `HARNESS_MEMORY_GLOBAL_NOTES`, as the real server reads
 //!   them) and `hidden`; a list adds `hiddenCount` (1) and `localCounts` ([`LOCAL`] by scope).
@@ -17,10 +12,18 @@
 //! - `notes discard-local (--all | - | IDS) [--scope S] --yes --json` answers `{"deleted": N}`:
 //!   every local fixture of the scope with `--all`, else the ids given (`-`: on stdin). Without
 //!   `--yes` it is a usage error.
-//! - `push --json [--dry-run] [--overwrite none|all|-|IDS] [--delete-copied] [--scope S]` answers
-//!   the [`LOCAL`] notes of the scope as the real server does: without `--scope`, those of every
-//!   scope not routed `local` or `remote+local` (by the variables above); conflicts are overwritten
-//!   when `--overwrite` names them (`-`: ids on stdin), and a real run fails [`NOTES`]'s failing
+//! - `push --json [--dry-run] [--overwrite none|all|-|IDS | --selection -] [--delete-copied]
+//!   [--scope S] [--remote-local]` answers the [`LOCAL`] notes of the scope as the real server does: without
+//!   `--scope`, those of every scope not routed `local` or `remote+local` (by the variables above),
+//!   and with `--remote-local` (a usage error unless the stand-in lists `push-remote-local`) those of
+//!   the scopes routed `remote+local` and no other; conflicts are overwritten
+//!   when `--overwrite` names them (`-`: ids on stdin), `--selection -` (a usage error unless the
+//!   stand-in lists `push-selection`, and with `--overwrite`) reads `{"only": [{"id", "name",
+//!   "updatedAt"}, ...], "overwrite": [ids]}` from stdin and takes only the entries of `only` whose
+//!   title or name and update time still are those of the entry (the update time of entry `id`
+//!   is `2026-10-10T10:00:<id>.250000Z`), overwriting those of `overwrite`; an entry that differs is
+//!   not copied or deleted but marked `"failed": true` with an entry of `failed`, and an `only` of
+//!   bare ids is a usage error. A real run fails [`NOTES`]'s failing
 //!   note (marked `"failed": true` in `changes`, exit 1, a URL with a password in its message).
 //!   `scripts push` takes the same options and answers the [`LOCAL_SCRIPTS`] the same way (a `name`
 //!   for a `title`, a `scripts` counts object for `notes`), routed by `HARNESS_MEMORY_SCRIPTS`.
@@ -34,11 +37,29 @@
 //!   this computer: a dry run and a real run alike mark it `"failed": true` with an entry of
 //!   `failed` (exit 1, a URL with a password in its message). `FAKE_MEMORY_PUSH=changed` copies the
 //!   second entry on a real run with `--delete-copied` but keeps its local copy, changed during the
-//!   push (`"changedSince": true`, not `deleted`, no entry of `failed`).
+//!   push (`"changedSince": true`, not `deleted`, no entry of `failed`). `FAKE_MEMORY_PUSH=late`
+//!   leaves the sixth entry out of a dry run, as an entry saved after the review: a real run takes
+//!   it unless `--selection` leaves it out of `only`. `FAKE_MEMORY_PUSH=stale` changes the update time
+//!   of the first entry and `FAKE_MEMORY_PUSH=renamed` its title or name on a real run, as an entry
+//!   saved again after the review, and `FAKE_MEMORY_PUSH=undated` prints no `localUpdatedAt` for the
+//!   first entry.
+//! - An agent's new note or script of a scope routed `remote+local` says where it went (see
+//!   [`agent_note_place`]).
 
 use std::io::Read;
 
 use serde_json::{Value, json};
+
+#[path = "memory_features.rs"]
+mod listed;
+#[path = "memory_push_options.rs"]
+mod options;
+#[path = "memory_pull.rs"]
+mod pulled;
+
+pub use listed::{agent_note_place, agent_script_place, features, lists};
+use options::{Options, Reviewed, Selection};
+use pulled::{pull, pull_scripts};
 
 /// The id of the hidden team note.
 const HIDDEN_ID: i64 = 40;
@@ -107,6 +128,16 @@ struct Pushed {
     routing: Option<&'static str>,
 }
 
+impl Pushed {
+    /// How the scope `scope` of these entries is routed, by the variable of the entries.
+    fn routed(&self, scope: &str) -> Option<String> {
+        match self.routing {
+            Some(var) => std::env::var(var).ok(),
+            None => routing(scope),
+        }
+    }
+}
+
 /// `push`: the notes.
 const NOTES: Pushed = Pushed {
     field: "notes",
@@ -124,52 +155,6 @@ const SCRIPTS: Pushed = Pushed {
     failing: 17,
     routing: Some("HARNESS_MEMORY_SCRIPTS"),
 };
-
-/// `harness-memory features`.
-pub fn features() -> ! {
-    match features_setting().as_deref() {
-        Some("none") => usage(),
-        Some(listed) => println!("{}", listed.replace(',', "\n")),
-        None => println!("{}", DEFAULT_FEATURES.join("\n")),
-    }
-
-    std::process::exit(0);
-}
-
-/// The features of a stand-in without `FAKE_MEMORY_FEATURES`.
-const DEFAULT_FEATURES: [&str; 12] = [
-    "notes-remote-local",
-    "notes-hide",
-    "push-json",
-    "scripts-remote-local",
-    "scripts-hide",
-    "scripts-push-json",
-    "embedder",
-    "settings",
-    "notes-lang",
-    "notes-useful",
-    "notes-authors",
-    "notes-author-filter",
-];
-
-/// Whether this stand-in lists `feature` in `features`: the commands of a feature it does not list
-/// are usage errors, as an older server answers.
-pub fn lists(feature: &str) -> bool {
-    match features_setting().as_deref() {
-        Some("none") => false,
-        Some(listed) => listed.split(',').any(|listed| listed.trim() == feature),
-        None => DEFAULT_FEATURES.contains(&feature),
-    }
-}
-
-/// `FAKE_MEMORY_FEATURES`, else the text of `.fake-memory-features` in the working directory.
-fn features_setting() -> Option<String> {
-    std::env::var("FAKE_MEMORY_FEATURES").ok().or_else(|| {
-        std::fs::read_to_string(".fake-memory-features")
-            .ok()
-            .map(|text| text.trim().to_owned())
-    })
-}
 
 /// `note` with `readOnly` and `hidden` (see the module docs).
 pub fn routed(mut note: Value, hidden: bool) -> Value {
@@ -283,22 +268,47 @@ pub fn discard_local(args: &[String]) -> ! {
     std::process::exit(0);
 }
 
-/// `push --json …` (see the module docs).
-pub fn push(args: &[String]) -> ! {
-    push_of(&NOTES, args)
+/// `push …` or `pull …` (`args` start with the command; see the module docs).
+pub fn copy(args: &[String]) -> ! {
+    match args {
+        [command, rest @ ..] if command == "pull" => pull(rest),
+        [_, rest @ ..] => push_of(&NOTES, rest),
+        [] => usage(),
+    }
 }
 
-/// `scripts push --json …` (see the module docs).
-pub fn push_scripts(args: &[String]) -> ! {
-    push_of(&SCRIPTS, args)
+/// Whether `args` (starting with `scripts`) are `scripts push …` or `scripts pull …`.
+pub fn copies(args: &[String]) -> bool {
+    args.get(1)
+        .is_some_and(|command| command == "push" || command == "pull")
+}
+
+/// `scripts push …` or `scripts pull …` (`args` start with `scripts`).
+pub fn copy_scripts(args: &[String]) -> ! {
+    match args {
+        [_, command, rest @ ..] if command == "pull" => pull_scripts(rest),
+        [_, _, rest @ ..] => push_of(&SCRIPTS, rest),
+        _ => usage(),
+    }
 }
 
 fn push_of(pushed: &Pushed, args: &[String]) -> ! {
-    let options = Options::parse(args, &["--dry-run", "--json", "--delete-copied"]);
+    let options = Options::parse(args, &["--dry-run", "--json", "--delete-copied", "--remote-local"]);
+    let selection = options.selection.as_deref();
     let flag = |name: &str| options.flags.iter().any(|flag| flag == name);
     let dry_run = flag("--dry-run");
 
-    if !flag("--json") || (dry_run && flag("--delete-copied")) || options.which.is_some() {
+    let unlisted =
+        (flag("--remote-local") && !lists("push-remote-local")) || (selection.is_some() && !lists("push-selection"));
+    let both = selection.is_some() && options.overwrite.is_some();
+
+    if !flag("--json")
+        || (dry_run && flag("--delete-copied"))
+        || options.which.is_some()
+        || unlisted
+        || both
+        || selection.is_some_and(|source| source != "-")
+    {
         usage();
     }
 
@@ -317,22 +327,59 @@ fn push_of(pushed: &Pushed, args: &[String]) -> ! {
         std::process::exit(0);
     }
 
-    let picked = match options.overwrite.as_deref() {
-        None | Some("none") => Vec::new(),
-        Some("all") => pushed.entries.iter().map(|entry| entry.0).collect(),
-        Some(ids) => ids_of(ids),
+    let chosen = selection.map(|_| Selection::read());
+    let picked = match (&chosen, options.overwrite.as_deref()) {
+        (Some(chosen), _) => chosen.overwrite.clone(),
+        (None, None | Some("none")) => Vec::new(),
+        (None, Some("all")) => pushed.entries.iter().map(|entry| entry.0).collect(),
+        (None, Some(ids)) => ids_of(ids),
     };
+    let first = pushed.entries[0].0;
+    // What the entry is now: a real run sees the first entry saved again after the review.
+    let updated_at = |id: i64| {
+        if !dry_run && mode == "stale" && id == first {
+            return format!("2026-10-12T09:00:{id:02}.750000Z");
+        }
+
+        if mode == "undated" && id == first {
+            return String::new();
+        }
+
+        format!("2026-10-10T10:00:{id:02}.250000Z")
+    };
+    let label_of = |id: i64| {
+        let label = pushed
+            .entries
+            .iter()
+            .find(|entry| entry.0 == id)
+            .map_or("", |entry| entry.3);
+
+        if !dry_run && mode == "renamed" && id == first {
+            format!("{label} (edited)")
+        } else {
+            label.to_owned()
+        }
+    };
+    let reviewed = |id: i64| {
+        chosen
+            .as_ref()
+            .and_then(|chosen| chosen.only.iter().find(|entry| entry.id == id))
+    };
+    let named = |id: i64| chosen.is_none() || reviewed(id).is_some();
+    let current = |entry: &Reviewed| entry.name == label_of(entry.id) && entry.updated_at == updated_at(entry.id);
+    let stale = |id: i64| reviewed(id).is_some_and(|entry| !current(entry));
+    let late = |id: i64| dry_run && mode == "late" && id == pushed.entries[5].0;
 
     let hidden = |id: i64| mode == "hidden" && id == pushed.entries[3].0;
-    let fails = |id: i64| (!dry_run && id == pushed.failing) || hidden(id);
+    let fails = |id: i64| (!dry_run && id == pushed.failing) || hidden(id) || stale(id);
     let relation_fails = !dry_run && mode == "relation";
     let undeleted = |id: i64| !dry_run && mode == "undeleted" && flag("--delete-copied") && id == pushed.entries[0].0;
     let changed = |id: i64| !dry_run && mode == "changed" && flag("--delete-copied") && id == pushed.entries[1].0;
     let changes: Vec<Value> = pushed
         .entries
         .iter()
-        .filter(|entry| options.pushed(pushed, entry.1))
-        .map(|&(id, scope, repo, label, action, conflict)| {
+        .filter(|entry| options.pushed(pushed, entry.1) && named(entry.0) && !late(entry.0))
+        .map(|&(id, scope, repo, _, action, conflict)| {
             let action = if conflict && picked.contains(&id) {
                 "overwrite"
             } else {
@@ -341,9 +388,9 @@ fn push_of(pushed: &Pushed, args: &[String]) -> ! {
             let copied = ["add", "update", "overwrite", "identical"].contains(&action);
 
             json!({
-                "localId": id, "scope": scope, "repo": repo, pushed.label: label, "action": action,
+                "localId": id, "scope": scope, "repo": repo, pushed.label: label_of(id), "action": action,
                 "conflict": conflict, "teamId": if action == "add" { Value::Null } else { json!(id + 30) },
-                "localUpdatedAt": "2026-10-10T10:00:00Z",
+                "localUpdatedAt": if updated_at(id).is_empty() { Value::Null } else { json!(updated_at(id)) },
                 "teamUpdatedAt": if action == "add" { Value::Null } else { json!("2026-10-09T10:00:00Z") },
                 "deleted": !dry_run && !relation_fails && flag("--delete-copied") && copied && !fails(id) && !undeleted(id) && !changed(id),
                 "failed": fails(id),
@@ -364,7 +411,9 @@ fn push_of(pushed: &Pushed, args: &[String]) -> ! {
         .filter_map(|change| change["localId"].as_i64())
         .filter(|id| fails(*id))
         .map(|id| {
-            let message = if hidden(id) {
+            let message = if stale(id) {
+                "changed since the review, so it was not copied".to_owned()
+            } else if hidden(id) {
                 format!("a team entry hidden on this computer matches it in postgres://team:hunter2@db.example.com/memory, unhide {} to copy it", id + 30)
             } else {
                 "cannot write to postgres://team:hunter2@db.example.com/memory".to_owned()
@@ -401,58 +450,6 @@ fn push_of(pushed: &Pushed, args: &[String]) -> ! {
         })
     );
     std::process::exit(if failed.is_empty() { 0 } else { 1 });
-}
-
-/// The options of `push` and `discard-local`.
-#[derive(Default)]
-struct Options {
-    flags: Vec<String>,
-    /// `--all`, `-` or ids (`discard-local`).
-    which: Option<String>,
-    overwrite: Option<String>,
-    scope: Option<String>,
-}
-
-impl Options {
-    /// The options in `args`; `flags` are those that take no value.
-    fn parse(args: &[String], flags: &[&str]) -> Self {
-        let mut options = Self::default();
-        let mut rest = args.iter();
-
-        while let Some(arg) = rest.next() {
-            let mut value = || rest.next().cloned().unwrap_or_else(|| usage());
-
-            match arg.as_str() {
-                "--overwrite" => options.overwrite = Some(value()),
-                "--scope" => options.scope = Some(value()),
-                flag if flags.contains(&flag) => options.flags.push(flag.to_owned()),
-                which if options.which.is_none() && (which == "--all" || !which.starts_with("--")) => {
-                    options.which = Some(which.to_owned());
-                }
-                _ => usage(),
-            }
-        }
-
-        options
-    }
-
-    fn in_scope(&self, scope: &str) -> bool {
-        self.scope.as_deref().is_none_or(|wanted| wanted == scope)
-    }
-
-    /// Whether the push of `pushed` takes its entries of `scope`: the one named, else every scope
-    /// routed to the team database alone.
-    fn pushed(&self, pushed: &Pushed, scope: &str) -> bool {
-        let routed = match pushed.routing {
-            Some(var) => std::env::var(var).ok(),
-            None => routing(scope),
-        };
-
-        match self.scope.as_deref() {
-            Some(wanted) => wanted == scope,
-            None => !matches!(routed.as_deref(), Some("local" | "remote+local")),
-        }
-    }
 }
 
 /// The ids of `ids` (comma-separated), or of stdin for `-`.

@@ -2,6 +2,7 @@ import { t, tn } from '$lib/i18n/i18n.svelte';
 import type { LocalNoteIds } from '$lib/ipc/bindings/LocalNoteIds';
 import type { MemoryCopyKind } from '$lib/ipc/bindings/MemoryCopyKind';
 import type { NotesCopyFilter } from '$lib/ipc/bindings/NotesCopyFilter';
+import type { NotesCopyMode } from '$lib/ipc/bindings/NotesCopyMode';
 import type { NotesCopyPreview } from '$lib/ipc/bindings/NotesCopyPreview';
 import type { NotesCopyResult } from '$lib/ipc/bindings/NotesCopyResult';
 import type { NotesCopyRow } from '$lib/ipc/bindings/NotesCopyRow';
@@ -9,6 +10,7 @@ import { ipc } from '$lib/ipc/client';
 import { IpcFailure } from '$lib/ipc/transport';
 import { toasts } from '$lib/stores/toasts.svelte';
 
+import { copiedCount } from './notes-copy-headings';
 import { COPY_TEXT } from './notes-copy-text';
 import { listOf } from './notes-discard';
 
@@ -22,21 +24,57 @@ export const COPY_PAGE_SIZE = 50;
 const COLLECT_LIMIT = 200;
 
 /**
+ * The id a tick on `row` is made of: the local id of an entry copied to the remote (or of a conflict that overwrites the remote copy), the remote id
+ * of an entry copied to this computer (it has no local id yet). Null for a row that has none, which cannot be ticked.
+ */
+export function tickId(row: NotesCopyRow, mode: NotesCopyMode): number | null {
+  return mode === 'toLocal' ? row.teamId : row.localId;
+}
+
+/** A failure of the copy in words the user can act on: a copy that is turned off or that the installed server lacks says so, the rest is the server's own message. */
+function failureText(error: unknown, mode: NotesCopyMode): string {
+  const failure = IpcFailure.from(error);
+
+  if (mode === 'stranded') {
+    return failure.message;
+  }
+
+  if (failure.code === 'forbidden') {
+    return t(mode === 'toLocal' ? 'memory.sync.forbidden.toLocal' : 'memory.sync.forbidden.toRemote');
+  }
+
+  return failure.code === 'unsupported' ? t('memory.sync.unsupported') : failure.message;
+}
+
+/**
  * Copying the notes (or the scripts, per `kind`) saved on this computer to the remote database. `begin` asks Rust for a dry run, which it keeps
  * under `previewId`, and the dialog shows its counts and the conflicts (entries the remote also has, differing from this computer's newer one) a
  * page at a time. Conflicts start unticked: only a ticked one overwrites the teammates' version. Blocked entries (the copy would fail, say
  * because the remote has one of the same name hidden on this computer) are listed apart with their reason: they are never ticked, never counted
  * as copied, and never sent. Copying sends the plan's id and the ticks, never the entries.
+ *
+ * `mode` is which way it goes. `stranded` copies everything this computer has stranded to the remote database, and what arrived is removed here.
+ * `toRemote` and `toLocal` pick: nothing is ticked at first, only the entries ticked are copied, and Copy waits for a tick. `toRemote` copies
+ * this computer's entries to the remote database and removes here what arrived, and a ticked conflict replaces the remote version. `toLocal`
+ * copies the remote's entries missing here to this computer and removes nothing anywhere. A picking table lists the entries that can be ticked, or
+ * every entry with the reason each cannot be (it is the same on both sides, the remote one is newer, a different version is here and is never
+ * replaced, or it is blocked).
  */
 export class NotesCopyFlow {
-  constructor(readonly kind: MemoryCopyKind) {}
+  constructor(
+    readonly kind: MemoryCopyKind,
+    readonly mode: NotesCopyMode = 'stranded',
+  ) {}
 
   stage = $state<CopyStage>('loading');
   preview = $state.raw<NotesCopyPreview | null>(null);
   result = $state.raw<NotesCopyResult | null>(null);
   failure = $state<string | null>(null);
 
-  /** The conflicts of the page on screen, grouped by repository by the server. */
+  /** Which rows the table lists: the conflicts, or when picking the entries that can be picked or all of them. */
+  view = $state<NotesCopyFilter>('conflicts');
+
+  /** The rows of the page on screen, grouped by repository by the server. */
   rows = $state.raw<NotesCopyRow[]>([]);
   page = $state(0);
   /** Whether the page is being read. */
@@ -47,7 +85,7 @@ export class NotesCopyFlow {
   blockedPage = $state(0);
   blockedPaging = $state(false);
 
-  /** The ticked conflicts, by local id. With `every` set, all conflicts are ticked except the ones listed in `unticked`. */
+  /** The ticked rows, by `tickId`. With `every` set, all that can be ticked are ticked except the ones listed in `unticked`. */
   private ticked = $state.raw<Set<number>>(new Set());
   private every = $state(false);
   private unticked = $state.raw<Set<number>>(new Set());
@@ -55,8 +93,37 @@ export class NotesCopyFlow {
   /** Raised by `reset`, so an answer that arrives after the dialog was closed is dropped. */
   private generation = 0;
 
+  /** Raised by every read of the table's page and of the blocked entries' page, so only the newest one may fill its rows. */
+  private pageRequest = 0;
+  private blockedRequest = 0;
+
+  /** Whether the copy goes to this computer. */
+  get pulls(): boolean {
+    return this.mode === 'toLocal';
+  }
+
+  /** Whether the user picks the entries to copy (nothing is ticked at first), instead of the copy taking all and ticking only the conflicts. */
+  get picking(): boolean {
+    return this.mode !== 'stranded';
+  }
+
   get conflicts(): number {
     return this.preview?.counts.conflicts ?? 0;
+  }
+
+  /** How many rows can be ticked: the conflicts, or when picking the entries the copy would add, update or replace. */
+  get selectable(): number {
+    const counts = this.preview?.counts;
+
+    if (!counts) {
+      return 0;
+    }
+
+    if (!this.picking) {
+      return counts.conflicts;
+    }
+
+    return this.pulls ? counts.added : counts.added + counts.updated + counts.conflicts;
   }
 
   /** How many entries cannot be copied. */
@@ -64,21 +131,31 @@ export class NotesCopyFlow {
     return this.preview?.counts.failed ?? 0;
   }
 
-  /** How many entries the copy takes: all but the blocked ones. */
+  /** How many entries the copy takes: all but the blocked ones, or when picking the ones that can be picked. */
   get copyable(): number {
-    return (this.preview?.total ?? 0) - this.blocked;
+    return this.picking ? this.selectable : (this.preview?.total ?? 0) - this.blocked;
   }
 
-  /** How many conflicts will overwrite the team's version. */
+  /** How many rows are ticked: conflicts that will overwrite the remote version, or when picking the entries that will be copied. */
   get pickedCount(): number {
-    return this.every ? this.conflicts - this.unticked.size : this.ticked.size;
+    return this.every ? this.selectable - this.unticked.size : this.ticked.size;
   }
 
-  isPicked(localId: number): boolean {
-    return this.every ? !this.unticked.has(localId) : this.ticked.has(localId);
+  isPicked(id: number): boolean {
+    return this.every ? !this.unticked.has(id) : this.ticked.has(id);
   }
 
-  /** Compares this computer with the team database (it can take long with many notes) and reads the first page of conflicts. */
+  /** The mode the commands take: the default one is sent as none, as it always was. */
+  private get modeArg(): { mode?: NotesCopyMode } {
+    return this.mode === 'stranded' ? {} : { mode: this.mode };
+  }
+
+  /** The rows that carry the ticks. */
+  private get tickFilter(): NotesCopyFilter {
+    return this.picking ? 'pickable' : 'conflicts';
+  }
+
+  /** Compares this computer with the team database (it can take long with many notes) and reads the first page of rows. */
   async begin(): Promise<void> {
     const generation = this.generation;
     this.stage = 'loading';
@@ -86,7 +163,7 @@ export class NotesCopyFlow {
     this.preview = null;
 
     try {
-      const preview = await ipc.invoke('memory_notes_copy_preview', { kind: this.kind });
+      const preview = await ipc.invoke('memory_notes_copy_preview', { kind: this.kind, ...this.modeArg });
 
       if (generation !== this.generation) {
         return;
@@ -101,48 +178,70 @@ export class NotesCopyFlow {
       this.ticked = new Set();
       this.unticked = new Set();
 
-      await Promise.all([preview.counts.conflicts > 0 ? this.go(0) : undefined, preview.counts.failed > 0 ? this.goBlocked(0) : undefined]);
+      // When picking the table starts with what can be picked, or with everything when nothing can.
+      this.view = this.picking ? (this.selectable > 0 ? 'pickable' : 'all') : 'conflicts';
+
+      const listed = this.picking ? preview.total > 0 : preview.counts.conflicts > 0;
+
+      await Promise.all([listed ? this.go(0) : undefined, preview.counts.failed > 0 ? this.goBlocked(0) : undefined]);
 
       if (generation === this.generation) {
         this.stage = 'review';
       }
     } catch (error) {
       if (generation === this.generation) {
-        this.failure = IpcFailure.from(error).message;
+        this.failure = failureText(error, this.mode);
         this.stage = 'failed';
       }
     }
   }
 
-  /** Reads one page of the conflicts. */
+  /** Reads one page of the table. An answer that arrives after a newer read of the table started (another page or filter) is dropped. */
   async go(page: number): Promise<void> {
+    this.pageRequest += 1;
+    const request = this.pageRequest;
     this.paging = true;
 
     try {
-      const rows = await this.read('conflicts', page);
+      const rows = await this.read(this.view, page);
 
-      if (rows) {
+      if (rows && request === this.pageRequest) {
         this.rows = rows;
         this.page = page;
       }
     } finally {
-      this.paging = false;
+      if (request === this.pageRequest) {
+        this.paging = false;
+      }
     }
   }
 
-  /** Reads one page of the blocked entries. */
+  /** Switches a picking copy between the entries that can be picked and all of them, and reads the first page. Ticks stay. */
+  async show(view: 'pickable' | 'all'): Promise<void> {
+    this.view = view;
+    this.page = 0;
+    this.rows = [];
+
+    await this.go(0);
+  }
+
+  /** Reads one page of the blocked entries, dropping an answer that a newer read of them has outdated. */
   async goBlocked(page: number): Promise<void> {
+    this.blockedRequest += 1;
+    const request = this.blockedRequest;
     this.blockedPaging = true;
 
     try {
       const rows = await this.read('failed', page);
 
-      if (rows) {
+      if (rows && request === this.blockedRequest) {
         this.blockedRows = rows;
         this.blockedPage = page;
       }
     } finally {
-      this.blockedPaging = false;
+      if (request === this.blockedRequest) {
+        this.blockedPaging = false;
+      }
     }
   }
 
@@ -155,18 +254,18 @@ export class NotesCopyFlow {
     }
 
     const generation = this.generation;
-    const { rows } = await ipc.invoke('memory_notes_copy_rows', { kind: this.kind, previewId, filter, offset: page * COPY_PAGE_SIZE, limit: COPY_PAGE_SIZE });
+    const { rows } = await ipc.invoke('memory_notes_copy_rows', { kind: this.kind, ...this.modeArg, previewId, filter, offset: page * COPY_PAGE_SIZE, limit: COPY_PAGE_SIZE });
 
     return generation === this.generation ? rows : undefined;
   }
 
-  toggle(localId: number, on: boolean): void {
+  toggle(id: number, on: boolean): void {
     const next = new Set(this.every ? this.unticked : this.ticked);
 
     if (on === this.every) {
-      next.delete(localId);
+      next.delete(id);
     } else {
-      next.add(localId);
+      next.add(id);
     }
 
     if (this.every) {
@@ -176,15 +275,15 @@ export class NotesCopyFlow {
     }
   }
 
-  /** Ticks every conflict on every page, or none. */
+  /** Ticks every row that can be ticked, on every page, or none. */
   toggleAll(on: boolean): void {
     this.every = on;
     this.ticked = new Set();
     this.unticked = new Set();
   }
 
-  /** What `memory_notes_copy_apply` takes: none, all, or the local ids ticked (collected from every page when some of all were unticked). */
-  private async overwrite(previewId: string): Promise<LocalNoteIds> {
+  /** What `memory_notes_copy_apply` takes as its ticks: none, all, or the ids ticked (collected from every page when some of all were unticked). */
+  private async picks(previewId: string): Promise<LocalNoteIds> {
     if (!this.every) {
       return this.ticked.size === 0 ? 'none' : [...this.ticked];
     }
@@ -195,10 +294,10 @@ export class NotesCopyFlow {
 
     const ids: number[] = [];
 
-    for (let offset = 0; ids.length < this.conflicts + this.unticked.size; offset += COLLECT_LIMIT) {
-      const { rows } = await ipc.invoke('memory_notes_copy_rows', { kind: this.kind, previewId, filter: 'conflicts', offset, limit: COLLECT_LIMIT });
+    for (let offset = 0; ids.length < this.selectable + this.unticked.size; offset += COLLECT_LIMIT) {
+      const { rows } = await ipc.invoke('memory_notes_copy_rows', { kind: this.kind, ...this.modeArg, previewId, filter: this.tickFilter, offset, limit: COLLECT_LIMIT });
 
-      ids.push(...rows.filter((row) => !row.failed).map((row) => row.localId));
+      ids.push(...rows.filter((row) => !row.failed && row.pickable).flatMap((row) => tickId(row, this.mode) ?? []));
 
       if (rows.length < COLLECT_LIMIT) {
         break;
@@ -212,7 +311,8 @@ export class NotesCopyFlow {
   async apply(): Promise<void> {
     const previewId = this.preview?.previewId;
 
-    if (!previewId || this.stage !== 'review') {
+    // When picking only what is picked is copied: nothing picked is nothing to do.
+    if (!previewId || this.stage !== 'review' || (this.picking && this.pickedCount === 0)) {
       return;
     }
 
@@ -221,7 +321,9 @@ export class NotesCopyFlow {
     this.failure = null;
 
     try {
-      const result = await ipc.invoke('memory_notes_copy_apply', { kind: this.kind, previewId, overwrite: await this.overwrite(previewId) });
+      const picks = await this.picks(previewId);
+      const base = { kind: this.kind, ...this.modeArg, previewId };
+      const result = await ipc.invoke('memory_notes_copy_apply', this.picking ? { ...base, pick: picks } : { ...base, overwrite: picks });
 
       if (generation === this.generation) {
         this.result = result;
@@ -230,7 +332,7 @@ export class NotesCopyFlow {
       }
     } catch (error) {
       if (generation === this.generation) {
-        this.failure = IpcFailure.from(error).message;
+        this.failure = failureText(error, this.mode);
         this.stage = 'failed';
       }
     }
@@ -252,7 +354,7 @@ export class NotesCopyFlow {
 
     toasts.push({
       title: t(text.toastDone),
-      description: [tn(text.toastDoneBody, copiedCount(result)), stays > 0 ? tn(text.toastStays, stays) : ''].filter(Boolean).join(' '),
+      description: [tn(text.toastDoneBody, copiedCount(result, this.mode)), stays > 0 ? tn(text.toastStays, stays) : ''].filter(Boolean).join(' '),
       tone: result.failed.length > 0 ? 'warning' : 'success',
     });
   }
@@ -263,6 +365,7 @@ export class NotesCopyFlow {
     this.preview = null;
     this.result = null;
     this.failure = null;
+    this.view = 'conflicts';
     this.rows = [];
     this.page = 0;
     this.paging = false;
@@ -270,59 +373,5 @@ export class NotesCopyFlow {
     this.blockedPage = 0;
     this.blockedPaging = false;
     this.toggleAll(false);
-  }
-}
-
-/** The notes now in the team database: copied, overwritten or already there. Not the ones deleted here, a failed relation deletes nothing. */
-export function copiedCount({ counts }: NotesCopyResult): number {
-  return counts.added + counts.updated + counts.overwritten + counts.identical;
-}
-
-/** The notes that failed, each counted once. A failed note comes with one failure per relation, all with its local id, and a failure without a local id is no note. */
-export function failedNotes({ failed }: NotesCopyResult): number {
-  return new Set(failed.map((failure) => failure.localId).filter((id) => id !== null)).size;
-}
-
-/** The title of the dialog for what it is showing. */
-export function copyTitle(flow: NotesCopyFlow): string {
-  const text = COPY_TEXT[flow.kind];
-
-  switch (flow.stage) {
-    case 'applying':
-      return t(text.titleApplying);
-    case 'result':
-      return t('memory.copy.title.done');
-    case 'failed':
-      return t('memory.copy.title.failed');
-    case 'loading':
-      return t(text.titleLoading);
-    case 'review':
-      if (flow.preview && flow.preview.total > 0) {
-        return flow.copyable > 0 ? tn(text.title, flow.copyable) : tn(text.blockedTitle, flow.blocked);
-      }
-
-      return t('memory.copy.title.none');
-  }
-}
-
-/** The line under the title. */
-export function copyDescription(flow: NotesCopyFlow): string {
-  const text = COPY_TEXT[flow.kind];
-
-  switch (flow.stage) {
-    case 'applying':
-      return t('memory.copy.description.applying');
-    case 'result':
-      return t(text.descriptionDone);
-    case 'failed':
-      return flow.failure ?? '';
-    case 'loading':
-      return t(text.loadingHint);
-    case 'review':
-      if (flow.preview && flow.preview.total > 0) {
-        return t(flow.copyable > 0 ? text.description : text.blockedHelp);
-      }
-
-      return t(text.descriptionNone);
   }
 }

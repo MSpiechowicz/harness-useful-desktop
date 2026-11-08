@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Button from '$lib/components/Button.svelte';
   import { NOTICE_LOOKS } from '$lib/components/notice';
   import { ICON } from '$lib/components/icon';
   import type { ScopeTarget } from '$lib/components/scope/scope-options';
@@ -12,6 +11,7 @@
   import { importable, needsDefaultScope } from './notes-import';
   import { notesImport as flow } from './notes-import-state.svelte';
   import NotesImportTable from './NotesImportTable.svelte';
+  import PickAllActions from './PickAllActions.svelte';
   import { targetLabel } from './scope-target';
 
   const scopeId = uid('import-scope');
@@ -47,10 +47,14 @@
     <div class="flex items-center justify-between gap-3">
       <p class="tabular text-sm text-fg-2" role="status">{t('memory.import.selected', { picked: flow.picked.length, total: usable })}</p>
 
-      <div class="flex items-center gap-1">
-        <Button variant="ghost" disabled={usable === 0 || flow.picked.length === usable} onclick={() => flow.toggleAll(true)}>{t('memory.import.selectAll')}</Button>
-        <Button variant="ghost" disabled={flow.picked.length === 0} onclick={() => flow.toggleAll(false)}>{t('memory.import.selectNone')}</Button>
-      </div>
+      <PickAllActions
+        selectAllLabel={t('memory.import.selectAll')}
+        selectNoneLabel={t('memory.import.selectNone')}
+        allReason={usable === 0 ? t('memory.sync.pick.nothing') : flow.picked.length === usable ? t('memory.sync.pick.allDone') : null}
+        noneReason={flow.picked.length === 0 ? t('memory.sync.pick.noneYet') : null}
+        onall={() => flow.toggleAll(true)}
+        onnone={() => flow.toggleAll(false)}
+      />
     </div>
 
     <NotesImportTable rows={flow.rows} picks={flow.picks} ontoggle={(index, on) => flow.toggle(index, on)} />

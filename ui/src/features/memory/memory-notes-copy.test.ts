@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { describe, expect, it, vi } from 'vitest';
 
 import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
+import type { NotesCopyPreview } from '$lib/ipc/bindings/NotesCopyPreview';
 import type { NotesCopyResult } from '$lib/ipc/bindings/NotesCopyResult';
 import { ipc } from '$lib/ipc/client';
 import type { CommandName } from '$lib/ipc/commands';
@@ -19,6 +20,9 @@ const onThisComputer = (notes: NoteContent[]) => notes.filter((note) => note.pla
 
 /** More notes on this computer than one page of conflicts holds. */
 const manyLocal = (): NoteContent[] => Array.from({ length: 300 }, (_, index) => ({ ...sampleNotes()[3], id: 5000 + index, title: `Local note ${index}`, place: 'local' as const }));
+
+/** More notes on this computer than two collect reads of 200 conflicts hold: about a third of them differ from the remote copy. */
+const moreThanTwoPagesLocal = (): NoteContent[] => Array.from({ length: 700 }, (_, index) => ({ ...sampleNotes()[3], id: 5000 + index, title: `Local note ${index}`, place: 'local' as const }));
 
 /** The notes plus a remote note hidden on this computer that has the title of the third note saved here, which a copy would take as a conflict: that one is blocked instead. */
 function withBlockedNote() {
@@ -207,6 +211,30 @@ describe('copying the notes to the remote database', () => {
     await waitFor(() => expect(calls(invoke, 'memory_notes_copy_apply')).toHaveLength(1));
     const { overwrite } = calls(invoke, 'memory_notes_copy_apply')[0] as { overwrite: number[] };
     expect(overwrite).toHaveLength(99);
+    expect(overwrite).not.toContain(left);
+  });
+
+  it('names every other conflict when one of all is left out, with more conflicts than one collecting read holds', async () => {
+    const invoke = fakeMemory({ kind: 'available' }, undefined, undefined, moreThanTwoPagesLocal());
+    await openDialog();
+    await screen.findByRole('table', { name: 'Notes that differ from the remote copy' });
+
+    const [preview] = await Promise.all(invoke.mock.calls.flatMap(([name], index) => (name === 'memory_notes_copy_preview' ? [invoke.mock.results[index].value as Promise<NotesCopyPreview>] : [])));
+    expect(preview.counts.conflicts).toBeGreaterThan(200);
+
+    const [first] = screen.getAllByRole('checkbox');
+    const title = (first.getAttribute('aria-label') ?? '').replace('Overwrite the remote copy of ', '');
+    const left = moreThanTwoPagesLocal().find((note) => note.title === title)?.id;
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Tick all' }));
+    await fireEvent.click(pickBox(title));
+    await fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    await waitFor(() => expect(calls(invoke, 'memory_notes_copy_apply')).toHaveLength(1));
+    const { overwrite } = calls(invoke, 'memory_notes_copy_apply')[0] as { overwrite: number[] };
+
+    expect(overwrite).toHaveLength(preview.counts.conflicts - 1);
+    expect(new Set(overwrite).size).toBe(overwrite.length);
     expect(overwrite).not.toContain(left);
   });
 

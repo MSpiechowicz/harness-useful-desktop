@@ -5,6 +5,7 @@ import type { MemoryScriptsAvailability } from '../bindings/MemoryScriptsAvailab
 import type { NoteContent } from '../bindings/NoteContent';
 import type { NotesCopyCounts } from '../bindings/NotesCopyCounts';
 import type { NotesCopyFilter } from '../bindings/NotesCopyFilter';
+import type { NotesCopyMode } from '../bindings/NotesCopyMode';
 import type { NotesCopyPreview } from '../bindings/NotesCopyPreview';
 import type { NotesCopyResult } from '../bindings/NotesCopyResult';
 import type { NotesCopyRow } from '../bindings/NotesCopyRow';
@@ -60,6 +61,9 @@ export interface CopyHandlers {
 /** What a copy does with a local entry, by its place in the plan: most are added, some are already there, some differ or are older than the team's. */
 const FATES = ['add', 'identical', 'conflict', 'add', 'teamNewer', 'conflict'] as const;
 
+/** What a copy to this computer does with a remote entry, by its place in the plan: most are added, some are already here, some differ. */
+const PULL_FATES = ['add', 'add', 'identical', 'add', 'localDiffers'] as const;
+
 const DAY_MS = 86_400_000;
 
 /** Why a copy cannot take a local entry: the remote has one of the same name that this computer hides, so it would collide with it. Nothing when it can. */
@@ -70,11 +74,16 @@ function blockOf<T extends TeamEntry>(store: TeamStore<T>, entry: T): string | n
   return hidden ? `a remote entry named “${label}” is hidden on this computer, so unhide it to copy this one` : null;
 }
 
-function rowOf(entry: TeamEntry, title: string, fate: (typeof FATES)[number], failure: string | null): NotesCopyRow {
+/** Whether a copy to the remote takes a row that does not fail when it is ticked: it adds, updates or replaces something. */
+const copiesSomething = (fate: (typeof FATES)[number]): boolean => fate === 'add' || fate === 'conflict';
+
+function rowOf(entry: TeamEntry, title: string, fate: (typeof FATES)[number], failure: string | null, mode: NotesCopyMode | undefined): NotesCopyRow {
   const team = fate === 'add' ? null : new Date(Date.parse(entry.updatedAt) + (fate === 'teamNewer' ? DAY_MS : -DAY_MS)).toISOString();
 
   return {
     localId: entry.id,
+    teamId: fate === 'add' ? null : entry.id,
+    pickable: !failure && (mode === 'toRemote' ? copiesSomething(fate) : fate === 'conflict'),
     scope: entry.scope,
     repo: entry.repo,
     title,
@@ -84,6 +93,24 @@ function rowOf(entry: TeamEntry, title: string, fate: (typeof FATES)[number], fa
     failure,
     localUpdatedAt: entry.updatedAt,
     teamUpdatedAt: team,
+  };
+}
+
+/** A remote entry in a copy to this computer: only one to add can be ticked, the others say why not by their action. */
+function pullRowOf(entry: TeamEntry, title: string, fate: (typeof PULL_FATES)[number]): NotesCopyRow {
+  return {
+    localId: fate === 'add' ? null : entry.id,
+    teamId: entry.id,
+    pickable: fate === 'add',
+    scope: entry.scope,
+    repo: entry.repo,
+    title,
+    action: fate,
+    conflict: false,
+    failed: false,
+    failure: null,
+    localUpdatedAt: fate === 'add' ? null : entry.updatedAt,
+    teamUpdatedAt: entry.updatedAt,
   };
 }
 
@@ -101,6 +128,7 @@ function countsOf(rows: readonly NotesCopyRow[]): NotesCopyCounts {
     overwritten: 0,
     identical: count('identical'),
     teamNewer: count('teamNewer'),
+    localDiffers: count('localDiffers'),
     conflicts: rows.filter((row) => row.conflict).length,
     failed: rows.filter((row) => row.failed).length,
   };
@@ -112,6 +140,8 @@ function inFilter(row: NotesCopyRow, filter: NotesCopyFilter | undefined): boole
       return row.conflict;
     case 'failed':
       return row.failed;
+    case 'pickable':
+      return row.pickable;
     default:
       return true;
   }
@@ -148,12 +178,17 @@ function discardEntries<T extends TeamEntry>({ read, write, availability }: Team
   return gone.length;
 }
 
+/** The mock backend keeps one plan per kind and mode, like the real commands. */
+const planKey = (kind: MemoryCopyKind, mode: NotesCopyMode | undefined): string => `${kind}:${mode ?? 'stranded'}`;
+
 /**
- * The copy commands of the mock backend: a plan of the entries saved on this computer, one at a time per kind and used up by its copy, like the
- * real commands. The stores are read when a command runs, so the notes and the scripts handlers may be made in any order.
+ * The copy commands of the mock backend: a plan of the entries saved on this computer (`stranded`, `toRemote`) or of the remote entries missing here
+ * (`toLocal`), one at a time per kind and mode and used up by its copy, like the real commands. A copy to this computer reports what it added and
+ * changes nothing in the stores. The mock does not read the Settings switches: it never answers `forbidden`. The stores are read when a command runs,
+ * so the notes and the scripts handlers may be made in any order.
  */
 export function copyHandlers(stores: CopyStores): CopyHandlers {
-  const plans: Partial<Record<MemoryCopyKind, { id: string; rows: NotesCopyRow[] }>> = {};
+  const plans: Partial<Record<string, { id: string; rows: NotesCopyRow[] }>> = {};
   let counter = 0;
 
   const storeOf = (kind: MemoryCopyKind): TeamStore<TeamEntry> => {
@@ -166,14 +201,73 @@ export function copyHandlers(stores: CopyStores): CopyHandlers {
     return store;
   };
 
-  const current = (kind: MemoryCopyKind, id: string): NotesCopyRow[] => {
-    const plan = plans[kind];
+  const current = (kind: MemoryCopyKind, mode: NotesCopyMode | undefined, id: string): NotesCopyRow[] => {
+    const plan = plans[planKey(kind, mode)];
 
     if (!plan || plan.id !== id) {
       throw IpcFailure.from({ code: 'invalidInput', message: 'this review has expired, so compare again' });
     }
 
     return plan.rows;
+  };
+
+  /** The rows of a copy to this computer: the remote entries this computer does not hide. */
+  const pullRows = (store: TeamStore<TeamEntry>): NotesCopyRow[] =>
+    store
+      .read()
+      .filter((entry) => entry.place === 'team' && !entry.hidden)
+      .map((entry, index) => pullRowOf(entry, store.label(entry), PULL_FATES[index % PULL_FATES.length]))
+      .sort(inPlanOrder);
+
+  /** The rows of a copy to the remote: the entries saved on this computer. */
+  const pushRows = (store: TeamStore<TeamEntry>, mode: NotesCopyMode | undefined): NotesCopyRow[] =>
+    store
+      .read()
+      .filter((entry) => entry.place === 'local')
+      .map((entry, index) => rowOf(entry, store.label(entry), FATES[index % FATES.length], blockOf(store, entry), mode))
+      .sort(inPlanOrder);
+
+  /** A copy to this computer: the ticked remote entries are added here (reported, not stored), nothing is deleted. */
+  const pull = (rows: NotesCopyRow[], overwrite: LocalNoteIds | undefined, pick: LocalNoteIds | undefined): NotesCopyResult => {
+    const pickable = rows.filter((row) => row.pickable);
+    const picked = pick === 'all' ? pickable : pick === undefined || pick === 'none' ? [] : pickable.filter((row) => pick.includes(row.teamId ?? -1));
+
+    if (overwrite !== undefined && overwrite !== 'none') {
+      throw IpcFailure.from({ code: 'invalidInput', message: 'a copy to this computer overwrites nothing' });
+    }
+
+    if (picked.length === 0 || (Array.isArray(pick) && pick.some((id) => !pickable.some((row) => row.teamId === id)))) {
+      throw IpcFailure.from({ code: 'invalidInput', message: 'pick entries to add from this review' });
+    }
+
+    return { counts: { ...countsOf([]), added: picked.length }, deleted: 0, kept: 0, leftover: [], failed: [] };
+  };
+
+  /**
+   * A copy to the remote of the ticked rows only: each is the remote's from now on and gone from this computer, a ticked conflict replaces the
+   * remote text, and a row not ticked is neither copied nor deleted.
+   */
+  const pushPicked = (store: TeamStore<TeamEntry>, rows: NotesCopyRow[], overwrite: LocalNoteIds | undefined, pick: LocalNoteIds | undefined): NotesCopyResult => {
+    const pickable = rows.filter((row) => row.pickable);
+    const picked = pick === 'all' ? pickable : pick === undefined || pick === 'none' ? [] : pickable.filter((row) => pick.includes(row.localId ?? -1));
+
+    if (overwrite !== undefined && overwrite !== 'none') {
+      throw IpcFailure.from({ code: 'invalidInput', message: 'a copy to the remote overwrites what is ticked, so tick the conflicts' });
+    }
+
+    if (picked.length === 0 || (Array.isArray(pick) && pick.some((id) => !pickable.some((row) => row.localId === id)))) {
+      throw IpcFailure.from({ code: 'invalidInput', message: 'pick entries to copy from this review' });
+    }
+
+    store.write(store.read().filter((entry) => !picked.some((row) => row.localId === entry.id)));
+
+    return {
+      counts: { ...countsOf(picked), overwritten: picked.filter((row) => row.conflict).length },
+      deleted: picked.length,
+      kept: 0,
+      leftover: [],
+      failed: [],
+    };
   };
 
   return {
@@ -183,39 +277,56 @@ export function copyHandlers(stores: CopyStores): CopyHandlers {
 
       return availability.kind === 'available' ? reposPage(store.read()) : { availability, repos: [], global: 0 };
     },
-    memory_notes_copy_preview: ({ kind }) => {
+    memory_notes_copy_preview: ({ kind, mode }) => {
       const store = storeOf(kind);
       requireServer(store.availability());
 
       counter += 1;
-      const rows = store
-        .read()
-        .filter((entry) => entry.place === 'local')
-        .map((entry, index) => rowOf(entry, store.label(entry), FATES[index % FATES.length], blockOf(store, entry)))
-        .sort(inPlanOrder);
+      const rows = mode === 'toLocal' ? pullRows(store) : pushRows(store, mode);
       const plan = { id: `copy-${counter}`, rows };
-      plans[kind] = plan;
+      plans[planKey(kind, mode)] = plan;
 
-      return { previewId: plan.id, nothing: rows.length === 0 ? `no ${kind} are saved on this computer` : null, counts: countsOf(rows), total: rows.length, rows: rows.slice(0, 50) };
+      const nothing = mode === 'toLocal' ? `no ${kind} of the remote database are missing on this computer` : `no ${kind} are saved on this computer`;
+
+      return { previewId: plan.id, nothing: rows.length === 0 ? nothing : null, counts: countsOf(rows), total: rows.length, rows: rows.slice(0, 50) };
     },
-    memory_notes_copy_rows: ({ kind, previewId, filter, offset, limit }) => {
-      const rows = current(kind, previewId).filter((row) => inFilter(row, filter));
+    memory_notes_copy_rows: ({ kind, mode, previewId, filter, offset, limit }) => {
+      const rows = current(kind, mode, previewId).filter((row) => inFilter(row, filter));
 
       return { total: rows.length, rows: rows.slice(offset, offset + limit) };
     },
-    memory_notes_copy_apply: ({ kind, previewId, overwrite }) => {
+    memory_notes_copy_apply: ({ kind, mode, previewId, overwrite = 'none', pick }) => {
       const store = storeOf(kind);
       requireServer(store.availability());
 
-      const rows = current(kind, previewId);
+      const rows = current(kind, mode, previewId);
+
+      if (mode === 'toLocal') {
+        const result = pull(rows, overwrite, pick);
+        plans[planKey(kind, mode)] = undefined;
+
+        return result;
+      }
+
+      if (mode === 'toRemote') {
+        const result = pushPicked(store, rows, overwrite, pick);
+        plans[planKey(kind, mode)] = undefined;
+
+        return result;
+      }
+
+      if (pick !== undefined && pick !== 'none') {
+        throw IpcFailure.from({ code: 'invalidInput', message: 'a copy of what stayed here picks conflicts to overwrite, not entries' });
+      }
+
       const conflicts = rows.filter((row) => row.conflict);
-      const picked = overwrite === 'all' ? conflicts : overwrite === 'none' ? [] : conflicts.filter((row) => overwrite.includes(row.localId));
+      const picked = overwrite === 'all' ? conflicts : overwrite === 'none' ? [] : conflicts.filter((row) => overwrite.includes(row.localId ?? -1));
 
       if (Array.isArray(overwrite) && overwrite.some((id) => !conflicts.some((row) => row.localId === id))) {
         throw IpcFailure.from({ code: 'invalidInput', message: 'an entry picked to overwrite is not a conflict of this review' });
       }
 
-      plans[kind] = undefined;
+      plans[planKey(kind, mode)] = undefined;
 
       // A copied entry is the team's from now on. One the team has the same is dropped from this computer. The others stay.
       const byId = new Map(store.read().map((entry) => [entry.id, entry]));
@@ -223,7 +334,7 @@ export function copyHandlers(stores: CopyStores): CopyHandlers {
       const same = rows.filter((row) => !row.failed && row.action === 'identical');
 
       for (const row of moved) {
-        const entry = byId.get(row.localId);
+        const entry = byId.get(row.localId ?? -1);
 
         if (entry) {
           entry.place = 'team';
@@ -235,8 +346,8 @@ export function copyHandlers(stores: CopyStores): CopyHandlers {
         counts: { ...countsOf(rows), overwritten: picked.length },
         deleted: moved.length + same.length,
         kept: rows.length - moved.length - same.length,
-        leftover: rows.filter((row) => !row.failed && !moved.includes(row) && !same.includes(row)).map((row) => row.localId),
-        failed: rows.filter((row) => row.failed).map((row) => ({ localId: row.localId, title: row.title, message: row.failure ?? '' })),
+        leftover: rows.filter((row) => !row.failed && !moved.includes(row) && !same.includes(row)).flatMap((row) => (row.localId === null ? [] : [row.localId])),
+        failed: rows.filter((row) => row.failed).map((row) => ({ localId: row.localId, teamId: row.teamId, title: row.title, message: row.failure ?? '' })),
       };
     },
   };

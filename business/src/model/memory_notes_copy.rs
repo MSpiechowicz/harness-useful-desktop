@@ -6,7 +6,9 @@
 //!
 //! The app runs `harness-memory push --json` (`scripts push --json` for scripts, a dry run first)
 //! and never opens a database. Ids are those of the local file (`localId`), every repository
-//! counted.
+//! counted. Under "Remote + this computer" a copy goes either way on request
+//! ([`NotesCopyMode`]): to the team database with `push --remote-local`, or from it to this
+//! computer with `pull`, whose entries are named by their team id (`teamId`).
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -24,6 +26,23 @@ pub enum MemoryCopyKind {
     Notes,
     /// Scripts.
     Scripts,
+}
+
+/// Which way a copy goes, and which entries it takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum NotesCopyMode {
+    /// What stayed on this computer after its scope moved to the team database: the entries of the
+    /// scopes routed to the team database alone, copied there and deleted here. The default.
+    #[default]
+    Stranded,
+    /// The entries of the scopes kept on this computer too ("Remote + this computer"), copied to
+    /// the team database and deleted here once it holds them. Needs the switch "Copy to remote".
+    ToRemote,
+    /// The team's entries of those scopes that are missing here, copied to this computer (the
+    /// team's stay). Needs the switch "Copy to this computer".
+    ToLocal,
 }
 
 /// A keyword in place of a list of local note ids.
@@ -65,6 +84,8 @@ pub enum NotesCopyAction {
     Identical,
     /// The team note is newer: it stays as it is.
     TeamNewer,
+    /// To this computer: a different version is already here, and a copy never replaces it.
+    LocalDiffers,
 }
 
 /// How many local notes a copy takes each way. A note that fails (or will fail) is counted in
@@ -83,6 +104,8 @@ pub struct NotesCopyCounts {
     pub identical: u32,
     /// Older than the team note, left out.
     pub team_newer: u32,
+    /// To this computer: a different version is already here, left as it is.
+    pub local_differs: u32,
     /// Newer than a team note that differs (overwritten or kept).
     pub conflicts: u32,
     /// Failed, or will fail (for instance a team note hidden on this computer matches it).
@@ -94,9 +117,22 @@ pub struct NotesCopyCounts {
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct NotesCopyRow {
-    /// The note's id in the local file.
-    #[ts(type = "number")]
-    pub local_id: i64,
+    /// The note's id in the local file. `None` for a team entry that is not on this computer yet
+    /// (`toLocal`, action `add`).
+    #[ts(type = "number | null")]
+    pub local_id: Option<i64>,
+    /// The note's id in the team database. `None` when the team has none (a local note to add),
+    /// and in `stranded` and `toRemote` for a server that does not say.
+    #[ts(type = "number | null")]
+    pub team_id: Option<i64>,
+    /// Whether the row can be ticked: in `stranded` a conflict that does not fail (what `overwrite`
+    /// picks), in `toRemote` a row that does not fail and copies something (`add`, `update` or a
+    /// conflict, with an update time: what `pick` picks by local id), in `toLocal` an entry to add
+    /// that does not fail (what `pick` picks by team id). The reason a `toLocal` row cannot be is
+    /// its `action` (`identical`: the same is here already, `localDiffers`: a different version is
+    /// here and is never replaced) or its `failure`, and a `toRemote` row's is its `action`
+    /// (`identical`, `teamNewer`) or its `failure`.
+    pub pickable: bool,
     /// Repository or global.
     #[ts(inline)]
     pub scope: ScriptScope,
@@ -132,6 +168,9 @@ pub enum NotesCopyFilter {
     Conflicts,
     /// The rows that fail.
     Failed,
+    /// The rows that can be ticked (`toRemote` and `toLocal`: the rows that copy something and do not
+    /// fail).
+    Pickable,
 }
 
 /// One page of the rows of a copy preview, grouped by repository (global notes first) and sorted
@@ -170,9 +209,13 @@ pub struct NotesCopyPreview {
 #[ts(export)]
 pub struct NotesCopyFailure {
     /// The note's id in the local file; `None` for a failure that is no one note's (a relation
-    /// that was not pushed, local copies that could not be deleted).
+    /// that was not pushed, local copies that could not be deleted), and for a team entry that
+    /// could not be copied to this computer.
     #[ts(type = "number | null")]
     pub local_id: Option<i64>,
+    /// The note's id in the team database, when the failure says it (`toLocal`).
+    #[ts(type = "number | null")]
+    pub team_id: Option<i64>,
     /// Its title, when the copy listed it (never for a failure without a note).
     pub title: Option<String>,
     /// Why (redacted).

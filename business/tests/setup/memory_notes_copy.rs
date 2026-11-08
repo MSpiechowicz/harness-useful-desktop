@@ -9,12 +9,14 @@
 use std::time::Duration;
 
 use harness_business::BusinessError;
-use harness_business::ecosystem::{NotesCopyCache, memory_config_path, preview_notes_copy};
+use harness_business::ecosystem::{NotesCopyCache, memory_config_path};
 use harness_business::model::{
     LocalNoteIds, MemoryCopyKind, NoteIdsWord, NotesCopyAction, NotesCopyCounts, NotesCopyFilter, NotesCopyPreview,
     NotesCopyResult,
 };
-use memory_notes_copy_support::{REVIEWED, args, assert_nothing_to_discard, assert_undeleted_is_left_over, ids};
+use memory_notes_copy_support::{
+    REVIEWED, args, assert_nothing_to_discard, assert_undeleted_is_left_over, ids, try_preview,
+};
 use memory_stand_in::{CURRENT, Setup, Vars};
 use pretty_assertions::assert_eq;
 
@@ -131,6 +133,7 @@ async fn the_copy_overwrites_the_picked_conflicts_and_reports_what_stays() {
             overwritten: 1,
             identical: 1,
             team_newer: 1,
+            local_differs: 0,
             conflicts: 2,
             failed: 1,
         },
@@ -304,7 +307,7 @@ async fn a_note_the_dry_run_says_will_fail_shows_why_and_is_never_picked() {
         "the failing conflict counts as failed alone"
     );
 
-    let failing = review.rows.iter().find(|row| row.local_id == 4).expect("note 4");
+    let failing = review.rows.iter().find(|row| row.local_id == Some(4)).expect("note 4");
     let reason = failing.failure.as_deref().expect("why it will fail");
     assert!(failing.failed);
     assert!(reason.contains("unhide 34"), "{reason}");
@@ -371,26 +374,12 @@ async fn nothing_to_copy_and_an_older_server() {
     setup.scripts.shutdown().await;
 
     let older = Setup::installed(CURRENT, OLDER);
-    let refused = preview_notes_copy(
-        &older.env,
-        &older.scripts,
-        older.runner(),
-        &NotesCopyCache::new(),
-        NOTES,
-    )
-    .await;
+    let refused = try_preview(&older, &NotesCopyCache::new(), NOTES).await;
     assert!(matches!(refused, Err(BusinessError::Unsupported(_))), "{refused:?}");
     older.scripts.shutdown().await;
 
     let missing = Setup::without_server(CURRENT, &[]);
-    let refused = preview_notes_copy(
-        &missing.env,
-        &missing.scripts,
-        missing.runner(),
-        &NotesCopyCache::new(),
-        NOTES,
-    )
-    .await;
+    let refused = try_preview(&missing, &NotesCopyCache::new(), NOTES).await;
     assert!(matches!(refused, Err(BusinessError::NotFound(_))), "{refused:?}");
     assert!(missing.requested().is_empty());
 }

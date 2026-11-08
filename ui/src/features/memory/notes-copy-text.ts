@@ -1,6 +1,8 @@
 import type { MessageKey } from '$lib/i18n/locales/en';
 import type { PluralBase } from '$lib/i18n/i18n.svelte';
 import type { MemoryCopyKind } from '$lib/ipc/bindings/MemoryCopyKind';
+import type { NotesCopyMode } from '$lib/ipc/bindings/NotesCopyMode';
+import type { NotesCopyRow } from '$lib/ipc/bindings/NotesCopyRow';
 
 /** The words of the copy flow (banner, dialog, deleting what is left) that name what is copied. The rest of the flow reads the same for notes and scripts. */
 export interface CopyText {
@@ -97,3 +99,91 @@ export const COPY_TEXT: Record<MemoryCopyKind, CopyText> = {
     discardFailed: 'memory.copy.scripts.discard.failed',
   },
 };
+
+/** What a copy where the user picks the entries says differently from the stranded one. Nothing is ticked at first, and Copy waits for a tick. */
+export interface PickText {
+  title: MessageKey;
+  titleApplying: MessageKey;
+  description: MessageKey;
+  descriptionNone: MessageKey;
+  descriptionDone: MessageKey;
+  /** The heading of the entries that can be picked, also the name of their table. */
+  pickTitle: MessageKey;
+  blockedHelp: MessageKey;
+  failedHelp: MessageKey;
+}
+
+/** The words of a copy to this computer, per kind: the remote's entries stay as they are and nothing is removed. The scripts say they need approval before they run. */
+export const PULL_TEXT: Record<MemoryCopyKind, PickText> = {
+  notes: {
+    title: 'memory.sync.pull.title.notes',
+    titleApplying: 'memory.sync.pull.titleApplying.notes',
+    description: 'memory.sync.pull.description.notes',
+    descriptionNone: 'memory.sync.pull.descriptionNone.notes',
+    descriptionDone: 'memory.sync.pull.descriptionDone.notes',
+    pickTitle: 'memory.sync.pull.pickTitle.notes',
+    blockedHelp: 'memory.sync.pull.blockedHelp.notes',
+    failedHelp: 'memory.sync.pull.failedHelp.notes',
+  },
+  scripts: {
+    title: 'memory.sync.pull.title.scripts',
+    titleApplying: 'memory.sync.pull.titleApplying.scripts',
+    description: 'memory.sync.pull.description.scripts',
+    descriptionNone: 'memory.sync.pull.descriptionNone.scripts',
+    descriptionDone: 'memory.sync.pull.descriptionDone.scripts',
+    pickTitle: 'memory.sync.pull.pickTitle.scripts',
+    blockedHelp: 'memory.sync.pull.blockedHelp.scripts',
+    failedHelp: 'memory.sync.pull.failedHelp.scripts',
+  },
+};
+
+/** The words of a copy to the remote, per kind: what arrived is removed from this computer, so the user reads it before pressing Copy and not only after. */
+const TO_REMOTE_TEXT: Record<MemoryCopyKind, PickText> = {
+  notes: {
+    title: 'memory.sync.toRemote.title.notes',
+    titleApplying: COPY_TEXT.notes.titleApplying,
+    description: 'memory.sync.toRemote.description.notes',
+    descriptionNone: 'memory.sync.toRemote.none.notes',
+    descriptionDone: COPY_TEXT.notes.descriptionDone,
+    pickTitle: 'memory.sync.toRemote.pickTitle.notes',
+    blockedHelp: COPY_TEXT.notes.blockedHelp,
+    failedHelp: COPY_TEXT.notes.failedHelp,
+  },
+  scripts: {
+    title: 'memory.sync.toRemote.title.scripts',
+    titleApplying: COPY_TEXT.scripts.titleApplying,
+    description: 'memory.sync.toRemote.description.scripts',
+    descriptionNone: 'memory.sync.toRemote.none.scripts',
+    descriptionDone: COPY_TEXT.scripts.descriptionDone,
+    pickTitle: 'memory.sync.toRemote.pickTitle.scripts',
+    blockedHelp: COPY_TEXT.scripts.blockedHelp,
+    failedHelp: COPY_TEXT.scripts.failedHelp,
+  },
+};
+
+/** The words of a copy of `kind` going `mode`, where the user picks the entries (to the remote or to this computer). */
+export function pickText(kind: MemoryCopyKind, mode: NotesCopyMode): PickText {
+  return mode === 'toLocal' ? PULL_TEXT[kind] : TO_REMOTE_TEXT[kind];
+}
+
+/** What a row of a picking table says: what ticking it does, or why it cannot be ticked. A failed row says its own reason elsewhere. */
+export function rowStatusKey(row: NotesCopyRow, mode: NotesCopyMode): MessageKey {
+  if (mode === 'toLocal') {
+    return row.action === 'identical' ? 'memory.sync.status.identical' : row.action === 'localDiffers' ? 'memory.sync.status.localDiffers' : 'memory.sync.status.copyable';
+  }
+
+  if (row.conflict) {
+    return 'memory.sync.status.remoteConflict';
+  }
+
+  switch (row.action) {
+    case 'identical':
+      return 'memory.sync.status.remoteSame';
+    case 'teamNewer':
+      return 'memory.sync.status.remoteNewer';
+    case 'update':
+      return 'memory.sync.status.remoteUpdate';
+    default:
+      return 'memory.sync.status.remoteAdd';
+  }
+}
