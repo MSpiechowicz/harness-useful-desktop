@@ -1,3 +1,17 @@
+# [0.67.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.66.1...v0.67.0) (2026-11-08)
+
+
+### Bug Fixes
+
+* **memory:** keep notes safe when the remote connection drops ([15d32d1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/15d32d15521058b23f8978019ff1b6f180750320))
+
+
+### Features
+
+* **memory:** choose where new notes and scripts are saved ([2c0f812](https://github.com/MSpiechowicz/harness-useful-desktop/commit/2c0f812e51f5da744f902f367f75bf91fbe54239))
+* **memory:** synchronize notes and scripts with the remote in both directions ([e55bfb8](https://github.com/MSpiechowicz/harness-useful-desktop/commit/e55bfb81d995f3bd5b058afed8c804b75a46ef12))
+* **memory:** warn before a save overwrites a newer version of a note ([6c822ca](https://github.com/MSpiechowicz/harness-useful-desktop/commit/6c822caf72f7403b608ac16d5e8863aa3be9a712))
+
 ## [0.66.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.66.0...v0.66.1) (2026-11-08)
 
 
