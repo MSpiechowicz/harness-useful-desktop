@@ -14,6 +14,7 @@
   import type { Column } from '$lib/components/table';
   import UsefulCell from '$lib/components/UsefulCell.svelte';
   import { t, tn } from '$lib/i18n/i18n.svelte';
+  import type { MessageKey } from '$lib/i18n/locales/en';
   import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
   import type { NoteDetail } from '$lib/ipc/bindings/NoteDetail';
   import type { NoteKind } from '$lib/ipc/bindings/NoteKind';
@@ -224,8 +225,26 @@
     }
   }
 
+  /** What the toast says: a new note says the side it went to when the server tells it. */
+  function savedTitle(result: NoteSaved): MessageKey {
+    if (result.outcome !== 'created') {
+      return 'memory.editor.note.toast.updated';
+    }
+
+    if (result.place === null) {
+      return 'memory.editor.note.toast.created';
+    }
+
+    return result.place === 'remote' ? 'memory.editor.note.toast.created.remote' : 'memory.editor.note.toast.created.local';
+  }
+
   function saved(result: NoteSaved, title: string): void {
-    toasts.push({ title: t(result.outcome === 'created' ? 'memory.editor.note.toast.created' : 'memory.editor.note.toast.updated'), description: spelledOut(title), tone: 'success' });
+    // A change kept while the remote is unreachable is not in the remote yet: the toast says where it is and when it goes.
+    if (result.queued) {
+      toasts.push({ title: t('memory.sync.queued.title'), description: t('memory.sync.queued.body', { title: spelledOut(title) }), tone: 'warning' });
+    } else {
+      toasts.push({ title: t(savedTitle(result)), description: spelledOut(title), tone: 'success' });
+    }
 
     // A server that does not say which note it wrote leaves the list as read; the panel stays as it was.
     if (result.id !== null) {

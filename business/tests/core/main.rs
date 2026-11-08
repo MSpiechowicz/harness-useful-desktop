@@ -1,6 +1,7 @@
 //! Projects, prefs, processes, git, hooks, routines and the other harness-independent tests.
 //!
 //! One test binary: each module is a test file, the shared helpers live in `tests/support`.
+#![recursion_limit = "256"] // the wire test of `AppPrefs` spells out every preference in one `json!`
 #![expect(
     clippy::module_inception,
     reason = "the hooks test files keep their tests in a module of their own name"
@@ -77,6 +78,7 @@ mod model;
 mod prefs;
 mod prefs_limits;
 mod prefs_updates;
+mod prefs_wire;
 mod process;
 mod process_orphans;
 mod project_scopes;

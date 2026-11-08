@@ -245,6 +245,12 @@ pub struct AppPrefs {
     pub memory_notes_ask_default: bool,
     /// Whether a new chat starts with "Ask before saving" on for scripts (default off).
     pub memory_scripts_ask_default: bool,
+    /// Whether "Remote + this computer" may copy its entries to the team database on request
+    /// (the Sync view's `toRemote`, default off). The commands refuse (`forbidden`) while off.
+    pub memory_copy_to_remote: bool,
+    /// Whether "Remote + this computer" may copy the team's entries to this computer on request
+    /// (the Sync view's `toLocal`, default off). The commands refuse (`forbidden`) while off.
+    pub memory_copy_to_local: bool,
     /// Whether the app fetches the open project's remote in the background (every few minutes while
     /// the window is visible, default on). Off: git only reaches the network when a button is clicked.
     pub background_fetch: bool,
@@ -319,6 +325,8 @@ impl Default for AppPrefs {
             keep_running_in_tray: false,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,
+            memory_copy_to_remote: false,
+            memory_copy_to_local: false,
             background_fetch: true,
             limit_bars: LimitBarsPref::Used,
             limit_forecast: true,

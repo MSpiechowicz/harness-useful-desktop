@@ -294,6 +294,8 @@ async fn a_global_note_is_saved_beside_a_read_only_team_note_of_its_title() {
         None,
         &draft,
         None,
+        None,
+        None,
     )
     .await
     .expect("saved");
@@ -308,6 +310,8 @@ async fn a_global_note_is_saved_beside_a_read_only_team_note_of_its_title() {
         SaveRoute::Mcp,
         None,
         &draft,
+        None,
+        None,
         None,
     )
     .await

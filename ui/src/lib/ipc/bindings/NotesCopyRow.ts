@@ -6,9 +6,25 @@ import type { NotesCopyAction } from "./NotesCopyAction";
  */
 export type NotesCopyRow = { 
 /**
- * The note's id in the local file.
+ * The note's id in the local file. `None` for a team entry that is not on this computer yet
+ * (`toLocal`, action `add`).
  */
-localId: number, 
+localId: number | null, 
+/**
+ * The note's id in the team database. `None` when the team has none (a local note to add),
+ * and in `stranded` and `toRemote` for a server that does not say.
+ */
+teamId: number | null, 
+/**
+ * Whether the row can be ticked: in `stranded` a conflict that does not fail (what `overwrite`
+ * picks), in `toRemote` a row that does not fail and copies something (`add`, `update` or a
+ * conflict, with an update time: what `pick` picks by local id), in `toLocal` an entry to add
+ * that does not fail (what `pick` picks by team id). The reason a `toLocal` row cannot be is
+ * its `action` (`identical`: the same is here already, `localDiffers`: a different version is
+ * here and is never replaced) or its `failure`, and a `toRemote` row's is its `action`
+ * (`identical`, `teamNewer`) or its `failure`.
+ */
+pickable: boolean, 
 /**
  * Repository or global.
  */

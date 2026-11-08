@@ -463,6 +463,8 @@ fn database(share: Option<bool>, trust: Option<bool>) -> MemoryRemoteChange {
         trust_team_hooks: None,
         share_routines: share,
         trust_team_routines: trust,
+        offline_fallback: None,
+        remote_local_saves: None,
     }
 }
 
@@ -482,7 +484,6 @@ fn settings_save_the_routines_keys_only_for_a_server_that_keeps_team_routines() 
         text.contains("routines = \"remote\"\ntrust_team_routines = true\n"),
         "{text}"
     );
-
     let read = block_on(memory_remote::get(state)).expect("read");
     assert_eq!((read.share_routines, read.trust_team_routines), (true, true));
 

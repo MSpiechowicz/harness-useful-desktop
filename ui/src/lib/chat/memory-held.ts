@@ -123,7 +123,11 @@ function updatedOf(fields: Fields, saved: HeldNoteFields): HeldNoteFields {
   const note = noteOf(fields, saved);
   const append = appended(fields.append);
 
-  return append === '' ? note : { ...note, body: `${note.body}\n${append}` };
+  if (append === '') {
+    return note;
+  }
+
+  return { ...note, body: note.body === '' ? append : `${note.body}\n${append}` };
 }
 
 /** What a held save would save, read from the arguments the agent sent (and the saved version it changes) as far as they are well formed. */
@@ -143,7 +147,8 @@ export function heldView(item: HeldItem): HeldView {
   const before = item.tool === 'note_update' && Object.keys(current).length > 0 ? noteOf(current, blank) : null;
   const id = item.tool === 'note_update' ? (typeof args.id === 'number' ? args.id : typeof current.id === 'number' ? current.id : null) : null;
 
-  const note = before ? updatedOf(args, before) : noteOf(args, blank);
+  // An update held while the note cannot be read has no saved version: what it appends still has to show.
+  const note = item.tool === 'note_update' ? updatedOf(args, before ?? blank) : noteOf(args, blank);
 
   return { type: 'note', heldId: item.heldId, noteId: id, note, current: before };
 }

@@ -7,6 +7,7 @@ import type { MemoryRemoteTest } from './bindings/MemoryRemoteTest';
 import type { MemoryNotesPage } from './bindings/MemoryNotesPage';
 import type { MemoryRepos } from './bindings/MemoryRepos';
 import type { MemoryReposPage } from './bindings/MemoryReposPage';
+import type { MemorySavePlace } from './bindings/MemorySavePlace';
 import type { MemoryScriptsPage } from './bindings/MemoryScriptsPage';
 import type { MemorySwitchResult } from './bindings/MemorySwitchResult';
 import type { NoteDetail } from './bindings/NoteDetail';
@@ -39,6 +40,7 @@ import type { NotesCopyPreview } from './bindings/NotesCopyPreview';
 import type { NotesCopyResult } from './bindings/NotesCopyResult';
 import type { LocalNoteIds } from './bindings/LocalNoteIds';
 import type { NotesCopyFilter } from './bindings/NotesCopyFilter';
+import type { NotesCopyMode } from './bindings/NotesCopyMode';
 import type { NotesCopyRows } from './bindings/NotesCopyRows';
 import type { HeldItem } from './bindings/HeldItem';
 import type { HeldSaved } from './bindings/HeldSaved';
@@ -114,6 +116,17 @@ export const memoryCommands = {
       shareRoutines?: boolean | null;
       /** Saved as `trust_team_routines = true` only when true, routines are shared and `routinesSupported`; null keeps the saved choice. */
       trustTeamRoutines?: boolean | null;
+      /**
+       * Save on this computer while the remote database cannot be reached (`offline_fallback`, on unless saved as `false`): written only as `false`, and only
+       * when the result's `offlineFallbackSupported`; null or absent keeps the saved choice, so saving other settings never drops it.
+       */
+      offlineFallback?: boolean | null;
+      /**
+       * Where new notes and scripts of a scope routed to "Remote + this computer" are saved, by agents too (`remote_local_saves`, remote when absent):
+       * written only as `local`, and only when the result's `remoteLocalSavesSupported`; null or absent keeps the saved choice. The result's
+       * `remoteLocalSaves` is the saved value.
+       */
+      remoteLocalSaves?: MemorySavePlace | null;
     },
     MemoryRemote
   >(),
@@ -176,9 +189,13 @@ export const memoryCommands = {
    * script of that name in that scope is `exists` with its `id` and no `script`, and nothing is saved. Rejects with `invalidInput`
    * for a draft over a limit or a repository script without a project, `notFound` when Harness Memory is not installed,
    * `unsupported` when it predates saving from the app, `process` with the server's (redacted) message when it refuses,
-   * `forbidden` for a project that is not open or recent.
+   * `forbidden` for a project that is not open or recent. A new script may send `place` (`remote` or `local`) while its scope is routed to
+   * "Remote + this computer" (`MemoryRemote.savePlaceSupported`): `place` in the answer says where it went (null when the server does not say),
+   * and a script saved to the team database answers `script: null` (it is read-only here). `place` with `replace` rejects with `invalidInput`,
+   * and with a server that lacks `save-place` with `unsupported`, in both cases before anything runs. When the team database cannot be reached the
+   * call rejects with `process` and its (redacted) message, and nothing is saved on either side.
    */
-  memory_script_save: cmd<{ project: string | null; draft: ScriptDraft; replace: boolean; base?: string }, ScriptSaved>(),
+  memory_script_save: cmd<{ project: string | null; draft: ScriptDraft; replace: boolean; base?: string; place?: MemorySavePlace }, ScriptSaved>(),
   /**
    * Deletes every script `memory_scripts_list` shows for `project` without filters, every group and page
    * (`harness-memory scripts delete --all --yes`, 60 s): `deleted` counts them, `team` those that were in the team database
@@ -247,9 +264,13 @@ export const memoryCommands = {
    * `script_save`; the fields given replace the agent's). `revision` is the `HeldItem.revision` the user reviewed: only that version is
    * saved. A script is saved untrusted (it needs the user's trust before it runs). Rejects with `notFound` when it is gone, `conflict` when
    * the note a `note_update` changes was deleted (it stays held), `changed` when the agent held it again since the user saw `revision` (it
-   * stays held, as the newer version: show it for another review), `invalidInput` for a draft the server refuses.
+   * stays held, as the newer version: show it for another review), `invalidInput` for a draft the server refuses. A change to a team note made
+   * while the remote database is unreachable is kept on this computer and answered `queued: true`: it is applied when the remote is back.
+   * `place` (`remote` or `local`) saves a held `note_save` or `script_save` to that side while its scope is routed to "Remote + this computer"
+   * (`MemoryRemote.heldSavePlaceSupported`): it rejects with `unsupported` (nothing runs) when the server lacks the feature, and with
+   * `invalidInput` for a held `note_update`, which keeps its note where it is (the save stays held). Null or absent passes none.
    */
-  memory_held_save: cmd<{ heldId: string; edited: JsonValue | null; revision: string | null }, HeldSaved>(),
+  memory_held_save: cmd<{ heldId: string; edited: JsonValue | null; revision: string | null; place?: MemorySavePlace | null }, HeldSaved>(),
   /**
    * Drops held save `heldId` without saving anything. `revision` is the `HeldItem.revision` the user saw: only that version is dropped.
    * Rejects with `notFound` when it is gone, `changed` when the agent held it again since the user saw `revision` (it stays held, as the
@@ -332,28 +353,45 @@ export const memoryCommands = {
    */
   memory_notes_discard_local: cmd<{ ids: LocalNoteIds; scope?: ScriptScope }, number>(),
   /**
-   * Dry run of copying everything saved on this computer, all repositories, to the remote database: `kind` is the notes (`harness-memory push
-   * --dry-run`) or the scripts (`scripts push --dry-run`), never with `--scope`. The server's plan is kept under `previewId`, one per kind.
-   * Can take long. `unsupported` when the server predates it.
+   * Dry run of a copy of `kind`, the notes (`harness-memory push --dry-run`, `pull --dry-run`) or the scripts (`scripts push --dry-run`, `scripts pull
+   * --dry-run`), all repositories. `mode` defaults to `stranded`: everything saved on this computer that its scope no longer reads, never with
+   * `--scope`. Under "Remote + this computer" `toRemote` (`push --remote-local`: those scopes' entries, sent to the remote database and then
+   * removed here) and `toLocal` (`pull`: the remote's entries missing here, each row named by `teamId`, nothing removed there) need their
+   * Settings switch (`memoryCopyToRemote`, `memoryCopyToLocal`, off by default). The server's plan is kept under `previewId`, one per kind and mode.
+   * Can take long. `forbidden` when the switch of the mode is off, `unsupported` when the server predates it, `notFound` when it is not installed.
    */
-  memory_notes_copy_preview: cmd<{ kind: MemoryCopyKind }, NotesCopyPreview>(),
-  /** One page of the plan of `previewId`, grouped by repository: only the `conflicts` or `all` rows (default `all`). `notFound` for an unknown plan. */
-  memory_notes_copy_rows: cmd<{ kind: MemoryCopyKind; previewId: string; filter?: NotesCopyFilter; offset: number; limit: number }, NotesCopyRows>(),
+  memory_notes_copy_preview: cmd<{ kind: MemoryCopyKind; mode?: NotesCopyMode }, NotesCopyPreview>(),
   /**
-   * Copies by the plan of `previewId`: conflicts are overwritten per `overwrite` (`none`, `all`, or the local ids ticked), then local
-   * copies that arrived are deleted. `kept` counts those left on this computer, `leftover` their ids. The plan is used up.
+   * One page of the plan of `previewId` (of the same `kind` and `mode`), grouped by repository: only the `conflicts`, `failed` or `pickable` rows, or
+   * `all` (default). `invalidInput` for an unknown or expired plan, also one of another kind or mode.
    */
-  memory_notes_copy_apply: cmd<{ kind: MemoryCopyKind; previewId: string; overwrite: LocalNoteIds }, NotesCopyResult>(),
+  memory_notes_copy_rows: cmd<{ kind: MemoryCopyKind; mode?: NotesCopyMode; previewId: string; filter?: NotesCopyFilter; offset: number; limit: number }, NotesCopyRows>(),
+  /**
+   * Copies by the plan of `previewId`. `stranded` copies every row to the remote: conflicts are overwritten per `overwrite` (`none`, `all`, or the local ids
+   * ticked), then local copies that arrived are deleted. `kept` counts those left on this computer, `leftover` their ids. `toRemote` and `toLocal` copy only
+   * what `pick` names, nothing ticked at first: a list (at least one, each a row of the plan with `pickable` and without a failure) or `all` (the plan's own
+   * pickable rows, never one that appeared since). `toRemote` picks local ids: a ticked conflict replaces the remote text, a row not ticked is neither
+   * copied nor deleted, the ones copied are removed here, and `overwrite` stays absent or `none`. `toLocal` picks team ids, `overwrite` stays absent or
+   * `none`, and nothing is deleted anywhere. The plan is used up. `forbidden` when the switch of the mode is off, `invalidInput` (the plan stays) for a plan
+   * of another kind or mode, an id that is not a pickable row of it, no pick in `toRemote` or `toLocal`, or a `pick` in `stranded`.
+   */
+  memory_notes_copy_apply: cmd<{ kind: MemoryCopyKind; mode?: NotesCopyMode; previewId: string; overwrite?: LocalNoteIds; pick?: LocalNoteIds }, NotesCopyResult>(),
   /**
    * Creates a note (`note_save` over `harness-memory mcp`, 15 s), or with `replaceId` rewrites that note (`note_update`: an edit,
    * or replacing the note that has the title, whose scope stays). A same-title global note is rewritten (`updated`). A note of the
    * project's repository with the title, or another note of the edited note's scope, is `exists` with that note's id, and nothing
-   * is saved. `id` is null when the server's answer does not say. Rejects with `invalidInput` for a draft over a limit or a new
-   * repository note without a project, `notFound` when the note to replace is gone or Harness Memory is not installed,
+   * is saved. `id` is null when the server's answer does not say. An edit also sends `expectedRevision`, the revision the editor
+   * opened: when that note was changed or deleted since, nothing is saved and it rejects with `conflict`. Rejects with `invalidInput`
+   * for a draft over a limit or a new repository note without a project, `notFound` when the note to replace is gone or Harness Memory is not installed,
    * `unsupported` when the server predates saving from the app, `process` with the server's (redacted) message when it refuses,
-   * `forbidden` for a project that is not open or recent.
+   * `forbidden` for a project that is not open or recent. `queued` is true when the change to a team note was kept on this computer because the
+   * remote database is unreachable (it is applied when the remote is back, `id` is still the note's). A new note may send `place` (`remote` or
+   * `local`) while its scope is routed to "Remote + this computer" (`MemoryRemote.savePlaceSupported`): `place` in the answer says where it went
+   * (null when the server does not say). `place` with `replaceId` rejects with `invalidInput`, and with a server that lacks `save-place` with
+   * `unsupported`, in both cases before anything runs. When the team database cannot be reached the call rejects with `process` and its (redacted)
+   * message, and nothing is saved on either side.
    */
-  memory_note_save: cmd<{ project: string | null; draft: NoteDraft; replaceId?: number }, NoteSaved>(),
+  memory_note_save: cmd<{ project: string | null; draft: NoteDraft; replaceId?: number; expectedRevision?: number; place?: MemorySavePlace }, NoteSaved>(),
   /**
    * Deletes every note `memory_notes_list` shows for `project` without filters, every page (`harness-memory notes delete
    * --all --yes`, 60 s): `deleted` counts them, `team` those that were in the team database (null when the server does not

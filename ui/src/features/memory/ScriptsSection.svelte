@@ -14,6 +14,7 @@
   import ScopeLabel from '$lib/components/ScopeLabel.svelte';
   import type { Column } from '$lib/components/table';
   import { t, tn } from '$lib/i18n/i18n.svelte';
+  import type { MessageKey } from '$lib/i18n/locales/en';
   import type { AuthorFilter } from '$lib/ipc/bindings/AuthorFilter';
   import type { ScriptDetail } from '$lib/ipc/bindings/ScriptDetail';
   import type { ScriptGroup } from '$lib/ipc/bindings/ScriptGroup';
@@ -211,6 +212,19 @@
     }
   }
 
+  /** What the toast says: a new script says the side it went to when the server tells it. */
+  function savedTitle(result: ScriptSaved): MessageKey {
+    if (result.outcome !== 'created') {
+      return 'memory.editor.script.toast.saved';
+    }
+
+    if (result.place === null) {
+      return 'memory.editor.script.toast.created';
+    }
+
+    return result.place === 'remote' ? 'memory.editor.script.toast.created.remote' : 'memory.editor.script.toast.created.local';
+  }
+
   function saved(result: ScriptSaved, name: string, codeChanged: boolean): void {
     // Code written here is trusted by the app. A script that still wants approval after its code was changed is the rare case, said as a failure to trust.
     // One saved without a change to its code was never made the user's own: it keeps waiting, and that is not a failure.
@@ -219,7 +233,7 @@
     } else if (result.script !== null && needsReview(result.script)) {
       toasts.push({ title: t('memory.editor.script.toast.notTrusted.title'), description: `${name}. ${t('memory.editor.script.toast.notTrusted.body')}`, tone: 'warning' });
     } else {
-      toasts.push({ title: t(result.outcome === 'created' ? 'memory.editor.script.toast.created' : 'memory.editor.script.toast.saved'), description: name, tone: 'success' });
+      toasts.push({ title: t(savedTitle(result)), description: name, tone: 'success' });
     }
 
     viewState.scriptId = result.id;

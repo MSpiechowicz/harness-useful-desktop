@@ -196,6 +196,16 @@ memoryNotesAskDefault: boolean,
  */
 memoryScriptsAskDefault: boolean, 
 /**
+ * Whether "Remote + this computer" may copy its entries to the team database on request
+ * (the Sync view's `toRemote`, default off). The commands refuse (`forbidden`) while off.
+ */
+memoryCopyToRemote: boolean, 
+/**
+ * Whether "Remote + this computer" may copy the team's entries to this computer on request
+ * (the Sync view's `toLocal`, default off). The commands refuse (`forbidden`) while off.
+ */
+memoryCopyToLocal: boolean, 
+/**
  * Whether the app fetches the open project's remote in the background (every few minutes while
  * the window is visible, default on). Off: git only reaches the network when a button is clicked.
  */

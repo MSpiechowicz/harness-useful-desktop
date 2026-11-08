@@ -37,6 +37,8 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         Some(&project),
         &draft,
         None,
+        None,
+        None,
     )
     .await
     .expect("created");
@@ -44,7 +46,9 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         created,
         NoteSaved {
             outcome: NoteSaveOutcome::Created,
-            id: Some(9)
+            id: Some(9),
+            queued: false,
+            place: None,
         }
     );
 
@@ -56,6 +60,8 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         Some(&project),
         &draft,
         None,
+        None,
+        None,
     )
     .await
     .expect("refused");
@@ -63,7 +69,9 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         again,
         NoteSaved {
             outcome: NoteSaveOutcome::Exists,
-            id: Some(9)
+            id: Some(9),
+            queued: false,
+            place: None,
         },
         "the app names the repository, so a same-title note is not replaced"
     );
@@ -76,6 +84,8 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         Some(&project),
         &draft,
         Some(9),
+        None,
+        None,
     )
     .await
     .expect("replaced by id");
@@ -89,6 +99,8 @@ async fn a_note_is_created_then_its_title_is_taken_until_replaced_by_id() {
         Some(&project),
         &draft,
         Some(404),
+        None,
+        None,
     )
     .await;
     assert!(
@@ -113,6 +125,8 @@ async fn a_new_global_note_with_a_taken_title_is_exists() {
             Some(&project),
             &note(title, ScriptScope::Global),
             None,
+            None,
+            None,
         )
         .await
         .expect("refused");
@@ -120,7 +134,9 @@ async fn a_new_global_note_with_a_taken_title_is_exists() {
             taken,
             NoteSaved {
                 outcome: NoteSaveOutcome::Exists,
-                id: Some(7)
+                id: Some(7),
+                queued: false,
+                place: None,
             },
             "{title:?}: the server would rewrite the global note with that title"
         );
@@ -135,6 +151,8 @@ async fn a_new_global_note_with_a_taken_title_is_exists() {
         None,
         &new,
         None,
+        None,
+        None,
     )
     .await
     .expect("created");
@@ -142,7 +160,9 @@ async fn a_new_global_note_with_a_taken_title_is_exists() {
         created,
         NoteSaved {
             outcome: NoteSaveOutcome::Created,
-            id: Some(9)
+            id: Some(9),
+            queued: false,
+            place: None,
         },
         "a similar title is another note"
     );
@@ -175,6 +195,8 @@ async fn a_global_title_is_found_where_the_search_cannot_tell() {
                 None,
                 &draft,
                 None,
+                None,
+                None,
             )
             .await
             .expect("answered")
@@ -183,6 +205,8 @@ async fn a_global_title_is_found_where_the_search_cannot_tell() {
     let exists = |id| NoteSaved {
         outcome: NoteSaveOutcome::Exists,
         id: Some(id),
+        queued: false,
+        place: None,
     };
 
     assert_eq!(
@@ -281,6 +305,8 @@ async fn a_server_older_than_the_notes_view_cannot_save() {
             Some(&project),
             &note("Retry the build", ScriptScope::Repo),
             None,
+            None,
+            None,
         )
         .await;
         assert!(matches!(note, Err(BusinessError::Unsupported(_))), "{vars:?}: {note:?}");
@@ -294,6 +320,7 @@ async fn a_server_older_than_the_notes_view_cannot_save() {
                 Some(&project),
                 &script("new-one"),
                 false,
+                None,
                 None,
             )
             .await;
@@ -317,6 +344,8 @@ async fn without_a_server_saving_is_not_found() {
         SaveRoute::Mcp,
         None,
         &note("Retry the build", ScriptScope::Global),
+        None,
+        None,
         None,
     )
     .await;

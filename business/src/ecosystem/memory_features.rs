@@ -26,7 +26,30 @@
 //! - `notes-author-filter`: `notes list` and `scripts list` take `--author NAME` and
 //!   `--author-unknown`, sort by `--sort addedBy` and answer the `authors` facet (`notes-authors`
 //!   alone only means the rows carry names);
-//! - `recall`: `recall --hook`, the notes added to a prompt ([`MemoryFeatures::lists_recall`]).
+//! - `recall`: `recall --hook`, the notes added to a prompt ([`MemoryFeatures::lists_recall`]);
+//! - `offline-update-queue`: a change to a team note made while the team database is unreachable is
+//!   kept on this computer (`pending-updates.json`) and applied when it is back;
+//! - `note-expect-revision`: `notes update <id> --expect-revision N` refuses a note whose revision
+//!   is not `N` (`{"error": "changed"}`);
+//! - `sync-command`: `sync --json` copies what waits for the team database now and says what still
+//!   waits;
+//! - `offline-fallback`: while the team database cannot be opened, notes and scripts of a scope set
+//!   to `remote` are saved on this computer, and the config key `offline_fallback` (on by default)
+//!   turns that off;
+//! - `push-remote-local`: `push --remote-local` and `scripts push --remote-local` copy the entries
+//!   of the scopes set to `remote+local`, and only those, to the team database;
+//! - `push-selection`: `push --selection -` (and `scripts push --selection -`) takes the local ids
+//!   to copy and to overwrite as JSON on stdin and replaces `--overwrite`, so a copy takes only
+//!   what the user reviewed;
+//! - `pull-json`: `pull --json [--dry-run] [--ids -]` copies the team's notes of the scopes set to
+//!   `remote+local` to this computer;
+//! - `scripts-pull-json`: `scripts pull`, with the options of `pull`;
+//! - `save-place`: `notes save` and `scripts save` take `--place remote|local` for a scope routed
+//!   `remote+local` and answer where the entry went (`"place"`);
+//! - `remote-local-saves`: the config key `remote_local_saves` (`remote`, or `local`, absent means
+//!   remote) decides where agents save new notes and scripts of a scope routed `remote+local`;
+//! - `held-save-place`: `held save` takes `--place remote|local` for a held `note_save` or
+//!   `script_save` (a held `note_update` refuses it).
 //!
 //! An older server does not know the command and exits non-zero. [`MemoryFeatures::support`] asks
 //! once per binary through a [`LineProbe`] (cached per binary, an older server cached as one
@@ -82,6 +105,39 @@ const NOTES_AUTHOR_FILTER: &str = "notes-author-filter";
 /// The line for `recall --hook`, the notes added to a prompt.
 const RECALL: &str = "recall";
 
+/// The line for keeping changes to team notes while the team database is unreachable.
+const OFFLINE_UPDATE_QUEUE: &str = "offline-update-queue";
+
+/// The line for `notes update --expect-revision`.
+const NOTE_EXPECT_REVISION: &str = "note-expect-revision";
+
+/// The line for `sync --json`.
+const SYNC_COMMAND: &str = "sync-command";
+
+/// The line for the offline fallback and its `offline_fallback` config key.
+const OFFLINE_FALLBACK: &str = "offline-fallback";
+
+/// The line for `push --remote-local` and `scripts push --remote-local`.
+const PUSH_REMOTE_LOCAL: &str = "push-remote-local";
+
+/// The line for `push --selection -` and `scripts push --selection -`.
+const PUSH_SELECTION: &str = "push-selection";
+
+/// The line for `pull --json`.
+const PULL_JSON: &str = "pull-json";
+
+/// The line for `scripts pull --json`.
+const SCRIPTS_PULL_JSON: &str = "scripts-pull-json";
+
+/// The line for `notes save --place` and `scripts save --place`.
+const SAVE_PLACE: &str = "save-place";
+
+/// The line for the config key `remote_local_saves`.
+const REMOTE_LOCAL_SAVES: &str = "remote-local-saves";
+
+/// The line for `held save --place`.
+const HELD_SAVE_PLACE: &str = "held-save-place";
+
 /// What the installed server says it can do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeaturesSupport {
@@ -115,6 +171,28 @@ pub enum FeaturesSupport {
         notes_authors: bool,
         /// `notes-author-filter` is listed.
         notes_author_filter: bool,
+        /// `offline-update-queue` is listed.
+        offline_update_queue: bool,
+        /// `note-expect-revision` is listed.
+        note_expect_revision: bool,
+        /// `sync-command` is listed.
+        sync_command: bool,
+        /// `offline-fallback` is listed.
+        offline_fallback: bool,
+        /// `push-remote-local` is listed.
+        push_remote_local: bool,
+        /// `push-selection` is listed.
+        push_selection: bool,
+        /// `pull-json` is listed.
+        pull_json: bool,
+        /// `scripts-pull-json` is listed.
+        scripts_pull_json: bool,
+        /// `save-place` is listed.
+        save_place: bool,
+        /// `remote-local-saves` is listed.
+        remote_local_saves: bool,
+        /// `held-save-place` is listed.
+        held_save_place: bool,
     },
     /// It predates `features` (or failed it): none of them.
     Unsupported,
@@ -198,6 +276,120 @@ impl FeaturesSupport {
         )
     }
 
+    /// Whether a change to a team note made while the team database is unreachable is kept on this
+    /// computer and applied later: `offline-update-queue` is listed.
+    pub fn offline_update_queue(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                offline_update_queue: true,
+                ..
+            }
+        )
+    }
+
+    /// Whether `notes update` takes `--expect-revision`: `note-expect-revision` is listed.
+    pub fn note_expect_revision(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                note_expect_revision: true,
+                ..
+            }
+        )
+    }
+
+    /// Whether the server has `sync --json`: `sync-command` is listed.
+    pub fn sync_command(self) -> bool {
+        matches!(self, Self::Listed { sync_command: true, .. })
+    }
+
+    /// Whether the config key `offline_fallback` is known: `offline-fallback` is listed.
+    pub fn offline_fallback(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                offline_fallback: true,
+                ..
+            }
+        )
+    }
+
+    /// Whether `push --remote-local` and `scripts push --remote-local` exist:
+    /// `push-remote-local` is listed.
+    pub fn push_remote_local(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                push_remote_local: true,
+                ..
+            }
+        )
+    }
+
+    /// Whether `push --selection -` and `scripts push --selection -` exist: `push-selection` is
+    /// listed.
+    pub fn push_selection(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                push_selection: true,
+                ..
+            }
+        )
+    }
+
+    /// Whether a copy to the team database limited to the entries the user reviewed exists:
+    /// `push-remote-local` and `push-selection` are both listed.
+    pub fn copy_to_remote(self) -> bool {
+        self.push_remote_local() && self.push_selection()
+    }
+
+    /// Whether `pull --json` exists: `pull-json` is listed.
+    pub fn pull_json(self) -> bool {
+        matches!(self, Self::Listed { pull_json: true, .. })
+    }
+
+    /// Whether `scripts pull --json` exists: `scripts-pull-json` is listed.
+    pub fn scripts_pull_json(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                scripts_pull_json: true,
+                ..
+            }
+        )
+    }
+
+    /// Whether `notes save` and `scripts save` take `--place`: `save-place` is listed.
+    pub fn save_place(self) -> bool {
+        matches!(self, Self::Listed { save_place: true, .. })
+    }
+
+    /// Whether the config key `remote_local_saves` is known (where agents save new entries of a
+    /// scope routed to "Remote + this computer"): `remote-local-saves` is listed.
+    pub fn remote_local_saves(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                remote_local_saves: true,
+                ..
+            }
+        )
+    }
+
+    /// Whether `held save` takes `--place` for a held `note_save` or `script_save`:
+    /// `held-save-place` is listed.
+    pub fn held_save_place(self) -> bool {
+        matches!(
+            self,
+            Self::Listed {
+                held_save_place: true,
+                ..
+            }
+        )
+    }
+
     /// Whether notes and scripts carry `addedBy` and `updatedBy`: `notes-authors` is listed.
     pub fn notes_authors(self) -> bool {
         matches!(
@@ -248,6 +440,17 @@ impl MemoryFeatures {
                 notes_useful: answer.lists(NOTES_USEFUL),
                 notes_authors: answer.lists(NOTES_AUTHORS),
                 notes_author_filter: answer.lists(NOTES_AUTHOR_FILTER),
+                offline_update_queue: answer.lists(OFFLINE_UPDATE_QUEUE),
+                note_expect_revision: answer.lists(NOTE_EXPECT_REVISION),
+                sync_command: answer.lists(SYNC_COMMAND),
+                offline_fallback: answer.lists(OFFLINE_FALLBACK),
+                push_remote_local: answer.lists(PUSH_REMOTE_LOCAL),
+                push_selection: answer.lists(PUSH_SELECTION),
+                pull_json: answer.lists(PULL_JSON),
+                scripts_pull_json: answer.lists(SCRIPTS_PULL_JSON),
+                save_place: answer.lists(SAVE_PLACE),
+                remote_local_saves: answer.lists(REMOTE_LOCAL_SAVES),
+                held_save_place: answer.lists(HELD_SAVE_PLACE),
             },
             LineAnswer::Unsupported => FeaturesSupport::Unsupported,
             LineAnswer::NotInstalled => FeaturesSupport::NotInstalled,

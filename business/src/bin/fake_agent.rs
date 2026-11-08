@@ -37,7 +37,7 @@
 //! `ok: Fake at <scheme> (schema 1) token <set|unset|blank>` and exit 0. `harness-memory trust
 //! <id>=<sha256>… [--project <path>]` approves the stand-in's scripts, see [`memory::trust`].
 //! `harness-memory notes list|get|delete` and `harness-memory scripts list` answer from fixtures,
-//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`]; `harness-memory embedder …` and `settings …`, see [`memory_embedder`].
+//! see [`memory_cli`] (team scripts and hiding them: [`memory_scripts_hidden`]); `harness-memory features`, `push`, `scripts push` and hiding notes, see [`memory_push`]; `harness-memory sync --json`, see [`memory_sync`]; `harness-memory embedder …` and `settings …`, see [`memory_embedder`].
 //! `harness-memory hooks|routines config|list|put|delete` answer from files
 //! next to the copy, see [`memory_hooks`].
 //!
@@ -78,6 +78,8 @@ mod memory_notes;
 mod memory_push;
 #[path = "fake_agent/memory_scripts_hidden.rs"]
 mod memory_scripts_hidden;
+#[path = "fake_agent/memory_sync.rs"]
+mod memory_sync;
 #[path = "fake_agent/memory_user.rs"]
 mod memory_user;
 #[path = "fake_agent/opencode.rs"]
@@ -119,15 +121,16 @@ fn main() {
                 memory_cli::notes(&args[2..])
             }
             Some("held") => memory_user::held(&args[2..]),
-            Some("scripts") if args.get(2).is_some_and(|arg| arg == "push") => memory_push::push_scripts(&args[3..]),
+            Some("scripts") if memory_push::copies(&args[1..]) => memory_push::copy_scripts(&args[1..]),
             Some("scripts") => {
                 memory_user::scripts(&args[2..]);
                 memory_cli::scripts(&args[2..])
             }
             Some("features") => memory_push::features(),
+            Some("sync") => memory_sync::sync(&args[2..]),
             Some("embedder") if memory_push::lists("embedder") => memory_embedder::embedder(&args[2..]),
             Some("settings") if memory_push::lists("settings") => memory_embedder::settings(&args[2..]),
-            Some("push") => memory_push::push(&args[2..]),
+            Some("push" | "pull") => memory_push::copy(&args[1..]),
             Some(plural @ ("hooks" | "routines")) => memory_hooks::docs(plural, &args[2..]),
             _ => {}
         }

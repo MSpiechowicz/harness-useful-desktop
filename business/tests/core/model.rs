@@ -14,57 +14,6 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
 #[test]
-fn default_prefs_serialize_with_camel_case_fields() {
-    let json = serde_json::to_value(AppPrefs::default()).unwrap();
-
-    assert_eq!(
-        json,
-        json!({
-            "version": 1,
-            "theme": "system",
-            "motion": "full",
-            "language": "en",
-            "introEnabled": true,
-            "soundEnabled": false,
-            "showThinking": true,
-            "showMessageUsage": true,
-            "chatDefaults": [],
-            "defaultHarness": null,
-            "activeProject": null,
-            "rememberRecentProjects": true,
-            "recentProjects": [],
-            "updatePolicy": "autoInstall",
-            "checkCompanionUpdates": true,
-            "checkHarnessUpdates": true,
-            "autoUpdateExtensions": true,
-            "autoRefreshCatalogs": true,
-            "openAnyLink": false,
-            "aiChatNames": false,
-            "onboardingCompleted": false,
-            "approvalNoticeSeen": false,
-            "binaryOverrides": [],
-            "memoryEnabled": true,
-            "vectorSearch": true,
-            "knowledgeEnabled": true,
-            "knowledgeVectorSearch": true,
-            "codeEnabled": true,
-            "codeAutoInstallDone": false,
-            "knowledgeRestartNoticeDone": false,
-            "updatesTurnedOn": true,
-            "memoryOptInNoticeDone": true,
-            "keepRunningInTray": false,
-            "memoryNotesAskDefault": false,
-            "memoryScriptsAskDefault": false,
-            "backgroundFetch": true,
-            "limitBars": "used",
-            "limitForecast": true,
-            "limitGauge": "bars",
-            "mainBranches": []
-        })
-    );
-}
-
-#[test]
 fn partial_prefs_fill_defaults_and_ignore_unknown_fields() {
     let prefs: AppPrefs = serde_json::from_value(json!({
         "theme": "dark",

@@ -19,6 +19,7 @@ import { routines } from './routines';
 import { memoryEditor } from './memory-editor';
 import { memoryImport } from './memory-import';
 import { memoryGuards } from './memory-guards';
+import { memorySync } from './memory-sync';
 import { branch } from './branch';
 import { subagents } from './subagents';
 import { knowledge } from './knowledge';
@@ -47,6 +48,7 @@ export const en = {
   ...memoryEditor,
   ...memoryImport,
   ...memoryGuards,
+  ...memorySync,
   ...branch,
   ...subagents,
   ...knowledge,

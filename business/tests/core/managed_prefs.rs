@@ -61,6 +61,8 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         keep_running_in_tray: true,
         memory_notes_ask_default: true,
         memory_scripts_ask_default: true,
+        memory_copy_to_remote: true,
+        memory_copy_to_local: true,
         background_fetch: false,
         limit_bars: LimitBarsPref::Left,
         limit_forecast: false,

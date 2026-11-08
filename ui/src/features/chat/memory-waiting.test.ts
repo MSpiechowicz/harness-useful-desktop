@@ -102,6 +102,92 @@ describe('the card of saves waiting for review', () => {
     expect(note.querySelectorAll('[data-diff="remove"]')).toHaveLength(0);
   });
 
+  describe('a change to a saved note whose current text was not read', () => {
+    const REFERENCE = '[ref]: https://example.com/appended';
+    const TITLE = 'Source files stay under 500 lines';
+
+    /** The held append of note 7 as it is held while the remote is unreachable: nothing of the saved note is known. */
+    function heldUnread(): HeldItem[] {
+      const [script, update, created, append] = sampleHeld(KEY);
+      const unread = { ...append, arguments: { id: 7, title: TITLE, append: `Run the guard.\n${REFERENCE}` }, current: null } as HeldItem;
+
+      return [script, update, created, unread];
+    }
+
+    it('shows every line the agent sent as raw text, so a reference definition cannot hide', () => {
+      show(heldUnread());
+      const note = item(TITLE);
+
+      expect(within(note).getByText(/\[ref\]: https:\/\/example.com\/appended/)).toBeInTheDocument();
+      expect(note.querySelector('.md-html')).toBeNull();
+    });
+
+    it('disables Edit and says why, so the appended fragment is never made the whole note', async () => {
+      show(heldUnread());
+      const edit = within(item(TITLE)).getByRole('button', { name: 'Edit' });
+
+      expect(edit).toBeDisabled();
+      expect(edit).toHaveAttribute('title', expect.stringContaining('cannot be read while the remote is unreachable'));
+
+      await fireEvent.click(edit);
+
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('still saves and skips it as the agent sent it', async () => {
+      show(heldUnread());
+      const note = item(TITLE);
+
+      await fireEvent.click(within(note).getByRole('button', { name: 'Save' }));
+
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(save.mock.calls[0][0]).toMatchObject({ heldId: HELD_NOTE_APPEND_ID });
+      expect(save.mock.calls[0][1]).toBeUndefined();
+
+      await fireEvent.click(within(note).getByRole('button', { name: 'Skip' }));
+
+      expect(skip).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends no edited draft for it with Save all', async () => {
+      save.mockRestore();
+      const invoke = vi.spyOn(ipc, 'invoke').mockResolvedValue(null as never);
+      show(heldUnread());
+
+      await fireEvent.click(screen.getByRole('button', { name: 'Save all' }));
+
+      await waitFor(() => expect(invoke).toHaveBeenCalledWith('memory_held_save', expect.objectContaining({ heldId: HELD_NOTE_APPEND_ID, edited: null })));
+      for (const [name, args] of invoke.mock.calls) {
+        if (name === 'memory_held_save') {
+          expect(args).toMatchObject({ edited: null });
+        }
+      }
+    });
+
+    it('keeps Edit enabled for a held update that has its current text, and for a held note', () => {
+      show();
+
+      expect(within(item('WebKitGTK caps the page at 60 fps')).getByRole('button', { name: 'Edit' })).toBeEnabled();
+      expect(within(item(TITLE)).getByRole('button', { name: 'Edit' })).toBeEnabled();
+      expect(within(item('Bindings come from the export test')).getByRole('button', { name: 'Edit' })).toBeEnabled();
+      expect(within(item('Bindings come from the export test')).getByRole('button', { name: 'Edit' })).not.toHaveAttribute('title');
+    });
+
+    it('shows a new note as raw text too, and a card with a diff keeps its Markdown and its diff', () => {
+      const [script, update, created, append] = sampleHeld(KEY);
+      const withReference = (held: HeldItem, key: string): HeldItem => ({ ...held, arguments: { ...(held.arguments as object), [key]: `${(held.arguments as Record<string, string>)[key] ?? ''}\n${REFERENCE}`.trim() } }) as HeldItem;
+      show([script, update, withReference(created, 'body'), withReference(append, 'append')]);
+
+      expect(within(item('Bindings come from the export test')).getByText(/\[ref\]: https:\/\/example.com\/appended/)).toBeInTheDocument();
+      expect(item('Bindings come from the export test').querySelector('.md-html')).toBeNull();
+
+      const diffed = item(TITLE);
+      expect(diffed.querySelector('.md-html')).not.toBeNull();
+      expect(diffed.querySelectorAll('[data-diff="add"]')).toHaveLength(2);
+      expect(diffed.querySelector('[data-diff="add"]:last-of-type')).toHaveTextContent(REFERENCE);
+    });
+  });
+
   it('shows a script in full, with what it needs before it runs', async () => {
     show();
     const script = item('check-bindings');
@@ -125,7 +211,7 @@ describe('the card of saves waiting for review', () => {
     await fireEvent.click(within(note).getByRole('button', { name: 'Show all' }));
 
     expect(note.querySelector('[data-folded]')).toBeNull();
-    expect(within(note).getByText('Line 30 of the note')).toBeInTheDocument();
+    expect(within(note).getByText(/Line 30 of the note/)).toBeInTheDocument();
   });
 
   it('saves one item as the agent sent it', async () => {

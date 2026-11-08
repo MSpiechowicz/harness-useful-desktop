@@ -366,10 +366,17 @@ fn save(scripts: &mut Vec<Value>, arguments: &Value) -> Value {
     let mut summary = script;
     summary.as_object_mut().map(|fields| fields.remove("body"));
     let text = format!("saved script {id} {name}");
+    let mut structured = json!({ "script": summary, "created": position.is_none() });
+
+    if position.is_none()
+        && let Some(place) = crate::memory_push::agent_script_place()
+    {
+        structured["place"] = json!(place);
+    }
 
     json!({
         "content": [{ "type": "text", "text": text }],
-        "structuredContent": { "script": summary, "created": position.is_none() },
+        "structuredContent": structured,
     })
 }
 

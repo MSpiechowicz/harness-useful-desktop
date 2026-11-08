@@ -313,18 +313,28 @@ export function memoryNotesHandlers(
     },
     // Like the real backend: an edit (or a replace) goes by id and keeps the scope, and a new note whose title a note of its scope
     // has is refused (`exists`): the server refuses a repository one, the app looks a global one up first.
-    memory_note_save: ({ project, draft, replaceId }: CommandArgs<'memory_note_save'>): NoteSaved => {
+    // An edit that names the revision it opened (`expectedRevision`) is refused with `conflict` when the note is another revision by now or gone, and writes nothing.
+    // A new note may name its `place`, answered back; an edit may not (`invalidInput`).
+    memory_note_save: ({ project, draft, replaceId, expectedRevision, place }: CommandArgs<'memory_note_save'>): NoteSaved => {
       requireServer(availability());
 
+      if (replaceId !== undefined && place !== undefined) {
+        throw IpcFailure.from({ code: 'invalidInput', message: 'an edit keeps the note or script where it is, so it takes no place' });
+      }
+
       if (replaceId !== undefined) {
+        if (expectedRevision !== undefined && visible({ project }).find((candidate) => candidate.id === replaceId && !candidate.hidden)?.revision !== expectedRevision) {
+          throw IpcFailure.from({ code: 'conflict', message: 'the note changed since you opened it' });
+        }
+
         const found = find(replaceId, { project });
         const other = visible({ project }).find((candidate) => candidate !== found && candidate.scope === found.scope && sameTitle(candidate.title, draft.title));
         if (other) {
-          return { outcome: 'exists', id: other.id };
+          return { outcome: 'exists', id: other.id, queued: false, place: null };
         }
 
         rewrite(found, draft);
-        return { outcome: 'updated', id: found.id };
+        return { outcome: 'updated', id: found.id, queued: false, place: null };
       }
 
       if (draft.scope === 'repo' && project === null) {
@@ -333,7 +343,7 @@ export function memoryNotesHandlers(
 
       const same = visible({ project }).find((candidate) => candidate.scope === draft.scope && sameTitle(candidate.title, draft.title));
       if (same) {
-        return { outcome: 'exists', id: same.id };
+        return { outcome: 'exists', id: same.id, queued: false, place: null };
       }
 
       const now = new Date().toISOString();
@@ -346,7 +356,7 @@ export function memoryNotesHandlers(
         body: '',
         scope: draft.scope,
         repo,
-        place: 'local',
+        place: place === 'remote' ? 'team' : 'local',
         tags: [],
         entities: [...new Set(draft.entities)],
         author: { source: 'harness-desktop', root: draft.scope === 'repo' ? project : null },
@@ -361,7 +371,7 @@ export function memoryNotesHandlers(
       rewrite(created, draft);
       notes = [...current(), created];
 
-      return { outcome: 'created', id };
+      return { outcome: 'created', id, queued: false, place: place ?? null };
     },
   };
 

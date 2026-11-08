@@ -7,7 +7,12 @@ export type HeldSaved = { "kind": "note",
 /**
  * The note's id.
  */
-id: number, } | { "kind": "script", 
+id: number, 
+/**
+ * True when a held change to a team note was kept on this computer because the team
+ * database could not be reached, and is applied when it is back. False otherwise.
+ */
+queued: boolean, } | { "kind": "script", 
 /**
  * The script's name.
  */

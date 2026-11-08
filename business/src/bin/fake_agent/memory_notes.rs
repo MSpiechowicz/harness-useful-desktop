@@ -69,7 +69,11 @@ fn save(notes: &mut Vec<Value>, arguments: &Value) -> Result<String, String> {
     notes.push(note);
 
     let similar = "#3 [problem, repo \"github.com/o/r\", 2026-10-07] Watcher misses renames";
-    let saved = saved_line(notes.last().unwrap_or(&Value::Null), true);
+    let mut saved = saved_line(notes.last().unwrap_or(&Value::Null), true);
+
+    if let Some(place) = crate::memory_push::agent_note_place(scope) {
+        saved.push_str(&format!(", place {place}"));
+    }
 
     Ok(format!(
         "{FRAME}\n{saved}\nsimilar notes (update or delete them if outdated or duplicate):\n{similar}"

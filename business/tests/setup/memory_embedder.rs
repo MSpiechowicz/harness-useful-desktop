@@ -9,9 +9,11 @@ use harness_business::ecosystem::{
     list_notes, remove_embedder_model, set_embedder_enabled, set_settings,
 };
 use harness_business::model::{MemoryScriptsAvailability, NoteLangFilter, NoteSummary};
+use memory_remote_support::lang_features;
 use memory_stand_in::{CURRENT, Setup, Vars};
 use pretty_assertions::assert_eq;
 
+use crate::memory_remote_support;
 use crate::memory_stand_in;
 
 #[tokio::test]
@@ -211,22 +213,7 @@ async fn a_server_that_lists_no_lang_cannot_be_asked_for_one() {
 #[test]
 fn a_query_keeps_its_lang_only_for_a_server_that_lists_notes_lang() {
     let asked = query(Some(NoteLangFilter::Other));
-    let listed = |notes_lang| FeaturesSupport::Listed {
-        notes_remote_local: false,
-        notes_hide: false,
-        push_json: false,
-        scripts_remote_local: false,
-        scripts_hide: false,
-        scripts_push_json: false,
-        save_guards: false,
-        save_opt_in: false,
-        embedder: false,
-        settings: false,
-        notes_lang,
-        notes_useful: false,
-        notes_authors: false,
-        notes_author_filter: false,
-    };
+    let listed = lang_features;
 
     assert_eq!(asked.for_server(listed(true)), asked);
     assert_eq!(asked.for_server(listed(false)), query(None));

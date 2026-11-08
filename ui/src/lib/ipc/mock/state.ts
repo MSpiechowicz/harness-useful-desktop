@@ -55,6 +55,8 @@ export function defaultPrefs(): AppPrefs {
     keepRunningInTray: false,
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
+    memoryCopyToRemote: false,
+    memoryCopyToLocal: false,
     backgroundFetch: true,
     limitBars: 'used',
     limitForecast: true,

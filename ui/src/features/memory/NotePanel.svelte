@@ -36,8 +36,8 @@
 
   let { open, note, detail, status, error, onretry, onopennote, onedit, ondelete, onhide, onclose }: Props = $props();
 
-  // A hidden note is a team note that only Unhide acts on. A team note of a scope that saves here is read-only: it can only be hidden. A team note
-  // of a scope on the team database can be edited and deleted, and hidden as well. A note of this computer cannot be hidden.
+  // A hidden note is a team note that only Unhide acts on. A team note the server marks read-only can only be hidden. A team note
+  // the server lets you change can be edited and deleted, and hidden as well. A note of this computer cannot be hidden.
   const isHidden = $derived(note?.hidden ?? false);
   const readOnly = $derived(isHidden || (note?.readOnly ?? false));
   const canHide = $derived(isHidden || note?.place === 'team');

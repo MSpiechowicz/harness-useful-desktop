@@ -6,9 +6,14 @@
 export type NotesCopyFailure = { 
 /**
  * The note's id in the local file; `None` for a failure that is no one note's (a relation
- * that was not pushed, local copies that could not be deleted).
+ * that was not pushed, local copies that could not be deleted), and for a team entry that
+ * could not be copied to this computer.
  */
 localId: number | null, 
+/**
+ * The note's id in the team database, when the failure says it (`toLocal`).
+ */
+teamId: number | null, 
 /**
  * Its title, when the copy listed it (never for a failure without a note).
  */

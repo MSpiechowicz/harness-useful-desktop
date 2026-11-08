@@ -74,10 +74,15 @@
 //!   through [`sidecar_line_probe`].
 //! - [`memory_guards`]: the save guards of every chat and of each one (`memory_guards_get`,
 //!   `memory_guards_update`, `memory_chat_guards_set`), [`memory_held`]: the saves held for the user's
-//!   review (`memory_held_list`, `memory_held_save`, `memory_held_skip`), and
-//!   [`memory_user_save`]: the user's own saves through commands agents cannot reach.
+//!   review (`memory_held_list`, `memory_held_save`, `memory_held_skip`),
+//!   [`memory_user_save`]: the user's own saves through commands agents cannot reach, and
+//!   [`memory_sync`]: copying what Harness Memory kept on this computer while the team database was
+//!   unreachable, as soon as it is back (`harness-memory sync --json`).
 //! - [`memory_notes_copy`]: copying the notes or scripts saved on this computer to the team database
-//!   (`harness-memory push --json`, `scripts push --json`), its answer read by `memory_copy_answer`.
+//!   (`harness-memory push --json`, `scripts push --json`), its answer read by `memory_copy_answer`,
+//!   and, under "Remote + this computer", either way on request (`push --remote-local`, `pull
+//!   --json`, read by `memory_pull_answer`), allowed by the Settings switches and the server's
+//!   features (`memory_copy_gate`) and told its picks by `memory_copy_picks`.
 
 pub mod catalog;
 pub mod code;
@@ -128,6 +133,8 @@ pub mod mcp_rename;
 pub mod memory_binary;
 pub mod memory_cli;
 mod memory_copy_answer;
+mod memory_copy_gate;
+mod memory_copy_picks;
 pub mod memory_embedder;
 pub mod memory_features;
 pub mod memory_guards;
@@ -144,6 +151,7 @@ pub mod memory_notes_import;
 pub mod memory_notes_save;
 mod memory_notes_titles;
 pub mod memory_project_key;
+mod memory_pull_answer;
 pub mod memory_recall;
 pub mod memory_record;
 pub mod memory_register;
@@ -154,6 +162,7 @@ pub mod memory_scripts;
 mod memory_scripts_list;
 pub mod memory_scripts_run;
 pub mod memory_scripts_save;
+pub mod memory_sync;
 pub mod memory_team_docs;
 pub mod memory_trust;
 pub mod memory_user_save;
@@ -256,6 +265,8 @@ pub use mcp_rename::rename_dashboard_mcp_file;
 pub use memory_binary::{installed_memory, memory_version, parse_memory_version, resolve_memory};
 pub use memory_cli::ListWindow;
 pub use memory_cli::Repos;
+pub use memory_copy_gate::{CopyGate, CopyTarget};
+pub use memory_copy_picks::CopyPicks;
 pub use memory_embedder::{
     EmbedderEvent, EmbedderStatus, EmbedderTracker, embedder_status, feature_server, get_settings, parse_event,
     remove_embedder_model, set_embedder_enabled, set_settings,
@@ -295,6 +306,7 @@ pub use memory_remote::{
 pub use memory_repos::list_repos;
 pub use memory_requests::{RequestWatcher, has_memory_database, memory_data_dir, remove_alive, touch_alive};
 pub use memory_scripts::{MemoryScripts, SCRIPT_LIST_TOOL, ScriptsQuery};
+pub use memory_sync::{MemorySync, SyncOutcome, SyncTurn};
 pub use memory_team_docs::{MemoryTeamDocs, TeamDocsConfig, TeamDocsSupport};
 pub use memory_trust::{script_sha256, trust_scripts};
 pub use memory_user_save::SaveRoute;

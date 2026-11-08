@@ -215,10 +215,56 @@ describe('mock notes on the team side', () => {
 
     expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', previewId: preview.previewId, overwrite: [-1] }))).toBe('invalidInput');
 
-    const result = handlers.memory_notes_copy_apply({ kind: 'notes', previewId: preview.previewId, overwrite: [conflicts.rows[0].localId] });
+    const result = handlers.memory_notes_copy_apply({ kind: 'notes', previewId: preview.previewId, overwrite: [conflicts.rows[0].localId ?? -1] });
     expect(result).toMatchObject({ counts: { overwritten: 1 }, failed: [] });
     expect(result.kept).toBe(preview.counts.conflicts - 1 + preview.counts.teamNewer);
     expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', previewId: preview.previewId, overwrite: 'none' }))).toBe('invalidInput');
+  });
+
+  it('copies to the remote only the ticked rows, nothing ticked at first, and keeps the rest on this computer', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const local = handlers.memory_notes_list({ project: '/work/app', offset: 0 }).localCounts;
+    const preview = handlers.memory_notes_copy_preview({ kind: 'notes', mode: 'toRemote' });
+    const pickable = handlers.memory_notes_copy_rows({ kind: 'notes', mode: 'toRemote', previewId: preview.previewId, filter: 'pickable', offset: 0, limit: 200 });
+
+    expect(pickable.total).toBe(preview.counts.added + preview.counts.conflicts);
+    expect(pickable.total).toBeLessThan(preview.total);
+    expect(preview.rows.filter((row) => !row.pickable).map((row) => row.action)).toEqual(expect.arrayContaining(['identical', 'teamNewer']));
+
+    const identical = preview.rows.find((row) => row.action === 'identical');
+    expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', mode: 'toRemote', previewId: preview.previewId }))).toBe('invalidInput');
+    expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', mode: 'toRemote', previewId: preview.previewId, pick: 'none' }))).toBe('invalidInput');
+    expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', mode: 'toRemote', previewId: preview.previewId, pick: [identical?.localId ?? -1] }))).toBe('invalidInput');
+    expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', mode: 'toRemote', previewId: preview.previewId, pick: 'all', overwrite: 'all' }))).toBe('invalidInput');
+
+    const ticked = pickable.rows.slice(0, 2);
+    const result = handlers.memory_notes_copy_apply({ kind: 'notes', mode: 'toRemote', previewId: preview.previewId, pick: ticked.map((row) => row.localId ?? -1) });
+
+    expect(result).toMatchObject({ deleted: 2, kept: 0, leftover: [], failed: [], counts: { overwritten: ticked.filter((row) => row.conflict).length } });
+    expect(handlers.memory_notes_list({ project: '/work/app', offset: 0 }).localCounts).toEqual({
+      repo: (local?.repo ?? 0) - ticked.filter((row) => row.scope === 'repo').length,
+      global: (local?.global ?? 0) - ticked.filter((row) => row.scope === 'global').length,
+    });
+  });
+
+  it('copies to this computer by the ticked team ids, from a review of its own, and changes nothing there', () => {
+    const handlers = memoryNotesHandlers(AVAILABLE, () => 'ok');
+    const stranded = handlers.memory_notes_copy_preview({ kind: 'notes' });
+    const preview = handlers.memory_notes_copy_preview({ kind: 'notes', mode: 'toLocal' });
+    const pickable = handlers.memory_notes_copy_rows({ kind: 'notes', mode: 'toLocal', previewId: preview.previewId, filter: 'pickable', offset: 0, limit: 200 });
+
+    expect(preview.counts).toMatchObject({ added: pickable.total, conflicts: 0 });
+    expect(preview.counts.localDiffers).toBeGreaterThan(0);
+    expect(preview.rows.filter((row) => !row.pickable).map((row) => row.action).sort()).toEqual(expect.arrayContaining(['identical', 'localDiffers']));
+    expect(codeOf(() => handlers.memory_notes_copy_rows({ kind: 'notes', mode: 'toLocal', previewId: stranded.previewId, offset: 0, limit: 50 }))).toBe('invalidInput');
+    expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', mode: 'toLocal', previewId: preview.previewId }))).toBe('invalidInput');
+    expect(codeOf(() => handlers.memory_notes_copy_apply({ kind: 'notes', mode: 'toLocal', previewId: preview.previewId, pick: [-1] }))).toBe('invalidInput');
+
+    const ticked = pickable.rows.slice(0, 2).map((row) => row.teamId ?? -1);
+    const result = handlers.memory_notes_copy_apply({ kind: 'notes', mode: 'toLocal', previewId: preview.previewId, pick: ticked });
+
+    expect(result).toMatchObject({ counts: { added: 2 }, deleted: 0, kept: 0, leftover: [], failed: [] });
+    expect(handlers.memory_notes_copy_rows({ kind: 'notes', previewId: stranded.previewId, offset: 0, limit: 1 }).total).toBe(stranded.total);
   });
 
   it('deletes what stayed on this computer', () => {

@@ -26,6 +26,10 @@ identical: number,
  */
 teamNewer: number, 
 /**
+ * To this computer: a different version is already here, left as it is.
+ */
+localDiffers: number, 
+/**
  * Newer than a team note that differs (overwritten or kept).
  */
 conflicts: number, 

@@ -266,7 +266,16 @@ async fn a_script_is_saved_beside_a_read_only_team_script_of_its_name() {
     let setup = Setup::installed(CURRENT, TEAM_AND_LOCAL);
     let saved = setup
         .scripts
-        .save(&setup.env, setup.runner(), SaveRoute::Mcp, None, &draft(), false, None)
+        .save(
+            &setup.env,
+            setup.runner(),
+            SaveRoute::Mcp,
+            None,
+            &draft(),
+            false,
+            None,
+            None,
+        )
         .await
         .expect("saved");
     assert_eq!(
@@ -280,7 +289,16 @@ async fn a_script_is_saved_beside_a_read_only_team_script_of_its_name() {
     let setup = Setup::installed(CURRENT, REMOTE);
     let saved = setup
         .scripts
-        .save(&setup.env, setup.runner(), SaveRoute::Mcp, None, &draft(), false, None)
+        .save(
+            &setup.env,
+            setup.runner(),
+            SaveRoute::Mcp,
+            None,
+            &draft(),
+            false,
+            None,
+            None,
+        )
         .await
         .expect("refused");
     assert_eq!(

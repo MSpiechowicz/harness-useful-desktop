@@ -10,8 +10,8 @@ use harness_business::app_dirs::{child_processes_dir, local_data_dir};
 use harness_business::ecosystem::catalog::{KNOWLEDGE_SIDECAR, MEMORY_SIDECAR};
 use harness_business::ecosystem::{
     ChatGuardWrites, CodeFeatures, CompanionReleases, Dashboard, DashboardOptions, EmbedderSupervisor,
-    KnowledgeFeatures, KnowledgeImporter, KnowledgeIntakes, MemoryFeatures, MemoryKinds, MemoryScripts, NotesCopyCache,
-    PoolOptions, SaveRoute, StoredNotesImport, memory_data_dir,
+    KnowledgeFeatures, KnowledgeImporter, KnowledgeIntakes, MemoryFeatures, MemoryKinds, MemoryScripts, MemorySync,
+    NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport, memory_data_dir,
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
@@ -95,6 +95,8 @@ pub struct AppState {
     pub code_features: CodeFeatures,
     /// The script run requests of Harness Memory and the heartbeat that lets the server ask.
     pub script_requests: Arc<ScriptRequests>,
+    /// When Harness Memory's work waiting for the team database was last looked at and synced.
+    pub memory_sync: Arc<MemorySync>,
     /// The page told when the saves Harness Memory holds for review change.
     pub memory_held: Arc<HeldWatcher>,
     /// The page told when a code graph build begins, progresses or ends.
@@ -218,6 +220,7 @@ impl AppState {
             knowledge_pulse: PulseWatch::default(),
             code_features: CodeFeatures::new(),
             script_requests: Arc::new(ScriptRequests::default()),
+            memory_sync: Arc::new(MemorySync::new()),
             memory_held: Arc::new(HeldWatcher::default()),
             code_builds: Arc::new(CodeBuilds::default()),
             memory_chat_writes: Arc::new(ChatGuardWrites::default()),

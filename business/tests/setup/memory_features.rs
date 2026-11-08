@@ -45,6 +45,17 @@ fn a_server_that_lists_every_feature_routes_notes_and_scripts_to_both_and_is_ask
             notes_useful: false,
             notes_authors: false,
             notes_author_filter: false,
+            offline_update_queue: false,
+            note_expect_revision: false,
+            sync_command: false,
+            offline_fallback: false,
+            push_remote_local: false,
+            push_selection: false,
+            pull_json: false,
+            scripts_pull_json: false,
+            save_place: false,
+            remote_local_saves: false,
+            held_save_place: false,
         }
     );
     assert!(answer.team_and_local());
@@ -97,6 +108,91 @@ fn the_note_and_script_features_are_read_apart() {
         FeaturesSupport::Unknown,
     ] {
         assert!(!other.scripts_team_and_local(), "{other:?}");
+    }
+}
+
+#[test]
+fn the_offline_sync_lines_are_read_apart() {
+    let (_dir, env) = installed();
+    let read = |listed: &str| wait(MemoryFeatures::new().support(&env, &features(listed)));
+
+    let all = read("offline-update-queue\nnote-expect-revision\n Sync-Command \n");
+    assert!(all.offline_update_queue() && all.note_expect_revision() && all.sync_command());
+
+    let queue = read("offline-update-queue\n");
+    assert!(queue.offline_update_queue() && !queue.note_expect_revision() && !queue.sync_command());
+
+    let revision = read("note-expect-revision\n");
+    assert!(!revision.offline_update_queue() && revision.note_expect_revision() && !revision.sync_command());
+
+    let sync = read("sync-command\n");
+    assert!(!sync.offline_update_queue() && !sync.note_expect_revision() && sync.sync_command());
+
+    for other in [
+        FeaturesSupport::Unsupported,
+        FeaturesSupport::NotInstalled,
+        FeaturesSupport::Unknown,
+    ] {
+        assert!(
+            !other.offline_update_queue() && !other.note_expect_revision() && !other.sync_command(),
+            "{other:?}"
+        );
+    }
+}
+
+#[test]
+fn the_fallback_and_copy_direction_lines_are_read_apart() {
+    let (_dir, env) = installed();
+    let read = |listed: &str| wait(MemoryFeatures::new().support(&env, &features(listed)));
+    let flags = |features: FeaturesSupport| {
+        [
+            features.offline_fallback(),
+            features.push_remote_local(),
+            features.pull_json(),
+            features.scripts_pull_json(),
+            features.push_selection(),
+            features.copy_to_remote(),
+        ]
+    };
+
+    assert_eq!(
+        flags(read(
+            "offline-fallback\n Push-Remote-Local \npull-json\nscripts-pull-json\nPUSH-SELECTION\n"
+        )),
+        [true; 6]
+    );
+    assert_eq!(
+        flags(read("offline-fallback\n")),
+        [true, false, false, false, false, false]
+    );
+    assert_eq!(
+        flags(read("push-remote-local\n")),
+        [false, true, false, false, false, false],
+        "a copy to the remote also needs push-selection"
+    );
+    assert_eq!(
+        flags(read("push-selection\n")),
+        [false, false, false, false, true, false]
+    );
+    assert_eq!(
+        flags(read("push-selection\npush-remote-local\n")),
+        [false, true, false, false, true, true]
+    );
+    assert_eq!(
+        flags(read("pull-json\npush-json\n")),
+        [false, false, true, false, false, false]
+    );
+    assert_eq!(
+        flags(read("scripts-pull-json\n")),
+        [false, false, false, true, false, false]
+    );
+
+    for other in [
+        FeaturesSupport::Unsupported,
+        FeaturesSupport::NotInstalled,
+        FeaturesSupport::Unknown,
+    ] {
+        assert_eq!(flags(other), [false; 6], "{other:?}");
     }
 }
 

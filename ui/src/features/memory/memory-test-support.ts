@@ -138,36 +138,41 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
   const passthrough = ipc.invoke.bind(ipc);
 
   /** Like the real server: a title taken in the scope is refused (`exists`), a save by id rewrites that note and keeps its scope. */
-  const saveNote = ({ draft, replaceId }: CommandArgs<'memory_note_save'>): NoteSaved => {
+  const saveNote = ({ draft, replaceId, expectedRevision, place }: CommandArgs<'memory_note_save'>): NoteSaved => {
     const now = new Date().toISOString();
     const rewrite = (found: NoteContent): NoteContent => ({ ...found, title: draft.title, body: draft.body, kind: draft.kind, tags: draft.tags, revision: found.revision + 1, updatedAt: now });
 
     if (replaceId !== undefined) {
       const found = notes.find((note) => note.id === replaceId);
+      // Like the real server: an edit that names the revision it opened is refused when the note is another revision by now, or gone.
+      if (expectedRevision !== undefined && found?.revision !== expectedRevision) {
+        throw IpcFailure.from({ code: 'conflict', message: 'the note changed since you opened it' });
+      }
+
       if (!found) {
         throw IpcFailure.from({ code: 'notFound', message: 'gone' });
       }
 
       const other = notes.find((note) => note.id !== found.id && note.scope === found.scope && sameTitle(note.title, draft.title));
       if (other) {
-        return { outcome: 'exists', id: other.id };
+        return { outcome: 'exists', id: other.id, queued: false, place: null };
       }
 
       notes = notes.map((note) => (note.id === found.id ? rewrite(note) : note));
 
-      return { outcome: 'updated', id: found.id };
+      return { outcome: 'updated', id: found.id, queued: false, place: null };
     }
 
     const same = notes.find((note) => note.scope === draft.scope && sameTitle(note.title, draft.title));
     if (same) {
-      return { outcome: 'exists', id: same.id };
+      return { outcome: 'exists', id: same.id, queued: false, place: null };
     }
 
     const id = Math.max(...notes.map((note) => note.id)) + 1;
     const created = rewrite({ ...notes[0], id, scope: draft.scope, repo: draft.scope === 'repo' ? REPO : null, place: 'local', entities: draft.entities, createdAt: now, revision: 0, hits: 0 });
     notes = [...notes, created];
 
-    return { outcome: 'created', id };
+    return { outcome: 'created', id, queued: false, place: place ?? null };
   };
 
   /**
@@ -312,10 +317,10 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
 
     // Like the real server: a name taken in the scope is refused (`exists`) unless replacing, and a script saved here is trusted.
     if (name === 'memory_script_save') {
-      const { draft, replace } = args as CommandArgs<'memory_script_save'>;
+      const { draft, replace, place } = args as CommandArgs<'memory_script_save'>;
       const same = scripts.find((script) => script.name === draft.name && script.scope === draft.scope);
       if (same && !replace) {
-        return { outcome: 'exists', id: same.id, script: null } as CommandResult<K>;
+        return { outcome: 'exists', id: same.id, script: null, place: null } as CommandResult<K>;
       }
 
       const now = new Date().toISOString();
@@ -337,7 +342,7 @@ export function fakeMemory(availability: MemoryScriptsAvailability | (() => Memo
       };
       scripts = same ? scripts.map((script) => (script === same ? written : script)) : [...scripts, written];
 
-      return { outcome: same ? 'replaced' : 'created', id, script: summaryOf(written) } as CommandResult<K>;
+      return { outcome: same ? 'replaced' : 'created', id, script: summaryOf(written), place: same ? null : (place ?? null) } as CommandResult<K>;
     }
 
     if (name === 'memory_scripts_trust') {

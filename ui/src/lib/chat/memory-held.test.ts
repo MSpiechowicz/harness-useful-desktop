@@ -38,6 +38,13 @@ describe('the note a held update would leave', () => {
     expect(view.note.body).toBe('A new body.\nAnd more.');
   });
 
+  it('shows the appended text of an update held while the note could not be read', () => {
+    const view = note({ ...update({ append: 'Added while the remote was down.' }), current: null });
+
+    expect(view.current).toBeNull();
+    expect(view.note.body).toBe('Added while the remote was down.');
+  });
+
   it('adds nothing for an empty append', () => {
     expect(note(update({ append: '  ' })).note.body).toBe('WebKitGTK falls back to a 60 fps timer here.');
   });

@@ -13,7 +13,7 @@ use harness_business::ecosystem::{
     MemoryRemoteChange, ScriptsSupport, memory_config_path, memory_remote_get, memory_remote_set,
 };
 use harness_business::env::{Env, OsKind};
-use harness_business::model::{MemoryNotesRouting, MemoryRemote, MemoryRemoteKind};
+use harness_business::model::{MemoryNotesRouting, MemoryRemote, MemoryRemoteKind, MemorySavePlace};
 use memory_remote_support::postgres_change;
 use pretty_assertions::assert_eq;
 
@@ -136,6 +136,14 @@ fn without_a_file_team_memory_is_off() {
             notes_useful_supported: false,
             notes_authors_supported: false,
             notes_author_filter_supported: false,
+            offline_fallback: true,
+            offline_fallback_supported: false,
+            notes_sync_supported: false,
+            scripts_sync_supported: false,
+            save_place_supported: false,
+            remote_local_saves: MemorySavePlace::Remote,
+            remote_local_saves_supported: false,
+            held_save_place_supported: false,
             config_path: "~/.config/harness-memory/config.toml".to_owned(),
             problem: None,
         }

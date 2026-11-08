@@ -1,6 +1,7 @@
 import type { MemoryNotesRouting } from '../bindings/MemoryNotesRouting';
 import type { MemoryRemote } from '../bindings/MemoryRemote';
 import type { MemoryRemoteKind } from '../bindings/MemoryRemoteKind';
+import type { MemorySavePlace } from '../bindings/MemorySavePlace';
 import type { CommandArgs } from '../commands';
 import { IpcFailure } from '../transport';
 import { notesAuthorFilterListed, notesAuthorsListed } from './authors';
@@ -45,12 +46,16 @@ interface Saved {
   trustTeamHooks: boolean;
   shareRoutines: boolean;
   trustTeamRoutines: boolean;
+  /** `offline_fallback`: saved on this computer while the remote is unreachable (on unless saved as `false`). */
+  offlineFallback: boolean;
+  /** `remote_local_saves`: where agents save new entries of a scope kept in Remote + this computer (remote unless saved as `local`). */
+  remoteLocalSaves: MemorySavePlace;
   /** Why the file must not be overwritten (keys Harness Memory does not know). */
   blocked: string | null;
 }
 
 function initial(scenario: RemoteScenario): Saved {
-  const base: Saved = { url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false, shareHooks: false, trustTeamHooks: false, shareRoutines: false, trustTeamRoutines: false, blocked: null };
+  const base: Saved = { url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false, shareHooks: false, trustTeamHooks: false, shareRoutines: false, trustTeamRoutines: false, offlineFallback: true, remoteLocalSaves: 'remote', blocked: null };
 
   switch (scenario) {
     case 'postgres':
@@ -202,6 +207,18 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
       notesAuthorsSupported: notesAuthorsListed(),
       // `?authorFilter=old` is one that tells who wrote them but cannot filter or sort by it.
       notesAuthorFilterSupported: notesAuthorFilterListed(),
+      // The mock stands in for a current Harness Memory, which keeps notes and scripts on this computer while the remote cannot be reached.
+      offlineFallback: file.offlineFallback,
+      offlineFallbackSupported: true,
+      notesSyncSupported: true,
+      scriptsSyncSupported: true,
+      // And for choosing where a new note or script goes while a scope is routed to the remote and this computer.
+      savePlaceSupported: true,
+      // And for the setting that decides where agents save while a scope is kept in the remote and this computer.
+      remoteLocalSaves: file.remoteLocalSaves,
+      remoteLocalSavesSupported: true,
+      // And for choosing where a held note or script is saved from its approval card.
+      heldSavePlaceSupported: true,
       configPath: CONFIG_PATH,
       problem: file.blocked,
     };
@@ -215,7 +232,7 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
     }
 
     if (!args.enabled) {
-      saved = { ...file, url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false, shareHooks: false, trustTeamHooks: false, shareRoutines: false, trustTeamRoutines: false };
+      saved = { ...file, url: null, token: null, repositoryNotes: 'remote', globalNotes: 'remote', scripts: 'remote', trustTeamScripts: false, shareHooks: false, trustTeamHooks: false, shareRoutines: false, trustTeamRoutines: false, offlineFallback: file.offlineFallback };
       return view();
     }
 
@@ -231,7 +248,7 @@ export function memoryRemoteHandlers(scenario: () => RemoteScenario = remoteScen
     const trustTeamHooks = shareHooks && (scriptsSupported() ? (args.trustTeamHooks ?? file.trustTeamHooks) : file.trustTeamHooks);
     const shareRoutines = scriptsSupported() ? (args.shareRoutines ?? file.shareRoutines) : file.shareRoutines;
     const trustTeamRoutines = shareRoutines && (scriptsSupported() ? (args.trustTeamRoutines ?? file.trustTeamRoutines) : file.trustTeamRoutines);
-    saved = { url, token, repositoryNotes: args.repositoryNotes, globalNotes: args.globalNotes, scripts: scriptsSupported() ? args.scripts : 'remote', trustTeamScripts: scriptsSupported() ? args.trustTeamScripts : false, shareHooks, trustTeamHooks, shareRoutines, trustTeamRoutines, blocked: null };
+    saved = { url, token, repositoryNotes: args.repositoryNotes, globalNotes: args.globalNotes, scripts: scriptsSupported() ? args.scripts : 'remote', trustTeamScripts: scriptsSupported() ? args.trustTeamScripts : false, shareHooks, trustTeamHooks, shareRoutines, trustTeamRoutines, offlineFallback: args.offlineFallback ?? file.offlineFallback, remoteLocalSaves: args.remoteLocalSaves ?? file.remoteLocalSaves, blocked: null };
 
     return view();
   }

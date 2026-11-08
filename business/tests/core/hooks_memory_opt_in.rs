@@ -61,6 +61,17 @@ pub(crate) mod hooks_memory_opt_in {
             notes_useful: false,
             notes_authors: false,
             notes_author_filter: false,
+            offline_update_queue: false,
+            note_expect_revision: false,
+            save_place: false,
+            remote_local_saves: false,
+            held_save_place: false,
+            sync_command: false,
+            offline_fallback: false,
+            push_remote_local: false,
+            push_selection: false,
+            pull_json: false,
+            scripts_pull_json: false,
         }
     }
 

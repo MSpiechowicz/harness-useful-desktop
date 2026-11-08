@@ -161,7 +161,7 @@ pub use memory_notes::{
 };
 pub use memory_notes_copy::{
     LocalNoteIds, MemoryCopyKind, NoteIdsWord, NotesCopyAction, NotesCopyCounts, NotesCopyFailure, NotesCopyFilter,
-    NotesCopyPreview, NotesCopyResult, NotesCopyRow, NotesCopyRows,
+    NotesCopyMode, NotesCopyPreview, NotesCopyResult, NotesCopyRow, NotesCopyRows,
 };
 pub use memory_remote::{MemoryNotesRouting, MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
 pub use memory_repos::{MemoryRepoEntry, MemoryRepos, MemoryReposPage};
@@ -169,7 +169,7 @@ pub use memory_requests::{
     ScriptPreviousOrigin, ScriptPreviousVersion, ScriptRequestEvent, ScriptRunRequest, ScriptStdin,
 };
 pub use memory_save::{
-    NoteDraft, NoteSaveOutcome, NoteSaved, ScriptDraft, ScriptLanguage, ScriptSaveOutcome, ScriptSaved,
+    MemorySavePlace, NoteDraft, NoteSaveOutcome, NoteSaved, ScriptDraft, ScriptLanguage, ScriptSaveOutcome, ScriptSaved,
 };
 pub use memory_scripts::{
     MemoryDeleteAll, MemoryPlaceCounts, MemoryScopeCounts, MemoryScriptsAvailability, MemoryScriptsPage,

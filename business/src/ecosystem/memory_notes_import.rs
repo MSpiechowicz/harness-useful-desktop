@@ -184,13 +184,27 @@ pub async fn apply_notes_import(
     for (done, row) in (1u32..).zip(selected) {
         let draft = row.draft(request.default_scope);
 
-        match save_note_in(env, probe, runner, route, project, &draft, None, Some(&mut titles)).await {
+        match save_note_in(
+            env,
+            probe,
+            runner,
+            route,
+            project,
+            &draft,
+            None,
+            None,
+            None,
+            Some(&mut titles),
+        )
+        .await
+        {
             Ok(saved) => match saved.outcome {
                 NoteSaveOutcome::Created => result.created += 1,
                 NoteSaveOutcome::Updated => result.updated += 1,
                 NoteSaveOutcome::Exists => match saved.id {
                     Some(id) if request.replace => {
-                        let replaced = save_note(env, probe, runner, route, project, &draft, Some(id)).await;
+                        let replaced =
+                            save_note(env, probe, runner, route, project, &draft, Some(id), None, None).await;
                         record_replace(&mut result, row.index, replaced);
                     }
                     id => result.exists.push(NotesImportExisting { index: row.index, id }),

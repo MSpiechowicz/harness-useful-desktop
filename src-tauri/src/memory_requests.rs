@@ -7,7 +7,8 @@
 //! [`HEARTBEAT_INTERVAL`] touches `desktop.alive` while Harness Memory is installed and its data
 //! folder exists (the server creates it), and on every poll tells [`crate::memory_held`]'s
 //! listener when the held saves changed (one event per burst) and [`crate::code_builds`]'s
-//! listener about the code graph builds. [`ScriptRequests::stop`] (app exit)
+//! listener about the code graph builds, and hands [`start_sync`] a turn (one every
+//! `SYNC_INTERVAL`) that copies what waits for the team database. [`ScriptRequests::stop`] (app exit)
 //! ends both and removes the heartbeat file, so the server stops waiting for an answer from this
 //! app. Before its first poll the thread removes the chats' memory guards files untouched for 30 days
 //! ([`sweep_chats`]).
@@ -182,6 +183,28 @@ impl Inner {
     }
 }
 
+/// Starts a turn of `harness-memory sync` on the async runtime when one is due, so the poll thread
+/// never waits for it (see `harness_business::ecosystem::memory_sync`), unless the Project memory
+/// switch is off. Nothing is views' to refresh: the Notes and Scripts views poll their lists.
+fn start_sync<R: Runtime>(handle: &AppHandle<R>, state: &AppState) {
+    // While Project memory is off the app leaves the server alone: no turn, no look at its files.
+    let project_memory = state.prefs.with(|store| store.load()).memory_enabled;
+
+    let Some(turn) = state.memory_sync.begin(Instant::now(), project_memory) else {
+        return;
+    };
+
+    let handle = handle.clone();
+
+    tauri::async_runtime::spawn(async move {
+        let Some(state) = handle.try_state::<AppState>() else {
+            return;
+        };
+
+        turn.run(&state.env, &state.runner, &state.memory_features).await;
+    });
+}
+
 /// Starts the request thread (see the module docs). It ends once [`ScriptRequests::stop`] ran.
 pub fn spawn<R: Runtime>(app: &AppHandle<R>) {
     let handle = app.clone();
@@ -220,6 +243,8 @@ pub fn spawn<R: Runtime>(app: &AppHandle<R>) {
                     watcher_failed = true;
                     tracing::error!("the code graph build watcher panicked; the memory request thread goes on");
                 }
+
+                start_sync(&handle, &state);
 
                 polls = (polls + 1) % POLLS_PER_HEARTBEAT;
 

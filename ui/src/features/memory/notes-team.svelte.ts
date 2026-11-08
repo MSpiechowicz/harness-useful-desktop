@@ -19,11 +19,16 @@ function isCount(value: unknown): value is number {
 
 /**
  * How many entries saved on this computer sit in scopes that read the remote database only (`remote`): they are invisible there, so the view
- * offers to copy or delete them. Zero while no remote database is on, null while that cannot be told (the settings or the page were not read, or
- * the server does not count them).
+ * offers to copy or delete them. Zero while no remote database is on, null while that cannot be told (the settings or the page were not read, the
+ * server does not count them, or the remote database is down: the page then comes from this computer's copy, copying fails and deleting would lose
+ * what the remote database may not have).
  */
-function strandedIn(remote: MemoryRemote | null, page: { availability: { kind: string }; localCounts: MemoryScopeCounts | null } | null, routing: Record<ScriptScope, MemoryNotesRouting> | null): number | null {
+function strandedIn(remote: MemoryRemote | null, page: { availability: { kind: string }; offline: boolean; localCounts: MemoryScopeCounts | null } | null, routing: Record<ScriptScope, MemoryNotesRouting> | null): number | null {
   if (!remote || !page || !routing || page.availability.kind !== 'available') {
+    return null;
+  }
+
+  if (page.offline) {
     return null;
   }
 

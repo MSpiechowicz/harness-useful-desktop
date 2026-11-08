@@ -3,4 +3,4 @@
 /**
  * What a copy does, or did, with one local note.
  */
-export type NotesCopyAction = "add" | "update" | "overwrite" | "keep" | "identical" | "teamNewer";
+export type NotesCopyAction = "add" | "update" | "overwrite" | "keep" | "identical" | "teamNewer" | "localDiffers";

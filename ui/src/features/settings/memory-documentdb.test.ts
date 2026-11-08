@@ -51,6 +51,14 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}) {
     notesUsefulSupported: false,
     notesAuthorsSupported: false,
     notesAuthorFilterSupported: true,
+    offlineFallback: true,
+    offlineFallbackSupported: true,
+    notesSyncSupported: true,
+    scriptsSyncSupported: true,
+    savePlaceSupported: true,
+    remoteLocalSaves: 'remote',
+    remoteLocalSavesSupported: true,
+    heldSavePlaceSupported: true,
     ...initial,
   };
   const passthrough = ipc.invoke.bind(ipc);

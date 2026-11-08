@@ -1644,6 +1644,58 @@ it creates `0700` (`business/src/ecosystem/memory_requests.rs`, `src-tauri/src/m
   requests folder other users can change or that another user owns (Unix). A file that does not parse is ignored and
   not read again. Requests reach only the page that called `memory_script_requests_listen`; the app logs no field of
   them.
+- **Waiting work.** Harness Memory keeps notes and scripts it saved on this computer while the team database was
+  unreachable in `pending-sync.json`, and changes to team notes in `pending-updates.json`, next to its local database. Every
+  60 s (counted from the end of the last look, never two at once, off the heartbeat thread) the app counts their entries
+  and, when at least one waits and the server lists `sync-command`, runs `harness-memory sync --json` (300 s at most, home
+  directory) so the team database is brought up to date as soon as it is back, not at the server's next call. While the
+  Project memory switch is off the app starts no turn: it neither looks at the files nor runs the server, and the first
+  turn after the switch is turned on is due at once. The files are counted only when they are plain files: the check
+  looks at the file itself (`symlink_metadata`), so a symbolic link or a folder is not counted and is reported as
+  unreadable, but the read that follows is the usual guarded `SafeReader` read, which resolves links under the deny-list
+  rules, so a link swapped in for the file between the check and the read could be read (only the entries are counted,
+  and nothing of it is shown or logged). At most 4 MiB are read (the server's own limit), and a file that is too large or
+  does not parse waits for nothing, as it does for the server, and one line in the log says so. Nothing runs without
+  Harness Memory or its data folder. The app never opens the files for writing, and logs counts only, never a title, a
+  body or a line the server printed.
+- **Copying between this computer and the team database.** `memory_notes_copy_preview`, `memory_notes_copy_rows` and
+  `memory_notes_copy_apply` take a `mode`. `stranded` (the default) runs `push` with no `--scope`, exactly as before, and asks for
+  no switch and no `features`. `toRemote` (`push --remote-local`) and `toLocal` (`pull`) reach only the scopes the server routes
+  `remote+local`, never another. Each is refused in Rust (`forbidden`) while its preference (`memoryCopyToRemote`,
+  `memoryCopyToLocal`, off by default, read from the preferences on every call, never cached) is off, then (`unsupported`) while
+  the server does not list its feature (`push-remote-local` and `push-selection` for `toRemote`), before the copy runs, on the
+  preview and on the apply alike (the check may run `harness-memory features` first, which changes nothing). A preview is kept for
+  its kind and mode alone: an id of another is `invalidInput` and nothing runs. `toRemote` copies entries to the team database and
+  then deletes their local copies once the team database holds them (`--delete-copied`), so it is limited to what the user
+  reviewed and ticked: `pick` is required (the local ids of rows of that preview, or `all`, its own pickable rows: a row that
+  does not fail and adds, updates or conflicts, never an identical or team-newer one), nothing picked, an id that is not a
+  pickable row of the preview and `overwrite` other than `none` are `invalidInput` before anything runs, and the preview stays.
+  The apply runs `push --remote-local --json --selection - --delete-copied` and sends `{"only": [{"id", "name",
+  "updatedAt"}, ...], "overwrite": [...]}` on stdin, `only` the picked rows of the cached preview, each with
+  its local id, its title or name and the update time exactly as the dry run printed them (a row without an update
+  time is not pickable, so never sent), and `overwrite` the picked rows that are conflicts: ticking a conflict is the
+  choice to replace the remote text, and a conflict not ticked is named nowhere, so it is neither copied nor deleted. An entry
+  not picked is not sent at all. Both lists come from the preview the user saw, never from a fresh read, and the server takes an entry only
+  while its id, title or name and update time still match, so an entry that was reviewed and then changed or removed is
+  neither copied nor deleted: it stays on this computer and comes back as a failure of that entry with its title, next to
+  the entries that were copied. An entry saved after the review is not in the selection at all: it is neither copied nor
+  deleted, and it is not reported. A server that cannot take a selection is not asked to copy at all. `toLocal` passes the ticked team ids on stdin, only
+  ids of rows the review offered (`all` is that review's own pickable rows, never entries that appeared since), never a delete,
+  overwrite or scope flag: nothing changes in the team database and nothing is deleted here, and an entry whose different copy is
+  already here is not replaced, apart from a very narrow race: a script saved on this computer between the pull's read of the local
+  copy and its write can still be replaced. A script copied to this computer is not trusted by the copy: it needs approval before it
+  runs. Logs carry counts only, never a title or a name.
+- **Where new entries are saved.** Under "Remote + this computer" the setting "New notes and scripts save to" is the
+  server's `remote_local_saves` key in `config.toml` (`remote`, or `local`, absent means remote), not an app preference, because
+  agents are separate processes that read only that file: it decides where agents' new notes and scripts go, and where the
+  Add note and Add script forms start. `local` keeps new entries on this computer instead of sharing them with the team
+  database, so it only narrows what is shared. It moves and copies no existing entry, and the key holds no secret. The app
+  writes it only as `local` and only while the server lists `remote-local-saves` (`memory_remote_set`, through the same
+  atomic, owner-only config write as the other keys), keeps it on every other save, and reads a value other than `remote`
+  or `local` as remote and reports a problem on the page. The same two values are the only `place` the approval card's save
+  (`memory_held_save`) passes on, as `held save --place`, and only to a server that lists `held-save-place`: it is a typed
+  enum, never free text, it is refused (`unsupported`) before any command runs otherwise, and it cannot turn a held
+  `note_update` into a save elsewhere, since the server refuses it for one.
 - **Notification.** A new request that arrives while the main window is not in front shows one OS notification
   (`tauri-plugin-notification`, sent from Rust) with only the script name, never its code or arguments, and a name
   outside the server's documented form is left out. Clicking it brings the main window to the front.

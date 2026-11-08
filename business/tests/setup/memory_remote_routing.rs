@@ -12,7 +12,7 @@ use harness_business::ecosystem::{
     FeaturesSupport, MemoryRemoteChange, MemorySupport, ScriptsSupport, memory_remote_get, memory_remote_set,
 };
 use harness_business::model::{MemoryNotesRouting, MemoryRemote};
-use memory_remote_support::{EVERY_FEATURE, Home, postgres_change, with_features};
+use memory_remote_support::{EVERY_FEATURE, Home, postgres_change, routing_features, with_features};
 use pretty_assertions::assert_eq;
 
 fn support(features: FeaturesSupport) -> MemorySupport {
@@ -85,22 +85,7 @@ fn a_server_without_every_feature_never_gets_remote_local_written() {
     memory_remote_set(&home.env, postgres_change(), support(EVERY_FEATURE)).expect("saved");
     let before = home.text();
 
-    let partial = FeaturesSupport::Listed {
-        notes_remote_local: true,
-        notes_hide: true,
-        push_json: false,
-        scripts_remote_local: true,
-        scripts_hide: true,
-        scripts_push_json: true,
-        save_guards: false,
-        save_opt_in: false,
-        embedder: false,
-        settings: false,
-        notes_lang: false,
-        notes_useful: false,
-        notes_authors: false,
-        notes_author_filter: false,
-    };
+    let partial = routing_features([true, true, false], [true, true, true]);
 
     for (features, wording) in [
         (partial, "Update Harness Memory"),
@@ -174,6 +159,17 @@ fn the_vector_search_lines_reach_the_page_as_their_own_flags() {
         notes_useful: false,
         notes_authors: false,
         notes_author_filter: false,
+        offline_update_queue: false,
+        note_expect_revision: false,
+        sync_command: false,
+        offline_fallback: false,
+        push_remote_local: false,
+        push_selection: false,
+        pull_json: false,
+        scripts_pull_json: false,
+        save_place: false,
+        remote_local_saves: false,
+        held_save_place: false,
     };
     let flags = |features| {
         let remote = memory_remote_get(&home.env, support(features));
@@ -216,6 +212,17 @@ fn the_notes_authors_line_reaches_the_page_as_its_own_flag() {
         notes_useful: false,
         notes_authors,
         notes_author_filter: false,
+        offline_update_queue: false,
+        note_expect_revision: false,
+        sync_command: false,
+        offline_fallback: false,
+        push_remote_local: false,
+        push_selection: false,
+        pull_json: false,
+        scripts_pull_json: false,
+        save_place: false,
+        remote_local_saves: false,
+        held_save_place: false,
     };
     let flag = |features| memory_remote_get(&home.env, support(features)).notes_authors_supported;
 
@@ -229,4 +236,45 @@ fn the_notes_authors_line_reaches_the_page_as_its_own_flag() {
     ] {
         assert!(!flag(features), "{features:?}");
     }
+}
+
+#[test]
+fn the_sync_buttons_need_push_selection_next_to_the_copy_lines() {
+    let home = Home::new();
+    let listing = |push_remote_local, push_selection| FeaturesSupport::Listed {
+        notes_remote_local: false,
+        notes_hide: false,
+        push_json: false,
+        scripts_remote_local: false,
+        scripts_hide: false,
+        scripts_push_json: false,
+        save_guards: false,
+        save_opt_in: false,
+        embedder: false,
+        settings: false,
+        notes_lang: false,
+        notes_useful: false,
+        notes_authors: false,
+        notes_author_filter: false,
+        offline_update_queue: false,
+        note_expect_revision: false,
+        sync_command: false,
+        offline_fallback: false,
+        push_remote_local,
+        push_selection,
+        pull_json: true,
+        scripts_pull_json: true,
+        save_place: false,
+        remote_local_saves: false,
+        held_save_place: false,
+    };
+    let flags = |features| {
+        let remote = memory_remote_get(&home.env, support(features));
+
+        (remote.notes_sync_supported, remote.scripts_sync_supported)
+    };
+
+    assert_eq!(flags(listing(true, true)), (true, true));
+    assert_eq!(flags(listing(true, false)), (false, false));
+    assert_eq!(flags(listing(false, true)), (false, false));
 }

@@ -44,8 +44,8 @@
   // The body read from the server is what an agent would run, so its hash wins over the list's once loaded.
   const facts = $derived(script ? scriptFacts(script, detail?.sha256 ?? script.sha256) : []);
 
-  // A hidden script is a remote script that only Unhide acts on. A remote script of a routing that saves here is read-only: it can only be hidden.
-  // A remote script of a routing on the remote database can be edited and deleted, and hidden as well. A script of this computer cannot be hidden.
+  // A hidden script is a remote script that only Unhide acts on. A remote script the server marks read-only can only be hidden.
+  // A remote script the server lets you change can be edited and deleted, and hidden as well. A script of this computer cannot be hidden.
   const isHidden = $derived(script?.hidden ?? false);
   const readOnly = $derived(isHidden || (script?.readOnly ?? false));
   const canHide = $derived(isHidden || script?.place === 'team');

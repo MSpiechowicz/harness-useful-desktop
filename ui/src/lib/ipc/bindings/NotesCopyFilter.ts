@@ -3,4 +3,4 @@
 /**
  * Which rows of a copy preview to page through.
  */
-export type NotesCopyFilter = "all" | "conflicts" | "failed";
+export type NotesCopyFilter = "all" | "conflicts" | "failed" | "pickable";

@@ -44,8 +44,9 @@
   <p class="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">{tn('memory.notes.body.hidden', hidden)}</p>
 {/if}
 
+<!-- A save without a diff shows its text raw: Markdown would render some lines (a reference definition, a comment) as nothing. -->
 <MemoryFolded long={isLong(note.body)}>
-  {#if hidden > 0}
+  {#if hidden > 0 || current === null}
     <p class="text-sm leading-relaxed break-words whitespace-pre-wrap text-fg"><HiddenText text={note.body} /></p>
   {:else}
     <Markdown source={note.body} />

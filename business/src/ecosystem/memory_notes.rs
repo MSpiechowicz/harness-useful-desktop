@@ -47,7 +47,6 @@ use super::memory_cli::{
     scope_name,
 };
 use super::memory_features::FeaturesSupport;
-pub(super) use super::memory_hidden::ids_on_stdin;
 use super::memory_hidden::{HIDDEN_FLAG, by_id, call, entry_server, kind_args, not_found};
 use super::memory_list::{
     ListAnswer, author_option, author_unknown_flag, list_filters, offline, offline_reason, place_counts, run_list,

@@ -10,44 +10,14 @@ use harness_business::ecosystem::{
     FeaturesSupport, MemoryRemoteChange, ScriptsSupport, memory_remote_get, memory_remote_set,
 };
 use harness_business::model::MemoryNotesRouting;
-use memory_remote_support::{EVERY_FEATURE, Home, postgres_change, with_features};
+use memory_remote_support::{EVERY_FEATURE, Home, postgres_change, routing_features, with_features};
 use pretty_assertions::assert_eq;
 
 /// The note features only.
-const NOTES_ONLY: FeaturesSupport = FeaturesSupport::Listed {
-    notes_remote_local: true,
-    notes_hide: true,
-    push_json: true,
-    scripts_remote_local: false,
-    scripts_hide: false,
-    scripts_push_json: false,
-    save_guards: false,
-    save_opt_in: false,
-    embedder: false,
-    settings: false,
-    notes_lang: false,
-    notes_useful: false,
-    notes_authors: false,
-    notes_author_filter: false,
-};
+const NOTES_ONLY: FeaturesSupport = routing_features([true; 3], [false; 3]);
 
 /// The script features only.
-const SCRIPTS_ONLY: FeaturesSupport = FeaturesSupport::Listed {
-    notes_remote_local: false,
-    notes_hide: false,
-    push_json: false,
-    scripts_remote_local: true,
-    scripts_hide: true,
-    scripts_push_json: true,
-    save_guards: false,
-    save_opt_in: false,
-    embedder: false,
-    settings: false,
-    notes_lang: false,
-    notes_useful: false,
-    notes_authors: false,
-    notes_author_filter: false,
-};
+const SCRIPTS_ONLY: FeaturesSupport = routing_features([false; 3], [true; 3]);
 
 fn scripts_routed(scripts: MemoryNotesRouting, trust_team_scripts: bool) -> MemoryRemoteChange {
     MemoryRemoteChange {
@@ -119,22 +89,7 @@ fn a_server_without_the_script_features_never_gets_remote_local_scripts_written(
     memory_remote_set(&home.env, postgres_change(), before_support).expect("saved");
     let before = text(&home);
 
-    let partial = FeaturesSupport::Listed {
-        notes_remote_local: true,
-        notes_hide: true,
-        push_json: true,
-        scripts_remote_local: true,
-        scripts_hide: false,
-        scripts_push_json: true,
-        save_guards: false,
-        save_opt_in: false,
-        embedder: false,
-        settings: false,
-        notes_lang: false,
-        notes_useful: false,
-        notes_authors: false,
-        notes_author_filter: false,
-    };
+    let partial = routing_features([true, true, true], [true, false, true]);
 
     for (features, wording) in [
         (partial, "Update Harness Memory"),

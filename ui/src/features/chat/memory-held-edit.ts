@@ -1,5 +1,5 @@
 import type { ScopeTarget } from '$lib/components/scope/scope-options';
-import type { HeldNoteView, HeldScriptView } from '$lib/chat/memory-held';
+import type { HeldNoteView, HeldScriptView, HeldView } from '$lib/chat/memory-held';
 import type { HeldItem } from '$lib/ipc/bindings/HeldItem';
 import type { NoteContent } from '$lib/ipc/bindings/NoteContent';
 
@@ -23,6 +23,14 @@ function targetOf(item: HeldItem, scope: 'repo' | 'global'): ScopeTarget {
   const path = heldProjectOf(item);
 
   return scope === 'repo' && path !== null ? { kind: 'repo', path } : { kind: 'global' };
+}
+
+/**
+ * Whether the user can edit a held save before saving it. A change to a saved note whose current text was not read (it was held while the
+ * remote was unreachable) shows only what it appends: the editor would turn that fragment into the whole note and replace the shared one.
+ */
+export function canEditHeld(view: HeldView): boolean {
+  return view.type === 'script' || view.noteId === null || view.current !== null;
 }
 
 /** The editor's form for a note an agent wants to save, as the agent sent it. */

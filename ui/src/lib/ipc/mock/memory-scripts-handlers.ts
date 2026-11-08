@@ -284,8 +284,12 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
     // Like the real backend: an edit (`base`) of a script deleted or changed since it opened is a `conflict`, nothing saved. A name taken in
     // that scope is `exists` unless replacing, and a script saved here is trusted. A script waiting for approval stays so after an edit that
     // left its code as it opened (a description, timeout, language, line-ending or trailing-whitespace edit alone) or a replace with its code.
-    memory_script_save: ({ project, draft, replace, base }) => {
+    memory_script_save: ({ project, draft, replace, base, place }) => {
       requireServer(availabilityOf(scenario()));
+
+      if ((replace || base !== undefined) && place !== undefined) {
+        throw IpcFailure.from({ code: 'invalidInput', message: 'an edit keeps the note or script where it is, so it takes no place' });
+      }
 
       if (draft.scope === 'repo' && project === null) {
         throw IpcFailure.from({ code: 'invalidInput', message: 'a repository script needs a project' });
@@ -298,7 +302,7 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
       }
 
       if (existing && !replace) {
-        return { outcome: 'exists', id: existing.id, script: null };
+        return { outcome: 'exists', id: existing.id, script: null, place: null };
       }
 
       const now = new Date().toISOString();
@@ -313,7 +317,7 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
         repo: draft.scope === 'repo' ? (current().find((candidate) => candidate.repo !== null)?.repo ?? MOCK_REPO) : null,
         sha256: fakeSha([draft.language, draft.body]),
         timeoutSecs: draft.timeoutSecs,
-        place: 'local',
+        place: place === 'remote' ? 'team' : (existing?.place ?? 'local'),
         author: { source: 'harness-desktop', root: draft.scope === 'repo' ? project : null },
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
@@ -329,7 +333,8 @@ export function memoryScriptsHandlers(scenario: () => ScriptScenario = scriptSce
 
       scripts = existing ? current().map((candidate) => (candidate === existing ? saved : candidate)) : [...current(), saved];
 
-      return { outcome: existing ? 'replaced' : 'created', id: saved.id, script: summaryOf(saved) };
+      // A script saved to the team database is read-only here, so the real backend does not read it again.
+      return { outcome: existing ? 'replaced' : 'created', id: saved.id, script: place === 'remote' ? null : summaryOf(saved), place: place ?? null };
     },
     // Like the real server: a script that changed since it was reviewed is refused, and the others are approved anyway.
     memory_scripts_trust: ({ items, ...reach }) => {
