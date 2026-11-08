@@ -32,15 +32,25 @@ describe('the mock save guards', () => {
   it('saves and skips held saves, then they are gone', async () => {
     const handlers = new MockMemoryGuards(() => 'ok').handlers();
 
-    expect(await handlers.memory_held_save({ heldId: HELD_NOTE_UPDATE_ID, edited: null, revision: HELD_REVISIONS[HELD_NOTE_UPDATE_ID] })).toEqual({ kind: 'note', id: 3 });
+    expect(await handlers.memory_held_save({ heldId: HELD_NOTE_UPDATE_ID, edited: null, revision: HELD_REVISIONS[HELD_NOTE_UPDATE_ID] })).toEqual({ kind: 'note', id: 3, queued: false });
     expect(await handlers.memory_held_save({ heldId: HELD_SCRIPT_SAVE_ID, edited: null, revision: null })).toEqual({ kind: 'script', name: 'check-bindings' });
     await handlers.memory_held_skip({ heldId: HELD_NOTE_SAVE_ID, revision: HELD_REVISIONS[HELD_NOTE_SAVE_ID] });
-    expect(await handlers.memory_held_save({ heldId: HELD_NOTE_APPEND_ID, edited: null, revision: HELD_REVISIONS[HELD_NOTE_APPEND_ID] })).toEqual({ kind: 'note', id: 7 });
+    expect(await handlers.memory_held_save({ heldId: HELD_NOTE_APPEND_ID, edited: null, revision: HELD_REVISIONS[HELD_NOTE_APPEND_ID] })).toEqual({ kind: 'note', id: 7, queued: false });
 
     expect(await handlers.memory_held_list({ chatKey: SAMPLE_CHAT_KEY })).toEqual([]);
     expect(() => handlers.memory_held_skip({ heldId: HELD_NOTE_SAVE_ID, revision: null })).toThrow(expect.objectContaining({ code: 'notFound' }));
     expect(() => handlers.memory_held_skip({ heldId: 'not-a-uuid', revision: null })).toThrow(expect.objectContaining({ code: 'invalidInput' }));
     expect(() => handlers.memory_held_skip({ heldId: HELD_SCRIPT_SAVE_ID, revision: '--all' })).toThrow(expect.objectContaining({ code: 'invalidInput' }));
+  });
+
+  it('saves a held note or script to a place, and refuses a place for a held note update that stays held', async () => {
+    const handlers = new MockMemoryGuards(() => 'ok').handlers();
+
+    expect(() => handlers.memory_held_save({ heldId: HELD_NOTE_UPDATE_ID, edited: null, revision: null, place: 'local' })).toThrow(expect.objectContaining({ code: 'invalidInput' }));
+    expect((await handlers.memory_held_list({ chatKey: SAMPLE_CHAT_KEY })).map((item) => item.heldId)).toContain(HELD_NOTE_UPDATE_ID);
+
+    expect(await handlers.memory_held_save({ heldId: HELD_NOTE_SAVE_ID, edited: null, revision: null, place: 'remote' })).toEqual({ kind: 'note', id: expect.any(Number), queued: false });
+    expect(await handlers.memory_held_save({ heldId: HELD_SCRIPT_SAVE_ID, edited: null, revision: null, place: 'local' })).toEqual({ kind: 'script', name: 'check-bindings' });
   });
 
   it('refuses a save the agent held again since the user saw it, and keeps the newer one', async () => {
@@ -54,7 +64,7 @@ describe('the mock save guards', () => {
     expect(newer?.revision).not.toBe(seen);
     expect(newer?.arguments).toMatchObject({ body: expect.stringContaining('Changed by the agent.') });
 
-    expect(await handlers.memory_held_save({ heldId: HELD_NOTE_SAVE_ID, edited: null, revision: newer?.revision ?? null })).toEqual({ kind: 'note', id: expect.any(Number) });
+    expect(await handlers.memory_held_save({ heldId: HELD_NOTE_SAVE_ID, edited: null, revision: newer?.revision ?? null })).toEqual({ kind: 'note', id: expect.any(Number), queued: false });
   });
 
   it('refuses a skip the agent held again since the user saw it, and keeps the newer one', async () => {

@@ -36,7 +36,7 @@ use super::sidecar_config::{config_path, path_hint, refuse_blocked, unknown_path
 use super::sidecar_remote_url::{kind_name, url_and_token};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{MemoryNotesRouting, MemoryNotesTarget, MemoryRemote, MemoryRemoteKind};
+use crate::model::{MemoryNotesRouting, MemoryNotesTarget, MemoryRemote, MemoryRemoteKind, MemorySavePlace};
 use crate::pi_family::tilde;
 
 /// A change of the team database settings (`memory_remote_set`).
@@ -81,6 +81,15 @@ pub struct MemoryRemoteChange {
     /// Run team routines without asking (`trust_team_routines = true`); `None` keeps the saved
     /// value. Saved only while the server keeps team routines and they are shared.
     pub trust_team_routines: Option<bool>,
+    /// Save on this computer while the team database cannot be reached (`offline_fallback`; the
+    /// server's default is on); `None` keeps the saved value. Written only as `false`, and only
+    /// while the installed server lists `offline-fallback` ([`FeaturesSupport::offline_fallback`]).
+    pub offline_fallback: Option<bool>,
+    /// Where agents save new entries of a scope routed to "Remote + this computer"
+    /// (`remote_local_saves`; the server's default is remote); `None` keeps the saved value.
+    /// Written only as `local`, and only while the installed server lists `remote-local-saves`
+    /// ([`FeaturesSupport::remote_local_saves`]).
+    pub remote_local_saves: Option<MemorySavePlace>,
 }
 
 /// What the installed server supports, which decides the keys a save may write: the script keys
@@ -167,7 +176,11 @@ pub fn memory_config_path(env: &Env) -> Option<PathBuf> {
 /// [`FeaturesSupport::save_opt_in`], `embedderSupported`
 /// [`FeaturesSupport::embedder`], `settingsSupported` [`FeaturesSupport::settings`],
 /// `notesLangSupported` [`FeaturesSupport::notes_lang`], `notesUsefulSupported`
-/// [`FeaturesSupport::notes_useful`], `notesAuthorsSupported` [`FeaturesSupport::notes_authors`]; the saved values are reported either way. `kind` is the saved URL's
+/// [`FeaturesSupport::notes_useful`], `notesAuthorsSupported` [`FeaturesSupport::notes_authors`],
+/// `offlineFallbackSupported` [`FeaturesSupport::offline_fallback`], `savePlaceSupported`
+/// [`FeaturesSupport::save_place`], `remoteLocalSavesSupported`
+/// [`FeaturesSupport::remote_local_saves`], `heldSavePlaceSupported`
+/// [`FeaturesSupport::held_save_place`]; the saved values are reported either way. `kind` is the saved URL's
 /// as the server picks it ([`saved_kind`]).
 pub fn memory_remote_get(env: &Env, support: impl Into<MemorySupport>) -> MemoryRemote {
     let support = support.into();
@@ -214,6 +227,14 @@ fn remote_from(config: &ConfigFile, config_path: String, support: MemorySupport)
         notes_useful_supported: support.features.notes_useful(),
         notes_authors_supported: support.features.notes_authors(),
         notes_author_filter_supported: support.features.notes_author_filter(),
+        offline_fallback: config.offline_fallback.unwrap_or(true),
+        offline_fallback_supported: support.features.offline_fallback(),
+        notes_sync_supported: support.features.copy_to_remote() && support.features.pull_json(),
+        scripts_sync_supported: support.features.copy_to_remote() && support.features.scripts_pull_json(),
+        save_place_supported: support.features.save_place(),
+        remote_local_saves: config.remote_local_saves.unwrap_or_default(),
+        remote_local_saves_supported: support.features.remote_local_saves(),
+        held_save_place_supported: support.features.held_save_place(),
         config_path,
         problem: config
             .status
@@ -322,7 +343,17 @@ pub fn memory_remote_set(
     }
 
     let database_kind = database_kind.filter(|_| support.kinds.documentdb());
-    let text = render(&url, database_kind, token.as_deref(), routing);
+    let offline_fallback = offline_fallback_key(change.offline_fallback, saved.offline_fallback, support.features);
+    let remote_local_saves =
+        remote_local_saves_key(change.remote_local_saves, saved.remote_local_saves, support.features);
+    let text = render(
+        &url,
+        database_kind,
+        token.as_deref(),
+        routing,
+        offline_fallback,
+        remote_local_saves,
+    );
     write_config(&path, &text)?;
     tracing::info!(
         kind = kind_name(kind),
@@ -330,6 +361,36 @@ pub fn memory_remote_set(
     );
 
     Ok(memory_remote_get(env, support))
+}
+
+/// The `offline_fallback` value to consider writing (`None` for no key): the wanted choice, else
+/// the saved one, else on, while the server lists `offline-fallback`; nothing for a server that
+/// predates it (it refuses the key), and the saved value, untouched, when the server could not be
+/// asked. [`render`] writes it only as `false`.
+fn offline_fallback_key(wanted: Option<bool>, saved: Option<bool>, features: FeaturesSupport) -> Option<bool> {
+    match features {
+        FeaturesSupport::Listed { .. } => features.offline_fallback().then(|| wanted.or(saved).unwrap_or(true)),
+        FeaturesSupport::Unsupported => None,
+        FeaturesSupport::NotInstalled | FeaturesSupport::Unknown => saved,
+    }
+}
+
+/// The `remote_local_saves` value to consider writing (`None` for no key): the wanted choice, else
+/// the saved one, else remote, while the server lists `remote-local-saves`; nothing for a server
+/// that predates it (it refuses the key), and the saved value, untouched, when the server could
+/// not be asked. [`render`] writes it only as `local`.
+fn remote_local_saves_key(
+    wanted: Option<MemorySavePlace>,
+    saved: Option<MemorySavePlace>,
+    features: FeaturesSupport,
+) -> Option<MemorySavePlace> {
+    match features {
+        FeaturesSupport::Listed { .. } => features
+            .remote_local_saves()
+            .then(|| wanted.or(saved).unwrap_or_default()),
+        FeaturesSupport::Unsupported => None,
+        FeaturesSupport::NotInstalled | FeaturesSupport::Unknown => saved,
+    }
 }
 
 /// The `scripts` value to write (`None` for no key): `local` or `remote+local` when wanted on a

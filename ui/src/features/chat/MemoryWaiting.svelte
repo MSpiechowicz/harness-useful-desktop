@@ -8,6 +8,7 @@
   import { memoryChat } from '$lib/stores/memoryChat.svelte';
   import { memoryHeld } from '$lib/stores/memoryHeld.svelte';
 
+  import { heldPlaces } from './held-places';
   import MemoryHeldItem from './MemoryHeldItem.svelte';
 
   interface Props {
@@ -33,7 +34,7 @@
       <p class="text-xs text-fg-3">{t('memory.guards.waiting.subtitle')}</p>
     </div>
 
-    <Button disabled={saving} onclick={() => void memoryHeld.saveAll(items)}>{t('memory.guards.waiting.saveAll')}</Button>
+    <Button disabled={saving} onclick={() => void memoryHeld.saveAll(items, (item) => heldPlaces.sent(item.heldId))}>{t('memory.guards.waiting.saveAll')}</Button>
   </header>
 
   {#each items as item (item.heldId)}

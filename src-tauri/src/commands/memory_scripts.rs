@@ -18,9 +18,9 @@ use harness_business::ecosystem::{
     ListWindow, Repos, ScriptsQuery, discard_local, hide_entry, list_repos, trust_scripts,
 };
 use harness_business::model::{
-    AuthorFilter, LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryRepos, MemoryReposPage, MemoryScriptsPage,
-    ScriptDetail, ScriptDraft, ScriptGroup, ScriptPlace, ScriptReview, ScriptSaved, ScriptScope, ScriptSort,
-    ScriptTrustItem, SortOrder,
+    AuthorFilter, LocalNoteIds, MemoryCopyKind, MemoryDeleteAll, MemoryRepos, MemoryReposPage, MemorySavePlace,
+    MemoryScriptsPage, ScriptDetail, ScriptDraft, ScriptGroup, ScriptPlace, ScriptReview, ScriptSaved, ScriptScope,
+    ScriptSort, ScriptTrustItem, SortOrder,
 };
 use tauri::State;
 
@@ -180,7 +180,13 @@ pub async fn memory_script_delete(
 /// (nothing saved) with that script's id when one has the name and `replace` is false.
 /// `invalidInput` for a draft over a limit or a repository script without a project,
 /// `notFound` when the server is not installed, `unsupported` when it predates saving from the
-/// app, `forbidden` for a project that is not open or recent.
+/// app, `forbidden` for a project that is not open or recent. A new script may pass `place`
+/// (`remote` or `local`) while its scope is routed to "Remote + this computer": the answer says
+/// where it went (`place`, null when the server does not say). A script saved to the team database
+/// answers `script: null` (it is read-only here). `invalidInput` for a `place` with `replace`,
+/// `unsupported` for one when the server lacks `save-place` (see
+/// `MemoryRemote.savePlaceSupported`), `process` with the server's redacted line when the team
+/// database cannot be reached: nothing is saved on either side.
 #[tauri::command]
 pub async fn memory_script_save(
     state: State<'_, AppState>,
@@ -188,8 +194,9 @@ pub async fn memory_script_save(
     draft: ScriptDraft,
     replace: bool,
     base: Option<String>,
+    place: Option<MemorySavePlace>,
 ) -> CommandResult<ScriptSaved> {
-    save(&state, project, &draft, replace, base.as_deref()).await
+    save(&state, project, &draft, replace, base.as_deref(), place).await
 }
 
 async fn save(
@@ -198,6 +205,7 @@ async fn save(
     draft: &ScriptDraft,
     replace: bool,
     base: Option<&str>,
+    place: Option<MemorySavePlace>,
 ) -> CommandResult<ScriptSaved> {
     let project = project_root(state, project).await?;
     let route = state.save_route().await;
@@ -212,6 +220,7 @@ async fn save(
             draft,
             replace,
             base,
+            place,
         )
         .await?)
 }

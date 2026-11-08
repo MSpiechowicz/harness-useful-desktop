@@ -17,10 +17,10 @@ use crate::ecosystem::sidecar_config::{
     remove_config_file, string_value, write_config_file,
 };
 use crate::error::Result;
-use crate::model::{MemoryNotesRouting, MemoryNotesTarget};
+use crate::model::{MemoryNotesRouting, MemoryNotesTarget, MemorySavePlace};
 
 /// The keys Harness Memory reads from the file.
-pub(super) const KNOWN_KEYS: [&str; 11] = [
+pub(super) const KNOWN_KEYS: [&str; 13] = [
     URL_KEY,
     KIND_KEY,
     TOKEN_KEY,
@@ -32,6 +32,8 @@ pub(super) const KNOWN_KEYS: [&str; 11] = [
     TRUST_HOOKS_KEY,
     ROUTINES_KEY,
     TRUST_ROUTINES_KEY,
+    OFFLINE_FALLBACK_KEY,
+    REMOTE_LOCAL_SAVES_KEY,
 ];
 
 /// The memory server's config file.
@@ -48,6 +50,8 @@ const HOOKS_KEY: &str = "hooks";
 const TRUST_HOOKS_KEY: &str = "trust_team_hooks";
 const ROUTINES_KEY: &str = "routines";
 const TRUST_ROUTINES_KEY: &str = "trust_team_routines";
+const OFFLINE_FALLBACK_KEY: &str = "offline_fallback";
+const REMOTE_LOCAL_SAVES_KEY: &str = "remote_local_saves";
 
 /// What the config file holds, and what is wrong with it.
 #[derive(Debug, Default)]
@@ -75,6 +79,12 @@ pub(super) struct ConfigFile {
     pub routines: Option<MemoryNotesTarget>,
     /// `trust_team_routines`, when it is a boolean (unset means false).
     pub trust_team_routines: Option<bool>,
+    /// `offline_fallback`, when it is a boolean (unset means true: the server saves on this
+    /// computer while the team database cannot be reached).
+    pub offline_fallback: Option<bool>,
+    /// `remote_local_saves`, when it is set to `remote` or `local` (unset means remote: agents save
+    /// new entries of a scope routed `remote+local` to the team database).
+    pub remote_local_saves: Option<MemorySavePlace>,
     /// Whether the app may change the file, and the first thing wrong with it.
     pub status: ConfigStatus,
 }
@@ -101,6 +111,8 @@ fn parse_config(table: &Table, status: &mut ConfigStatus) -> ConfigFile {
         trust_team_hooks: bool_value(table, TRUST_HOOKS_KEY, status),
         routines: set_target(table, ROUTINES_KEY, status),
         trust_team_routines: bool_value(table, TRUST_ROUTINES_KEY, status),
+        offline_fallback: bool_value(table, OFFLINE_FALLBACK_KEY, status),
+        remote_local_saves: place_value(table, status),
         status: ConfigStatus::default(),
     }
 }
@@ -121,10 +133,31 @@ fn kind_value(table: &Table, status: &mut ConfigStatus) -> Option<String> {
     Some(kind)
 }
 
+/// `remote_local_saves` when it is set to `remote` or `local`; another value is noted.
+fn place_value(table: &Table, status: &mut ConfigStatus) -> Option<MemorySavePlace> {
+    match table.get(REMOTE_LOCAL_SAVES_KEY)?.as_str() {
+        Some("remote") => Some(MemorySavePlace::Remote),
+        Some("local") => Some(MemorySavePlace::Local),
+        _ => {
+            status.note(format!("{REMOTE_LOCAL_SAVES_KEY} must be \"remote\" or \"local\""));
+            None
+        }
+    }
+}
+
 /// The file's text: the URL, `database_kind` and the token when there are, both note routing
 /// keys, and the `scripts`, `trust_team_scripts`, `hooks`, `trust_team_hooks`, `routines` and
-/// `trust_team_routines` keys when there are.
-pub(super) fn render(url: &str, database_kind: Option<&str>, token: Option<&str>, routing: Routing) -> String {
+/// `trust_team_routines` keys when there are. `offline_fallback` is written only as `false`
+/// (`Some(false)`): the server turns it on unless told otherwise, so `Some(true)` and `None` write
+/// nothing. `remote_local_saves` is written only as `local` (`Some(Local)`): absent means remote.
+pub(super) fn render(
+    url: &str,
+    database_kind: Option<&str>,
+    token: Option<&str>,
+    routing: Routing,
+    offline_fallback: Option<bool>,
+    remote_local_saves: Option<MemorySavePlace>,
+) -> String {
     let mut text = database_text(&MEMORY_SIDECAR, url, database_kind, token);
 
     push_string(&mut text, REPOSITORY_KEY, notes_name(routing.repository_notes));
@@ -156,6 +189,14 @@ pub(super) fn render(url: &str, database_kind: Option<&str>, token: Option<&str>
         if let Some(trust) = trust {
             text.push_str(&format!("{trust_key} = {trust}\n"));
         }
+    }
+
+    if offline_fallback == Some(false) {
+        text.push_str(&format!("{OFFLINE_FALLBACK_KEY} = false\n"));
+    }
+
+    if remote_local_saves == Some(MemorySavePlace::Local) {
+        push_string(&mut text, REMOTE_LOCAL_SAVES_KEY, "local");
     }
 
     text

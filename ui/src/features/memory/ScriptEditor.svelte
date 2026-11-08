@@ -12,7 +12,8 @@
   import type { ScriptDraft } from '$lib/ipc/bindings/ScriptDraft';
   import type { ScriptLanguage } from '$lib/ipc/bindings/ScriptLanguage';
   import type { ScriptSaved } from '$lib/ipc/bindings/ScriptSaved';
-  import { rereadScript, SCRIPT_CHANGED, saveScript } from '$lib/stores/memoryScripts.svelte';
+  import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
+  import { rereadScript, SCRIPT_CHANGED, saveScript, scriptList } from '$lib/stores/memoryScripts.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
@@ -21,11 +22,13 @@
   import { fieldProblems, onOpen } from './editor-fields.svelte';
   import EditorDialog from './EditorDialog.svelte';
   import EditorScope from './EditorScope.svelte';
+  import EditorChangedNotice from './EditorChangedNotice.svelte';
   import EditorNotice from './EditorNotice.svelte';
   import ExistsNotice from './ExistsNotice.svelte';
   import HiddenText from './HiddenText.svelte';
   import { defaultTarget, editProject, offeredProjects, type PinnedProject, pinnedHelp, projectOfTarget, targetLabel, targetOfItem } from './scope-target';
-  import ScriptChangedNotice from './ScriptChangedNotice.svelte';
+  import { OpenedVersion } from './opened-version.svelte';
+  import { SavePlace } from './save-place.svelte';
   import { blankForm, codeChanged, DEFAULT_TIMEOUT_SECS, draftOf, type FieldKey, formOf, LANGUAGES, problemsOf, type ScriptForm, unsupportedLanguage } from './script-form';
   import { languageLabel, needsReview, revealHidden } from './script-format';
 
@@ -46,9 +49,11 @@
     commit?: (draft: ScriptDraft) => Promise<string | null>;
     /** Set for a script an agent holds: the project it is written in, which the Applies to field offers besides Global. */
     pinned?: PinnedProject | null;
+    /** The Save to field of the card the editor was opened from, so the card and the editor keep one value. Without it the editor keeps its own, and starts it again each time it opens. */
+    place?: SavePlace;
   }
 
-  let { open = $bindable(false), script, onsaved, onopen, prefill = null, commit, pinned = null }: Props = $props();
+  let { open = $bindable(false), script, onsaved, onopen, prefill = null, commit, pinned = null, place: shared }: Props = $props();
 
   const FIELDS: readonly FieldKey[] = ['name', 'description', 'body', 'timeout', 'scope'];
 
@@ -64,21 +69,32 @@
   let form = $state<ScriptForm>(blankForm({ kind: 'global' }));
   let saving = $state(false);
   let taken = $state<Taken | null>(null);
-  /** The version of the script the form was filled from: the one opened, or the one the user reloaded. Its hash is what an edit is saved against. */
-  let opened = $state.raw<ScriptDetail | null>(null);
-  /** The last save found the script changed (`changed`) or deleted (`gone`) since `opened` was read. */
-  let stale = $state<'changed' | 'gone' | null>(null);
-  let reloading = $state(false);
+  /** The version of the script the form was filled from. Its hash is what an edit is saved against. */
+  const version = new OpenedVersion<ScriptDetail>();
   let failure = $state<string | null>(null);
 
   const editing = $derived(script !== null);
   // A script that waits for review stays waiting unless its code is changed here, which makes it the user's own.
-  const waiting = $derived(opened !== null && needsReview(opened));
+  const waiting = $derived(version.opened !== null && needsReview(version.opened));
   // A language this version does not know is not edited: saving would have to name another one.
-  const unsupported = $derived(opened ? unsupportedLanguage(opened) : null);
+  const unsupported = $derived(version.opened ? unsupportedLanguage(version.opened) : null);
   const projectPath = $derived(project.active?.path ?? null);
   const projects = $derived(projectScopes.data ?? []);
   const choices = $derived(offeredProjects(pinned, projects));
+
+  // Where a new script goes, for the scope it is kept in: the review card that hands its draft to the caller has no say in it.
+  const ownPlace = new SavePlace(() => {
+    const remote = memoryRemote.value;
+
+    return {
+      adding: !editing && !commit,
+      remote,
+      supported: remote?.savePlaceSupported ?? false,
+      routing: remote?.scripts ?? 'remote',
+      offline: scriptList.data?.offline ?? false,
+    };
+  });
+  const place = $derived(shared ?? ownPlace);
 
   /** What the editor opens on: the script edited, else what an agent wants to save, else a blank script in the scope the view looks at. */
   function startingForm(): ScriptForm {
@@ -93,10 +109,13 @@
   onOpen(
     () => open,
     () => {
-      opened = script;
+      version.open(script);
+      if (!shared) {
+        place.open();
+      }
+
       form = untrack(startingForm);
       taken = null;
-      stale = null;
       failure = null;
     },
   );
@@ -128,11 +147,19 @@
     return form.target.kind === 'repo' ? t('memory.editor.script.scope.repo.hint', { project: targetLabel(projects, form.target, t('components.scope.global')) }) : t('memory.editor.script.scope.global.hint');
   });
 
+  /** Reads the script again and fills the form with it: the edits made on the old version are dropped. */
+  function reload(): Promise<void> {
+    return version.reload(
+      (id) => rereadScript(id, viewState.memoryReach),
+      (latest) => (form = formOf(latest, projects)),
+    );
+  }
+
   /** Writes the script. `replace` overwrites the script that has the name: an edit, or the user's choice on a taken name. */
   async function submit(replace = editing): Promise<void> {
     fields.touchAll(FIELDS);
 
-    if (fields.blocked || saving || unsupported !== null || stale === 'gone') {
+    if (fields.blocked || saving || unsupported !== null || version.stale === 'gone') {
       return;
     }
 
@@ -153,14 +180,21 @@
 
       const target = targetValue(form.target);
       // An edit is saved against the version it opened, never an add, not even one that replaces the script of that name.
-      const saved = await saveScript(script ? editProject(script, projects, projectPath) : projectOfTarget(form.target), draft, replace, editing ? opened?.sha256 : undefined);
+      // The place is for a new script only: replacing the script that has the name keeps the place that script is in.
+      const saved = await saveScript(
+        script ? editProject(script, projects, projectPath) : projectOfTarget(form.target),
+        draft,
+        replace,
+        editing ? version.opened?.sha256 : undefined,
+        replace ? undefined : place.sent,
+      );
 
       if (saved === null) {
         return;
       }
 
       if (saved === SCRIPT_CHANGED) {
-        stale = 'changed';
+        version.stale = 'changed';
 
         return;
       }
@@ -172,32 +206,9 @@
       }
 
       open = false;
-      onsaved?.(saved, draft.name, opened === null || codeChanged(opened.body, draft.body));
+      onsaved?.(saved, draft.name, version.opened === null || codeChanged(version.opened.body, draft.body));
     } finally {
       saving = false;
-    }
-  }
-
-  /** Reads the script again and fills the form with it: the edits made on the old version are dropped. */
-  async function reload(): Promise<void> {
-    if (opened === null || reloading) {
-      return;
-    }
-
-    reloading = true;
-
-    try {
-      const latest = await rereadScript(opened.id, viewState.memoryReach);
-
-      if (latest === 'gone') {
-        stale = 'gone';
-      } else if (latest !== null) {
-        opened = latest;
-        form = formOf(latest, projects);
-        stale = null;
-      }
-    } finally {
-      reloading = false;
     }
   }
 
@@ -215,12 +226,12 @@
   initialFocus={`#${editing ? ids.description : ids.name}`}
   saveLabel={commit ? t('memory.guards.waiting.save') : t(editing ? 'memory.editor.script.save' : 'memory.editor.script.add')}
   {saving}
-  blocked={fields.blocked || unsupported !== null || stale === 'gone'}
+  blocked={fields.blocked || unsupported !== null || version.stale === 'gone'}
   {failure}
   onsubmit={() => void submit()}
 >
-  {#if stale !== null}
-    <ScriptChangedNotice gone={stale === 'gone'} {reloading} onreload={() => void reload()} onclose={() => (open = false)} />
+  {#if version.stale !== null}
+    <EditorChangedNotice gone={version.stale === 'gone'} changedText={t('memory.editor.script.changed')} goneText={t('memory.editor.script.gone')} reloading={version.reloading} onreload={() => void reload()} onclose={() => (open = false)} />
   {/if}
 
   {#if waiting}
@@ -309,7 +320,7 @@
     </div>
   </DocField>
 
-  <EditorScope bind:value={form.target} projects={choices} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing || pinned?.path === null} />
+  <EditorScope bind:value={form.target} projects={choices} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing || pinned?.path === null} {place} />
 
   <EditorNotice level="info" icon={ShieldCheck} body={t(commit ? 'memory.guards.waiting.script.trust' : 'memory.editor.script.trust')} />
 </EditorDialog>

@@ -6,6 +6,7 @@ import type { MemoryChatGuards } from '../bindings/MemoryChatGuards';
 import type { MemoryChatStart } from '../bindings/MemoryChatStart';
 import type { MemoryGuards } from '../bindings/MemoryGuards';
 import type { MemoryGuardsPatch } from '../bindings/MemoryGuardsPatch';
+import type { MemorySavePlace } from '../bindings/MemorySavePlace';
 import { IpcFailure } from '../transport';
 import { PICKED_FOLDER, reheldRevision, SAMPLE_CHAT_KEY, sampleHeld } from './memory-guards-fixtures';
 import type { Handlers } from './types';
@@ -221,7 +222,7 @@ export class MockMemoryGuards {
 
         return structuredClone(this.held.filter((item) => item.chatKey === chatKey));
       },
-      memory_held_save: ({ heldId, edited, revision }) => this.save(heldId, edited, revision),
+      memory_held_save: ({ heldId, edited, revision, place }) => this.save(heldId, edited, revision, place),
       memory_held_skip: ({ heldId, revision }) => {
         this.settle(heldId, revision);
         return null;
@@ -235,9 +236,14 @@ export class MockMemoryGuards {
     };
   }
 
-  private save(heldId: string, edited: JsonValue | null, revision: string | null): HeldSaved {
+  private save(heldId: string, edited: JsonValue | null, revision: string | null, place: MemorySavePlace | null | undefined): HeldSaved {
     if (edited !== null && (typeof edited !== 'object' || Array.isArray(edited))) {
       throw invalid('an edited draft is an object');
+    }
+
+    // Like the server: a held `note_update` keeps its note where it is, so it takes no place (and stays held).
+    if (place && this.held.find((candidate) => candidate.heldId === heldId)?.tool === 'note_update') {
+      throw invalid('a held note_update keeps its note where it is, so it takes no place');
     }
 
     const item = this.settle(heldId, revision);
@@ -248,7 +254,7 @@ export class MockMemoryGuards {
     }
 
     const saved = item.current as { id?: number } | null;
-    return { kind: 'note', id: saved?.id ?? 100 + this.held.length };
+    return { kind: 'note', id: saved?.id ?? 100 + this.held.length, queued: false };
   }
 
   /** Takes held save `heldId` off the list for a save or skip at `revision` (when given): `changed` when the agent held it again since. */

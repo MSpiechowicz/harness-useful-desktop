@@ -237,6 +237,10 @@ pub enum HeldSaved {
         /// The note's id.
         #[ts(type = "number")]
         id: i64,
+        /// True when a held change to a team note was kept on this computer because the team
+        /// database could not be reached, and is applied when it is back. False otherwise.
+        #[serde(default)]
+        queued: bool,
     },
     /// Script `name` (untrusted until the user trusts it).
     Script {

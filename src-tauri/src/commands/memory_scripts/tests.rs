@@ -42,6 +42,7 @@ fn a_project_that_is_not_open_or_recent_is_refused() {
         &draft("open-prs", ScriptScope::Repo),
         false,
         None,
+        None,
     ))
     .expect_err("unknown project");
     assert_eq!(error.code(), IpcErrorCode::Forbidden);
@@ -133,6 +134,7 @@ fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
         &draft("app-script", ScriptScope::Repo),
         false,
         None,
+        None,
     ))
     .expect_err("not installed");
     assert_eq!(error.code(), IpcErrorCode::NotFound);
@@ -147,6 +149,7 @@ fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
         &draft("app-script", ScriptScope::Repo),
         false,
         None,
+        None,
     ))
     .expect("created");
     assert_eq!(created.outcome, ScriptSaveOutcome::Created);
@@ -158,6 +161,7 @@ fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
         path_arg(project),
         &draft("open-prs", ScriptScope::Repo),
         false,
+        None,
         None,
     ))
     .expect("refused");
@@ -171,6 +175,7 @@ fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
         path_arg(project),
         &draft("open-prs", ScriptScope::Global),
         false,
+        None,
         None,
     ))
     .expect("another scope");
@@ -186,6 +191,7 @@ fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
         &draft("open-prs", ScriptScope::Repo),
         true,
         None,
+        None,
     ))
     .expect("replaced");
     assert_eq!((replaced.outcome, replaced.id), (ScriptSaveOutcome::Replaced, 12));
@@ -197,6 +203,7 @@ fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
         &draft("release-notes", ScriptScope::Global),
         true,
         None,
+        None,
     ))
     .expect("replaced");
     assert_eq!(
@@ -205,8 +212,15 @@ fn the_installed_server_saves_a_script_and_replaces_one_only_when_asked() {
         "other code over a script waiting for approval is the user's, and the server trusts it as saved here"
     );
 
-    let error = block_on(save(state, None, &draft("app-script", ScriptScope::Repo), false, None))
-        .expect_err("a repository script needs a project");
+    let error = block_on(save(
+        state,
+        None,
+        &draft("app-script", ScriptScope::Repo),
+        false,
+        None,
+        None,
+    ))
+    .expect_err("a repository script needs a project");
     assert_eq!(error.code(), IpcErrorCode::InvalidInput);
 
     block_on(state.memory_scripts.shutdown());

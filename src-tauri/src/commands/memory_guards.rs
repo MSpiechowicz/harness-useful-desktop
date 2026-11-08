@@ -13,7 +13,7 @@ use harness_business::ecosystem::{
 };
 use harness_business::model::{
     AppPrefs, HeldItem, HeldSaved, MemoryChatGuards, MemoryChatGuardsSet, MemoryGuards, MemoryGuardsPatch,
-    MemoryHeldEvent,
+    MemoryHeldEvent, MemorySavePlace,
 };
 use harness_business::{BusinessError, Result};
 use serde_json::Value;
@@ -113,22 +113,27 @@ pub async fn memory_held_list(state: State<'_, AppState>, chat_key: String) -> C
 /// script that waits for the user's trust before it runs. With `revision` (the one the user
 /// reviewed) it saves only that version. `notFound` when it is gone, `conflict` when the note it
 /// changes was deleted (it stays held), `changed` when the agent held it again since the user saw
-/// `revision` (it stays held, newer), `invalidInput` for a draft the server refuses.
+/// `revision` (it stays held, newer), `invalidInput` for a draft the server refuses. `place`
+/// (`remote` or `local`) saves a held `note_save` or `script_save` to that side while its scope is
+/// routed to "Remote + this computer": `unsupported` (nothing runs) while the server does not list
+/// `held-save-place`, `invalidInput` for a held `note_update`, which keeps its note where it is.
 #[tauri::command]
 pub async fn memory_held_save(
     state: State<'_, AppState>,
     held_id: String,
     edited: Option<Value>,
     revision: Option<String>,
+    place: Option<MemorySavePlace>,
 ) -> CommandResult<HeldSaved> {
     let server = server(&state).await?;
     let save = HeldSave {
         held_id: &held_id,
         revision: revision.as_deref(),
         edited: edited.as_ref(),
+        place,
     };
 
-    Ok(save_held(&state.env, &state.runner, &server, save).await?)
+    Ok(save_held(&state.env, &state.runner, &state.memory_features, &server, save).await?)
 }
 
 /// Drops held save `held_id` without saving it. With `revision` (the one the user reviewed) it

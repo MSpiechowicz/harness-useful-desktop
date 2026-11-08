@@ -21,8 +21,8 @@ export interface LocalHoldings {
 /**
  * What one scope's change does to what the user sees.
  * - `hideTeam`: the remote entries of the scope stop showing on this computer. They stay in the remote database.
- * - `showTeam`: the remote entries appear, read-only, and new ones are still saved here.
- * - `saveHere`: nothing is hidden. New ones are saved on this computer and the remote ones become read-only here.
+ * - `showTeam`: the remote entries appear. Where new ones go follows the "save to" setting.
+ * - `saveHere`: nothing is hidden. The entries saved on this computer show as well, and where new ones go follows the "save to" setting.
  * - `hideLocal`: the entries saved on this computer stop showing (`count` of them, null when not known). Copying them to the remote database comes next.
  */
 export type RoutingEffectKind = 'hideTeam' | 'showTeam' | 'saveHere' | 'hideLocal';

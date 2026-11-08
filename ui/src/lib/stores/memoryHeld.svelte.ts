@@ -1,11 +1,21 @@
 import { heldSummary, heldTitle } from '$lib/chat/memory-held';
 import { t } from '$lib/i18n/i18n.svelte';
+import type { MessageKey } from '$lib/i18n/locales/en';
 import type { HeldItem } from '$lib/ipc/bindings/HeldItem';
+import type { HeldSaved } from '$lib/ipc/bindings/HeldSaved';
+import type { MemorySavePlace } from '$lib/ipc/bindings/MemorySavePlace';
 import type { JsonValue } from '$lib/ipc/bindings/serde_json/JsonValue';
 import { ipc } from '$lib/ipc/client';
 import { IpcFailure, type Transport } from '$lib/ipc/transport';
 
 import { toasts, type ToastsStore } from './toasts.svelte';
+
+/** A waiting save that was saved, whether the remote was unreachable so the change waits on this computer, and where a new entry went when the answer says. */
+interface SavedItem {
+  item: HeldItem;
+  queued: boolean;
+  place: MemorySavePlace | null;
+}
 
 /**
  * The saves agents made while "Ask before saving" was on, waiting for the user, of every chat (Harness Memory keeps them
@@ -92,25 +102,31 @@ export class MemoryHeldStore {
 
   /**
    * Saves a waiting save as the agent sent it, or with the user's `edited` draft. True when it was saved. `revision` is the version the
-   * user saw (the item's own unless an editor was opened on an earlier one): the backend saves only that.
+   * user saw (the item's own unless an editor was opened on an earlier one): the backend saves only that. `place` is sent only while the card
+   * shows its Save to field (a new entry of a scope kept in "Remote + this computer"): left out, the server decides.
    */
-  async save(item: HeldItem, edited: JsonValue | null = null, revision: string | null = item.revision): Promise<boolean> {
-    const saved = await this.write(item, edited, revision);
+  async save(item: HeldItem, edited: JsonValue | null = null, revision: string | null = item.revision, place?: MemorySavePlace): Promise<boolean> {
+    const saved = await this.write(item, edited, revision, place);
 
     if (saved) {
-      this.announceSaved([item]);
+      this.announceSaved([saved]);
     }
 
-    return saved;
+    return saved !== null;
   }
 
-  /** Saves these one after the other, so a failure on one does not hide the rest, and says so with one toast for what was saved. */
-  async saveAll(items: readonly HeldItem[]): Promise<void> {
-    const saved: HeldItem[] = [];
+  /**
+   * Saves these one after the other, so a failure on one does not hide the rest, and says so with one toast for what was saved. `placeOf` says
+   * where each one goes: the choice of its own card, or nothing where its card shows no choice.
+   */
+  async saveAll(items: readonly HeldItem[], placeOf: (item: HeldItem) => MemorySavePlace | undefined = () => undefined): Promise<void> {
+    const saved: SavedItem[] = [];
 
     for (const item of items) {
-      if (await this.write(item, null, item.revision)) {
-        saved.push(item);
+      const written = await this.write(item, null, item.revision, placeOf(item));
+
+      if (written) {
+        saved.push(written);
       }
     }
 
@@ -119,7 +135,7 @@ export class MemoryHeldStore {
 
   /** Drops a waiting save without saving anything, when it is still the version the user saw. True when it was dropped. */
   async skip(item: HeldItem, revision: string | null = item.revision): Promise<boolean> {
-    const skipped = await this.act(item, () => this.transport.invoke('memory_held_skip', { heldId: item.heldId, revision }));
+    const skipped = (await this.act(item, () => this.transport.invoke('memory_held_skip', { heldId: item.heldId, revision }))) !== null;
 
     if (skipped) {
       this.notifications.push({ title: t(item.kind === 'note' ? 'memory.guards.toast.skippedNote' : 'memory.guards.toast.skippedScript'), description: heldTitle(item) });
@@ -133,23 +149,27 @@ export class MemoryHeldStore {
     this.failures = { ...this.failures, [heldId]: t('memory.guards.waiting.changed') };
   }
 
-  private write(item: HeldItem, edited: JsonValue | null, revision: string | null): Promise<boolean> {
-    return this.act(item, () => this.transport.invoke('memory_held_save', { heldId: item.heldId, edited, revision }));
+  /** What was saved, or null when it was not. */
+  private async write(item: HeldItem, edited: JsonValue | null, revision: string | null, place?: MemorySavePlace): Promise<SavedItem | null> {
+    const saved = await this.act(item, () => this.transport.invoke('memory_held_save', { heldId: item.heldId, edited, revision, ...(place === undefined ? {} : { place }) }));
+
+    return saved === null ? null : { item, queued: queuedBy(saved.value), place: placeBy(saved.value) };
   }
 
-  private async act(item: HeldItem, run: () => Promise<unknown>): Promise<boolean> {
+  /** Runs what the user did with a waiting save: what it answered, or null when it failed (the reason is kept for the item). */
+  private async act<T>(item: HeldItem, run: () => Promise<T>): Promise<{ value: T } | null> {
     this.mark(item.heldId, true);
     this.forgetFailure(item.heldId);
 
     try {
-      await run();
+      const value = await run();
       this.items = this.items.filter((other) => other.heldId !== item.heldId);
 
-      return true;
+      return { value };
     } catch (error) {
       this.explain(item, error);
 
-      return false;
+      return null;
     } finally {
       this.mark(item.heldId, false);
 
@@ -177,14 +197,28 @@ export class MemoryHeldStore {
     this.failures = { ...this.failures, [item.heldId]: reason };
   }
 
-  /** One toast for what was saved at once: one item by its title, more by how many. */
-  private announceSaved(saved: readonly HeldItem[]): void {
-    if (saved.length === 1) {
-      const [item] = saved;
+  /**
+   * One toast for what was saved at once: one item by its title, more by how many. A change kept on this computer while the remote is unreachable
+   * is not saved yet: it has its own toast, which says it is applied when the remote is back.
+   */
+  private announceSaved(saved: readonly SavedItem[]): void {
+    const queued = saved.filter((entry) => entry.queued).map((entry) => entry.item);
+    const done = saved.filter((entry) => !entry.queued).map((entry) => entry.item);
 
-      this.notifications.push({ title: t(item.kind === 'note' ? 'memory.guards.toast.savedNote' : 'memory.guards.toast.savedScript'), description: heldTitle(item), tone: 'success' });
-    } else if (saved.length > 1) {
-      this.notifications.push({ title: t('memory.guards.toast.savedAll'), description: heldSummary(saved), tone: 'success' });
+    if (done.length === 1) {
+      const [item] = done;
+
+      this.notifications.push({ title: t(savedTitle(item, saved.find((entry) => entry.item === item)?.place ?? null)), description: heldTitle(item), tone: 'success' });
+    } else if (done.length > 1) {
+      this.notifications.push({ title: t('memory.guards.toast.savedAll'), description: heldSummary(done), tone: 'success' });
+    }
+
+    if (queued.length > 0) {
+      this.notifications.push({
+        title: t('memory.sync.queued.title'),
+        description: queued.length === 1 ? t('memory.sync.queued.body', { title: heldTitle(queued[0]) }) : t('memory.sync.queued.bodyMany', { items: heldSummary(queued) }),
+        tone: 'warning',
+      });
     }
   }
 
@@ -207,6 +241,35 @@ export class MemoryHeldStore {
 
     this.busy = next;
   }
+}
+
+/** Where the answer says a new entry went. Null for an answer that does not say, or an update. */
+function placeBy(saved: HeldSaved | null | undefined): MemorySavePlace | null {
+  if (!saved || !('place' in saved)) {
+    return null;
+  }
+
+  return saved.place === 'remote' || saved.place === 'local' ? saved.place : null;
+}
+
+/** The toast title of a saved item: it says where it went when the answer tells. */
+function savedTitle(item: HeldItem, place: MemorySavePlace | null): MessageKey {
+  const note = item.kind === 'note';
+
+  if (place === null) {
+    return note ? 'memory.guards.toast.savedNote' : 'memory.guards.toast.savedScript';
+  }
+
+  if (note) {
+    return place === 'remote' ? 'memory.guards.toast.savedNote.remote' : 'memory.guards.toast.savedNote.local';
+  }
+
+  return place === 'remote' ? 'memory.guards.toast.savedScript.remote' : 'memory.guards.toast.savedScript.local';
+}
+
+/** Whether the answer says the change to a team note was kept on this computer, to be applied when the remote is back. A script is never queued. */
+function queuedBy(saved: HeldSaved | null | undefined): boolean {
+  return saved?.kind === 'note' && saved.queued === true;
 }
 
 export const memoryHeld = new MemoryHeldStore(ipc, toasts);

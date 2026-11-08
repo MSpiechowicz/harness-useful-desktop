@@ -92,6 +92,27 @@ describe('saving a waiting save', () => {
 
     expect(backend.of('memory_held_save')).toEqual([{ heldId: HELD_NOTE_SAVE_ID, edited: { title: 'Edited' }, revision: item.revision }]);
   });
+
+  it('keeps the item and shows the server’s reason when it refuses an edited draft of an update it could not read', async () => {
+    const reason = 'The note cannot be read while the remote is unreachable, so it can only be saved as it is.';
+    const transport: Transport = {
+      async invoke(name) {
+        if (name === 'memory_held_save') {
+          throw new IpcFailure({ code: 'process', message: reason });
+        }
+
+        return null;
+      },
+    };
+    const store = new MemoryHeldStore(transport, QUIET);
+    const item = sampleHeld(FIRST).find((held) => held.heldId === HELD_NOTE_UPDATE_ID)!;
+    store.items = [item];
+
+    expect(await store.save(item, { title: 'Edited', body: 'Only the appended text' })).toBe(false);
+
+    expect(store.items.map((held) => held.heldId)).toContain(HELD_NOTE_UPDATE_ID);
+    expect(store.failures[HELD_NOTE_UPDATE_ID]).toBe(reason);
+  });
 });
 
 describe('skipping a waiting save', () => {
@@ -294,5 +315,45 @@ describe('what the user is told about a waiting save', () => {
     await store.save(held('note'));
 
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe('what the user is told about a change kept while the remote is unreachable', () => {
+  /** A backend that saves each item, and says the notes it saved are kept on this computer while the remote cannot be reached. */
+  function queuing(): Transport {
+    return { invoke: async (name) => (name === 'memory_held_save' ? { kind: 'note', id: 3, queued: true } : name === 'memory_held_list' ? [] : null) as never };
+  }
+
+  const note = () => sampleHeld(FIRST).find((item) => item.kind === 'note')!;
+
+  it('says it is saved on this computer and applied when the remote is back, not that the note was saved', async () => {
+    const push = vi.fn(() => 0);
+    const store = new MemoryHeldStore(queuing(), { push });
+    const item = note();
+
+    expect(await store.save(item)).toBe(true);
+
+    expect(push).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ title: 'Saved on this computer', description: expect.stringContaining(heldTitle(item)), tone: 'warning' }));
+  });
+
+  it('keeps Save all to one toast for what was saved and one for what waits for the remote', async () => {
+    const push = vi.fn(() => 0);
+    const [first, second] = sampleHeld(FIRST).filter((item) => item.kind === 'note');
+    const transport: Transport = {
+      invoke: async (name, args) => {
+        if (name === 'memory_held_save') {
+          return { kind: 'note', id: 3, queued: (args as { heldId: string }).heldId === first.heldId } as never;
+        }
+
+        return (name === 'memory_held_list' ? [] : null) as never;
+      },
+    };
+    const store = new MemoryHeldStore(transport, { push });
+
+    await store.saveAll([first, second]);
+
+    expect(push).toHaveBeenCalledTimes(2);
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ title: 'Note saved', description: heldTitle(second), tone: 'success' }));
+    expect(push).toHaveBeenCalledWith(expect.objectContaining({ title: 'Saved on this computer', description: expect.stringContaining(heldTitle(first)), tone: 'warning' }));
   });
 });

@@ -13,19 +13,23 @@
   import type { NoteDraft } from '$lib/ipc/bindings/NoteDraft';
   import type { NoteLink } from '$lib/ipc/bindings/NoteLink';
   import type { NoteSaved } from '$lib/ipc/bindings/NoteSaved';
-  import { saveNote } from '$lib/stores/memoryNotes.svelte';
+  import { NOTE_CHANGED, noteList, rereadNote, saveNote } from '$lib/stores/memoryNotes.svelte';
+  import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
   import { project } from '$lib/stores/project.svelte';
   import { projectScopes } from '$lib/stores/project-scopes.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { uid } from '$lib/utils/ids';
 
   import { fieldProblems, onOpen } from './editor-fields.svelte';
+  import EditorChangedNotice from './EditorChangedNotice.svelte';
   import EditorDialog from './EditorDialog.svelte';
   import EditorScope from './EditorScope.svelte';
   import ExistsNotice from './ExistsNotice.svelte';
   import { KIND_LABELS, NOTE_KINDS } from './note-format';
   import NoteLinks from './NoteLinks.svelte';
+  import { OpenedVersion } from './opened-version.svelte';
   import { defaultTarget, editProject, offeredProjects, type PinnedProject, pinnedHelp, projectOfTarget, targetLabel, targetOfItem } from './scope-target';
+  import { SavePlace } from './save-place.svelte';
   import { spelledOut } from './script-format';
   import {
     blankForm,
@@ -62,9 +66,13 @@
     commit?: (draft: NoteDraft) => Promise<string | null>;
     /** Set for a note an agent holds: the project it is written in, which the Applies to field offers besides Global. */
     pinned?: PinnedProject | null;
+    /** The Save to field of the card the editor was opened from, so the card and the editor keep one value. Without it the editor keeps its own, and starts it again each time it opens. */
+    place?: SavePlace;
+    /** Says the scope the draft applies to, while the editor is open: the card of a held note follows it. */
+    onscope?: (scope: 'repo' | 'global') => void;
   }
 
-  let { open = $bindable(false), note, links, onsaved, onopen, prefill = null, commit, pinned = null }: Props = $props();
+  let { open = $bindable(false), note, links, onsaved, onopen, prefill = null, commit, pinned = null, place: shared, onscope }: Props = $props();
 
   const FIELDS: readonly FieldKey[] = ['title', 'body', 'tags', 'entities', 'scope'];
 
@@ -80,12 +88,28 @@
   let form = $state<NoteForm>(blankForm({ kind: 'global' }));
   let saving = $state(false);
   let taken = $state<Taken | null>(null);
+  /** The version of the note the form was filled from. Its revision is what an edit is saved against. */
+  const version = new OpenedVersion<NoteContent>();
   let failure = $state<string | null>(null);
 
   const editing = $derived(note !== null);
   const projectPath = $derived(project.active?.path ?? null);
   const projects = $derived(projectScopes.data ?? []);
   const choices = $derived(offeredProjects(pinned, projects));
+
+  // Where a new note goes, for the scope it is kept in: the review card that hands its draft to the caller has no say in it.
+  const ownPlace = new SavePlace(() => {
+    const remote = memoryRemote.value;
+
+    return {
+      adding: !editing && !commit,
+      remote,
+      supported: remote?.savePlaceSupported ?? false,
+      routing: (form.target.kind === 'repo' ? remote?.repositoryNotes : remote?.globalNotes) ?? 'remote',
+      offline: noteList.data?.offline ?? false,
+    };
+  });
+  const place = $derived(shared ?? ownPlace);
 
   const fields = fieldProblems(() => problemsOf(form, { editing }), () => open);
 
@@ -102,11 +126,22 @@
   onOpen(
     () => open,
     () => {
+      version.open(note);
+      if (!shared) {
+        place.open();
+      }
+
       form = untrack(startingForm);
       taken = null;
       failure = null;
     },
   );
+
+  $effect(() => {
+    if (open) {
+      onscope?.(form.target.kind);
+    }
+  });
 
   // An item that exists keeps its scope, but the project it is shown as may be known only after the editor opened (the projects load on their own).
   $effect(() => {
@@ -149,11 +184,19 @@
     return used >= max * 0.75 ? t('memory.editor.counter', { used, max }) : undefined;
   }
 
+  /** Reads the note again and fills the form with it: the edits made on the old version are dropped. */
+  function reload(): Promise<void> {
+    return version.reload(
+      (id) => rereadNote(id, viewState.memoryReach),
+      (latest) => (form = formOf(latest, projects)),
+    );
+  }
+
   /** Writes the note. `replaceId` is the note that has the title, when the user chose to replace it. */
   async function submit(replaceId?: number): Promise<void> {
     fields.touchAll(FIELDS);
 
-    if (fields.blocked || saving) {
+    if (fields.blocked || saving || version.stale === 'gone') {
       return;
     }
 
@@ -174,9 +217,23 @@
       }
 
       const target = targetValue(form.target);
-      const saved = await saveNote(note ? editProject(note, projects, projectPath) : projectOfTarget(form.target), draft, replaceId ?? note?.id);
+      // An edit is saved against the revision it opened, never an add, not even one that replaces the note of that title.
+      // The place is for a new note only: replacing the note that has the title keeps the place that note is in.
+      const saved = await saveNote(
+        note ? editProject(note, projects, projectPath) : projectOfTarget(form.target),
+        draft,
+        replaceId ?? note?.id,
+        editing ? version.opened?.revision : undefined,
+        replaceId === undefined ? place.sent : undefined,
+      );
 
       if (saved === null) {
+        return;
+      }
+
+      if (saved === NOTE_CHANGED) {
+        version.stale = 'changed';
+
         return;
       }
 
@@ -213,10 +270,14 @@
   initialFocus={`#${ids.title}`}
   saveLabel={commit ? t('memory.guards.waiting.save') : t(editing ? 'memory.editor.note.save' : 'memory.editor.note.add')}
   {saving}
-  blocked={fields.blocked}
+  blocked={fields.blocked || version.stale === 'gone'}
   {failure}
   onsubmit={() => void submit()}
 >
+  {#if version.stale !== null}
+    <EditorChangedNotice gone={version.stale === 'gone'} changedText={t('memory.editor.note.changed')} goneText={t('memory.editor.note.gone')} reloading={version.reloading} onreload={() => void reload()} onclose={() => (open = false)} />
+  {/if}
+
   <DocField label={t('memory.editor.note.field.title')} for={ids.title} aside={counter(form.title, LIMITS.title)} error={fields.messageOf('title')}>
     <input
       id={ids.title}
@@ -313,5 +374,5 @@
     </DocField>
   {/if}
 
-  <EditorScope bind:value={form.target} projects={choices} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing || pinned?.path === null} />
+  <EditorScope bind:value={form.target} projects={choices} id={ids.scope} error={fields.messageOf('scope')} help={scopeHelp} fixed={editing || pinned?.path === null} {place} />
 </EditorDialog>

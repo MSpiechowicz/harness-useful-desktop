@@ -13,7 +13,7 @@
 //! itself does not connect to the database.
 
 use harness_business::ecosystem::{KindsSupport, MemoryRemoteChange, MemorySupport};
-use harness_business::model::{MemoryNotesRouting, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest};
+use harness_business::model::{MemoryNotesRouting, MemoryRemote, MemoryRemoteKind, MemoryRemoteTest, MemorySavePlace};
 use tauri::State;
 use tauri::async_runtime::block_on;
 
@@ -56,7 +56,12 @@ async fn support(state: &AppState) -> MemorySupport {
 /// `trustTeamHooks` (only while hooks are shared) are saved only while the installed server keeps
 /// team hooks; null keeps the saved choice. `shareRoutines` (`routines = "remote"`) and
 /// `trustTeamRoutines` (only while routines are shared) likewise, while the server keeps team
-/// routines. When the server cannot be asked, the saved keys are kept as they are. `kind`
+/// routines. `offlineFallback` (`offline_fallback`, on unless saved as `false`; null keeps the
+/// saved choice) is saved only as `false`, and only while the installed server lists
+/// `offline-fallback`. `remoteLocalSaves` (`remote_local_saves`: where agents save new notes and
+/// scripts of a scope routed to "Remote + this computer", remote when the key is absent; null keeps
+/// the saved choice) is saved only as `local`, and only while the installed server lists
+/// `remote-local-saves`. When the server cannot be asked, the saved keys are kept as they are. `kind`
 /// `documentdb` is saved as `database_kind = "documentdb"` and refused (`unsupported`) unless the
 /// installed server lists it in `harness-memory kinds`. `mongodb` at a host the server would take
 /// for Amazon DocumentDB is saved as `database_kind = "mongodb"` while the server lists it.
@@ -83,6 +88,8 @@ pub async fn memory_remote_set(
     trust_team_hooks: Option<bool>,
     share_routines: Option<bool>,
     trust_team_routines: Option<bool>,
+    offline_fallback: Option<bool>,
+    remote_local_saves: Option<MemorySavePlace>,
 ) -> CommandResult<MemoryRemote> {
     let change = MemoryRemoteChange {
         enabled,
@@ -97,6 +104,8 @@ pub async fn memory_remote_set(
         trust_team_hooks,
         share_routines,
         trust_team_routines,
+        offline_fallback,
+        remote_local_saves,
     };
 
     set(&state, change).await

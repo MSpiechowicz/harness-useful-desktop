@@ -10,6 +10,19 @@ use ts_rs::TS;
 use super::memory_notes::NoteKind;
 use super::memory_scripts::{ScriptScope, ScriptSummary};
 
+/// Where a new note or script goes while its scope is routed to "Remote + this computer"
+/// (`place` of `memory_note_save` and `memory_script_save`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub enum MemorySavePlace {
+    /// The team database.
+    #[default]
+    Remote,
+    /// This computer.
+    Local,
+}
+
 /// A note to create, or the new fields of one to edit (`memory_note_save`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -58,6 +71,15 @@ pub struct NoteSaved {
     /// answer does not say.
     #[ts(type = "number | null")]
     pub id: Option<i64>,
+    /// True when the change was kept on this computer because the team database could not be
+    /// reached, and is applied when it is back (a change to a team note, with the offline queue).
+    /// False otherwise, also from a server that does not say.
+    #[serde(default)]
+    pub queued: bool,
+    /// Where a new note went when the server says (a scope routed to "Remote + this computer" and
+    /// a save that named a `place`); `None` otherwise.
+    #[serde(default)]
+    pub place: Option<MemorySavePlace>,
 }
 
 /// The interpreters Harness Memory runs a script with.
@@ -124,4 +146,8 @@ pub struct ScriptSaved {
     pub id: i64,
     /// The script as saved; `None` for `exists`.
     pub script: Option<ScriptSummary>,
+    /// Where a new script went when the server says (a scope routed to "Remote + this computer"
+    /// and a save that named a `place`); `None` otherwise.
+    #[serde(default)]
+    pub place: Option<MemorySavePlace>,
 }

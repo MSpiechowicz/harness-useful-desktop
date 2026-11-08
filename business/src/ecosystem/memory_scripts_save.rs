@@ -38,6 +38,15 @@
 //! trusts it as `script_save` does; the script is then read again with `script_get` and approved
 //! as above.
 //!
+//! A new script may name where it goes (`place`, `remote` or `local`) while its scope is routed to
+//! "Remote + this computer": a server that lists `save-place` ([`SaveRoute::places`]) takes
+//! `scripts save --place`, and answers where the script went ([`ScriptSaved::place`]). A `place`
+//! for an edit or a replace is `invalidInput`, and one the server cannot take (no `save-place`,
+//! or the MCP route) is `unsupported`: nothing runs. A team database that cannot be reached fails
+//! the save with the server's (redacted) text and nothing is saved on either side. A script saved
+//! to a named place that is not found again (one saved to the team database is read-only here) is
+//! answered with the id the server gave and no script.
+//!
 //! The draft is checked against the server's limits first, and a repository script needs a
 //! project (`invalidInput`). Neither the description nor the body is logged.
 
@@ -50,12 +59,12 @@ use super::memory_cli::Repos;
 use super::memory_hidden::entry_server;
 use super::memory_scripts::{MemoryScripts, SCRIPT_GET_TOOL, parse, tool_error_text, with_project};
 use super::memory_trust::{script_sha256, trust_scripts};
-use super::memory_user_save::{SaveRoute, save_script_cli};
+use super::memory_user_save::{SaveRoute, answered_place, save_script_cli};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
 use crate::model::{
-    MemoryCopyKind, ScriptApproval, ScriptDetail, ScriptDraft, ScriptSaveOutcome, ScriptSaved, ScriptScope,
-    ScriptSummary, ScriptTrustItem,
+    MemoryCopyKind, MemorySavePlace, ScriptApproval, ScriptDetail, ScriptDraft, ScriptSaveOutcome, ScriptSaved,
+    ScriptScope, ScriptSummary, ScriptTrustItem,
 };
 use crate::process::ProcessRunner;
 
@@ -85,7 +94,8 @@ impl MemoryScripts {
     /// `process` with the server's (redacted) text when it refuses.
     /// A saved script the server answers `needed` for is approved with `runner` (see the module
     /// docs); failing that, it is still saved and answered as the server did. `route`
-    /// [`SaveRoute::Cli`] saves through `scripts save` (see the module docs).
+    /// [`SaveRoute::Cli`] saves through `scripts save` (see the module docs). `place` names where a
+    /// new script goes, and is refused for a `replace`.
     #[expect(
         clippy::too_many_arguments,
         reason = "one argument per part of the request, as the IPC command takes them"
@@ -99,8 +109,10 @@ impl MemoryScripts {
         draft: &ScriptDraft,
         replace: bool,
         base: Option<&str>,
+        place: Option<MemorySavePlace>,
     ) -> Result<ScriptSaved> {
         let mut fields = checked(draft, project)?;
+        let place = route.place_for(place, replace || base.is_some())?;
         let existing = self.existing(env, project, &fields).await?;
 
         if let Some(base) = base {
@@ -127,17 +139,17 @@ impl MemoryScripts {
                 outcome: ScriptSaveOutcome::Exists,
                 id: script.summary.id,
                 script: None,
+                place: None,
             });
         }
 
-        let saved = match route {
-            SaveRoute::Mcp => {
-                let output = self
-                    .call_tool(env, SCRIPT_SAVE_TOOL, with_project(fields, project))
-                    .await?;
-                saved_from(&output)?
-            }
-            SaveRoute::Cli => self.save_through_cli(env, runner, project, fields).await?,
+        let saved = if route.through_cli() {
+            self.save_through_cli(env, runner, project, fields, place).await?
+        } else {
+            let output = self
+                .call_tool(env, SCRIPT_SAVE_TOOL, with_project(fields, project))
+                .await?;
+            saved_from(&output)?
         };
         tracing::info!(id = saved.id, outcome = ?saved.outcome, "memory script saved");
 
@@ -203,19 +215,15 @@ impl MemoryScripts {
         runner: &dyn ProcessRunner,
         project: Option<&Path>,
         fields: Map<String, Value>,
+        place: Option<MemorySavePlace>,
     ) -> Result<ScriptSaved> {
         let server = entry_server(env, self, MemoryCopyKind::Scripts).await?;
-        let answer = save_script_cli(env, runner, &server, project, fields.clone()).await?;
+        let answer = save_script_cli(env, runner, &server, project, fields.clone(), place).await?;
+        let answered = answered_place(&answer);
 
         let Some(created) = answer.get("created").and_then(Value::as_bool) else {
             return Err(BusinessError::Protocol(
                 "harness-memory scripts save answered without `created`".to_owned(),
-            ));
-        };
-
-        let Some(script) = self.existing(env, project, &fields).await? else {
-            return Err(BusinessError::Protocol(
-                "the saved script cannot be read again".to_owned(),
             ));
         };
 
@@ -225,10 +233,30 @@ impl MemoryScripts {
             ScriptSaveOutcome::Replaced
         };
 
+        let Some(script) = self.existing(env, project, &fields).await? else {
+            // A script saved to the team database is read-only here, so it is not found again: when a
+            // place was named, the server's answer is all there is to report.
+            if let Some(id) = answer.get("id").and_then(Value::as_i64)
+                && answered.or(place).is_some()
+            {
+                return Ok(ScriptSaved {
+                    outcome,
+                    id,
+                    script: None,
+                    place: answered,
+                });
+            }
+
+            return Err(BusinessError::Protocol(
+                "the saved script cannot be read again".to_owned(),
+            ));
+        };
+
         Ok(ScriptSaved {
             outcome,
             id: script.summary.id,
             script: Some(script.summary),
+            place: answered,
         })
     }
 
@@ -455,6 +483,7 @@ fn saved_from(output: &ToolOutput) -> Result<ScriptSaved> {
         outcome,
         id: script.id,
         script: Some(script),
+        place: None,
     })
 }
 

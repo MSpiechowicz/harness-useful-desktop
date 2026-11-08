@@ -17,7 +17,7 @@ import SettingsView from './SettingsView.svelte';
 const CHANGE = 'Change where memory is kept?';
 
 /** A backend that keeps the settings in memory and counts the notes and scripts saved on this computer, the way a server with a remote database does. */
-function fakeBackend(initial: Partial<MemoryRemote> = {}, localCounts = { repo: 0, global: 0 }, scriptCounts = { repo: 0, global: 0 }) {
+function fakeBackend(initial: Partial<MemoryRemote> = {}, localCounts = { repo: 0, global: 0 }, scriptCounts = { repo: 0, global: 0 }, offline = false) {
   let state = {
     enabled: true,
     kind: 'postgres',
@@ -40,10 +40,14 @@ function fakeBackend(initial: Partial<MemoryRemote> = {}, localCounts = { repo: 
     documentdbSupported: true,
     teamAndLocalSupported: true,
     scriptsTeamAndLocalSupported: true,
+    offlineFallback: true,
+    offlineFallbackSupported: true,
+    notesSyncSupported: true,
+    scriptsSyncSupported: true,
     ...initial,
   } as MemoryRemote;
-  const page = { availability: { kind: 'available' }, total: 0, kinds: [], scopes: null, places: null, authors: null, combinedFilters: true, notes: [], hiddenCount: null, localCounts, offline: false, cachedAt: null } as MemoryNotesPage;
-  const scriptsPage = { availability: { kind: 'available' }, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, authors: null, combinedFilters: true, scripts: [], hiddenCount: null, localCounts: scriptCounts, offline: false, cachedAt: null } as MemoryScriptsPage;
+  const page = { availability: { kind: 'available' }, total: 0, kinds: [], scopes: null, places: null, authors: null, combinedFilters: true, notes: [], hiddenCount: null, localCounts, offline, cachedAt: null } as MemoryNotesPage;
+  const scriptsPage = { availability: { kind: 'available' }, total: 0, groups: { needsReview: 0, repo: 0, global: 0 }, scopes: null, review: null, places: null, authors: null, combinedFilters: true, scripts: [], hiddenCount: null, localCounts: scriptCounts, offline, cachedAt: null } as MemoryScriptsPage;
   const passthrough = ipc.invoke.bind(ipc);
 
   return vi.spyOn(ipc, 'invoke').mockImplementation(async <K extends CommandName>(name: K, args: CommandArgs<K>) => {
@@ -130,7 +134,7 @@ describe('The third place for notes, team plus this computer', () => {
       expect(radios[2]).toBeEnabled();
     }
 
-    expect(screen.queryByText('Update Harness Memory to read remote notes and save new ones on this computer.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Update Harness Memory to read remote notes together with the ones on this computer.')).not.toBeInTheDocument();
   });
 
   it('is greyed out with an inline update while the installed Harness Memory cannot do it, and the other places still work', async () => {
@@ -142,7 +146,7 @@ describe('The third place for notes, team plus this computer', () => {
     expect(within(repository).getByRole('radio', { name: 'Remote + this computer' })).toBeDisabled();
     expect(within(screen.getByRole('radiogroup', { name: 'Global notes' })).getByRole('radio', { name: 'Remote + this computer' })).toBeDisabled();
     expect(within(repository).getByRole('radio', { name: 'This computer' })).toBeEnabled();
-    expect(screen.getByText('Update Harness Memory to read remote notes and save new ones on this computer.')).toBeInTheDocument();
+    expect(screen.getByText('Update Harness Memory to read remote notes together with the ones on this computer.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Update Harness Memory' })).toBeEnabled();
   });
 
@@ -159,7 +163,7 @@ describe('The third place for notes, team plus this computer', () => {
     await choose('Scripts', 'Remote + this computer');
     await saveForm();
     const dialog = await screen.findByRole('dialog', { name: CHANGE });
-    expect(within(dialog).getByText('Nothing is hidden. New scripts are saved on this computer and remote scripts become read-only here.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Nothing is hidden. Scripts saved on this computer show as well. New scripts go where the “save to” option says.')).toBeInTheDocument();
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(saves(invoke)).toHaveLength(1));
@@ -204,7 +208,7 @@ describe('The third place for notes, team plus this computer', () => {
 
     const dialog = await screen.findByRole('dialog', { name: CHANGE });
     expect(within(dialog).getByText('Project notes')).toBeInTheDocument();
-    expect(within(dialog).getByText('Nothing is hidden. New notes are saved on this computer and remote notes become read-only here.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Nothing is hidden. Notes saved on this computer show as well. New notes go where the “save to” option says.')).toBeInTheDocument();
     expect(saves(invoke)).toHaveLength(0);
 
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
@@ -378,6 +382,23 @@ describe('The third place for notes, team plus this computer', () => {
     await waitFor(() => expect(saves(invoke)).toHaveLength(1));
     await screen.findByText('Saved. Remote memory is on.');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(calls(invoke, 'memory_notes_copy_preview')).toHaveLength(0);
+  });
+
+  it('claims no count and offers no copy while the remote cannot be reached, as the page then comes from this computer’s copy', async () => {
+    const invoke = fakeBackend({ repositoryNotes: 'local' }, { repo: 3, global: 0 }, { repo: 0, global: 0 }, true);
+    render(SettingsView);
+
+    await choose('Project notes', 'Remote');
+    await saveForm();
+
+    const dialog = await screen.findByRole('dialog', { name: CHANGE });
+    expect(within(dialog).queryByText(/3 notes/)).toBeNull();
+
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await screen.findByText('Saved. Remote memory is on.');
+    expect(saves(invoke)).toHaveLength(1);
     expect(calls(invoke, 'memory_notes_copy_preview')).toHaveLength(0);
   });
 

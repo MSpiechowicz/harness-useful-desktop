@@ -16,7 +16,9 @@
 //!   `gone` (a conflict here), a save the agent held again since the user saw it (another
 //!   revision) `changed`, a save whose project folder is gone or leads to another project since
 //!   it was held `changed` with `"reason": "project"` (a process error with the server's
-//!   sentence here, the save stays held and nothing is written);
+//!   sentence here, the save stays held and nothing is written). `--place remote|local` (a server
+//!   that lists `held-save-place`, see [`HeldSave::place`]) saves a held note or script to that
+//!   side, and a held `note_update` refuses it (`invalid`);
 //! - `held skip <heldId> --json [--expect REVISION]` answers `{"skipped": "<heldId>"}`, refused
 //!   `changed` as `held save` is.
 //!
@@ -34,10 +36,10 @@ use super::memory_binary::resolve_memory;
 use super::memory_cli::CliCall;
 use super::memory_features::MemoryFeatures;
 use super::memory_guards::{check_chat_key, is_chat_key};
-use super::memory_user_save::{SAVE_TIMEOUT, run_save, run_save_call};
+use super::memory_user_save::{SAVE_TIMEOUT, place_args, run_save, run_save_call};
 use crate::env::Env;
 use crate::error::{BusinessError, Result};
-use crate::model::{HeldItem, HeldKind, HeldSaved, HeldTool};
+use crate::model::{HeldItem, HeldKind, HeldSaved, HeldTool, MemorySavePlace};
 use crate::process::ProcessRunner;
 
 /// The folder of held saves in the data folder.
@@ -73,9 +75,12 @@ pub fn held_list_args(chat_key: &str) -> Vec<OsString> {
         .into()
 }
 
-/// `held save <heldId> --json [--expect REVISION]`.
-pub fn held_save_args(held_id: &str, revision: Option<&str>) -> Vec<OsString> {
-    held_args("save", held_id, revision)
+/// `held save <heldId> --json [--expect REVISION] [--place remote|local]`.
+pub fn held_save_args(held_id: &str, revision: Option<&str>, place: Option<MemorySavePlace>) -> Vec<OsString> {
+    let mut args = held_args("save", held_id, revision);
+
+    args.extend(place_args(place));
+    args
 }
 
 /// `held skip <heldId> --json [--expect REVISION]`.
@@ -139,17 +144,29 @@ pub struct HeldSave<'a> {
     pub revision: Option<&'a str>,
     /// The user's draft (a note or script), replacing the agent's fields it names.
     pub edited: Option<&'a Value>,
+    /// Where a held `note_save` or `script_save` goes while its scope is routed to "Remote + this
+    /// computer" (`--place`). Refused (`unsupported`, nothing runs) unless the server lists
+    /// `held-save-place`; the server refuses it for a held `note_update`.
+    pub place: Option<MemorySavePlace>,
 }
 
 /// Saves held save `save.held_id`, as the agent sent it or as the user edited it. `invalidInput`
 /// for an id or revision that is not one or an edit that is not an object, `notFound` when it is
 /// gone, `conflict` when the note it updates was deleted, `changed` when the agent held it again
-/// since the user saw `save.revision`.
-pub async fn save_held(env: &Env, runner: &dyn ProcessRunner, server: &Path, save: HeldSave<'_>) -> Result<HeldSaved> {
+/// since the user saw `save.revision`. `unsupported` for a `save.place` while the server does not
+/// list `held-save-place`, before anything runs.
+pub async fn save_held(
+    env: &Env,
+    runner: &dyn ProcessRunner,
+    features: &MemoryFeatures,
+    server: &Path,
+    save: HeldSave<'_>,
+) -> Result<HeldSaved> {
     let HeldSave {
         held_id,
         revision,
         edited,
+        place,
     } = save;
 
     check_held_id(held_id)?;
@@ -162,7 +179,13 @@ pub async fn save_held(env: &Env, runner: &dyn ProcessRunner, server: &Path, sav
         return Err(BusinessError::InvalidInput("an edited draft is an object".to_owned()));
     }
 
-    let args = held_save_args(held_id, revision);
+    if place.is_some() && !features.support(env, runner).await.held_save_place() {
+        return Err(BusinessError::Unsupported(format!(
+            "this {MEMORY_BINARY} cannot save a held save to a chosen place; update Harness Memory"
+        )));
+    }
+
+    let args = held_save_args(held_id, revision, place);
     let data = run_save(env, runner, server, "held save", args, edited)
         .await
         .map_err(|refusal| refusal.error)?;
@@ -348,9 +371,12 @@ mod tests {
             strings(held_list_args(HELD)),
             ["held", "list", "--json", "--chat", HELD]
         );
-        assert_eq!(strings(held_save_args(HELD, None)), ["held", "save", HELD, "--json"]);
         assert_eq!(
-            strings(held_save_args(HELD, Some(&revision))),
+            strings(held_save_args(HELD, None, None)),
+            ["held", "save", HELD, "--json"]
+        );
+        assert_eq!(
+            strings(held_save_args(HELD, Some(&revision), None)),
             ["held", "save", HELD, "--json", "--expect", revision.as_str()]
         );
         assert_eq!(strings(held_skip_args(HELD, None)), ["held", "skip", HELD, "--json"]);
@@ -390,7 +416,13 @@ mod tests {
     #[test]
     fn a_save_answer_names_what_was_saved() {
         let note: HeldSaved = serde_json::from_value(json!({"kind": "note", "id": 12})).unwrap();
-        assert_eq!(note, HeldSaved::Note { id: 12 });
+        assert_eq!(note, HeldSaved::Note { id: 12, queued: false });
+
+        let queued: HeldSaved = serde_json::from_value(
+            json!({"kind": "note", "id": 12, "queued": true, "message": "saved on this computer, applied when the remote database is back"}),
+        )
+        .unwrap();
+        assert_eq!(queued, HeldSaved::Note { id: 12, queued: true });
 
         let script: HeldSaved = serde_json::from_value(json!({"kind": "script", "name": "deploy"})).unwrap();
         assert_eq!(

@@ -7,8 +7,10 @@
   import type { MemoryCopyKind } from '$lib/ipc/bindings/MemoryCopyKind';
   import type { MemoryNotesRouting } from '$lib/ipc/bindings/MemoryNotesRouting';
   import type { MemoryRemote } from '$lib/ipc/bindings/MemoryRemote';
+  import type { MemorySavePlace } from '$lib/ipc/bindings/MemorySavePlace';
   import { MEMORY_REMOTE_SUPPORT_POLL_MS } from '$lib/stores/live';
   import { memoryRemote } from '$lib/stores/memoryRemote.svelte';
+  import { prefs } from '$lib/stores/prefs.svelte';
   import { viewState } from '$lib/stores/view-state.svelte';
   import { autoRefresh } from '$lib/utils/auto-refresh';
   import { uid } from '$lib/utils/ids';
@@ -17,6 +19,8 @@
 
   import KeptInSection from './KeptInSection.svelte';
   import { MEMORY_REMOTE } from './memory-remote';
+  import MemorySyncSection from './MemorySyncSection.svelte';
+  import type { SyncChoice } from './memory-sync';
   import { REMOTE_SUBHEADING } from './remote-database';
   import { RemoteConnectionDraft } from './remote-connection.svelte';
   import RemoteDatabasePanel from './RemoteDatabasePanel.svelte';
@@ -52,6 +56,16 @@
   let shareRoutines = $state(remote.shareRoutines);
   // svelte-ignore state_referenced_locally
   let trustTeamRoutines = $state(remote.trustTeamRoutines);
+  // The two copies are preferences of this app, saved together with the form like the other switches. Off until turned on.
+  // svelte-ignore state_referenced_locally
+  let copyToRemote = $state(prefs.value?.memoryCopyToRemote ?? false);
+  // svelte-ignore state_referenced_locally
+  let copyToLocal = $state(prefs.value?.memoryCopyToLocal ?? false);
+  // svelte-ignore state_referenced_locally
+  let offlineFallback = $state(remote.offlineFallback);
+  // Where new notes and scripts go in "Remote + this computer", for agents and for what the user adds. It is kept in the Harness Memory config.
+  // svelte-ignore state_referenced_locally
+  let remoteLocalSaves = $state<MemorySavePlace>(remote.remoteLocalSaves);
   /** A save that changes where notes are kept waits here for the user to read what it does. */
   let confirming = $state(false);
   let pendingEffects = $state.raw<RoutingEffect[]>([]);
@@ -66,14 +80,21 @@
   const trustHooks = $derived(remote.hooksSupported && shareHooks);
   const trustRoutines = $derived(remote.routinesSupported && shareRoutines);
 
+  const copiesChanged = $derived(copyToRemote !== (prefs.value?.memoryCopyToRemote ?? false) || copyToLocal !== (prefs.value?.memoryCopyToLocal ?? false));
+
+  /** The place choice exists while a new note or script may go to either side. */
+  const savePlaceShown = $derived(repositoryNotes === 'remoteLocal' || globalNotes === 'remoteLocal' || scripts === 'remoteLocal');
+  /** It goes with the save only when it was changed and the installed Harness Memory knows it (an older one refuses a file with its key). A choice that is hidden is not saved. */
+  const savePlaceChanged = $derived(savePlaceShown && remote.remoteLocalSavesSupported && remoteLocalSaves !== remote.remoteLocalSaves);
+
   const routingChanged = $derived(
-    repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes || scripts !== remote.scripts || trustTeamScripts !== remote.trustTeamScripts || shareHooks !== remote.shareHooks || trustTeamHooks !== remote.trustTeamHooks || shareRoutines !== remote.shareRoutines || trustTeamRoutines !== remote.trustTeamRoutines,
+    copiesChanged || savePlaceChanged || offlineFallback !== remote.offlineFallback || repositoryNotes !== remote.repositoryNotes || globalNotes !== remote.globalNotes || scripts !== remote.scripts || trustTeamScripts !== remote.trustTeamScripts || shareHooks !== remote.shareHooks || trustTeamHooks !== remote.trustTeamHooks || shareRoutines !== remote.shareRoutines || trustTeamRoutines !== remote.trustTeamRoutines,
   );
   /** An older Harness Memory does not know Amazon DocumentDB: the choice stays listed but cannot be tested or saved. */
   const kindUnsupported = $derived(draft.kind === 'documentdb' && !remote.documentdbSupported);
 
   // While a warning about an old Harness Memory shows, it may be getting updated elsewhere: look again right away and then every few seconds. The form keeps its own draft, so only what the backend reports changes.
-  const awaitingUpdate = $derived(kindUnsupported || !remote.teamAndLocalSupported || (remote.scriptsSupported && !remote.scriptsTeamAndLocalSupported));
+  const awaitingUpdate = $derived(kindUnsupported || !remote.teamAndLocalSupported || !remote.offlineFallbackSupported || (savePlaceShown && !remote.remoteLocalSavesSupported) || (remote.scriptsSupported && !remote.scriptsTeamAndLocalSupported) || !remote.notesSyncSupported || (remote.scriptsSupported && !remote.scriptsSyncSupported));
 
   $effect(() => {
     if (!awaitingUpdate) {
@@ -92,6 +113,23 @@
     trustTeamHooks = false;
     shareRoutines = false;
     trustTeamRoutines = false;
+  }
+
+  function chooseSavePlace(next: MemorySavePlace): void {
+    remoteLocalSaves = next;
+    draft.edited();
+  }
+
+  function chooseSync(choice: SyncChoice, next: boolean): void {
+    if (choice === 'copyToRemote') {
+      copyToRemote = next;
+    } else if (choice === 'copyToLocal') {
+      copyToLocal = next;
+    } else {
+      offlineFallback = next;
+    }
+
+    draft.edited();
   }
 
   /** Trust goes with sharing: hooks that are not shared have nothing to trust, and sharing again asks for the trust again. */
@@ -177,6 +215,11 @@
     copyQueue = moved.length > 0 ? copyOffers(moved, await localHoldings()) : [];
   }
 
+  /** Whether the preferences hold the copy switches as the form has them. */
+  function prefsStored(): boolean {
+    return prefs.value?.memoryCopyToRemote === copyToRemote && prefs.value?.memoryCopyToLocal === copyToLocal;
+  }
+
   async function commit(): Promise<void> {
     draft.busy = 'save';
     draft.status = null;
@@ -199,9 +242,21 @@
         ...(remote.hooksSupported ? { shareHooks, trustTeamHooks: shareHooks && trustTeamHooks } : {}),
         // The same for routines.
         ...(remote.routinesSupported ? { shareRoutines, trustTeamRoutines: shareRoutines && trustTeamRoutines } : {}),
+        // The outage setting goes only when it was changed (an older Harness Memory refuses a file with its key, and left out the saved choice stays).
+        ...(remote.offlineFallbackSupported && offlineFallback !== remote.offlineFallback ? { offlineFallback } : {}),
+        // The same for where new notes and scripts go: only when changed and known to the installed Harness Memory.
+        ...(savePlaceChanged ? { remoteLocalSaves } : {}),
       });
 
-      draft.stored();
+      // The Sync button follows the preferences as soon as they are stored. A failure is said in a toast, and the switches stay as the user left them.
+      if (copiesChanged) {
+        await prefs.update({ memoryCopyToRemote: copyToRemote, memoryCopyToLocal: copyToLocal });
+      }
+
+      // Saved is only said when everything was stored: a refused update rolls the preferences back, so the form stays changed while the preferences are not stored.
+      if (!copiesChanged || prefsStored()) {
+        draft.stored();
+      }
 
       // Ids shift when notes or scripts are kept elsewhere: the one that was open is not the same one any more.
       if (routesChanged(before, draftRoutes())) {
@@ -258,6 +313,8 @@
         />
       </div>
     </section>
+
+    <MemorySyncSection {remote} {copyToRemote} {copyToLocal} {offlineFallback} {remoteLocalSaves} {savePlaceShown} onsaveplace={chooseSavePlace} onchange={chooseSync} onupdated={() => memoryRemote.load()} />
 
     <!-- Only what is kept in the team database comes from other people, so the question only exists while it is. -->
     {#if trustScripts || trustHooks || trustRoutines}

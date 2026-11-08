@@ -8,6 +8,8 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use super::MemorySavePlace;
+
 /// The kind of team database, picked by the URL scheme (and, for a `mongodb://` URL, by the
 /// `database_kind` key or the host).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -145,6 +147,34 @@ pub struct MemoryRemote {
     /// features`: `notes list` and `scripts list` filter by `--author`, sort by `addedBy` and
     /// answer the authors facet.
     pub notes_author_filter_supported: bool,
+    /// True when the server saves on this computer while the team database cannot be reached
+    /// (`offline_fallback`; on when the key is absent).
+    pub offline_fallback: bool,
+    /// True when the installed Harness Memory lists `offline-fallback` in `harness-memory
+    /// features`, so the `offline_fallback` key may be saved. An older server refuses a file with
+    /// that key, and the page says the switch is unsupported.
+    pub offline_fallback_supported: bool,
+    /// Where agents save new notes and scripts of a scope routed to "Remote + this computer"
+    /// (`remote_local_saves`; remote when the key is absent).
+    pub remote_local_saves: MemorySavePlace,
+    /// True when the installed Harness Memory lists `remote-local-saves` in `harness-memory
+    /// features`, so the `remote_local_saves` key may be saved. An older server refuses a file
+    /// with that key, and the page does not offer the choice.
+    pub remote_local_saves_supported: bool,
+    /// True when the installed Harness Memory lists `held-save-place` in `harness-memory features`:
+    /// a held `note_save` or `script_save` may be saved to either side (`place` of
+    /// `memory_held_save`).
+    pub held_save_place_supported: bool,
+    /// True when the installed server can copy notes between the two sides on request
+    /// (`push-remote-local`, `push-selection` and `pull-json`), so the Sync button of the notes is
+    /// offered.
+    pub notes_sync_supported: bool,
+    /// The same for scripts (`push-remote-local`, `push-selection` and `scripts-pull-json`).
+    pub scripts_sync_supported: bool,
+    /// True when the installed Harness Memory lists `save-place` in `harness-memory features`: a
+    /// new note or script of a scope routed to "Remote + this computer" may be saved to either
+    /// side (`place` of `memory_note_save` and `memory_script_save`).
+    pub save_place_supported: bool,
     /// The config file, home-relative for display (`~/.config/harness-memory/config.toml`).
     pub config_path: String,
     /// What is wrong with the file, if anything: unreadable, not valid TOML, keys the server does
