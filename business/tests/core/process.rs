@@ -113,6 +113,33 @@ async fn runner_timeout_kills_the_whole_process_group() {
     panic!("the helper never reported its grandchild within {GROUP_KILL_TIMEOUTS:?}");
 }
 
+/// A child that exits 0 while a descendant that left its group holds the pipes is a normal exit
+/// (the updater of a harness may start a background helper): it returns after the drain grace with
+/// the real status and what was written, not as a timeout after the whole time limit.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_normal_exit_returns_promptly_while_a_descendant_holds_the_pipes() {
+    use nix::sys::signal::{Signal, kill};
+    use nix::unistd::Pid;
+
+    let started = Instant::now();
+    let output = TokioRunner
+        .run(&helper("exit_leaving_grandchild").timeout(Duration::from_secs(120)))
+        .await
+        .unwrap();
+
+    assert!(
+        started.elapsed() < Duration::from_secs(30),
+        "took {:?}",
+        started.elapsed()
+    );
+    assert_eq!(output.status, Some(0), "{output:?}");
+    assert!(output.success() && !output.timed_out, "{output:?}");
+
+    let pid = find_grandchild_pid(&output.stdout).expect("the output written before the exit is kept");
+    kill(Pid::from_raw(pid), Signal::SIGKILL).ok();
+}
+
 /// A run whose future is dropped (a routine run stopped by the user) leaves nothing of its process
 /// group (Windows: process tree) running, not only its direct child.
 #[tokio::test]

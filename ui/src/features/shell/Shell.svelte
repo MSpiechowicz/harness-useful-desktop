@@ -7,6 +7,7 @@
   import { saveWorkspaceWhenReady } from '$lib/stores/workspace.svelte';
   import { ecosystem } from '$lib/stores/ecosystem.svelte';
   import { harness } from '$lib/stores/harness.svelte';
+  import { harnessUpdates } from '$lib/stores/harness-updates.svelte';
   import { branchSync } from '$lib/stores/branch-sync.svelte';
   import { git } from '$lib/stores/git.svelte';
   import { knowledgeChanges } from '$lib/stores/knowledgeChanges.svelte';
@@ -237,6 +238,36 @@
   $effect(() => {
     if (intro.phase === 'done' && prefs.value?.autoUpdateExtensions && !onboarding.visible && ecosystem.status) {
       void familyUpdater.check();
+    }
+  });
+
+  // A newer version of an installed harness CLI is looked up again when an installed version changes (an update made in a
+  // terminal clears the offer) and when the lookup setting is switched (off clears them).
+  const installedVersions = $derived(harness.installed.map((summary) => `${summary.info.id}@${summary.detection.version}`).join());
+
+  $effect(() => {
+    void installedVersions;
+    void prefs.value?.checkCompanionUpdates;
+
+    if (intro.phase === 'done' && !onboarding.visible) {
+      untrack(() => void harnessUpdates.refresh());
+    }
+  });
+
+  // The harness in use with a newer version is suggested with a toast, once per run, when a project is open or the harness
+  // changes. The window of a global routine works in a folder of the routines' own, which is no project.
+  const activeHarnessId = $derived(harness.active?.info.id);
+
+  $effect(() => {
+    const id = activeHarnessId;
+    const path = project.active?.path;
+
+    if (intro.phase === 'done' && !onboarding.visible && id && path) {
+      untrack(() => {
+        if (!routines.inWorkspace(path)) {
+          void harnessUpdates.suggest(id);
+        }
+      });
     }
   });
 

@@ -31,4 +31,16 @@ export const harness: AreaMessages<typeof enHarness> = {
   'harness.toast.openProject': 'Não foi possível abrir o projeto',
   'harness.toast.closeProject': 'Não foi possível fechar o projeto',
   'harness.toast.forgetProject': 'Não foi possível esquecer o projeto',
+
+  'harness.update.offerTitle': '{name} v{version} está disponível',
+  'harness.update.offerBody': 'Você tem a v{current}. Você pode atualizar agora ou depois em Configurações.',
+  'harness.update.action': 'Atualizar',
+  'harness.update.progressTitle': 'Atualizando {name}…',
+  'harness.update.progressBody': 'Isso pode levar alguns minutos. Os chats abertos continuam rodando.',
+  'harness.update.doneTitle': '{name} atualizado para v{version}',
+  'harness.update.doneBody': 'Chats novos usam a versão nova. Chats abertos mantêm a antiga até você iniciá-los de novo.',
+  'harness.update.failedTitle': '{name} não foi atualizado',
+  'harness.update.failedBody': 'O atualizador não informou o motivo.',
+  'harness.update.copyCommand': 'Copiar comando',
+  'harness.update.copied': 'O comando de atualização está na área de transferência.',
 };

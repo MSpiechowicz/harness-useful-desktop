@@ -205,6 +205,8 @@ pub fn run() -> ExitCode {
             commands::harness::harness_detect,
             commands::harness::harness_pick_binary,
             commands::harness::harness_clear_binary,
+            commands::harness_update::harness_releases,
+            commands::harness_update::harness_update,
             commands::harness::config_view,
             commands::harness::omp_map_role,
             commands::harness::omp_set_role,

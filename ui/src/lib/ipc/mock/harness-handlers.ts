@@ -7,6 +7,7 @@ import { fixtures } from './fixtures';
 import type { MockState } from './state';
 import { withOpenCodeChat } from './opencode-chat';
 import { MockOmpRoles } from './omp-roles';
+import { isNewer } from './release-handlers';
 import { MockSkillsRoles } from './skills-roles';
 import type { Handlers } from './types';
 
@@ -15,6 +16,8 @@ type HarnessCommands =
   | 'harness_detect'
   | 'harness_pick_binary'
   | 'harness_clear_binary'
+  | 'harness_releases'
+  | 'harness_update'
   | 'config_view'
   | 'omp_map_role'
   | 'omp_set_role'
@@ -24,6 +27,15 @@ type HarnessCommands =
 
 /** Version the fake "Choose binary…" dialog reports: a build newer than the tested range. */
 const PICKED_VERSION = '99.0.0';
+
+/** The newest version each harness CLI has in the mock: ahead of the installed ones in `fixtures/harness_list.json`. */
+const MOCK_LATEST_VERSIONS: Record<HarnessId, string> = {
+  omp: '18.7.0',
+  pi: '1.5.0',
+  opencode: '1.20.0',
+  claude: '3.0.0',
+  codex: '1.0.0',
+};
 
 function summaryOf(summaries: HarnessSummary[], id: HarnessId): HarnessSummary {
   const found = summaries.find((summary) => summary.info.id === id);
@@ -100,6 +112,41 @@ export function harnessHandlers(state: MockState): Pick<Handlers, HarnessCommand
       state.overrides = state.overrides.filter((override) => override.harness !== harness);
 
       return replace(harness, structuredClone(summaryOf(pristine, harness)));
+    },
+
+    // Like the backend: nothing while the lookup is off, else every installed harness compared with its latest version.
+    harness_releases: ({ installed }) => {
+      return state.prefs.checkCompanionUpdates
+        ? installed.map(({ harness, version }) => {
+            const latestVersion = MOCK_LATEST_VERSIONS[harness];
+
+            return {
+              harness,
+              latestVersion,
+              updateAvailable: isNewer(latestVersion, version),
+              updateCommand: `${summaryOf(summaries, harness).info.binaryName} update`,
+            };
+          })
+        : [];
+    },
+
+    harness_update: ({ harness }) => {
+      const current = summaryOf(summaries, harness);
+      const command = `${current.info.binaryName} update`;
+
+      if (!current.detection.installed) {
+        throw IpcFailure.from({ code: 'notFound', message: `${current.info.name} is not installed.` });
+      }
+
+      const latest = MOCK_LATEST_VERSIONS[harness];
+
+      if (!current.detection.version || !isNewer(latest, current.detection.version)) {
+        return { updated: false, summary: structuredClone(current), message: 'Already up to date.', command };
+      }
+
+      const summary = replace(harness, { ...current, detection: { ...current.detection, version: latest } });
+
+      return { updated: true, summary, message: null, command };
     },
 
     config_view: ({ harness, project }) => {

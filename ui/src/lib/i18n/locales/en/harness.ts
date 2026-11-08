@@ -28,4 +28,16 @@ export const harness = {
   'harness.toast.openProject': 'Could not open the project',
   'harness.toast.closeProject': 'Could not close the project',
   'harness.toast.forgetProject': 'Could not forget the project',
+
+  'harness.update.offerTitle': '{name} v{version} is available',
+  'harness.update.offerBody': 'You have v{current}. You can update now or later in Settings.',
+  'harness.update.action': 'Update',
+  'harness.update.progressTitle': 'Updating {name}…',
+  'harness.update.progressBody': 'This can take a few minutes. Open chats keep running.',
+  'harness.update.doneTitle': '{name} updated to v{version}',
+  'harness.update.doneBody': 'New chats use the new version. Open chats keep the old one until you start them again.',
+  'harness.update.failedTitle': '{name} was not updated',
+  'harness.update.failedBody': 'The updater gave no reason.',
+  'harness.update.copyCommand': 'Copy command',
+  'harness.update.copied': 'The update command is on the clipboard.',
 } satisfies Record<string, string>;

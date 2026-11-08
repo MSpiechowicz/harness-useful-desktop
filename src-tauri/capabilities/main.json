@@ -106,6 +106,8 @@
     "allow-harness-detect",
     "allow-harness-pick-binary",
     "allow-harness-clear-binary",
+    "allow-harness-releases",
+    "allow-harness-update",
     "allow-config-view",
     "allow-omp-map-role",
     "allow-omp-set-role",

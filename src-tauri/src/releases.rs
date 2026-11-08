@@ -1,9 +1,12 @@
-//! The HTTP side of the companion release lookup (`ecosystem_releases`).
+//! The HTTP side of the companion release lookup (`ecosystem_releases`) and the harness version
+//! lookup (`harness_releases`).
 //!
 //! Each request is a `GET` of one fixed URL from
-//! [`release_endpoint`](harness_business::ecosystem::release_endpoint) over HTTPS, with only a
-//! `User-Agent` (GitHub refuses requests without one) and an `Accept` header: no credentials, no
-//! cookies, no local data. Redirects are followed only to HTTPS URLs on the same host and port 443. A
+//! [`release_endpoint`](harness_business::ecosystem::release_endpoint) (GitHub) or
+//! [`NpmPackage::latest_url`](harness_business::harness::update::NpmPackage::latest_url) (npm) over
+//! HTTPS, with only a `User-Agent` (GitHub refuses requests without one) and an `Accept` header: no
+//! credentials, no cookies, no local data. Redirects are followed only to HTTPS URLs on the host of
+//! the [`Source`] and port 443. A
 //! connection gets 10 s, the whole request 15 s, and at most
 //! [`MAX_RELEASE_BYTES`] of the body are read. Any failure yields `None`; it is logged without
 //! the URL.
@@ -11,6 +14,7 @@
 use std::time::Duration;
 
 use harness_business::ecosystem::releases::{MAX_RELEASE_BYTES, RELEASE_HOST};
+use harness_business::harness::update::NPM_HOST;
 use reqwest::header::{ACCEPT, HeaderMap, HeaderValue};
 use reqwest::redirect::{Attempt, Policy};
 use reqwest::{Client, StatusCode, Url};
@@ -24,26 +28,42 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// Most redirects followed (GitHub redirects a renamed repository once).
 const MAX_REDIRECTS: usize = 3;
 
-/// The media type GitHub's REST API documents for its JSON responses.
-const GITHUB_JSON: &str = "application/vnd.github+json";
+/// A host the lookups talk to and the media type it is asked for.
+#[derive(Debug, Clone, Copy)]
+pub struct Source {
+    host: &'static str,
+    accept: &'static str,
+}
 
-/// A client for the release lookups of app version `version`; `None` when the TLS stack cannot
+/// GitHub's REST API, with the media type it documents for its JSON responses.
+pub const GITHUB: Source = Source {
+    host: RELEASE_HOST,
+    accept: "application/vnd.github+json",
+};
+
+/// The npm registry.
+pub const NPM: Source = Source {
+    host: NPM_HOST,
+    accept: "application/json",
+};
+
+/// A client for the lookups at `source` of app version `version`; `None` when the TLS stack cannot
 /// be set up (logged).
-pub fn release_client(version: &str) -> Option<Client> {
+pub fn release_client(version: &str, source: Source) -> Option<Client> {
     // The updater installs the same provider before its first request; whichever runs first wins.
     if rustls::crypto::CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
 
     let mut headers = HeaderMap::new();
-    headers.insert(ACCEPT, HeaderValue::from_static(GITHUB_JSON));
+    headers.insert(ACCEPT, HeaderValue::from_static(source.accept));
 
     let built = Client::builder()
         .https_only(true)
         .user_agent(format!("harness-desktop/{version}"))
         .default_headers(headers)
         .referer(false)
-        .redirect(Policy::custom(same_host_redirect))
+        .redirect(Policy::custom(move |attempt| same_host_redirect(attempt, source.host)))
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(REQUEST_TIMEOUT)
         .build();
@@ -74,19 +94,19 @@ pub async fn fetch_release(client: &Client, url: &'static str) -> Option<Vec<u8>
 }
 
 /// Whether a redirect to `url` may be followed after `followed` earlier redirects: HTTPS on
-/// [`RELEASE_HOST`], port 443, and fewer than [`MAX_REDIRECTS`] followed so far.
-fn may_follow(url: &Url, followed: usize) -> bool {
+/// `host`, port 443, and fewer than [`MAX_REDIRECTS`] followed so far.
+fn may_follow(url: &Url, followed: usize, host: &str) -> bool {
     followed < MAX_REDIRECTS
         && url.scheme() == "https"
-        && url.host_str() == Some(RELEASE_HOST)
+        && url.host_str() == Some(host)
         && url.port_or_known_default() == Some(443)
 }
 
-fn same_host_redirect(attempt: Attempt) -> reqwest::redirect::Action {
+fn same_host_redirect(attempt: Attempt, host: &str) -> reqwest::redirect::Action {
     // `previous` lists every URL already requested, the original one included.
     let followed = attempt.previous().len().saturating_sub(1);
 
-    if may_follow(attempt.url(), followed) {
+    if may_follow(attempt.url(), followed, host) {
         attempt.follow()
     } else {
         // The redirect response itself comes back, and its status is not a `200`.
@@ -143,6 +163,7 @@ fn error_kind(error: &reqwest::Error) -> &'static str {
 #[cfg(test)]
 mod tests {
     use harness_business::ecosystem::{ECOSYSTEM, release_endpoint};
+    use harness_business::harness::update::PACKAGES;
 
     use super::*;
 
@@ -150,41 +171,49 @@ mod tests {
         Url::parse(text).expect("valid test URL")
     }
 
+    fn follows_github(url: &Url, followed: usize) -> bool {
+        may_follow(url, followed, GITHUB.host)
+    }
+
+    fn follows_npm(url: &Url, followed: usize) -> bool {
+        may_follow(url, followed, NPM.host)
+    }
+
     #[test]
     fn redirects_are_followed_only_over_https_to_the_api_host() {
         let moved = url("https://api.github.com/repositories/42/releases/latest");
 
-        assert!(may_follow(&moved, 0));
-        assert!(may_follow(&moved, MAX_REDIRECTS - 1));
-        assert!(!may_follow(&moved, MAX_REDIRECTS));
+        assert!(follows_github(&moved, 0));
+        assert!(follows_github(&moved, MAX_REDIRECTS - 1));
+        assert!(!follows_github(&moved, MAX_REDIRECTS));
 
-        assert!(!may_follow(
+        assert!(!follows_github(
             &url("http://api.github.com/repositories/42/releases/latest"),
             0
         ));
-        assert!(!may_follow(
+        assert!(!follows_github(
             &url("https://github.com/MSpiechowicz/harness-useful-skills"),
             0
         ));
-        assert!(!may_follow(
+        assert!(!follows_github(
             &url("https://api.github.com.example.org/releases/latest"),
             0
         ));
-        assert!(!may_follow(&url("https://example.org/?next=api.github.com"), 0));
+        assert!(!follows_github(&url("https://example.org/?next=api.github.com"), 0));
     }
 
     #[test]
     fn redirects_to_another_port_are_not_followed() {
-        assert!(may_follow(
+        assert!(follows_github(
             &url("https://api.github.com:443/repositories/42/releases/latest"),
             0
         ));
 
-        assert!(!may_follow(
+        assert!(!follows_github(
             &url("https://api.github.com:8443/repositories/42/releases/latest"),
             0
         ));
-        assert!(!may_follow(
+        assert!(!follows_github(
             &url("https://api.github.com:80/repositories/42/releases/latest"),
             0
         ));
@@ -193,12 +222,35 @@ mod tests {
     #[test]
     fn every_release_url_is_one_the_client_would_request() {
         for id in ECOSYSTEM {
-            assert!(may_follow(&url(release_endpoint(id)), 0), "{id:?}");
+            assert!(follows_github(&url(release_endpoint(id)), 0), "{id:?}");
         }
     }
 
     #[test]
-    fn the_client_builds_without_any_request() {
-        assert!(release_client("0.1.0").is_some());
+    fn every_npm_url_is_one_the_client_would_request() {
+        for package in PACKAGES {
+            assert!(follows_npm(&url(package.latest_url), 0), "{}", package.name);
+        }
+    }
+
+    #[test]
+    fn each_source_follows_redirects_to_its_own_host_only() {
+        let npm = url("https://registry.npmjs.org/opencode-ai/latest");
+        let github = url("https://api.github.com/repositories/42/releases/latest");
+
+        assert!(follows_npm(&npm, 0));
+        assert!(!follows_github(&npm, 0));
+        assert!(follows_github(&github, 0));
+        assert!(!follows_npm(&github, 0));
+        assert!(!follows_npm(
+            &url("https://registry.npmjs.org.example.org/opencode-ai/latest"),
+            0
+        ));
+    }
+
+    #[test]
+    fn the_clients_build_without_any_request() {
+        assert!(release_client("0.1.0", GITHUB).is_some());
+        assert!(release_client("0.1.0", NPM).is_some());
     }
 }

@@ -133,6 +133,11 @@ export class HarnessStore {
     return (this.preferences.value?.binaryOverrides ?? []).some((override) => override.harness === id);
   }
 
+  /** Takes the fresh detection an update of this harness returned (its version changed), as a picked binary does. */
+  adoptUpdated(summary: HarnessSummary): void {
+    this.adopt(summary);
+  }
+
   /** Makes this harness the default; refuses harnesses that are not installed. */
   async select(id: HarnessId): Promise<void> {
     if (this.get(id)?.detection.installed) {

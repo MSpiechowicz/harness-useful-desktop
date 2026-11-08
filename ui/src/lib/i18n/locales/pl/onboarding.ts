@@ -25,7 +25,7 @@ export const onboarding: AreaMessages<typeof enOnboarding> = {
   'onboarding.welcome.yours.body': 'Harness Desktop korzysta z zainstalowanych już CLI. Nic nie jest kopiowane ani wysyłane.',
   'onboarding.welcome.private.title': 'Lokalnie i prywatnie',
   'onboarding.welcome.private.body':
-    'Bez telemetrii i kont. Aplikacja pyta GitHub o nowe wersje (możesz to wyłączyć) i otwiera klikane linki. Instalacje i zmiany konfiguracji dzieją się dopiero po potwierdzeniu w kroku konfiguracji.',
+    'Bez telemetrii i kont. Aplikacja pyta GitHub i npm o nowe wersje (możesz to wyłączyć) i otwiera klikane linki. Instalacje i zmiany konfiguracji dzieją się dopiero po potwierdzeniu w kroku konfiguracji.',
 
   'onboarding.harnesses.eyebrow': 'Twoje harnessy',
   'onboarding.harnesses.title': 'Którego harnessa używasz na co dzień?',

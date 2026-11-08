@@ -7,6 +7,7 @@
   import { t } from '$lib/i18n/i18n.svelte';
   import type { HarnessSummary } from '$lib/ipc/bindings/HarnessSummary';
   import { harness } from '$lib/stores/harness.svelte';
+  import { harnessUpdates } from '$lib/stores/harness-updates.svelte';
   import { cx } from '$lib/utils/cx';
 
   import { switchHarness } from '../shell/actions';
@@ -33,7 +34,7 @@
   // While the chat moves to another harness, the button already shows it, a spinner in the chevron's place.
   const shown = $derived((session.switchingTo ? harness.get(session.switchingTo) : null) ?? current);
 
-  /** What a row says beside its name: why it cannot be chosen, else its version. */
+  /** What a row says beside its name: why it cannot be chosen, else its version and a newer one when there is. */
   function detailOf(item: HarnessSummary): string | null {
     if (!item.detection.installed) {
       return t('chat.harness.notInstalled');
@@ -44,9 +45,12 @@
     }
 
     const version = item.detection.version ? `v${item.detection.version}` : null;
+    const newer = harnessUpdates.offer(item.info.id);
 
     // A preview says so in plain words beside the version: rows of a menu carry no badges.
-    return item.capabilities.chatPreview ? [t('chat.preview.label'), version].filter(Boolean).join(' · ') : version;
+    const parts = [item.capabilities.chatPreview ? t('chat.preview.label') : null, version, newer ? t('chat.harness.updateAvailable', { version: newer.latestVersion }) : null].filter(Boolean);
+
+    return parts.length > 0 ? parts.join(' · ') : null;
   }
 
   /** The row's tooltip: what a preview means, for a harness whose chat is one and can be chosen. */

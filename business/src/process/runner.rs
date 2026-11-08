@@ -3,12 +3,13 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
+use std::pin::pin;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
-use tokio::time::{Instant, timeout_at};
+use tokio::time::{Instant, timeout, timeout_at};
 
 #[cfg(unix)]
 use super::kill_group;
@@ -17,7 +18,8 @@ use super::windows_tree::kill_process_tree;
 use super::{BoxFuture, ExecSpec, build_command, kill_tree, spawn_command};
 use crate::error::{BusinessError, Result};
 
-/// After a timeout kill, how long to wait for the output pipes to close before giving up on them.
+/// Once the child has exited (or was killed on a timeout), how long to wait for the output pipes to
+/// close before giving up on them.
 const DRAIN_GRACE: Duration = Duration::from_secs(2);
 
 /// Read buffer size for capturing output.
@@ -56,7 +58,9 @@ pub trait ProcessRunner: Send + Sync {
 ///
 /// stdin is null unless the spec gives bytes for it (written, then closed), each output stream is capped (excess is drained and discarded so the child
 /// never blocks on a full pipe), and a timeout kills the child and its process group (Unix) or
-/// process tree (Windows). Dropping the future before it finished (a cancelled run) kills them too,
+/// process tree (Windows). A child that exits while a descendant that escaped its group still holds
+/// the output pipes is a normal exit: the pipes get [`DRAIN_GRACE`], then the run returns the exit
+/// status and the output captured so far. Dropping the future before it finished (a cancelled run) kills them too,
 /// so nothing the child started in its group or tree outlives it. On Windows a cancel after the
 /// child exited (while a process it started still holds the output) kills nothing more: once the
 /// child was reaped, its pid may name another process.
@@ -124,25 +128,32 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
         waited
     };
 
-    let piped = async {
-        match stdout {
-            Some(stdout) => capture.read(stdout).await,
-            None => Captured::default(),
+    // Filled as data arrives, so what was read is there when a stream never closes.
+    let mut out = Captured::default();
+    let mut err = Captured::default();
+
+    let waited = {
+        let piped = async {
+            if let Some(stdout) = stdout {
+                capture.read(stdout, &mut out).await;
+            }
+        };
+        let streams = async { tokio::join!(piped, capture.read(stderr, &mut err), feed) };
+
+        let mut streams = pin!(streams);
+        let mut exit = pin!(waiter);
+
+        tokio::select! {
+            waited = &mut exit => {
+                // The pipes normally close when the process group dies; a descendant that escaped
+                // the group could keep them open, so collecting is bounded too.
+                timeout(DRAIN_GRACE, &mut streams).await.ok();
+                waited
+            }
+            _ = &mut streams => exit.await,
         }
     };
-    let all = async { tokio::join!(piped, capture.read(stderr), waiter, feed) };
-
-    // The pipes normally close when the process group dies; a descendant that escaped the group
-    // could keep them open, so collecting is bounded too.
-    let collected = timeout_at(deadline + DRAIN_GRACE, all).await;
     group.disarm();
-
-    let Ok((out, err, waited, ())) = collected else {
-        return Ok(ExecOutput {
-            timed_out: true,
-            ..ExecOutput::default()
-        });
-    };
 
     let (status, timed_out) =
         waited.map_err(|error| BusinessError::Process(format!("waiting for {}: {error}", spec.label())))?;
@@ -150,8 +161,9 @@ async fn run_to_completion(spec: &ExecSpec) -> Result<ExecOutput> {
     // The child is gone: what it wrote to the file is all there is.
     let out = match stdout_file {
         Some(file) => file.read_back(capture)?,
-        None => out,
+        None => capture.finished(out),
     };
+    let err = capture.finished(err);
 
     Ok(ExecOutput {
         status,
@@ -220,12 +232,9 @@ struct Captured {
 }
 
 impl Capture {
-    /// Reads `reader` to EOF, keeping at most `cap` bytes and discarding the rest.
-    async fn read(self, mut reader: impl AsyncRead + Unpin) -> Captured {
-        let mut captured = Captured {
-            bytes: Vec::new(),
-            truncated: false,
-        };
+    /// Reads `reader` to EOF into `captured`, keeping at most `cap` bytes and discarding the rest.
+    /// What was read stays in `captured` when the future is dropped; [`Capture::finished`] closes it.
+    async fn read(self, mut reader: impl AsyncRead + Unpin, captured: &mut Captured) {
         let mut chunk = vec![0_u8; CHUNK];
 
         loop {
@@ -254,7 +263,10 @@ impl Capture {
                 captured.truncated = true;
             }
         }
+    }
 
+    /// `captured` without the cut-off first word of a truncated tail (see [`drop_cut_word`]).
+    fn finished(self, mut captured: Captured) -> Captured {
         if self.tail && captured.truncated {
             drop_cut_word(&mut captured.bytes);
         }
@@ -383,7 +395,12 @@ mod tests {
         tokio::runtime::Builder::new_current_thread()
             .build()
             .expect("a runtime")
-            .block_on(capture.read(bytes))
+            .block_on(async {
+                let mut captured = Captured::default();
+                capture.read(bytes, &mut captured).await;
+
+                capture.finished(captured)
+            })
     }
 
     #[test]

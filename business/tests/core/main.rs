@@ -43,6 +43,8 @@ mod git_sync_failures;
 mod git_sync_remotes;
 mod git_sync_stash;
 mod harness_paths;
+mod harness_update;
+mod harness_update_run;
 mod hooks_agent;
 mod hooks_command;
 mod hooks_compose;

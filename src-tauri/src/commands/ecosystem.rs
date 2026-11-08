@@ -16,7 +16,7 @@ use tauri::{AppHandle, State};
 
 use super::blocking;
 use crate::error::CommandResult;
-use crate::releases::{fetch_release, release_client};
+use crate::releases::{GITHUB, fetch_release, release_client};
 use crate::state::{AppState, SharedPrefs};
 
 /// The dashboard, the memory server, the skills and the sidebar with their detection on this
@@ -70,7 +70,7 @@ async fn lookup(app: &AppHandle, state: &AppState, installed: &[EcosystemInstall
         let version = &version;
 
         async move {
-            let client = client.get_or_init(|| release_client(version)).as_ref()?;
+            let client = client.get_or_init(|| release_client(version, GITHUB)).as_ref()?;
             fetch_release(client, url).await
         }
     };
@@ -98,7 +98,7 @@ where
 /// The `checkCompanionUpdates` preference. Fails closed: off when a prefs file exists (or was
 /// moved aside as corrupt) but cannot be used, since the user may have turned the check off in
 /// it; on (the default) only when nothing was ever stored.
-async fn companion_checks_on(prefs: &SharedPrefs) -> bool {
+pub(crate) async fn companion_checks_on(prefs: &SharedPrefs) -> bool {
     stored_prefs(prefs)
         .await
         .is_some_and(|prefs| prefs.check_companion_updates)
@@ -135,25 +135,11 @@ mod tests {
     use std::sync::Mutex;
 
     use harness_business::env::Env;
-    use harness_business::model::{AppPrefs, EcosystemId};
+    use harness_business::model::EcosystemId;
     use tauri::async_runtime::block_on;
 
     use super::*;
-    use crate::test_support::TempDir;
-
-    fn state(dir: &TempDir, check_companion_updates: bool) -> AppState {
-        let state = AppState::new(dir.path().join("config"), Env::for_tests(dir.path().join("home")));
-        state.prefs.with(|store| {
-            store
-                .save(&AppPrefs {
-                    check_companion_updates,
-                    ..AppPrefs::default()
-                })
-                .expect("save prefs")
-        });
-
-        state
-    }
+    use crate::test_support::{TempDir, state_with_update_checks};
 
     fn skills() -> Vec<EcosystemInstalled> {
         vec![EcosystemInstalled {
@@ -165,7 +151,7 @@ mod tests {
     #[test]
     fn with_companion_checks_off_nothing_is_requested() {
         let dir = TempDir::new("releases-off");
-        let state = state(&dir, false);
+        let state = state_with_update_checks(&dir, false);
 
         let found = block_on(releases(&state, &skills(), |_url| async {
             panic!("a release was requested although companion checks are off")
@@ -177,7 +163,7 @@ mod tests {
     #[test]
     fn with_companion_checks_on_the_installed_companions_are_looked_up() {
         let dir = TempDir::new("releases-on");
-        let state = state(&dir, true);
+        let state = state_with_update_checks(&dir, true);
         let requested = Mutex::new(Vec::new());
 
         let found = block_on(releases(&state, &skills(), |url| {

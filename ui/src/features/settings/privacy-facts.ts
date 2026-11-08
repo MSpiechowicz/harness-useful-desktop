@@ -55,7 +55,8 @@ export const PRIVACY_FACTS: PrivacyFact[] = [
   {
     // business/src/update.rs, src-tauri/src/commands/updates.rs (https only), tauri.conf.json CSP (connect-src ipc only),
     // src-tauri/src/access.rs link allowlist, ui/src/lib/ipc/actions.ts, the ecosystem_releases command (companion
-    // release lookups, gated by checkCompanionUpdates), business/src/git/sync.rs and branch-sync.svelte.ts (the background
+    // release lookups, gated by checkCompanionUpdates), the harness_releases command and business/src/harness/update.rs (npm
+    // version lookups of the harness CLIs, same gate), business/src/git/sync.rs and branch-sync.svelte.ts (the background
     // fetch, gated by backgroundFetch). Same facts as docs/security-privacy.md#network.
     id: 'network',
     icon: Globe,

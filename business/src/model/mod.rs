@@ -24,6 +24,7 @@ mod extensions;
 mod git;
 mod git_sync;
 mod harness;
+mod harness_update;
 mod hook;
 mod ipc_error;
 mod knowledge;
@@ -105,6 +106,7 @@ pub use harness::{
     Capabilities, Detection, HarnessId, HarnessInfo, HarnessSummary, InstallCommand, InstallHint, NativeApprovalMode,
     VersionSupport,
 };
+pub use harness_update::{HarnessInstalled, HarnessRelease, HarnessUpdateResult};
 pub use hook::{
     Hook, HookAction, HookApproval, HookAuthor, HookDraft, HookEvent, HookFamilyEntry, HookFamilyStatus, HookListing,
     HookOrigin, HookRequirement, HookScope, HookSeed, HookStatus, HookView, HooksDeleted, HooksEvent, ShareBlock,

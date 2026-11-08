@@ -10,6 +10,7 @@ pub mod ecosystem;
 pub mod git;
 pub mod git_sync;
 pub mod harness;
+pub mod harness_update;
 pub mod hooks;
 pub mod knowledge;
 pub mod knowledge_docs;

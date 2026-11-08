@@ -31,6 +31,7 @@ mod detect;
 mod launch;
 mod opencode_generation;
 mod registry;
+pub mod update;
 
 pub use catalog::{
     Builtin, CommandCatalog, SharedCommand, builtin_specs, gui, merge_commands, parse_live_commands, rpc, spec,

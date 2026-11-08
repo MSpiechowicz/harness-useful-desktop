@@ -127,6 +127,7 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.harness.aria': 'Harness: {name}. Wybierz inny, aby rozpocząć z nim czat',
   'chat.harness.notInstalled': 'Niezainstalowany',
   'chat.harness.comingSoon': 'Czat wkrótce',
+  'chat.harness.updateAvailable': 'dostępna v{version}',
   'chat.agent.picker': 'Wybierz agenta',
   'chat.agent.prefix': 'Agent: ',
   'chat.agent.loading': 'Ładowanie agentów…',

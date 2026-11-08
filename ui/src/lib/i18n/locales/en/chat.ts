@@ -120,6 +120,7 @@ export const chat = {
   'chat.harness.aria': 'Harness: {name}. Choose another to start a chat with it',
   'chat.harness.notInstalled': 'Not installed',
   'chat.harness.comingSoon': 'Chat coming soon',
+  'chat.harness.updateAvailable': 'v{version} available',
   'chat.agent.picker': 'Choose agent',
   'chat.agent.prefix': 'Agent: ',
   'chat.agent.loading': 'Loading agents…',

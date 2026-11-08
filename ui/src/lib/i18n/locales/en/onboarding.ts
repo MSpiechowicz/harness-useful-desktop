@@ -22,7 +22,7 @@ export const onboarding = {
   'onboarding.welcome.yours.body': 'Harness Desktop uses the CLIs you already installed. Nothing is copied or uploaded.',
   'onboarding.welcome.private.title': 'Local and private',
   'onboarding.welcome.private.body':
-    'No telemetry, no accounts. The app asks GitHub for new versions (you can turn that off) and opens links you click. Installs and configuration changes happen only after you confirm them in the setup step.',
+    'No telemetry, no accounts. The app asks GitHub and npm for new versions (you can turn that off) and opens links you click. Installs and configuration changes happen only after you confirm them in the setup step.',
 
   'onboarding.harnesses.eyebrow': 'Your harnesses',
   'onboarding.harnesses.title': 'Which harness do you use every day?',

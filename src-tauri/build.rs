@@ -110,6 +110,8 @@ const COMMANDS: &[&str] = &[
     "harness_detect",
     "harness_pick_binary",
     "harness_clear_binary",
+    "harness_releases",
+    "harness_update",
     "config_view",
     "omp_map_role",
     "omp_set_role",

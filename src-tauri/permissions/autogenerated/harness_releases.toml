@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-harness-releases"
+description = "Enables the harness_releases command without any pre-configured scope."
+commands.allow = ["harness_releases"]
+
+[[permission]]
+identifier = "deny-harness-releases"
+description = "Denies the harness_releases command without any pre-configured scope."
+commands.deny = ["harness_releases"]

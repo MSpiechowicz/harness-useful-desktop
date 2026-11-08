@@ -234,7 +234,7 @@ pub(super) async fn detected_binary(state: &AppState, harness: HarnessId) -> Com
     }
 }
 
-async fn stored_overrides(state: &AppState) -> CommandResult<Vec<BinaryOverride>> {
+pub(super) async fn stored_overrides(state: &AppState) -> CommandResult<Vec<BinaryOverride>> {
     let prefs = state.prefs.clone();
 
     blocking(move || Ok(prefs.with(|store| store.load()).binary_overrides)).await

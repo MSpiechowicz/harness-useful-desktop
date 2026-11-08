@@ -15,6 +15,7 @@ use harness_business::ecosystem::{
 };
 use harness_business::env::Env;
 use harness_business::harness::HarnessRegistry;
+use harness_business::harness::update::HarnessReleases;
 use harness_business::hooks::HookStore;
 use harness_business::model::{HarnessId, HarnessSummary};
 use harness_business::pi_family::sessions::SessionCache;
@@ -109,6 +110,11 @@ pub struct AppState {
     pub updates: Updates,
     /// The cached latest GitHub releases of the companion tools (`ecosystem_releases`).
     pub releases: CompanionReleases,
+    /// The cached latest npm versions of the harness CLIs (`harness_releases`).
+    pub harness_releases: HarnessReleases,
+    /// Held while the updater of any harness runs, so only one runs at a time: harnesses can share an
+    /// npm or bun global directory.
+    pub harness_updating: async_runtime::Mutex<()>,
     /// Held while the setup step's dashboard installer runs, so only one runs at a time.
     pub dashboard_install: async_runtime::Mutex<()>,
     /// Held while the memory server's installer runs, so only one runs at a time.
@@ -219,6 +225,8 @@ impl AppState {
             drops: DropSink::default(),
             updates: Updates::new(None),
             releases: CompanionReleases::default(),
+            harness_releases: HarnessReleases::default(),
+            harness_updating: async_runtime::Mutex::new(()),
             dashboard_install: async_runtime::Mutex::new(()),
             memory_install: async_runtime::Mutex::new(()),
             knowledge_install: async_runtime::Mutex::new(()),

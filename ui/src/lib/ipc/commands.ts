@@ -30,7 +30,10 @@ import type { FileDiff } from './bindings/FileDiff';
 import type { GitActionResult } from './bindings/GitActionResult';
 import type { GitStatus } from './bindings/GitStatus';
 import type { HarnessId } from './bindings/HarnessId';
+import type { HarnessInstalled } from './bindings/HarnessInstalled';
+import type { HarnessRelease } from './bindings/HarnessRelease';
 import type { HarnessSummary } from './bindings/HarnessSummary';
+import type { HarnessUpdateResult } from './bindings/HarnessUpdateResult';
 import type { HookDraft } from './bindings/HookDraft';
 import type { HookFamilyEntry } from './bindings/HookFamilyEntry';
 import type { HookListing } from './bindings/HookListing';
@@ -99,6 +102,8 @@ export const commands = {
   harness_detect: cmd<{ harness: HarnessId }, HarnessSummary>(),
   harness_pick_binary: cmd<{ harness: HarnessId }, HarnessSummary | null>(),
   harness_clear_binary: cmd<{ harness: HarnessId }, HarnessSummary>(),
+  harness_releases: cmd<{ installed: HarnessInstalled[] }, HarnessRelease[]>(),
+  harness_update: cmd<{ harness: HarnessId }, HarnessUpdateResult>(),
   config_view: cmd<{ harness: HarnessId; project: string | null }, ConfigView>(),
   omp_map_role: cmd<{ role: string; selector: string }, null>(),
   omp_set_role: cmd<{ role: string; selector: string }, null>(),

@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::hash::Hash;
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
@@ -99,24 +100,33 @@ pub enum Lookup {
     Failed,
 }
 
-/// Lookups by companion, with the time each was made.
-#[derive(Debug, Default)]
-pub struct ReleaseCache {
-    entries: HashMap<EcosystemId, (Lookup, Instant)>,
+/// Lookups by key (a companion, or an npm package for the harness CLIs, see
+/// [`crate::harness::update`]), with the time each was made.
+#[derive(Debug)]
+pub struct ReleaseCache<K = EcosystemId> {
+    entries: HashMap<K, (Lookup, Instant)>,
 }
 
-impl ReleaseCache {
-    /// The lookup of `id` when it is still fresh at `now` (see [`is_fresh`]).
-    pub fn get(&self, id: EcosystemId, now: Instant) -> Option<&Lookup> {
-        let (lookup, at) = self.entries.get(&id)?;
+impl<K> Default for ReleaseCache<K> {
+    fn default() -> Self {
+        Self {
+            entries: HashMap::new(),
+        }
+    }
+}
+
+impl<K: Eq + Hash> ReleaseCache<K> {
+    /// The lookup of `key` when it is still fresh at `now` (see [`is_fresh`]).
+    pub fn get(&self, key: K, now: Instant) -> Option<&Lookup> {
+        let (lookup, at) = self.entries.get(&key)?;
         let found = matches!(lookup, Lookup::Latest(_));
 
         is_fresh(found, now.saturating_duration_since(*at)).then_some(lookup)
     }
 
-    /// Remembers `lookup` of `id`, made at `at`.
-    pub fn put(&mut self, id: EcosystemId, lookup: Lookup, at: Instant) {
-        self.entries.insert(id, (lookup, at));
+    /// Remembers `lookup` of `key`, made at `at`.
+    pub fn put(&mut self, key: K, lookup: Lookup, at: Instant) {
+        self.entries.insert(key, (lookup, at));
     }
 }
 
@@ -203,7 +213,7 @@ pub fn is_newer_release(latest: &str, installed: &str) -> bool {
 }
 
 /// The numeric parts of `version`; `None` when any part is not a plain decimal `u64`.
-fn numeric_parts(version: &str) -> Option<Vec<u64>> {
+pub(crate) fn numeric_parts(version: &str) -> Option<Vec<u64>> {
     let version = version.strip_prefix('v').unwrap_or(version);
 
     version
@@ -217,15 +227,24 @@ fn numeric_parts(version: &str) -> Option<Vec<u64>> {
         .collect()
 }
 
+/// `version` trimmed; `None` when it is empty or longer than the UI could have shown.
+pub(crate) fn usable_version(version: &str) -> Option<&str> {
+    let version = version.trim();
+    let usable = !version.is_empty() && version.len() <= MAX_INSTALLED_LEN;
+
+    usable.then_some(version)
+}
+
 /// The first entry per companion with a usable version, trimmed.
 fn wanted(installed: &[EcosystemInstalled]) -> Vec<EcosystemInstalled> {
     let mut wanted: Vec<EcosystemInstalled> = Vec::new();
 
     for entry in installed {
-        let version = entry.version.trim();
-        let usable = !version.is_empty() && version.len() <= MAX_INSTALLED_LEN;
+        let Some(version) = usable_version(&entry.version) else {
+            continue;
+        };
 
-        if usable && !wanted.iter().any(|seen| seen.id == entry.id) {
+        if !wanted.iter().any(|seen| seen.id == entry.id) {
             wanted.push(EcosystemInstalled {
                 id: entry.id,
                 version: version.to_owned(),

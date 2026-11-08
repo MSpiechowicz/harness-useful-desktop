@@ -24,7 +24,7 @@ function parts(version: string): number[] | null {
 }
 
 /** Like the backend: only a higher, plainly numeric version is newer (a missing part counts as zero). */
-function isNewer(candidate: string, current: string): boolean {
+export function isNewer(candidate: string, current: string): boolean {
   const [a, b] = [parts(candidate), parts(current)];
   if (a === null || b === null) {
     return false;

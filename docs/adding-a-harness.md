@@ -506,6 +506,13 @@ the summary, no preview flag, and no command to switch a plugin on or off or to 
 capped output, strips ANSI escapes and redacts both streams. See `business/src/harnesses/omp/cli.rs` and
 `business/src/harnesses/pi/cli.rs`.
 
+### Updating the CLI
+
+A harness the app can update needs an entry in `business/src/harness/update.rs`: its npm package (`NpmPackage`, listed in
+`PACKAGES` and returned by `npm_package`) and the arguments of its own updater (`update_args`, for example `["update"]`).
+Without them the version lookup and the `harness_update` run do not cover it. Add the package URL to the network table in
+[security-privacy.md](security-privacy.md#network) and the command to its process spawning section.
+
 ## 9. Recommended setup
 
 **Every newly supported harness must be added to the Recommended setup step** of onboarding (also reachable from
