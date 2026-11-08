@@ -1,3 +1,11 @@
+## [0.66.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.66.0...v0.66.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* **chat:** stop the streaming text jumping down and back up ([c46d317](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c46d317b2bf72febc2aec7ab3ac42333f7174951))
+* **process:** wait for a started program to load before reading its identity ([d067fa3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d067fa33758d1e7a0fb8639ecfab0a0a69830428))
+
 # [0.66.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.65.0...v0.66.0) (2026-11-08)
 
 
