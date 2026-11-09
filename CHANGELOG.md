@@ -1,3 +1,10 @@
+## [0.67.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.67.1...v0.67.2) (2026-11-09)
+
+
+### Bug Fixes
+
+* **chat:** name a chat from its first message when the AI name is missing ([8d4edf3](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8d4edf3d63b728704e4d2a921a7ea39407d4452f))
+
 ## [0.67.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.67.0...v0.67.1) (2026-11-09)
 
 
