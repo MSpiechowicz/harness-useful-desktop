@@ -21,8 +21,8 @@ export class ChatTabs {
   protected numbers = new SvelteMap<string, number>();
 
   /**
-   * A chat's title: the name the user typed, else the helper's, else the agent's own, else the opening words of the
-   * first message, else a generated creature name.
+   * A chat's title: the name the user typed, else the helper's, else the opening words of the first message, else the
+   * agent's own name (a resumed chat whose first message is not loaded), else a generated creature name.
    */
   title(key: string): string {
     const session = this.get(key);
@@ -31,7 +31,7 @@ export class ChatTabs {
       return generated;
     }
 
-    return (session.userNamed ? session.name : null) ?? session.aiLabel?.name ?? session.name ?? session.label?.name ?? generated;
+    return (session.userNamed ? session.name : null) ?? session.aiLabel?.name ?? session.label?.name ?? session.name ?? generated;
   }
 
   /**
