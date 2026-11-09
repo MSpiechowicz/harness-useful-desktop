@@ -8,6 +8,9 @@
 //! stream is not `Send`); it closes the device and ends once it has been idle for [`IDLE`], and the
 //! next request starts it again. Nothing here blocks or fails the app: without an audio device the
 //! sound is skipped with a warning.
+//!
+//! The same worker plays the chat alert chime ([`play_alert_chime`]), a short two-note sound made for
+//! this app. Whether it may play is the caller's decision, not this module's.
 
 use std::io::Cursor;
 use std::sync::mpsc::{self, RecvTimeoutError, Sender};
@@ -20,12 +23,28 @@ use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
 /// Mono 48 kHz PCM, about 2.9 s.
 const LAUNCH: &[u8] = include_bytes!("../../sounds/launch.wav");
 
+/// Mono 48 kHz PCM, about 0.4 s.
+const ALERT: &[u8] = include_bytes!("../../sounds/alert.wav");
+
 /// How long the worker keeps the device open without anything to play.
 const IDLE: Duration = Duration::from_secs(15);
 
+#[derive(Clone, Copy)]
 enum Request {
     Play,
+    Chime,
     Stop,
+}
+
+impl Request {
+    /// The sound the request starts; none for a stop.
+    fn track(&self) -> Option<&'static [u8]> {
+        match self {
+            Self::Play => Some(LAUNCH),
+            Self::Chime => Some(ALERT),
+            Self::Stop => None,
+        }
+    }
 }
 
 /// The running worker's inbox, if any.
@@ -44,17 +63,26 @@ pub fn warm_up() {
 /// when the intro is skipped).
 #[tauri::command]
 pub fn launch_sound(play: bool) {
-    let request = || if play { Request::Play } else { Request::Stop };
+    send(if play { Request::Play } else { Request::Stop });
+}
+
+/// Plays the chat alert chime, replacing a sound that is still playing. Returns at once.
+pub fn play_alert_chime() {
+    send(Request::Chime);
+}
+
+/// Hands `request` to the worker, starting one that went idle (or never started). Stopping needs no
+/// worker.
+fn send(request: Request) {
     let mut worker = WORKER.lock().unwrap_or_else(PoisonError::into_inner);
 
-    let delivered = worker.as_ref().is_some_and(|inbox| inbox.send(request()).is_ok());
+    let delivered = worker.as_ref().is_some_and(|inbox| inbox.send(request).is_ok());
 
-    // A worker that went idle (or never started) is started again; stopping needs no worker.
-    if !delivered && play {
+    if !delivered && request.track().is_some() {
         *worker = spawn_worker();
 
         if let Some(inbox) = worker.as_ref() {
-            let _ = inbox.send(request());
+            let _ = inbox.send(request);
         }
     }
 }
@@ -69,7 +97,7 @@ fn spawn_worker() -> Option<Sender<Request>> {
                 sink
             }
             Err(error) => {
-                tracing::warn!(%error, "no audio device; the launch sound is skipped");
+                tracing::warn!(%error, "no audio device, sounds are skipped");
                 return;
             }
         };
@@ -80,7 +108,7 @@ fn spawn_worker() -> Option<Sender<Request>> {
     match spawned {
         Ok(_) => Some(inbox),
         Err(error) => {
-            tracing::warn!(%error, "cannot start the launch sound");
+            tracing::warn!(%error, "cannot start the sound worker");
             None
         }
     }
@@ -112,14 +140,14 @@ fn serve(sink: &MixerDeviceSink, requests: &mpsc::Receiver<Request>) {
             previous.stop();
         }
 
-        if matches!(request, Request::Play) {
-            match Decoder::try_from(Cursor::new(LAUNCH)) {
+        if let Some(bytes) = request.track() {
+            match Decoder::try_from(Cursor::new(bytes)) {
                 Ok(track) => {
                     let next = Player::connect_new(sink.mixer());
                     next.append(track);
                     player = Some(next);
                 }
-                Err(error) => tracing::warn!(%error, "cannot decode the launch sound"),
+                Err(error) => tracing::warn!(%error, "cannot decode a sound"),
             }
         }
     }
@@ -127,7 +155,7 @@ fn serve(sink: &MixerDeviceSink, requests: &mpsc::Receiver<Request>) {
 
 #[cfg(test)]
 mod tests {
-    use super::LAUNCH;
+    use super::{ALERT, LAUNCH};
 
     #[test]
     fn the_launch_track_decodes() {
@@ -136,6 +164,17 @@ mod tests {
 
         assert!(
             duration.as_secs_f32() > 1.9 && duration.as_secs_f32() < 4.0,
+            "{duration:?}"
+        );
+    }
+
+    #[test]
+    fn the_alert_chime_decodes_and_is_short() {
+        let decoder = rodio::Decoder::try_from(std::io::Cursor::new(ALERT)).expect("valid WAV");
+        let duration = rodio::Source::total_duration(&decoder).expect("known length");
+
+        assert!(
+            duration.as_secs_f32() > 0.2 && duration.as_secs_f32() < 0.8,
             "{duration:?}"
         );
     }

@@ -139,6 +139,8 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         approval_notice_seen,
         chat_defaults,
         keep_running_in_tray,
+        chat_alerts,
+        alert_sound,
         memory_notes_ask_default,
         memory_scripts_ask_default,
         memory_copy_to_remote,
@@ -163,7 +165,10 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         main_branches: _,
     } = ui.clone();
 
+    // The groups are listed in another order than in the destructuring above, which is why the two
+    // exhaustive lists are not one repeated block.
     AppPrefs {
+        // Display.
         theme,
         motion,
         language,
@@ -179,11 +184,7 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         auto_update_extensions,
         auto_refresh_catalogs,
         open_any_link,
-        ai_chat_names,
-        onboarding_completed,
-        approval_notice_seen,
-        chat_defaults,
-        keep_running_in_tray,
+        // Memory and limits.
         memory_notes_ask_default,
         memory_scripts_ask_default,
         memory_copy_to_remote,
@@ -192,6 +193,14 @@ pub fn with_ui_fields(stored: AppPrefs, ui: &AppPrefs) -> AppPrefs {
         limit_bars,
         limit_forecast,
         limit_gauge,
+        // Chat.
+        ai_chat_names,
+        onboarding_completed,
+        approval_notice_seen,
+        chat_defaults,
+        keep_running_in_tray,
+        chat_alerts,
+        alert_sound,
         ..stored
     }
 }

@@ -14,6 +14,12 @@ pub type OnClosed = Box<dyn Fn(&str) + Send + Sync>;
 pub trait ChatSink: EventSink {
     /// True once nobody can see the chat any more: a chat that is starting is stopped.
     fn is_closed(&self) -> bool;
+
+    /// True when the chat tells the user when it finished, failed or needs them (a chat the user
+    /// started). A routine run's chat stays silent.
+    fn raises_alerts(&self) -> bool {
+        false
+    }
 }
 
 /// An [`EventSink`] over a webview channel.
@@ -46,6 +52,11 @@ impl ChatSink for ChannelSink {
     /// True once a send failed.
     fn is_closed(&self) -> bool {
         self.closed.load(Ordering::Acquire)
+    }
+
+    /// Always: the user opened this chat.
+    fn raises_alerts(&self) -> bool {
+        true
     }
 }
 

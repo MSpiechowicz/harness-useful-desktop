@@ -5,9 +5,10 @@
 //! `PI_CODING_AGENT_SESSION_DIR` or a project `sessionDir`), so an OMP agent and a PI agent of
 //! one id would write the same file.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, PoisonError, Weak};
 
+use super::AgentManager;
 use super::engine::AgentSession;
 use super::sink::EventSink;
 use crate::error::BusinessError;
@@ -87,10 +88,17 @@ pub(super) enum Claimant {
     Other,
 }
 
+/// The most session keys remembered as ended by the user. A key is forgotten when its chat's task
+/// is done with it, so only chats nobody asked about again stay here, oldest dropped first.
+const MAX_ENDED: usize = 256;
+
 #[derive(Default)]
 pub(super) struct Slots {
     pub sessions: HashMap<String, Entry>,
     stopping: Vec<Parked>,
+    /// Keys of the sessions the user ended (a stop, a page reload): unlike a missing entry, which
+    /// [`Slots::prune`] also causes for a crashed agent, this tells them apart.
+    ended: VecDeque<String>,
     /// Session ids of starts in progress and of [`SessionClaim`]s.
     pub claimed: HashMap<String, Claimant>,
     pub starting: usize,
@@ -140,6 +148,20 @@ impl Slots {
         Some(id.to_owned())
     }
 
+    /// Moves `entry` to the stopping agents like [`Slots::park`], and remembers that the user ended
+    /// its session (see [`AgentManager::ended_by_user`]).
+    pub fn park_ended(&mut self, entry: Entry) -> Arc<AgentSession> {
+        if !self.ended.contains(&entry.info.key) {
+            if self.ended.len() >= MAX_ENDED {
+                self.ended.pop_front();
+            }
+
+            self.ended.push_back(entry.info.key.clone());
+        }
+
+        self.park(entry)
+    }
+
     /// Moves `entry` to the stopping agents; returns its session for [`Stopping`](super::Stopping).
     pub fn park(&mut self, entry: Entry) -> Arc<AgentSession> {
         self.stopping.push(Parked {
@@ -148,6 +170,19 @@ impl Slots {
         });
 
         entry.session
+    }
+}
+
+impl AgentManager {
+    /// True when the user ended session `key` (a stop or a page reload took it out of the manager),
+    /// as opposed to an agent that exited on its own and was forgotten by a later look at the list.
+    pub fn ended_by_user(&self, key: &str) -> bool {
+        self.lock().ended.iter().any(|ended| ended == key)
+    }
+
+    /// Forgets that session `key` was ended, once nothing asks about it any more.
+    pub fn forget_ended(&self, key: &str) {
+        self.lock().ended.retain(|ended| ended != key);
     }
 }
 

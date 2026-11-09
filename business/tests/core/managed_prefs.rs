@@ -59,6 +59,8 @@ fn with_ui_changes(base: AppPrefs) -> AppPrefs {
         onboarding_completed: true,
         approval_notice_seen: true,
         keep_running_in_tray: true,
+        chat_alerts: false,
+        alert_sound: false,
         memory_notes_ask_default: true,
         memory_scripts_ask_default: true,
         memory_copy_to_remote: true,
@@ -421,4 +423,17 @@ fn background_fetch_is_on_for_a_fresh_install_and_for_a_file_without_the_key() {
 
     assert!(load_file(r#"{"version":1,"theme":"dark"}"#).background_fetch);
     assert!(!load_file(r#"{"version":1,"backgroundFetch":false}"#).background_fetch);
+}
+
+#[test]
+fn chat_alerts_and_their_sound_are_on_for_a_fresh_install_and_for_a_file_without_the_keys() {
+    let dir = TempDir::new().unwrap();
+    let fresh = PrefsStore::new(dir.path().join("never-created")).load();
+    assert!(fresh.chat_alerts && fresh.alert_sound);
+
+    let old = load_file(r#"{"version":1,"theme":"dark"}"#);
+    assert!(old.chat_alerts && old.alert_sound);
+
+    let off = load_file(r#"{"version":1,"chatAlerts":false,"alertSound":false}"#);
+    assert!(!off.chat_alerts && !off.alert_sound);
 }

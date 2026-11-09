@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-chat-alerts-listen"
+description = "Enables the chat_alerts_listen command without any pre-configured scope."
+commands.allow = ["chat_alerts_listen"]
+
+[[permission]]
+identifier = "deny-chat-alerts-listen"
+description = "Denies the chat_alerts_listen command without any pre-configured scope."
+commands.deny = ["chat_alerts_listen"]

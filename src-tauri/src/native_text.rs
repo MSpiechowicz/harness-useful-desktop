@@ -57,6 +57,14 @@ pub struct NativeText {
     pub routine_see_run: &'static str,
     /// Title of the OS notification for a routine run that finished (its body is the name).
     pub routine_finished: &'static str,
+    /// Title of the OS notification for a chat that finished (its body is the chat's name).
+    pub chat_finished: &'static str,
+    /// Title of the OS notification for a chat that waits for an answer.
+    pub chat_needs_you: &'static str,
+    /// Title of the OS notification for a chat that failed.
+    pub chat_failed: &'static str,
+    /// Body of those notifications for a chat with no usable name.
+    pub chat_open: &'static str,
     /// Title of the file dialog that picks a harness executable; `{binary}` is the binary name.
     choose_executable: &'static str,
 }
@@ -94,6 +102,10 @@ const EN: NativeText = NativeText {
     routine_attention: "Routine needs attention",
     routine_see_run: "See the run in Harness Desktop",
     routine_finished: "Routine finished",
+    chat_finished: "Chat finished",
+    chat_needs_you: "Chat needs you",
+    chat_failed: "Chat failed",
+    chat_open: "Open it in Harness Desktop",
     choose_executable: "Choose the `{binary}` executable",
 };
 
@@ -123,6 +135,10 @@ const DE: NativeText = NativeText {
     routine_attention: "Routine braucht Aufmerksamkeit",
     routine_see_run: "Lauf in Harness Desktop ansehen",
     routine_finished: "Routine abgeschlossen",
+    chat_finished: "Chat abgeschlossen",
+    chat_needs_you: "Chat braucht dich",
+    chat_failed: "Chat fehlgeschlagen",
+    chat_open: "In Harness Desktop öffnen",
     choose_executable: "Programmdatei `{binary}` auswählen",
 };
 
@@ -152,6 +168,10 @@ const ES: NativeText = NativeText {
     routine_attention: "Una rutina requiere atención",
     routine_see_run: "Mira la ejecución en Harness Desktop",
     routine_finished: "Rutina terminada",
+    chat_finished: "Un chat ha terminado",
+    chat_needs_you: "Un chat te necesita",
+    chat_failed: "Un chat ha fallado",
+    chat_open: "Ábrelo en Harness Desktop",
     choose_executable: "Elige el ejecutable `{binary}`",
 };
 
@@ -181,6 +201,10 @@ const FR: NativeText = NativeText {
     routine_attention: "Une routine demande votre attention",
     routine_see_run: "Voir l’exécution dans Harness Desktop",
     routine_finished: "Routine terminée",
+    chat_finished: "Un chat est terminé",
+    chat_needs_you: "Un chat a besoin de vous",
+    chat_failed: "Un chat a échoué",
+    chat_open: "À ouvrir dans Harness Desktop",
     choose_executable: "Choisir l’exécutable `{binary}`",
 };
 
@@ -210,6 +234,10 @@ const PL: NativeText = NativeText {
     routine_attention: "Rutyna wymaga uwagi",
     routine_see_run: "Zobacz przebieg w Harness Desktop",
     routine_finished: "Rutyna zakończona",
+    chat_finished: "Czat zakończył pracę",
+    chat_needs_you: "Czat czeka na Ciebie",
+    chat_failed: "Czat zakończył się błędem",
+    chat_open: "Otwórz go w Harness Desktop",
     choose_executable: "Wybierz plik wykonywalny `{binary}`",
 };
 
@@ -239,6 +267,10 @@ const PT: NativeText = NativeText {
     routine_attention: "Uma rotina precisa de atenção",
     routine_see_run: "Veja a execução no Harness Desktop",
     routine_finished: "Rotina concluída",
+    chat_finished: "Um chat terminou",
+    chat_needs_you: "Um chat precisa de você",
+    chat_failed: "Um chat falhou",
+    chat_open: "Abra no Harness Desktop",
     choose_executable: "Escolher o executável `{binary}`",
 };
 
@@ -291,6 +323,10 @@ mod tests {
                 text.routine_attention,
                 text.routine_see_run,
                 text.routine_finished,
+                text.chat_finished,
+                text.chat_needs_you,
+                text.chat_failed,
+                text.chat_open,
             ] {
                 assert!(!entry.contains(';'), "{lang}: {entry}");
                 assert!(!entry.trim().is_empty(), "{lang} has an empty entry");
@@ -337,6 +373,7 @@ mod tests {
             assert!(text.script_request_review.contains("Harness Desktop"), "{lang}");
             assert!(text.routine_answer.contains("Harness Desktop"), "{lang}");
             assert!(text.routine_see_run.contains("Harness Desktop"), "{lang}");
+            assert!(text.chat_open.contains("Harness Desktop"), "{lang}");
         }
     }
 }

@@ -47,6 +47,7 @@ mod harness_paths;
 mod harness_update;
 mod harness_update_run;
 mod hooks_agent;
+mod hooks_alerts;
 mod hooks_command;
 mod hooks_compose;
 mod hooks_engine;

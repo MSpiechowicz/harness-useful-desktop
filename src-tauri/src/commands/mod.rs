@@ -3,6 +3,7 @@
 
 pub mod agent;
 pub mod app;
+pub mod chat_alerts;
 pub mod code;
 pub mod desktop_mcp;
 pub mod drops;

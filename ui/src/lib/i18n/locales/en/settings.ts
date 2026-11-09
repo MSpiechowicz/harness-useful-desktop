@@ -19,7 +19,7 @@ export const settings = {
 
   // Words the command palette matches a "Settings: {section}" command by.
   'settings.keywords.appearance': 'theme motion dark light animation language',
-  'settings.keywords.startup': 'intro launch splash',
+  'settings.keywords.startup': 'intro launch splash alert notification chime',
   'settings.keywords.harnesses': 'binary omp pi opencode path setup harness',
   'settings.keywords.memory': 'memory remote team database postgres postgresql mongodb mongo sqlite libsql turso shared harness-memory mcp remember repository project recall notes global new chat documentdb aws amazon pause ask before saving review held guards allow agents saving vector search semantic meaning embedding model download english notes language rewrite',
   'settings.keywords.projects': 'recent folders git fetch remote branch',
@@ -269,6 +269,11 @@ export const settings = {
   'settings.memoryRemote.hooks.description': 'Your hooks always stay here. Remote adds the ones others share.',
   'settings.tray.title': 'Keep running in the tray when the window is closed',
   'settings.tray.description': 'Routines keep running on their schedule while Harness Desktop stays in the tray.',
+  'settings.chatAlerts.title': 'Chat alerts',
+  'settings.chatAlerts.description': 'Get a notification when a chat finishes, needs you or fails while you are looking elsewhere.',
+  'settings.alertSound.title': 'Alert sound',
+  'settings.alertSound.description': 'A short chime with each alert.',
+  'settings.alertSound.off': 'Turn on chat alerts to hear the chime.',
   'settings.memoryRemote.routines.title': 'Routines',
   'settings.memoryRemote.routines.description': 'Your routines always stay here. Remote adds the ones others share.',
   'settings.memoryRemote.trustRoutines.title': 'Run remote routines without asking',

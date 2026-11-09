@@ -9,6 +9,8 @@ import type { BashOutput } from './bindings/BashOutput';
 import type { Branch } from './bindings/Branch';
 import type { BranchPage } from './bindings/BranchPage';
 import type { BranchSync } from './bindings/BranchSync';
+import type { ChatAlertEvent } from './bindings/ChatAlertEvent';
+import type { ChatAlertsView } from './bindings/ChatAlertsView';
 import type { CliResult } from './bindings/CliResult';
 import type { CommandSpec as CatalogCommand } from './bindings/CommandSpec';
 import type { ComposedReview } from './bindings/ComposedReview';
@@ -322,6 +324,8 @@ export const commands = {
   update_install: cmd<{ onProgress: EventSink<UpdateProgress> }, null>(),
   app_relaunch: cmd<undefined, null>(),
   launch_sound: cmd<{ play: boolean }, null>(),
+  chat_alerts_listen: cmd<{ channel: EventSink<ChatAlertEvent> }, null>(),
+  chat_alerts_view: cmd<{ view: ChatAlertsView }, null>(),
   drop_listen: cmd<{ onDrop: EventSink<DropEvent> }, null>(),
   attachment_save: cmd<{ name: string; data: string }, AttachedFile>(),
 };

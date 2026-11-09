@@ -19,9 +19,10 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     tauri_plugin_notification::init()
 }
 
-/// Brings the main window to the front when the user clicks a notification, and for a "Routine
-/// needs you" one opens the chat of the run it names while that run still waits (see
-/// `crate::routines::notify`). Call once, after the plugin is set up; notifications shown before
+/// Brings the main window to the front when the user clicks a notification, for a "Routine needs
+/// you" one opens the chat of the run it names while that run still waits (see
+/// `crate::routines::notify`), and for a chat alert opens that chat (see `crate::chat_alerts`).
+/// Call once, after the plugin is set up; notifications shown before
 /// this report no clicks.
 pub fn focus_on_click<R: Runtime>(app: &AppHandle<R>) {
     let handle = app.clone();
@@ -37,6 +38,7 @@ pub fn focus_on_click<R: Runtime>(app: &AppHandle<R>) {
 
             if let Some(state) = handle.try_state::<crate::state::AppState>() {
                 state.routines.on_notification_click(&extra);
+                state.chat_alerts.on_notification_click(&extra);
             }
         }
     });

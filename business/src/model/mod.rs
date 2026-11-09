@@ -11,6 +11,7 @@ mod agent_event;
 mod app;
 mod author;
 mod chat;
+mod chat_alert;
 mod code;
 mod command;
 mod config;
@@ -75,6 +76,7 @@ pub use chat::{
     AgentOption, ChatBlock, ChatMessage, ContextUsage, MessageRole, ModelOption, PromptStatus, SessionState,
     SessionStats, TokenUsage,
 };
+pub use chat_alert::{ChatAlertEvent, ChatAlertKind, ChatAlertsView};
 pub use code::{CodeBuildEvent, CodeIndexState, CodeSwitchResult};
 pub use command::{AgentActionKind, CommandInvocation, CommandSource, CommandSpec, GuiTarget};
 pub use config::{

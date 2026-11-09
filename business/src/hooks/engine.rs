@@ -41,7 +41,9 @@
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;
+use std::time::Instant;
 
+use super::alerts::Alerts;
 use super::compose::ResolvedPart;
 use super::plan::{ToolEnv, planned_part, sort_parts};
 use super::run::{RunState, SettleClock, TouchedLog, Waiting, commands_only, handled_without_run, is_eligible};
@@ -51,6 +53,7 @@ pub use super::plan::{
     ChatContext, CommandRequest, EventOutcome, Firing, FollowUpPlan, HookSet, PlannedPart, SendPlan,
 };
 
+mod chat_alerts;
 mod memory_gate;
 mod memory_state;
 mod tool_end;
@@ -92,6 +95,8 @@ pub struct HookSession {
     announced: MemoryGuardState,
     /// Harness Memory takes no part in the chat now: nothing is announced, and `announced` stays.
     memory_apart: bool,
+    /// What the chat has to tell the user (see [`super::alerts`]).
+    alerts: Alerts,
 }
 
 impl HookSession {
@@ -114,6 +119,7 @@ impl HookSession {
             memory: MemoryGuardState::OPEN,
             announced: MemoryGuardState::OPEN,
             memory_apart: false,
+            alerts: Alerts::default(),
         }
     }
 
@@ -236,6 +242,11 @@ impl HookSession {
 
     /// Call for every event of the chat's stream.
     pub fn on_event(&mut self, hooks: &HookSet, event: &AgentEvent) -> EventOutcome {
+        self.on_event_at(hooks, event, Instant::now())
+    }
+
+    /// [`HookSession::on_event`] at `now`, the time the chat's alerts count from.
+    pub fn on_event_at(&mut self, hooks: &HookSet, event: &AgentEvent, now: Instant) -> EventOutcome {
         if self.chat.utility {
             return EventOutcome::Nothing;
         }
@@ -263,9 +274,16 @@ impl HookSession {
                 EventOutcome::Nothing
             }
             AgentEvent::Settled { aborted } => self.settled(hooks, aborted.unwrap_or(false)),
-            AgentEvent::Exited { .. } => self
-                .on_stop(hooks)
-                .map_or(EventOutcome::Nothing, EventOutcome::SessionEnd),
+            AgentEvent::UiRequest { .. } => {
+                self.alerts.dialog_opened(now);
+                EventOutcome::Nothing
+            }
+            AgentEvent::Exited { .. } => {
+                self.alerts.exited();
+
+                self.on_stop(hooks)
+                    .map_or(EventOutcome::Nothing, EventOutcome::SessionEnd)
+            }
             _ => EventOutcome::Nothing,
         }
     }
@@ -316,6 +334,9 @@ impl HookSession {
     pub fn follow_up_replied(&mut self, reply: &AgentReply) {
         if handled_without_run(reply) {
             self.hook_handled += 1;
+            self.alerts.release();
+        } else {
+            self.alerts.follow_up_started();
         }
     }
 
@@ -352,6 +373,9 @@ impl HookSession {
 
         let mut run = std::mem::replace(&mut self.current, next);
         run.aborted |= aborted;
+
+        let holds = !superseded && run.earned_follow_up();
+        self.alerts.run_settled(&run, superseded, holds);
 
         // A run the engine's own prompt started fires nothing.
         if !run.user_sent() {
@@ -395,7 +419,8 @@ impl HookSession {
 
     /// The combined follow-up of a settled `run`: its `turnEnd` parts and its `toolEnd`
     /// contributions, in run order. Without `deliver` (a user message went out meanwhile) only
-    /// the `turnEnd` commands are left, under a ticket that is never taken.
+    /// the `turnEnd` commands are left, under a ticket that is never taken. A follow-up that cannot
+    /// go out releases the run's alert.
     fn follow_up(&mut self, run: RunState, mut parts: Vec<PlannedPart>, deliver: bool) -> Option<FollowUpPlan> {
         if deliver {
             parts.extend(run.tool_texts.into_iter().map(PlannedPart::Text));
@@ -406,9 +431,11 @@ impl HookSession {
             );
         } else {
             parts.retain(|part| matches!(part, PlannedPart::Command(_)));
+            self.alerts.release();
         }
 
         if parts.is_empty() {
+            self.alerts.release();
             return None;
         }
 
@@ -454,6 +481,7 @@ impl HookSession {
         self.current = RunState::new(self.next_run);
         self.next_run += 1;
         self.pending_ticket = None;
+        self.alerts.runs_dropped();
 
         if let Some(waiting) = &mut self.waiting {
             waiting.cancelled = true;

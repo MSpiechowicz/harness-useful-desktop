@@ -241,6 +241,13 @@ pub struct AppPrefs {
     /// Whether closing the main window hides it to the tray instead of quitting, so routines keep
     /// running (default off). Without a tray icon closing always quits.
     pub keep_running_in_tray: bool,
+    /// Whether a chat the user started tells them when it finished, needs an answer or failed while
+    /// they look at another chat or another window (default on): an OS notification while the app is
+    /// not in front, a toast while it is. Off: nothing at all, not even a sound.
+    pub chat_alerts: bool,
+    /// Whether a chat alert also plays a short chime (default on), at most one per 1.5 s however
+    /// many chats raise one. Only matters while `chat_alerts` is on.
+    pub alert_sound: bool,
     /// Whether a new chat starts with "Ask before saving" on for notes (default off).
     pub memory_notes_ask_default: bool,
     /// Whether a new chat starts with "Ask before saving" on for scripts (default off).
@@ -323,6 +330,8 @@ impl Default for AppPrefs {
             updates_turned_on: true,
             memory_opt_in_notice_done: true,
             keep_running_in_tray: false,
+            chat_alerts: true,
+            alert_sound: true,
             memory_notes_ask_default: false,
             memory_scripts_ask_default: false,
             memory_copy_to_remote: false,

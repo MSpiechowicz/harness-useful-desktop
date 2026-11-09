@@ -74,6 +74,25 @@ impl Chats {
     pub(super) fn prompt(&self, key: &str, message: &str) {
         self.send(key, prompt(message)).expect("the agent accepts the prompt");
     }
+
+    /// Writes a turn-end follow-up hook, starts a chat and sends it the first user message. The
+    /// scenario has the agent answer both that message and the follow-up.
+    pub(super) fn start_after_follow_up_hook(&self) -> (String, Arc<Mutex<Vec<Value>>>) {
+        self.hook(
+            "Save notes",
+            HookEvent::TurnEnd,
+            HookAction::FollowUp {
+                text: "Save what you learned.".to_owned(),
+            },
+            HookAuthor::Desktop,
+            0,
+        );
+
+        let (key, received) = self.start(start_request(&self.setup.project));
+        self.prompt(&key, "Fix the parser");
+
+        (key, received)
+    }
 }
 
 impl Drop for Chats {
@@ -168,18 +187,7 @@ fn one_follow_up_goes_out_after_a_user_run_and_none_after_its_own_run() {
     let Some(chats) = chats("omp_hooks_follow_up.jsonl") else {
         return;
     };
-    chats.hook(
-        "Save notes",
-        HookEvent::TurnEnd,
-        HookAction::FollowUp {
-            text: "Save what you learned.".to_owned(),
-        },
-        HookAuthor::Desktop,
-        0,
-    );
-
-    let (key, received) = chats.start(start_request(&chats.setup.project));
-    chats.prompt(&key, "Fix the parser");
+    let (key, received) = chats.start_after_follow_up_hook();
 
     wait_until("both runs to settle", || events_of(&received, "settled").len() == 2);
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-chat-alerts-view"
+description = "Enables the chat_alerts_view command without any pre-configured scope."
+commands.allow = ["chat_alerts_view"]
+
+[[permission]]
+identifier = "deny-chat-alerts-view"
+description = "Denies the chat_alerts_view command without any pre-configured scope."
+commands.deny = ["chat_alerts_view"]

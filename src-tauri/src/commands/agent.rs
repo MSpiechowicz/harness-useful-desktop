@@ -206,7 +206,8 @@ pub(crate) async fn start_with(
     tracing::info!(session = %info.key, harness = ?info.harness, "agent session started");
 
     if let Some(hook_events) = hook_events {
-        chat_hooks::track(state, &info, fresh, memory_key, hook_events).await;
+        let alerts = sink.raises_alerts();
+        chat_hooks::track(state, &info, fresh, memory_key, hook_events, alerts).await;
     }
 
     Ok(info)

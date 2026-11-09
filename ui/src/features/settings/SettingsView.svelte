@@ -273,6 +273,26 @@
               {/snippet}
             </SettingRow>
 
+            <SettingRow title={t('settings.chatAlerts.title')} description={t('settings.chatAlerts.description')}>
+              {#snippet control()}
+                <Switch label={t('settings.chatAlerts.title')} bind:checked={() => prefs.value?.chatAlerts ?? true, (chatAlerts) => void prefs.update({ chatAlerts })} />
+              {/snippet}
+            </SettingRow>
+
+            <SettingRow
+              title={t('settings.alertSound.title')}
+              description={prefs.value?.chatAlerts === false ? t('settings.alertSound.off') : t('settings.alertSound.description')}
+              descriptions={[t('settings.alertSound.description'), t('settings.alertSound.off')]}
+            >
+              {#snippet control()}
+                <Switch
+                  label={t('settings.alertSound.title')}
+                  disabled={prefs.value?.chatAlerts === false}
+                  bind:checked={() => prefs.value?.alertSound ?? true, (alertSound) => void prefs.update({ alertSound })}
+                />
+              {/snippet}
+            </SettingRow>
+
             <SettingRow title={t('settings.replay.title')} description={motion.level === 'off' ? t('settings.replay.motionOff') : t('settings.replay.ready')}>
               {#snippet control()}
                 <Button disabled={motion.level === 'off'} onclick={() => intro.play(motion.level)}>

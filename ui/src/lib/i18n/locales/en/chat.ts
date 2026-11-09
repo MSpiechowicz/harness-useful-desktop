@@ -455,4 +455,9 @@ export const chat = {
   'chat.toast.noAgentPicker': 'This chat has no agent picker.',
   'chat.toast.agentLocked': 'Agent locked',
   'chat.toast.agentLockedBody': 'The agent can be switched once the current reply is done.',
+
+  'chat.alert.finished': 'Chat finished',
+  'chat.alert.needsYou': 'Chat needs you',
+  'chat.alert.failed': 'Chat failed',
+  'chat.alert.open': 'Open',
 } satisfies Record<string, string>;

@@ -188,6 +188,17 @@ memoryOptInNoticeDone: boolean,
  */
 keepRunningInTray: boolean, 
 /**
+ * Whether a chat the user started tells them when it finished, needs an answer or failed while
+ * they look at another chat or another window (default on): an OS notification while the app is
+ * not in front, a toast while it is. Off: nothing at all, not even a sound.
+ */
+chatAlerts: boolean, 
+/**
+ * Whether a chat alert also plays a short chime (default on), at most one per 1.5 s however
+ * many chats raise one. Only matters while `chat_alerts` is on.
+ */
+alertSound: boolean, 
+/**
  * Whether a new chat starts with "Ask before saving" on for notes (default off).
  */
 memoryNotesAskDefault: boolean, 

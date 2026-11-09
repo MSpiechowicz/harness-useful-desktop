@@ -5,15 +5,15 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use harness_business::agent::EventSink;
-use harness_business::model::{AgentEnvelope, AgentEvent, Subagent, SubagentStatus};
+use harness_business::model::{AgentEnvelope, AgentEvent, Subagent, SubagentStatus, UiRequest, UiRequestKind};
 use serde_json::Value;
 use tokio::sync::mpsc;
 
 use super::counts::Counts;
 
 /// Forwards a chat's events to its sink (the webview, or a routine run's relay) first, then hands
-/// the ones the hooks react to (tool ends, prompt results, settles, the exit) to the chat's hook
-/// task without waiting. Counts the settles before the sink sees them.
+/// the ones the hooks and the chat's alerts react to (tool ends, prompt results, settles, dialogs,
+/// the exit) to the chat's hook task without waiting. Counts the settles before the sink sees them.
 pub struct HookSink {
     inner: Arc<dyn EventSink>,
     events: mpsc::UnboundedSender<AgentEvent>,
@@ -137,7 +137,62 @@ fn hook_relevant(event: &AgentEvent) -> Option<AgentEvent> {
             result: Value::Null,
             touched_paths: touched_paths.clone(),
         }),
+        // The chat's alerts need to know a dialog opened, nothing in it: its text can be long.
+        AgentEvent::UiRequest { request } => Some(AgentEvent::UiRequest {
+            request: UiRequest::new(
+                request.id.clone(),
+                UiRequestKind::Confirm {
+                    title: String::new(),
+                    message: String::new(),
+                    timeout_ms: None,
+                },
+            ),
+        }),
         AgentEvent::PromptResult { .. } | AgentEvent::Settled { .. } | AgentEvent::Exited { .. } => Some(event.clone()),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn envelope(event: AgentEvent) -> AgentEnvelope {
+        AgentEnvelope {
+            session_key: "chat".to_owned(),
+            seq: 1,
+            event,
+        }
+    }
+
+    #[test]
+    fn a_dialog_reaches_the_hook_task_without_its_text() {
+        let inner = harness_business::agent::CollectingSink::new();
+        let (sink, mut hooks) = HookSink::new(inner.clone());
+        let title = "a long question ".repeat(10_000);
+        let dialog = UiRequest::new(
+            "ask-1",
+            UiRequestKind::Editor {
+                title,
+                prefill: Some("draft ".repeat(10_000)),
+            },
+        );
+
+        sink.emit(envelope(AgentEvent::UiRequest {
+            request: dialog.clone(),
+        }));
+
+        // The webview still gets the whole dialog.
+        assert_eq!(
+            inner.events(),
+            [AgentEvent::UiRequest { request: dialog }],
+            "the sink in front of the chat is not trimmed"
+        );
+
+        let AgentEvent::UiRequest { request } = hooks.received.try_recv().expect("the dialog is handed on") else {
+            panic!("a dialog is handed on as a dialog");
+        };
+        assert_eq!(request.id, "ask-1");
+        assert!(serde_json::to_string(&request).unwrap().len() < 200, "{request:?}");
     }
 }

@@ -212,6 +212,8 @@
     "allow-update-install",
     "allow-app-relaunch",
     "allow-launch-sound",
+    "allow-chat-alerts-listen",
+    "allow-chat-alerts-view",
     "notification:allow-is-permission-granted"
   ]
 }

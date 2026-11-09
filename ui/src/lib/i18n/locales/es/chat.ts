@@ -460,4 +460,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.toast.noAgentPicker': 'Este chat no tiene selector de agente.',
   'chat.toast.agentLocked': 'Agente bloqueado',
   'chat.toast.agentLockedBody': 'Podrás cambiar de agente cuando termine la respuesta actual.',
+
+  'chat.alert.finished': 'Chat terminado',
+  'chat.alert.needsYou': 'Un chat te necesita',
+  'chat.alert.failed': 'Chat fallido',
+  'chat.alert.open': 'Abrir',
 };

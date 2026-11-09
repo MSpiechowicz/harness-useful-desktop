@@ -20,6 +20,13 @@ export class ChatTabs {
   /** Each open chat's number, the "3" of "Chat 3" (a random free one), kept while the agent has not named it. */
   protected numbers = new SvelteMap<string, number>();
 
+  /** The name a person or the naming helper gave the chat, or null: the opening words of its first message and the placeholders are not names. */
+  givenName(key: string): string | null {
+    const session = this.get(key);
+
+    return (session?.userNamed ? session.name : null) ?? session?.aiLabel?.name ?? null;
+  }
+
   /**
    * A chat's title: the name the user typed, else the helper's, else the opening words of the first message, else the
    * agent's own name (a resumed chat whose first message is not loaded), else a generated creature name.
@@ -31,7 +38,7 @@ export class ChatTabs {
       return generated;
     }
 
-    return (session.userNamed ? session.name : null) ?? session.aiLabel?.name ?? session.label?.name ?? session.name ?? generated;
+    return this.givenName(key) ?? session.label?.name ?? session.name ?? generated;
   }
 
   /**

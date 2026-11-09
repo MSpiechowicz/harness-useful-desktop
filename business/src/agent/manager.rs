@@ -117,7 +117,7 @@ impl AgentManager {
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, Slots> {
+    pub(super) fn lock(&self) -> MutexGuard<'_, Slots> {
         self.slots.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
@@ -436,7 +436,7 @@ impl AgentManager {
         let entry = slots.sessions.remove(key)?;
 
         Some(Stopping {
-            sessions: vec![slots.park(entry)],
+            sessions: vec![slots.park_ended(entry)],
         })
     }
 
@@ -462,7 +462,7 @@ impl AgentManager {
         let entries: Vec<Entry> = stopped.iter().filter_map(|key| slots.sessions.remove(key)).collect();
 
         Stopping {
-            sessions: entries.into_iter().map(|entry| slots.park(entry)).collect(),
+            sessions: entries.into_iter().map(|entry| slots.park_ended(entry)).collect(),
         }
     }
 

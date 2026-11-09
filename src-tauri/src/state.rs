@@ -28,6 +28,7 @@ use tauri::async_runtime::{self, RwLock};
 use tauri::{AppHandle, Manager, Runtime};
 
 use crate::agents::Agents;
+use crate::chat_alerts::ChatAlerts;
 use crate::code_builds::CodeBuilds;
 use crate::code_prepares::CodePrepares;
 use crate::drops::DropSink;
@@ -152,6 +153,8 @@ pub struct AppState {
     pub code_setup: async_runtime::Mutex<()>,
     /// Held while the app's own MCP server is registered, so one registration runs at a time.
     pub desktop_mcp_setup: async_runtime::Mutex<()>,
+    /// Delivers the alerts the chats the user started raise.
+    pub chat_alerts: Arc<ChatAlerts>,
     /// The hooks folder, its approvals and the hooks of each chat.
     pub hooks: Arc<HookRuntime>,
     /// The routines folder, its schedule and the runs.
@@ -246,6 +249,7 @@ impl AppState {
             knowledge_setup: async_runtime::Mutex::new(()),
             code_setup: async_runtime::Mutex::new(()),
             desktop_mcp_setup: async_runtime::Mutex::new(()),
+            chat_alerts: Arc::default(),
             hooks: Arc::new(hooks),
             routines: Arc::new(routines),
             project_keys: ProjectKeys::default(),

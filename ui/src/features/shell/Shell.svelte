@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
 
+  import { chatAlerts } from '$lib/chat/alerts.svelte';
   import CommandPalette from '$lib/components/CommandPalette.svelte';
   import { WorkspaceState } from '$lib/components/workspace.svelte';
   import { agentSessions } from '$lib/stores/agentSession.svelte';
@@ -351,6 +352,15 @@
       routines.openRequest = null;
       void openRequestedRun(runId);
     }
+  });
+
+  // A chat that finishes, needs the user or fails says so with a toast while the window is in front. The listener lives as long
+  // as the page, so a remounted shell does not add a second. The backend is told which chat is on screen and what every chat is called.
+  $effect(() => chatAlerts.start());
+  $effect(() => {
+    const view = chatAlerts.view();
+
+    untrack(() => chatAlerts.follow(view));
   });
 
   // The palette searches sessions, configuration and extensions; make sure they are loaded when it opens.

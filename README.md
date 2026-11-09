@@ -28,6 +28,9 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
   send. Chat with OpenCode, Claude Code and Codex is a preview. Claude Code chats offer the Always ask, Write and Auto approval modes,
   never Yolo, and start in a folder Claude Code does not trust only after you pick Trust once. Codex chats offer Always ask,
   Write and Yolo, never Auto, and use a folder's own `.codex` settings only after you pick Trust once.
+- **Chat alerts.** When a chat finishes, needs you or fails while you are looking elsewhere, you get an OS notification
+  (or a toast if the app is in front on another chat or view) and a short chime. Clicking opens that chat. It shows only
+  the chat's name and state. Settings has one switch for alerts and one for the sound, both on by default.
 - **Sessions and branches.** Lists a project's saved sessions, shows the branch tree of each, opens the transcript,
   resumes or forks. OpenCode sessions are linear: the app lists them, opens the transcript and deletes them through
   the `opencode` CLI, with no branch tree, and resumes or forks them in a chat. Claude Code sessions are listed, opened

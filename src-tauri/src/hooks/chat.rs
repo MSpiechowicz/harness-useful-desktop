@@ -23,6 +23,8 @@
 //!   task's queue, and right before a message goes out (after its context commands ran) the send
 //!   tells the engine that count: a message sent after a settle the task has not handled yet
 //!   belongs to the next run (see `HookSession::settles_seen`).
+//! - The chat's alerts (finished, needs you, failed) are the engine's call, raised by the task (see
+//!   [`alerts`]) for chats the user started.
 //! - A chat moved to another project ([`moved`]) runs the hooks of its new project from then on.
 //! - A command hook that gives no output (non-zero exit, timeout, could not start, no budget left)
 //!   puts a short notice in the chat, without the command or its output.
@@ -49,8 +51,10 @@ use tokio::sync::mpsc;
 use self::counts::Counts;
 use super::HookRuntime;
 use crate::agents::Agents;
+use crate::chat_alerts::ChatAlerts;
 use crate::state::AppState;
 
+mod alerts;
 mod branch_prefetch;
 mod context;
 mod counts;
@@ -91,6 +95,8 @@ pub struct ChatHooks {
     provider: ModelProvider,
     /// The branch lookup started with the chat, for its first message.
     branch: BranchPrefetch,
+    /// Whether the chat tells the user when it finished, failed or needs them.
+    alerts: bool,
     session: tokio::sync::Mutex<HookSession>,
 }
 
@@ -111,6 +117,7 @@ impl ChatHooks {
             limits: LimitsWatch::default(),
             provider,
             branch: BranchPrefetch::default(),
+            alerts: false,
             session: tokio::sync::Mutex::new(HookSession::new(chat)),
         }
     }
@@ -156,20 +163,21 @@ impl ChatHooks {
 }
 
 /// Tracks the chat `info` started (`fresh`: not a resumed session; `memory_key`: its Harness
-/// Memory key) and starts its hook task over `events`. A chat that stopped meanwhile is not
-/// tracked.
+/// Memory key; `alerts`: it raises alerts) and starts its hook task over `events`. A chat that
+/// stopped meanwhile is not tracked.
 pub async fn track(
     state: &AppState,
     info: &AgentSessionInfo,
     fresh: bool,
     memory_key: Option<String>,
     events: HookEvents,
+    alerts: bool,
 ) {
     let folder = PathBuf::from(&info.project);
     let project = project_root(&folder).await;
     let useful_skills = state.hooks.useful_skills_for(info.harness).await;
 
-    let chat = Arc::new(ChatHooks::new(
+    let chat = ChatHooks::new(
         ChatContext {
             session_id: info.key.clone(),
             folder,
@@ -182,7 +190,9 @@ pub async fn track(
         memory_key,
         events.counts.clone(),
         events.provider.clone(),
-    ));
+    )
+    .raising_alerts(alerts);
+    let chat = Arc::new(chat);
 
     if !register(state, &chat) {
         return;
@@ -207,6 +217,7 @@ pub async fn track(
         agents: state.agents.clone(),
         env: state.env.clone(),
         memory: MemoryInputs::of(state),
+        chat_alerts: state.chat_alerts.clone(),
         chat,
     };
 
@@ -301,6 +312,7 @@ pub async fn send(state: &AppState, key: &str, action: AgentAction) -> Result<Ag
     if changes_session(&action) {
         let reply = manager.send(key, action.clone()).await?;
         session.on_send(&HookSet::empty(), &action, SendOrigin::User);
+        alerts::raise_released_by_switch(state, &chat, &mut session);
 
         return Ok(reply);
     }
@@ -375,6 +387,7 @@ struct ChatTask {
     agents: Arc<Agents>,
     env: Arc<Env>,
     memory: MemoryInputs,
+    chat_alerts: Arc<ChatAlerts>,
     chat: Arc<ChatHooks>,
 }
 
@@ -390,21 +403,25 @@ impl ChatTask {
                 _ => None,
             };
 
-            let outcome = {
+            let (outcome, due) = {
                 let mut session = self.chat.session.lock().await;
 
                 if let Some(guards) = guards {
                     session.set_memory(guards);
                 }
 
-                session.on_event(&hooks, &event)
+                (session.on_event(&hooks, &event), session.take_alert())
             };
 
+            // Before the commands run, which can take long: the user hears of it at once.
+            self.raise(&event, due);
             self.carry_out(outcome).await;
+            self.raise_released().await;
             self.chat.counts.handled();
 
             if matches!(event, AgentEvent::Exited { .. }) {
                 self.runtime.forget_exited(&self.chat);
+                self.forget_ended();
                 break;
             }
         }
@@ -441,14 +458,16 @@ impl ChatTask {
     async fn follow_up(&self, plan: FollowUpPlan) {
         let parts = self.run_firing(&plan.firing).await;
 
+        let mut session = self.chat.session.lock().await;
+
         let Some(message) = compose_follow_up(&parts) else {
+            session.follow_up_unsent();
             return;
         };
 
-        let mut session = self.chat.session.lock().await;
-
         if !session.take_follow_up(plan.ticket) {
             tracing::debug!(session = %self.chat.key(), "hook follow-up dropped: the user sent a message");
+            session.follow_up_unsent();
             return;
         }
 
@@ -472,7 +491,10 @@ impl ChatTask {
                 session.follow_up_replied(&reply);
                 tracing::info!(session = %self.chat.key(), parts = parts.len(), "hook follow-up sent");
             }
-            Err(error) => tracing::warn!(session = %self.chat.key(), code = ?error.code(), "hook follow-up not sent"),
+            Err(error) => {
+                tracing::warn!(session = %self.chat.key(), code = ?error.code(), "hook follow-up not sent");
+                session.follow_up_unsent();
+            }
         }
     }
 }

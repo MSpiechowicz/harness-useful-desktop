@@ -53,6 +53,8 @@ export function defaultPrefs(): AppPrefs {
     updatesTurnedOn: true,
     memoryOptInNoticeDone: false,
     keepRunningInTray: false,
+    chatAlerts: true,
+    alertSound: true,
     memoryNotesAskDefault: false,
     memoryScriptsAskDefault: false,
     memoryCopyToRemote: false,

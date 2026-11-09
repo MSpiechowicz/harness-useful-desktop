@@ -31,6 +31,7 @@
 //! Command hooks are the one place the app runs a shell (`sh -c`, `cmd.exe /D /S /C`): the
 //! user wrote or approved that exact command text.
 
+mod alerts;
 pub mod approvals;
 mod cleanup;
 pub mod command;
@@ -55,6 +56,7 @@ use std::path::PathBuf;
 
 use serde_json::{Map, Value};
 
+pub use alerts::{NEEDS_YOU_GAP, exit_alert};
 pub use approvals::Approvals;
 pub use command::{CommandFailure, CommandFailureKind, FIRING_BUDGET, FiringResult, run_firing, run_firings};
 pub use compose::{

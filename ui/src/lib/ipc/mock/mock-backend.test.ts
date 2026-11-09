@@ -113,6 +113,8 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   update_install: { onProgress: () => {} },
   app_relaunch: undefined,
   launch_sound: { play: false },
+  chat_alerts_listen: { channel: () => {} },
+  chat_alerts_view: { view: { shown: null, titles: {} } },
   drop_listen: { onDrop: () => {} },
   attachment_save: { name: 'build.log', data: 'aGk=' },
 });

@@ -261,7 +261,6 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.tabs.closeConfirm.description': 'Zamknięcie {name} zatrzyma agenta. Rozmowa zostaje w Sesjach.',
   'chat.tabs.closeConfirm.confirm': 'Zamknij czat',
   'chat.tabs.closeConfirm.cancel': 'Zostaw otwarty',
-
   'chat.slash.label': 'Polecenia ukośnikowe',
 
   'chat.stats.trigger': 'Statystyki',
@@ -490,4 +489,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.toast.noAgentPicker': 'Ten czat nie ma wyboru agenta.',
   'chat.toast.agentLocked': 'Agent zablokowany',
   'chat.toast.agentLockedBody': 'Agenta można zmienić, gdy bieżąca odpowiedź się zakończy.',
+
+  'chat.alert.finished': 'Czat zakończony',
+  'chat.alert.needsYou': 'Czat czeka na Ciebie',
+  'chat.alert.failed': 'Czat się nie powiódł',
+  'chat.alert.open': 'Otwórz',
 };

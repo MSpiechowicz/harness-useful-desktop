@@ -4,6 +4,7 @@
 mod access;
 mod agent_sink;
 mod agents;
+mod chat_alerts;
 mod code_builds;
 mod code_prepares;
 mod commands;
@@ -94,6 +95,7 @@ pub fn run() -> ExitCode {
             routines::agent_run::install(app.handle());
             routines::spawn_on_launch(app.handle());
             notifications::focus_on_click(app.handle());
+            app.state::<AppState>().chat_alerts.attach(app.handle());
             memory_requests::spawn(app.handle());
             tray::create_tray(app);
             // Opens the audio device now, so the intro's sound starts without delay.
@@ -311,6 +313,8 @@ pub fn run() -> ExitCode {
             commands::updates::update_install,
             commands::updates::app_relaunch,
             commands::sound::launch_sound,
+            commands::chat_alerts::chat_alerts_listen,
+            commands::chat_alerts::chat_alerts_view,
             commands::drops::drop_listen,
             commands::drops::attachment_save,
         ])

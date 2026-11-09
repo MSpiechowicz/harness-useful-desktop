@@ -22,7 +22,7 @@ export const settings: AreaMessages<typeof enSettings> = {
 
   // Words the command palette matches a "Settings: {section}" command by.
   'settings.keywords.appearance': 'tema movimento animação escuro claro idioma língua',
-  'settings.keywords.startup': 'introdução abertura início',
+  'settings.keywords.startup': 'introdução abertura início alerta notificação som',
   'settings.keywords.harnesses': 'binário omp pi opencode caminho configuração harness',
   'settings.keywords.memory': 'memória remoto equipe time banco de dados postgres postgresql mongodb mongo sqlite libsql turso compartilhado harness-memory mcp lembrar repositório projeto notas global novo chat documentdb aws amazon pausar perguntar antes de salvar revisar bloqueios permitir agentes salvando pesquisa vetorial semântica significado embedding modelo baixar inglês notas idioma reescrever',
   'settings.keywords.projects': 'pastas recentes git fetch buscar remoto branch',
@@ -271,6 +271,11 @@ export const settings: AreaMessages<typeof enSettings> = {
   'settings.memoryRemote.hooks.description': 'Seus hooks sempre ficam aqui. O Remoto adiciona os que outros compartilham.',
   'settings.tray.title': 'Continuar rodando na bandeja quando a janela for fechada',
   'settings.tray.description': 'As rotinas continuam rodando nos horários delas enquanto o Harness Desktop fica na bandeja.',
+  'settings.chatAlerts.title': 'Alertas de chat',
+  'settings.chatAlerts.description': 'Você recebe uma notificação quando um chat termina, precisa de você ou falha enquanto você olha para outro lugar.',
+  'settings.alertSound.title': 'Som de alerta',
+  'settings.alertSound.description': 'Um toque curto a cada alerta.',
+  'settings.alertSound.off': 'Ative os alertas de chat para ouvir o toque.',
   'settings.memoryRemote.routines.title': 'Rotinas',
   'settings.memoryRemote.routines.description': 'Suas rotinas sempre ficam aqui. O Remoto adiciona as que outros compartilham.',
   'settings.memoryRemote.trustRoutines.title': 'Executar rotinas remotas sem perguntar',

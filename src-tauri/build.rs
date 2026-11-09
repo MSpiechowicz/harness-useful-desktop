@@ -216,6 +216,8 @@ const COMMANDS: &[&str] = &[
     "update_install",
     "app_relaunch",
     "launch_sound",
+    "chat_alerts_listen",
+    "chat_alerts_view",
 ];
 
 fn main() {
