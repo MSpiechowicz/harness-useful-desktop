@@ -115,7 +115,8 @@ async fn the_walk_never_follows_or_lists_a_symbolic_link_and_skips_names_that_ar
     fs::write(plain.join("real/inner.txt"), "x\n").unwrap();
     std::os::unix::fs::symlink("real", plain.join("link")).unwrap();
     std::os::unix::fs::symlink("real/inner.txt", plain.join("file-link.txt")).unwrap();
-    fs::write(plain.join(OsStr::from_bytes(b"raw\xffname.txt")), "x\n").unwrap();
+    // macOS refuses a name that is not UTF-8, so there the file simply does not exist.
+    let _ = fs::write(plain.join(OsStr::from_bytes(b"raw\xffname.txt")), "x\n");
 
     let files = search(&home, &plain, "").await;
     let mut listed = paths(&files);

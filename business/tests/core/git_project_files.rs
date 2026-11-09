@@ -303,7 +303,8 @@ async fn a_name_with_a_control_character_or_invalid_utf8_is_never_listed() {
     let repo = base_repo(&home);
     fs::write(repo.path.join("bad\nname.txt"), "x\n").unwrap();
     fs::write(repo.path.join("tab\tname.txt"), "x\n").unwrap();
-    fs::write(repo.path.join(OsStr::from_bytes(b"raw\xffbytes.txt")), "x\n").unwrap();
+    // macOS refuses a name that is not UTF-8, so there the file simply does not exist.
+    let _ = fs::write(repo.path.join(OsStr::from_bytes(b"raw\xffbytes.txt")), "x\n");
     fs::create_dir_all(repo.path.join("odd\u{7}dir")).unwrap();
     fs::write(repo.path.join("odd\u{7}dir/inside.txt"), "x\n").unwrap();
 
