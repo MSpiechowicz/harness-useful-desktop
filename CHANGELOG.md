@@ -1,3 +1,11 @@
+# [0.68.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.67.2...v0.68.0) (2026-11-09)
+
+
+### Features
+
+* **chat:** alert you when a chat finishes, needs you or fails ([8b2e4dd](https://github.com/MSpiechowicz/harness-useful-desktop/commit/8b2e4ddc74645b82138803e4a76963178aa971d0)), closes [#59](https://github.com/MSpiechowicz/harness-useful-desktop/issues/59)
+* **chat:** pick project files with @ in the composer ([d534f27](https://github.com/MSpiechowicz/harness-useful-desktop/commit/d534f2776d281b3c175dbdb1e41e5709ce2c211d)), closes [#60](https://github.com/MSpiechowicz/harness-useful-desktop/issues/60)
+
 ## [0.67.2](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.67.1...v0.67.2) (2026-11-09)
 
 
