@@ -1,3 +1,10 @@
+## [0.67.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.67.0...v0.67.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **installer:** report the HTTP status when checksums.txt cannot be downloaded ([1304ba6](https://github.com/MSpiechowicz/harness-useful-desktop/commit/1304ba63794b900325688c74126624c39e89c1c0))
+
 # [0.67.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.66.1...v0.67.0) (2026-11-08)
 
 
