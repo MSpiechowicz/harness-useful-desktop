@@ -79,7 +79,19 @@ info "Downloading $ASSET (${TAG:-$VERSION})"
 download "$URL" "$TMP/$ASSET" || fail "download failed: $URL"
 
 # Nothing is installed without a checksum to compare against.
-download "$BASE/checksums.txt" "$TMP/checksums.txt" 2>/dev/null || fail "this release has no checksums.txt, so $ASSET can't be verified. Nothing was installed"
+if command -v curl >/dev/null 2>&1; then
+  CODE="$(curl -sSL --retry 3 -o "$TMP/checksums.txt" -w '%{http_code}' "$BASE/checksums.txt" 2>/dev/null)" || CODE="000"
+  case "$CODE" in
+    2??) ;;
+    404) fail "this release has no checksums.txt, so $ASSET can't be verified. Nothing was installed" ;;
+    000) fail "could not reach $BASE/checksums.txt (network error), so $ASSET can't be verified. Nothing was installed" ;;
+    429) fail "GitHub is rate limiting requests (HTTP 429 Too Many Requests) while fetching checksums.txt; try again later. Nothing was installed" ;;
+    502 | 503 | 504) fail "GitHub is temporarily unavailable (HTTP $CODE) while fetching checksums.txt; try again later, see https://www.githubstatus.com. Nothing was installed" ;;
+    *) fail "could not download checksums.txt (HTTP $CODE), so $ASSET can't be verified. Nothing was installed" ;;
+  esac
+else
+  download "$BASE/checksums.txt" "$TMP/checksums.txt" 2>/dev/null || fail "could not download checksums.txt, so $ASSET can't be verified. Nothing was installed"
+fi
 EXPECTED="$(grep " $ASSET\$" "$TMP/checksums.txt" | awk '{print $1}')"
 [ -n "$EXPECTED" ] || fail "checksums.txt has no entry for $ASSET"
 if command -v sha256sum >/dev/null 2>&1; then

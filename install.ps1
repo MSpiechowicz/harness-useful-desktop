@@ -39,7 +39,12 @@ try {
   try {
     Invoke-WebRequest -UseBasicParsing -Uri "$Base/checksums.txt" -OutFile (Join-Path $Tmp "checksums.txt")
   } catch {
-    throw "This release has no checksums.txt, so $Asset can't be verified. Nothing was installed."
+    $code = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+    if ($code -eq 404) { throw "This release has no checksums.txt, so $Asset can't be verified. Nothing was installed." }
+    if ($code -in 502, 503, 504) { throw "GitHub is temporarily unavailable (HTTP $code) while fetching checksums.txt; try again later, see https://www.githubstatus.com. Nothing was installed." }
+    if ($code -eq 429) { throw "GitHub is rate limiting requests (HTTP 429 Too Many Requests) while fetching checksums.txt; try again later. Nothing was installed." }
+    if ($code) { throw "Could not download checksums.txt (HTTP $code), so $Asset can't be verified. Nothing was installed." }
+    throw "Could not reach $Base/checksums.txt (network error), so $Asset can't be verified. Nothing was installed."
   }
   $line = Get-Content (Join-Path $Tmp "checksums.txt") | Where-Object { $_ -match "\s$([regex]::Escape($Asset))$" } | Select-Object -First 1
   if (-not $line) { throw "checksums.txt has no entry for $Asset" }
