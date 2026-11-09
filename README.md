@@ -31,6 +31,8 @@ privacy. Made with the app's demo data. [Download the full-quality 4K video](htt
 - **Chat alerts.** When a chat finishes, needs you or fails while you are looking elsewhere, you get an OS notification
   (or a toast if the app is in front on another chat or view) and a short chime. Clicking opens that chat. It shows only
   the chat's name and state. Settings has one switch for alerts and one for the sound, both on by default.
+- **`@` file paths.** Type `@` in the composer to pick a project file or folder. Files you changed come first, ignored
+  and credential files are never listed, and the pick goes in as a plain path, so it works with every harness.
 - **Sessions and branches.** Lists a project's saved sessions, shows the branch tree of each, opens the transcript,
   resumes or forks. OpenCode sessions are linear: the app lists them, opens the transcript and deletes them through
   the `opencode` CLI, with no branch tree, and resumes or forks them in a chat. Claude Code sessions are listed, opened

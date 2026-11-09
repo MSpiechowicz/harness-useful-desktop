@@ -49,6 +49,7 @@ mod memory_save;
 mod memory_scripts;
 mod prefs;
 mod project;
+mod project_file;
 mod review;
 mod routine;
 mod routine_run;
@@ -183,6 +184,7 @@ pub use prefs::{
     MainBranchChoice, MotionPref, ThemePref, UpdatePolicy,
 };
 pub use project::{ProjectInfo, ProjectScope};
+pub use project_file::{MAX_PROJECT_FILE_QUERY_BYTES, MAX_PROJECT_FILES, ProjectFile};
 pub use review::{
     CommentSide, ComposedReview, MAX_REVIEW_COMMENTS, MAX_REVIEW_PROMPT_BYTES, MAX_REVIEW_SNIPPET_LINES,
     MAX_REVIEW_TEXT_BYTES, ReviewComment, ReviewRequest,

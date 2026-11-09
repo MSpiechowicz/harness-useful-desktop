@@ -242,6 +242,7 @@ pub fn run() -> ExitCode {
             commands::git::git_branches,
             commands::git::git_diff,
             commands::git::git_file_lines,
+            commands::git::project_files,
             commands::git::git_discard_all,
             commands::git::git_discard_files,
             commands::git_sync::git_sync_state,

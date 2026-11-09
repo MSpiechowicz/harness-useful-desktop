@@ -28,6 +28,7 @@ mod discard;
 mod file_lines;
 mod log_range;
 mod main_branch;
+mod project_files;
 mod repo_state;
 mod stash;
 mod status;
@@ -40,6 +41,7 @@ pub use cli::{GIT_OUTPUT_CAP, GIT_TIMEOUT, GitCli, NETWORK_TIMEOUT, RunOpts, WRI
 pub use diff_parse::{DiffBudget, parse_diff, unquote};
 pub use file_lines::git_file_lines;
 pub use log_range::{Behind, MAX_LOG_COMMITS, NOTE_COMMITS, behind, behind_note};
+pub use project_files::{MAX_CACHED_PROJECTS, PROJECT_FILES_TTL, ProjectFileCache, ProjectFileIndex, project_files};
 pub use status::{MAX_LISTED_ENTRIES, not_a_repo, parse_status};
 
 use std::path::{Component, Path};

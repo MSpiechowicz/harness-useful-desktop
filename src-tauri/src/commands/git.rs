@@ -1,12 +1,12 @@
 //! Git commands for the Changes view: status, branches and working-tree diffs of a project, and
-//! discarding changes in it.
+//! discarding changes in it. `project_files` lists the files the composer's `@` menu offers.
 //!
 //! The project must be the active project or a recent one. git runs through the business layer's
 //! hardened runner (no shell, time and output limits, repository programs and inherited `GIT_*`
 //! variables switched off); a directory outside any repository reports `isRepo: false`.
 
 use harness_business::git;
-use harness_business::model::{Branch, DiffRequest, FileDiff, GitStatus};
+use harness_business::model::{Branch, DiffRequest, FileDiff, GitStatus, ProjectFile};
 use tauri::State;
 use tauri::async_runtime::block_on;
 
@@ -49,6 +49,19 @@ pub async fn git_file_lines(
     file_lines(&state, project, path, staged).await
 }
 
+/// The files and folders of `project` that best match `query` (the text after `@`), at most `limit`
+/// (1 to 50). Tracked and untracked files that `.gitignore` does not hide in a repository, a bounded
+/// walk elsewhere. Deny-listed paths and paths with control characters are never returned.
+#[tauri::command]
+pub async fn project_files(
+    state: State<'_, AppState>,
+    project: String,
+    query: String,
+    limit: u32,
+) -> CommandResult<Vec<ProjectFile>> {
+    files(&state, project, query, limit).await
+}
+
 /// Reverts every staged and unstaged change in `project` to HEAD and deletes its untracked files
 /// (ignored ones stay). The UI asks the user to confirm first.
 #[tauri::command]
@@ -88,6 +101,18 @@ async fn diff(state: &AppState, project: String, request: DiffRequest) -> Comman
     let runner = state.runner;
 
     blocking(move || Ok(block_on(git::git_diff(&env, &runner, &project, &request))?)).await
+}
+
+/// Runs in a blocking task: a list is built by reading folders and waiting for git, and a search
+/// checks the best matches against the disk.
+async fn files(state: &AppState, project: String, query: String, limit: u32) -> CommandResult<Vec<ProjectFile>> {
+    let project = authorized_dir(state, project).await?;
+    let env = state.env.clone();
+    let runner = state.runner;
+    let cache = state.project_files.clone();
+    let limit = usize::try_from(limit).unwrap_or(usize::MAX);
+
+    blocking(move || Ok(block_on(cache.search(&env, &runner, &project, &query, limit))?)).await
 }
 
 async fn discard_files(state: &AppState, project: String, paths: Vec<String>) -> CommandResult<()> {
@@ -223,7 +248,8 @@ mod tests {
             block_on(status(state, stranger.clone())).map(drop),
             block_on(branches(state, stranger.clone())).map(drop),
             block_on(diff(state, stranger.clone(), request(DiffScope::All, &[]))).map(drop),
-            block_on(discard_all(state, stranger)),
+            block_on(discard_all(state, stranger.clone())),
+            block_on(files(state, stranger, String::new(), 8)).map(drop),
         ];
         for error in refused {
             assert_eq!(error.expect_err("unknown project").code(), IpcErrorCode::Forbidden);
@@ -233,6 +259,32 @@ mod tests {
             let error = block_on(diff(state, setup.project.clone(), request(DiffScope::All, &[path]))).expect_err(path);
             assert_eq!(error.code(), IpcErrorCode::InvalidInput, "{path}");
         }
+    }
+
+    #[test]
+    fn project_files_lists_the_open_projects_files_best_match_first_and_never_a_secret() {
+        let setup = setup();
+        let (state, project, dir) = (&setup.state, &setup.project, setup.dir());
+        std::fs::write(dir.join(".env"), "TOKEN=1\n").expect("write");
+        std::fs::create_dir_all(dir.join("src")).expect("create");
+        std::fs::write(dir.join("src/code_review.rs"), "x\n").expect("write");
+
+        let names = |query: &str, limit: u32| -> Vec<(String, bool)> {
+            block_on(files(state, project.clone(), query.to_owned(), limit))
+                .expect("files")
+                .into_iter()
+                .map(|file| (file.path, file.changed))
+                .collect()
+        };
+
+        // Changed files first without a query: the edited and the untracked one.
+        let all = names("", 50);
+        assert_eq!(&all[..2], [("code.txt".to_owned(), true), ("new.txt".to_owned(), true)]);
+        assert!(all.iter().all(|(path, _)| !path.contains(".env")), "{all:?}");
+
+        assert_eq!(names("code_rev", 8), [("src/code_review.rs".to_owned(), true)]);
+        assert_eq!(names("env", 8), []);
+        assert_eq!(names("", 1).len(), 1);
     }
 
     #[test]

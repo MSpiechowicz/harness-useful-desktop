@@ -2,16 +2,19 @@
   import ArrowUp from '@lucide/svelte/icons/arrow-up';
   import Paperclip from '@lucide/svelte/icons/paperclip';
   import Terminal from '@lucide/svelte/icons/terminal';
-  import { onDestroy, onMount, untrack } from 'svelte';
+  import { onDestroy, onMount, tick, untrack } from 'svelte';
 
   import Button from '$lib/components/Button.svelte';
   import { cx } from '$lib/utils/cx';
   import { autofocus } from '$lib/a11y/autofocus';
   import { MAX_FILES, MAX_IMAGES, isLargePaste } from '$lib/chat/attachments';
+  import { applyFileMention } from '$lib/chat/file-mention';
+  import { DraftCaret, FileSuggestions } from '$lib/chat/file-mention.svelte';
   import { bashCommand, escapeStep, isBashDraft, latestWithdrawable, queuedRows, sendIntent, STOP_WINDOW_MS, TAKE_BACK, type BusyMode, type QueuedRow, type SendMode } from '$lib/chat/composer';
   import type { ChatSession } from '$lib/chat/session.svelte';
   import { acceptCommand, filterCommands, resolveSlash, slashQuery } from '$lib/chat/slash';
   import type { CommandSpec } from '$lib/ipc/bindings/CommandSpec';
+  import type { ProjectFile } from '$lib/ipc/bindings/ProjectFile';
   import { harness } from '$lib/stores/harness.svelte';
   import { subagentPanel } from '$lib/stores/subagentPanel.svelte';
   import { uid } from '$lib/utils/ids';
@@ -22,6 +25,7 @@
   import AttachmentStrip from './AttachmentStrip.svelte';
   import ComposerFooter from './ComposerFooter.svelte';
   import ComposerMode from './ComposerMode.svelte';
+  import FileMenu from './FileMenu.svelte';
   import HarnessPicker from './HarnessPicker.svelte';
   import ModelPicker from './ModelPicker.svelte';
   import QueuedMessages from './QueuedMessages.svelte';
@@ -37,6 +41,7 @@
 
   const MAX_HEIGHT_PX = 220;
   const menuId = uid('slash-menu');
+  const fileMenuId = uid('file-menu');
 
   let textarea: HTMLTextAreaElement | undefined = $state();
   let fileInput: HTMLInputElement | undefined = $state();
@@ -44,6 +49,7 @@
   let active = $state(0);
   /** The draft for which Escape closed the suggestions; typing brings them back. */
   let dismissedFor = $state<string | null>(null);
+  const caret = new DraftCaret();
   /** What Enter does while the agent works; always Steer again once it has finished. */
   let whenBusy = $state<BusyMode>('steer');
   /** The time of the first Escape, while the stop waits for a second one. */
@@ -64,7 +70,24 @@
 
   const query = $derived(slashQuery(session.draft));
   const suggestions = $derived(query === null ? [] : filterCommands(session.commands, query));
-  const menuOpen = $derived(suggestions.length > 0 && dismissedFor !== session.draft && !session.ended);
+  const slashOpen = $derived(suggestions.length > 0 && dismissedFor !== session.draft && !session.ended);
+  const mention = $derived(session.ended ? null : caret.mentionIn(session.draft));
+  const mentionQuery = $derived(mention?.query ?? null);
+  const files = new FileSuggestions((file, answered) => {
+    if (mentionQuery === answered) {
+      void acceptFile(file);
+    }
+  });
+  const fileOpen = $derived(!slashOpen && mention !== null && files.rows.length > 0 && dismissedFor !== session.draft);
+  const menuOpen = $derived(slashOpen || fileOpen);
+  const menuSize = $derived(slashOpen ? suggestions.length : files.rows.length);
+  const openMenuId = $derived.by(() => {
+    if (slashOpen) {
+      return menuId;
+    }
+
+    return fileOpen ? fileMenuId : undefined;
+  });
   const bash = $derived(isBashDraft(session.draft));
   const attached = $derived(session.attached);
   const canSend = $derived((session.draft.trim() !== '' || attached.files.length > 0) && !session.ended && !session.noModels);
@@ -113,8 +136,36 @@
 
   $effect(() => {
     void suggestions;
+    void files.rows;
     active = 0;
   });
+
+  // The rows follow the text after the `@`. They go when the mention does, and when the chat changes.
+  $effect(() => {
+    if (mentionQuery === null) {
+      untrack(() => files.clear());
+    } else {
+      files.request(session.info.project, mentionQuery);
+    }
+  });
+
+  $effect(() => {
+    void session.key;
+    untrack(() => {
+      files.clear();
+      caret.forget();
+      dismissedFor = null;
+    });
+  });
+
+  // A draft the user did not type here has no caret of theirs, whatever its text. A waiting Enter is good only for the draft, caret and menu it was pressed in.
+  $effect.pre(() => {
+    caret.keepFor(session.draft);
+    void [mention, fileOpen];
+    untrack(() => files.cancelAccept());
+  });
+
+  onDestroy(() => files.clear());
 
   // Grow with the text, up to a cap.
   $effect(() => {
@@ -130,7 +181,7 @@
     const request = session.chat.editorText;
     if (request && request.nonce !== appliedNonce) {
       appliedNonce = request.nonce;
-      session.draft = request.text;
+      put(request.text);
       textarea?.focus();
     }
   });
@@ -190,10 +241,46 @@
     const outcome = acceptCommand(command, { compactInstructions });
 
     if (outcome.type !== 'insert') {
-      session.draft = '';
+      put('');
     }
 
     void runSlash(session, outcome);
+    textarea?.focus();
+  }
+
+  // One handler takes the text and the caret together, so no frame sees one without the other.
+  function oninput(): void {
+    if (textarea) {
+      session.draft = textarea.value;
+    }
+
+    trackCaret();
+  }
+
+  function trackCaret(): void {
+    if (textarea) {
+      caret.track(textarea, session.draft);
+    }
+  }
+
+  /** Puts text in the draft that the user did not type in this box, so no caret of theirs goes with it. */
+  function put(text: string): void {
+    caret.forget();
+    session.draft = text;
+  }
+
+  async function acceptFile(file: ProjectFile): Promise<void> {
+    if (!mention || !textarea) {
+      return;
+    }
+
+    const next = applyFileMention(session.draft, mention, file);
+
+    dismissedFor = next.text;
+    put(next.text);
+
+    await tick();
+    textarea?.setSelectionRange(next.caret, next.caret);
     textarea?.focus();
   }
 
@@ -216,7 +303,7 @@
     if (text.startsWith('/')) {
       const outcome = resolveSlash(text, session.commands);
       if (outcome.type !== 'send') {
-        session.draft = '';
+        put('');
         await runSlash(session, outcome);
 
         return;
@@ -225,9 +312,9 @@
 
     // Clear at once so the composer feels instant; a rejected message comes back.
     const sent = attached.take();
-    session.draft = '';
+    put('');
     if (!(await session.submit(text, mode, sent)) && session.draft === '') {
-      session.draft = text;
+      put(text);
       attached.restore(sent);
     }
   }
@@ -243,8 +330,21 @@
       return;
     }
 
-    session.draft = session.draft.trim() === '' ? row.message : `${session.draft.trimEnd()}\n\n${row.message}`;
+    put(session.draft.trim() === '' ? row.message : `${session.draft.trimEnd()}\n\n${row.message}`);
     textarea?.focus();
+  }
+
+  function acceptActive(): void {
+    if (slashOpen) {
+      accept(suggestions[active]);
+
+      return;
+    }
+
+    const file = mentionQuery === null ? null : files.choose(session.info.project, mentionQuery, active);
+    if (file) {
+      void acceptFile(file);
+    }
   }
 
   function onkeydown(event: KeyboardEvent): void {
@@ -252,13 +352,14 @@
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
         const step = event.key === 'ArrowDown' ? 1 : -1;
-        active = (active + step + suggestions.length) % suggestions.length;
+        active = (active + step + menuSize) % menuSize;
       } else if ((event.key === 'Enter' && !event.shiftKey && !event.isComposing) || event.key === 'Tab') {
         event.preventDefault();
-        accept(suggestions[active]);
+        acceptActive();
       } else if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
+        files.cancelAccept();
         dismissedFor = session.draft;
       }
 
@@ -287,7 +388,11 @@
 <div class="chat-col relative pt-0 pb-[72px]">
   {#if menuOpen}
     <div class="absolute inset-x-[var(--gutter)] top-0">
-      <SlashMenu id={menuId} commands={suggestions} query={query ?? ''} {active} onaccept={accept} onhover={(index) => (active = index)} />
+      {#if slashOpen}
+        <SlashMenu id={menuId} commands={suggestions} query={query ?? ''} {active} onaccept={accept} onhover={(index) => (active = index)} />
+      {:else}
+        <FileMenu id={fileMenuId} files={files.rows} query={mentionQuery ?? ''} {active} onaccept={(file) => void acceptFile(file)} onhover={(index) => (active = index)} />
+      {/if}
     </div>
   {/if}
 
@@ -311,17 +416,21 @@
 
     <textarea
       bind:this={textarea}
-      bind:value={session.draft}
+      value={session.draft}
       use:autofocus
       {onkeydown}
+      onkeyup={trackCaret}
+      {oninput}
+      onclick={trackCaret}
+      onselect={trackCaret}
       {onpaste}
       rows="1"
       disabled={session.ended}
       aria-label={t('chat.composer.aria')}
       role="combobox"
       aria-expanded={menuOpen}
-      aria-controls={menuOpen ? menuId : undefined}
-      aria-activedescendant={menuOpen ? `${menuId}-${active}` : undefined}
+      aria-controls={openMenuId}
+      aria-activedescendant={openMenuId ? `${openMenuId}-${active}` : undefined}
       aria-autocomplete="list"
       spellcheck="true"
       {placeholder}

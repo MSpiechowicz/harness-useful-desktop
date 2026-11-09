@@ -262,6 +262,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.tabs.closeConfirm.confirm': 'Zamknij czat',
   'chat.tabs.closeConfirm.cancel': 'Zostaw otwarty',
   'chat.slash.label': 'Polecenia ukośnikowe',
+  'chat.files.label': 'Pliki projektu',
+  'chat.files.changed': 'Zmieniony',
+  'chat.files.folder': 'Folder',
 
   'chat.stats.trigger': 'Statystyki',
   'chat.stats.heading': 'Ta sesja',

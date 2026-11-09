@@ -1,18 +1,39 @@
 import type { DiffScope } from '../bindings/DiffScope';
 import type { FileDiff } from '../bindings/FileDiff';
 import type { GitStatus } from '../bindings/GitStatus';
+import type { ProjectFile } from '../bindings/ProjectFile';
 import type { ReviewRequest } from '../bindings/ReviewRequest';
+import { fuzzyMatch } from '../../utils/fuzzy';
 import { IpcFailure } from '../transport';
 import { fixtures } from './fixtures';
 import type { MockState } from './state';
 import type { Handlers } from './types';
 
-type GitCommands = 'git_status' | 'git_branches' | 'git_diff' | 'git_file_lines' | 'git_discard_all' | 'git_discard_files' | 'review_compose';
+type GitCommands = 'git_status' | 'git_branches' | 'git_diff' | 'git_file_lines' | 'project_files' | 'git_discard_all' | 'git_discard_files' | 'review_compose';
 
 const MAX_COMMENTS = 100;
 /** The fixture file a `?drift` preview commits "in a terminal" once its time comes. */
 const COMMITTED_BY_DRIFT = 'docs/guide.md';
 const NOT_A_REPO: GitStatus = { isRepo: false, branch: null, head: null, upstream: null, ahead: 0, behind: 0, entries: [] };
+
+const MAX_PROJECT_FILES = 50;
+const MAX_PROJECT_FILE_QUERY_BYTES = 256;
+/** What a changed file adds to a match score, so it leads without beating a much better match. */
+const CHANGED_BOOST = 50;
+/** The preview repository's files; the real command derives the folders the same way. */
+const PROJECT_FILE_PATHS = ['Cargo.toml', 'README.md', 'assets/logo.png', 'docs/guide.md', 'notes/todo.md', 'src/error.rs', 'src/lib.rs', 'src/main.rs', 'tests/smoke.rs'];
+
+/** The folders above a file, outermost first (`a/b/c.rs` gives `a` and `a/b`). */
+function folderChain(path: string): string[] {
+  const parts = path.split('/').slice(0, -1);
+
+  return parts.map((_, index) => parts.slice(0, index + 1).join('/'));
+}
+
+const PROJECT_FILES: ProjectFile[] = [
+  ...[...new Set(PROJECT_FILE_PATHS.flatMap(folderChain))].map((path) => ({ path, isDir: true, changed: false })),
+  ...PROJECT_FILE_PATHS.map((path) => ({ path, isDir: false, changed: false })),
+];
 
 const SCOPES: Record<DiffScope, (diff: FileDiff) => boolean> = {
   all: () => true,
@@ -100,6 +121,26 @@ export function gitHandlers(state: MockState): Pick<Handlers, GitCommands> {
       const last = Math.max(0, ...diff.hunks.map((hunk) => hunk.newStart + hunk.newLines)) + 20;
 
       return Array.from({ length: last }, (_, index) => known.get(index + 1) ?? `unchanged line ${index + 1}`);
+    },
+
+    project_files: ({ project, query, limit }) => {
+      state.requireKnown(project);
+      if (!isRepo(state, project) || new TextEncoder().encode(query).length > MAX_PROJECT_FILE_QUERY_BYTES) {
+        return [];
+      }
+
+      const changed = new Set(state.discardedProjects.has(project) ? [] : fixtures.git.status.entries.map((entry) => entry.path));
+      const depth = (path: string): number => path.split('/').length;
+
+      return PROJECT_FILES.flatMap((file) => {
+        const match = fuzzyMatch(query, file.path);
+        const isChanged = !file.isDir && changed.has(file.path);
+
+        return match ? [{ file: { ...file, changed: isChanged }, score: match.score + (isChanged ? CHANGED_BOOST : 0) }] : [];
+      })
+        .sort((left, right) => right.score - left.score || depth(left.file.path) - depth(right.file.path) || left.file.path.localeCompare(right.file.path))
+        .slice(0, Math.min(Math.max(limit, 1), MAX_PROJECT_FILES))
+        .map((ranked) => ranked.file);
     },
 
     git_discard_all: ({ project }) => {

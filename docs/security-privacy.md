@@ -210,6 +210,43 @@ and `canonical_within` (a file that resolves outside the project is not read), a
 listed without content. For tracked files git produces the diff, and the app clears the hunks of any denied path.
 Session scans skip denied paths and never enter a session's companion directory.
 
+The composer's `@` menu (`project_files`, authorized like `git_status`: the active or a recent project) offers files
+and folders of the open project by name only, it reads no file content. In a work tree the list comes from `git
+ls-files -z --others --exclude-standard` and `git ls-files -z --cached` (untracked files `.gitignore` does not hide,
+and tracked ones, each run with its own output cap, through the hardened `GitCli`, so `core.fsmonitor=false` keeps a
+repository's fsmonitor hook from running) and `git status`
+marks the changed ones (a tracked file it reports as deleted from the working tree is left out of the list, so deleted files
+cannot crowd the files that are there out of a search). Anywhere else a bounded walk lists it: no symbolic link is followed, `.git`, `node_modules`,
+`target`, `dist`, `build`, `.venv` and `__pycache__` are skipped, at most 12 folders deep and 20,000 directory entries.
+Every path goes through the lexical deny-list when the list is built, so a denied file, a denied folder, and a folder
+that only holds denied files are not in it. Nothing inside a `.ssh` folder (compared without regard to case, at any
+depth) is listed either, so `config`, `known_hosts` and `authorized_keys` stay out as well as the keys, and neither is
+anything inside a `.git` folder (compared the same way, so a crafted index entry `.git/config` is refused), while
+`.github` and `.gitignore` stay. The best matches
+are checked again with the stronger check that also resolves symbolic links (the private files of a Claude Code config
+directory or Codex home) before they are returned, and a path that leads through a symbolic link is offered only when
+its real path lies inside the project and passes the same deny-list, `.ssh` and `.git` rules, so a tracked link called
+`notes.md` to `~/.ssh/id_rsa` or to `.git/config` never shows under that name. The names are untrusted (a `.git/index` can hold anything), so
+a path is dropped when it has a control character, U+FFFD, an invisible or bidirectional character, a `\`, a `.`, `..`
+or empty component, a component with whitespace at its start or end, on Windows a component with a `:` (a drive-relative
+path, an NTFS stream, while on Linux and macOS a colon is an ordinary character and `a:b.md` is listed), more than 4,096
+bytes or more than 128 components, because a picked path goes straight into a prompt. Six invisible characters that
+ordinary names hold are the only exceptions, each only where it shapes visible text: the zero width joiner (between two
+visible non-ASCII characters, or after a U+FE0F that follows one), the zero width non-joiner (between two), the left and
+right direction marks (next to a visible non-ASCII character on at least one side), and the variation selectors U+FE0E
+and U+FE0F, which are allowed only directly after an emoji character (U+00A9, U+00AE, U+203C, U+2049, U+2122, U+2139,
+U+2190 to U+2BFF, U+3030, U+303D, U+3297, U+3299, U+1F000 to U+1FAFF), or for U+FE0F after an ASCII digit, `#` or `*` when
+U+20E3 follows at once (a keycap such as `1️⃣`). Two of these characters never touch, except U+FE0F then the joiner, and a
+whole path holds at most 16 of them, so a name can hide at most about 20 bytes in them, too little for readable instructions. Everything else stays refused,
+among it the other variation selectors (U+FE00 to U+FE0D), the bidirectional embeddings, overrides and isolates, the zero
+width space, the line and paragraph separators, U+FEFF, the soft hyphen, U+2060, tag characters, the variation selectors
+supplement, the Hangul fillers and the blank Braille pattern. At most 50,000 folders are derived from the files, and the
+paths of the folders looked at (the refused ones too, each is read whole by the deny-list) add up to at most 16 MiB, the
+shallow ones first (every top-level folder is offered before any deeper one, wherever its files sit in git's order),
+the work is capped as well (at most 2,000,000 folder checks), and a search looks at no more than 40 matches per wanted result (at least 400) on the disk,
+so a crafted or sparse list costs a fixed amount. The webview gets at most 50 matches, never the whole list. A list is reused for 5 seconds and freed at
+the next search after that, for at most 8 projects.
+
 Credential files are never listed in the configuration view either (PI: `auth.json`, `mcp-auth.json`,
 `models-store.json`). The Harness Dashboard's `usage.db` and `auth-token` fall under the same rules, and so does the
 project memory database `memory.sqlite3` (the `sqlite3` extension is denied), so the desktop app could not read it
@@ -627,8 +664,8 @@ target shows as the link's tooltip, and `https` links to `localhost` or the loca
   them." until you pull or fetch. Clicked fetch, push, publish, pull, rebase, merge, switch, stash, abort and continue
   run with your full git setup and its remote helpers.
   Every inherited `GIT_*` variable is dropped (`GIT_DIR`, `GIT_CONFIG_*`, `GIT_EXTERNAL_DIFF`, `GIT_SSH*`,
-  `GIT_ASKPASS`, `GIT_TRACE*`, ...). Diffs use `--no-ext-diff --no-textconv`. Git reads status, diffs and the branch
-  list. Its writes are the discards and the branch actions, each started by a click. `git_discard_all` and `git_discard_files` (one file and, for a rename, its old name) run only after the user confirms: `restore --source=HEAD
+  `GIT_ASKPASS`, `GIT_TRACE*`, ...). Diffs use `--no-ext-diff --no-textconv`. Git reads status, diffs, the branch
+  list and, for the composer's `@` menu, `ls-files`. Its writes are the discards and the branch actions, each started by a click. `git_discard_all` and `git_discard_files` (one file and, for a rename, its old name) run only after the user confirms: `restore --source=HEAD
   --staged --worktree` and `clean -f -d` (no `-x`, so ignored files stay), both limited to the project directory. The
   branch popover adds `git_fetch`, `git_sync_action` and `git_switch`: `fetch`, `push`, publish (`push -u`), `pull
   --ff-only --no-rebase`, `rebase --autostash`, `merge --autostash --no-edit`, abort and continue of a stopped rebase or
@@ -1905,9 +1942,35 @@ follow-up prompt after the agent settles, or run a shell command. Agents can wri
   or command is not scanned for secrets before it is shared: what you share, your team can read. Harness Memory adds an
   author label (your user name by default). Logs carry hook ids and counts, never a body.
 
+## Chat alerts
+
+A chat you started tells you when it finished, needs an answer or failed while you look at another chat or another
+window (`src-tauri/src/chat_alerts.rs`). It shows an OS notification while the main window is not in front and a toast
+while it is, and the same alert plays a short chime (`alertSound`). Both are on by default, and `chatAlerts` off silences
+everything.
+
+- **What a notification says.** Only the chat's name and its state ("Chat finished", "Chat needs you", "Chat failed").
+  Never a tool's arguments, a command or a file. Only a name the chat was given counts, typed by you or made by the
+  AI naming helper: a chat titled only by the opening words of its first message gets the generic line instead. The
+  in-app toast does show that title, since it is on your screen. The name is cleaned first: control and invisible characters are dropped, secrets are masked with `redact_text`, `<`, `>` and
+  `&` are dropped, the masking runs once more (dropping a character can join the two halves of a secret that it
+  split), whitespace is collapsed and a name over 80 characters is cut. A chat with no usable name gets a generic line.
+- **Where it goes.** Nothing leaves the machine. The notification is the operating system's own, sent from Rust
+  (`tauri-plugin-notification`), and the chime is a sound file inside the app. Routine runs and utility agents never
+  raise an alert, nor does a chat you stopped or closed, a page reload or the app quitting. The alerts are delivered one
+  after another by a single worker thread through a queue of 64, so two alerts of a chat keep their order and a
+  delivery that fails or panics never ends the worker (a full queue drops the alert, it never blocks the chat).
+- **What the page tells the app.** `chat_alerts_view` carries the key of the chat on screen and each open chat's title,
+  to decide whether to alert and what to call the chat. The app keeps at most 64 titles of at most 200 characters in
+  memory only, drops a key over 128 bytes, and never writes any of it to disk.
+- **A click.** The notification carries the chat's key (`chatKey`). A click brings the main window to the front and tells
+  the page to open that chat. A key that is empty, over 128 bytes or has a character other than an ASCII letter, a digit
+  or `-` is ignored, and so is a key of no open chat.
+- **Logs.** Carry the chat's key and the alert's kind, never a name or message text.
+
 ## Tauri ACL, CSP and webview
 
-- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 82 `allow-<command>` permissions, one per app
+- **Capability** (`src-tauri/capabilities/main.json`, window `main`): 211 `allow-<command>` permissions, one per app
   command, generated from `COMMANDS` in `src-tauri/build.rs`. There is no `core:*` permission and one plugin
   permission: `notification:allow-is-permission-granted`, a read-only query (always granted on desktop) that the
   notification plugin's own init script sends on every page load, which would otherwise log a denied call. The dialog,
@@ -1974,11 +2037,13 @@ Details of keys and releases: [release-and-updater-keys.md](release-and-updater-
 | `codex-thread-parents.json` | The app's local data folder: `$XDG_DATA_HOME` or `~/.local/share` (Linux), `~/Library/Application Support` (macOS), `%LOCALAPPDATA%` (Windows), each followed by `com.mspiechowicz.harness-useful-desktop` | `{"version": 1, "threads": {"<thread id>": "<parent thread id>" or null}}`: which Codex thread each saved thread was forked from, read once per thread with `thread/read` (Codex's `thread/list` leaves it out), for the Sessions view's forks. Thread ids only, no titles, prompts or paths. At most 10,000 entries (the oldest go first), an entry goes when the app deletes its thread. Written atomically, never through a symbolic link, folder `0700` and file `0600` on Unix. A file that cannot be used is read as empty and replaced. Without a local data folder the ids are kept in memory for the app run (`business/src/harnesses/codex/sessions/parents.rs`). |
 | Log files | The OS log directory | See [Logging](#logging). Rotated at 1 MiB, 3 files kept. |
 
-`AppPrefs` (`business/src/model/prefs.rs`) has twenty-five fields and never holds secrets or chat content:
+`AppPrefs` (`business/src/model/prefs.rs`) never holds secrets or chat content. Among its fields are:
 `version`, `theme`, `motion`, `language` (`en`, `de`, `es`, `fr`, `pl` or `pt` for Brazilian Portuguese; anything else loads as `en`), `introEnabled`,
 `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `activeProject`, `rememberRecentProjects`, `recentProjects` (12 at
 most), `updatePolicy`, `checkCompanionUpdates`, `checkHarnessUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`, `onboardingCompleted`, `approvalNoticeSeen`,
-`binaryOverrides`, `chatDefaults`, `memoryEnabled` (project memory, on by default) and `vectorSearch` (vector search, on by default).
+`binaryOverrides`, `chatDefaults`, `memoryEnabled` (project memory, on by default), `vectorSearch` (vector search, on by default),
+`chatAlerts` (a chat tells you when it finished, needs you or failed, on by default) and `alertSound` (a short chime with it, on by default).
+A prefs file without the last two loads them on.
 
 **Server-managed fields** (`business/src/prefs/managed.rs`): `activeProject`, `recentProjects`, `binaryOverrides`,
 `memoryEnabled` and `vectorSearch` decide which directories are read, which programs run and which harness files are written. Only
@@ -1989,7 +2054,7 @@ Rust changes them: through the native pickers and the project and harness comman
 marked done by `memory_opt_in_notice_done` only. `prefs_set` stores the UI-managed fields only (`theme`, `motion`, `language`,
 `introEnabled`, `soundEnabled`, `showThinking`, `showMessageUsage`, `defaultHarness`, `rememberRecentProjects`,
 `updatePolicy`, `checkCompanionUpdates`, `checkHarnessUpdates`, `autoUpdateExtensions`, `autoRefreshCatalogs`, `openAnyLink`, `aiChatNames`,
-`onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`) and keeps the
+`onboardingCompleted`, `approvalNoticeSeen`, `chatDefaults`, `chatAlerts`, `alertSound`) and keeps the
 rest as stored. The exhaustive destructuring in `with_ui_fields` makes a new field fail to compile until it is
 classified. Turning off `rememberRecentProjects` clears the recent list.
 

@@ -46,6 +46,7 @@ import type { HookView } from './bindings/HookView';
 import type { InstallLogLine } from './bindings/InstallLogLine';
 import type { McpState } from './bindings/McpState';
 import type { RecommendedSetup } from './bindings/RecommendedSetup';
+import type { ProjectFile } from './bindings/ProjectFile';
 import type { ProjectInfo } from './bindings/ProjectInfo';
 import type { ProjectScope } from './bindings/ProjectScope';
 import type { ReviewRequest } from './bindings/ReviewRequest';
@@ -143,6 +144,7 @@ export const commands = {
   git_branches: cmd<{ project: string }, Branch[]>(),
   git_diff: cmd<{ project: string; request: DiffRequest }, FileDiff[]>(),
   git_file_lines: cmd<{ project: string; path: string; staged: boolean }, string[]>(),
+  project_files: cmd<{ project: string; query: string; limit: number }, ProjectFile[]>(),
   git_discard_all: cmd<{ project: string }, null>(),
   git_discard_files: cmd<{ project: string; paths: string[] }, null>(),
   git_sync_state: cmd<{ project: string }, BranchSync>(),

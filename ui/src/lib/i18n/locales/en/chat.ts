@@ -250,6 +250,9 @@ export const chat = {
   'chat.tabs.closeConfirm.cancel': 'Keep open',
 
   'chat.slash.label': 'Slash commands',
+  'chat.files.label': 'Project files',
+  'chat.files.changed': 'Changed',
+  'chat.files.folder': 'Folder',
 
   'chat.stats.trigger': 'Stats',
   'chat.stats.heading': 'This session',

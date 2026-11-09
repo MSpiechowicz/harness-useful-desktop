@@ -83,6 +83,7 @@ const sampleArgs = (sessionKey: string): { [K in CommandName]: CommandArgs<K> } 
   git_branches: { project: fixtures.recentProjects[0].path },
   git_diff: { project: fixtures.recentProjects[0].path, request: { scope: 'all', paths: [] } },
   git_file_lines: { project: fixtures.recentProjects[0].path, path: 'src/lib.rs', staged: false },
+  project_files: { project: fixtures.recentProjects[0].path, query: 'src', limit: 8 },
   git_discard_all: { project: fixtures.recentProjects[0].path },
   git_discard_files: { project: fixtures.recentProjects[0].path, paths: ['src/lib.rs'] },
   ...BRANCH_SYNC_ARGS,

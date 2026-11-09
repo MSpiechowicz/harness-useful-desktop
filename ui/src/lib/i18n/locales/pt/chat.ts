@@ -255,6 +255,9 @@ export const chat: AreaMessages<typeof enChat> = {
   'chat.tabs.closeConfirm.cancel': 'Manter aberto',
 
   'chat.slash.label': 'Comandos com barra',
+  'chat.files.label': 'Arquivos do projeto',
+  'chat.files.changed': 'Alterado',
+  'chat.files.folder': 'Pasta',
 
   'chat.stats.trigger': 'Estatísticas',
   'chat.stats.heading': 'Esta sessão',

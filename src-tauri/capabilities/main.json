@@ -141,6 +141,7 @@
     "allow-git-branches",
     "allow-git-diff",
     "allow-git-file-lines",
+    "allow-project-files",
     "allow-git-discard-all",
     "allow-git-discard-files",
     "allow-git-sync-state",

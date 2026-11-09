@@ -14,6 +14,7 @@ use harness_business::ecosystem::{
     NotesCopyCache, PoolOptions, SaveRoute, StoredNotesImport, memory_data_dir,
 };
 use harness_business::env::Env;
+use harness_business::git::ProjectFileCache;
 use harness_business::harness::HarnessRegistry;
 use harness_business::harness::update::HarnessReleases;
 use harness_business::hooks::HookStore;
@@ -165,6 +166,9 @@ pub struct AppState {
     pub code_prepares: CodePrepares,
     /// The locks that let one git write (fetch, push, rebase, switch...) run at a time per project.
     pub git_writes: Arc<GitWriteLocks>,
+    /// The file lists behind the composer's `@` menu, kept for a few seconds per project
+    /// (`project_files`).
+    pub project_files: Arc<ProjectFileCache>,
 }
 
 impl AppState {
@@ -255,6 +259,7 @@ impl AppState {
             project_keys: ProjectKeys::default(),
             code_prepares: CodePrepares::default(),
             git_writes: Arc::default(),
+            project_files: Arc::default(),
         }
     }
 
