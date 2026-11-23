@@ -1,3 +1,10 @@
+# [0.70.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.69.0...v0.70.0) (2026-11-23)
+
+
+### Features
+
+* **chat:** let the chat be read while an agent question is open ([7511d36](https://github.com/MSpiechowicz/harness-useful-desktop/commit/7511d36b1449f26695287164bbd90081140d0d44))
+
 # [0.69.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.68.1...v0.69.0) (2026-11-23)
 
 
