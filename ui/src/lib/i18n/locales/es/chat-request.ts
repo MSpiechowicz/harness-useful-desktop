@@ -16,4 +16,7 @@ export const chatRequest: AreaMessages<typeof enChatRequest> = {
   'chat.request.no': 'No',
   'chat.request.cancel': 'Cancelar',
   'chat.request.submit': 'Enviar',
+  'chat.request.showChat': 'Ver el chat',
+  'chat.request.showQuestion': 'Una pregunta espera tu respuesta',
+  'chat.request.showQuestionAction': 'Ver la pregunta',
 };

@@ -13,6 +13,7 @@
 
   import Countdown from './Countdown.svelte';
   import QuestionOption from './QuestionOption.svelte';
+  import QuestionPeek from './QuestionPeek.svelte';
   import QuestionProgress from './QuestionProgress.svelte';
 
   interface Props {
@@ -27,6 +28,9 @@
   }
 
   let { session, request, waiting = false, onawaitnext, onrelease }: Props = $props();
+
+  // Lets the chat behind the dialog be read; what was typed stays here meanwhile.
+  let peeking = $state(false);
 
   // Questions sent all at once have their own dialog (`QuestionsDialog`).
   const kind = $derived(request.kind as Exclude<UiRequest['kind'], { type: 'questions' }>);
@@ -113,7 +117,7 @@
 
 <!-- A stray click must not answer for the user: an agent dialog closes through its buttons only. -->
 <Dialog
-  open
+  open={!peeking}
   {title}
   description={request.purpose === 'question' ? t('chat.request.agentAsks') : undefined}
   size={kind.type === 'editor' ? 'lg' : 'md'}
@@ -175,6 +179,7 @@
   {/key}
 
   {#snippet footer()}
+    <Button class="mr-auto" onclick={() => (peeking = true)}>{t('chat.request.showChat')}</Button>
     {#if kind.type === 'confirm'}
       <Button onclick={() => void session.respond(request.id, { type: 'confirmed', confirmed: false })}>{t('chat.request.no')}</Button>
       <Button variant="primary" onclick={() => void session.respond(request.id, { type: 'confirmed', confirmed: true })}>{t('chat.request.yes')}</Button>
@@ -186,3 +191,7 @@
     {/if}
   {/snippet}
 </Dialog>
+
+{#if peeking}
+  <QuestionPeek onshow={() => (peeking = false)} />
+{/if}

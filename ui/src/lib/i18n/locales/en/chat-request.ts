@@ -13,4 +13,7 @@ export const chatRequest = {
   'chat.request.no': 'No',
   'chat.request.cancel': 'Cancel',
   'chat.request.submit': 'Submit',
+  'chat.request.showChat': 'Show chat',
+  'chat.request.showQuestion': 'Question waiting for your answer',
+  'chat.request.showQuestionAction': 'Show question',
 };

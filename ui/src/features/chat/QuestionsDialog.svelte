@@ -16,6 +16,7 @@
 
   import Countdown from './Countdown.svelte';
   import QuestionOption from './QuestionOption.svelte';
+  import QuestionPeek from './QuestionPeek.svelte';
   import QuestionProgress from './QuestionProgress.svelte';
 
   type QuestionsKind = Extract<UiRequest['kind'], { type: 'questions' }>;
@@ -31,6 +32,9 @@
   }
 
   let { session, request, kind, saved = null, onsave }: Props = $props();
+
+  // Lets the chat behind the dialog be read: the question stays here, with its answers, behind a bar.
+  let peeking = $state(false);
 
   /** How long before the agent's own deadline the answers so far are sent, so they arrive before it gives up. */
   const SEND_BEFORE_DEADLINE_MS = 1500;
@@ -175,7 +179,7 @@
 <svelte:window onkeydown={onWindowKeydown} />
 
 <Dialog
-  open
+  open={!peeking}
   title={visibleText(text.title)}
   description={t('chat.request.agentAsks')}
   dismissible={false}
@@ -255,6 +259,7 @@
 
   {#snippet footer()}
     <Button variant="danger" class="mr-auto" onclick={cancel}>{t('chat.request.cancel')}</Button>
+    <Button onclick={() => (peeking = true)}>{t('chat.request.showChat')}</Button>
     {#if step > 0}
       <Button onclick={() => void goTo(step - 1)}>{t('chat.request.back')}</Button>
     {/if}
@@ -263,3 +268,7 @@
     </Button>
   {/snippet}
 </Dialog>
+
+{#if peeking}
+  <QuestionPeek onshow={() => (peeking = false)} />
+{/if}
