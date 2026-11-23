@@ -5,6 +5,7 @@
   import { HEADER_CONTROLS_SLOT, HEADER_FIXED_SLOT, HEADER_TITLE_SLOT, portal } from '$lib/actions/portal';
   import { fixedOut, readyAfterMount, titleOut } from '$lib/design/header-motion';
   import { DURATION, scaled } from '$lib/design/motion';
+  import { t } from '$lib/i18n/i18n.svelte';
   import { cx } from '$lib/utils/cx';
 
   import { ICON, type IconComponent } from './icon';
@@ -18,6 +19,10 @@
     icon?: IconComponent;
     /** Replaces the icon tile (a harness badge, for instance). */
     leading?: Snippet;
+    /** Makes the title a button that calls this (the chat's rename). Ignored while `editor` is given. */
+    ontitleclick?: () => void;
+    /** Replaces the title while it is being edited in place. */
+    editor?: Snippet;
     /** Fills the space between the title and the actions, e.g. a tab strip. */
     center?: Snippet;
     /** The view-specific actions (search, a primary button, a switcher), right-aligned. They fade when the view changes. */
@@ -31,7 +36,7 @@
     class?: string;
   }
 
-  let { title, context, icon: Icon, leading, center, actions, fixed, class: className }: Props = $props();
+  let { title, context, icon: Icon, leading, ontitleclick, editor, center, actions, fixed, class: className }: Props = $props();
 </script>
 
 <!-- Rendered into the shell's single top bar, in three places (see HEADER_TITLE_SLOT). When the view changes, the outgoing
@@ -58,7 +63,17 @@
     {/if}
 
     <div class={cx('flex items-baseline gap-2', center ? 'shrink-0' : 'min-w-[var(--view-title-min)] flex-1')}>
-      <h1 class="max-w-full shrink-0 truncate text-base leading-5 font-medium text-fg">{title}</h1>
+      {#if editor}
+        {@render editor()}
+      {:else}
+        <h1 class="max-w-full shrink-0 truncate text-base leading-5 font-medium text-fg">
+          {#if ontitleclick}
+            <button type="button" onclick={ontitleclick} class="max-w-full cursor-text truncate rounded-sm hover:bg-hover" title={t('chat.name.aria')}>{title}</button>
+          {:else}
+            {title}
+          {/if}
+        </h1>
+      {/if}
       {#if context}
         <p class="min-w-0 truncate text-sm text-fg-3 max-[1000px]:hidden">{context}</p>
       {/if}

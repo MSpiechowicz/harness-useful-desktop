@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { fixtures } from '$lib/ipc/mock/fixtures';
@@ -41,5 +41,16 @@ describe('chat header bar', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Chat' })).toBeInTheDocument();
     expect(screen.queryByText(/Approvals:/)).toBeNull();
+  });
+
+  it('renames the open chat in place when its name is clicked', async () => {
+    const { session } = chatSession([]);
+    agentSessions.sessions = [session];
+    agentSessions.activeKey = session.key;
+
+    render(ChatBar);
+    await fireEvent.click(screen.getByRole('button', { name: agentSessions.title(session.key) }));
+
+    expect(screen.getByRole('textbox', { name: 'Chat name' })).toHaveFocus();
   });
 });

@@ -15,8 +15,12 @@
   import ChatControls from './ChatControls.svelte';
   import ChatMenu from './ChatMenu.svelte';
   import PreviewBadge from './PreviewBadge.svelte';
+  import SessionName from './SessionName.svelte';
 
   const session = $derived(agentSessions.active);
+  let renaming = $state(false);
+  // A chat that has ended cannot be renamed, as in the rail.
+  const canRename = $derived(session !== null && !session.ended);
   // The open chat names the page; with the rail collapsed it is the only place its name shows.
   const heading = $derived(agentSessions.activeKey ? agentSessions.title(agentSessions.activeKey) : t('chat.title'));
   const runnerId = $derived(session?.info.harness ?? agentSessions.activeStarting?.harness ?? null);
@@ -26,7 +30,7 @@
 
 <!-- Chat's header, rendered into the shell's top bar like every view's: the harness running the open chat, its name, and
      its controls. The open chats live in the rail, under Chat; a new one starts from the button here or with Ctrl+N. -->
-<ViewHeader title={heading} leading={runner ? badge : undefined} center={session?.routine ? routine : undefined}>
+<ViewHeader title={heading} leading={runner ? badge : undefined} center={session?.routine ? routine : undefined} ontitleclick={canRename ? () => (renaming = true) : undefined} editor={session && canRename && renaming ? editor : undefined}>
   {#snippet actions()}
     <Button variant="primary" onclick={() => void newChat()}>
       {#snippet leading()}<Plus size={ICON.sm} aria-hidden="true" />{/snippet}
@@ -43,6 +47,10 @@
 
 {#snippet routine()}
   {#if session?.routine}<RoutineChip routine={session.routine} />{/if}
+{/snippet}
+
+{#snippet editor()}
+  {#if session}<SessionName {session} ondone={() => (renaming = false)} />{/if}
 {/snippet}
 
 {#snippet badge()}

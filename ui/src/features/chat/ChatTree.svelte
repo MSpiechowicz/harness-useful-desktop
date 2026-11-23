@@ -100,7 +100,7 @@
               ondblclick={() => rename(session)}
               onkeydown={(event) => onKeydown(event, index)}
             >
-              {#if summary}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
+              {#if summary && renaming !== session.key}<HarnessBadge info={summary.info} size="xs" /><span class="sr-only">{t('chat.tabs.harness', { name: summary.info.name })}</span>{/if}
               {#if renaming !== session.key}<span class={cx('min-w-0 truncate', selected && 'font-medium')}>{title}</span>{/if}
               {#if routine}<CalendarClock size={12} class="shrink-0 text-accent-text" aria-hidden="true" /><span class="sr-only">{t('routines.chip', { name: routine.name })}</span>{/if}
               <!-- What the chat is doing sits in the close button's column (the rail chevron's too), and gives way to it on hover. -->
@@ -119,13 +119,16 @@
           {/snippet}
         </Tooltip>
         {#if renaming === session.key}
-          <SessionName
-            {session}
-            ondone={() => {
-              renaming = null;
-              rows[index]?.focus();
-            }}
-          />
+          <!-- Over the row where the badge was (it is hidden while editing), so the name starts at the row's left edge. -->
+          <div class="absolute inset-y-0 right-[30px] left-[4px] flex items-center">
+            <SessionName
+              {session}
+              ondone={() => {
+                renaming = null;
+                rows[index]?.focus();
+              }}
+            />
+          </div>
         {/if}
         <div data-close class="absolute top-[2px] right-[6px] opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100">
           <IconButton icon={X} label={t('chat.tabs.close')} side="right" iconSize={ICON.sm} class="size-[24px]! text-fg-3" onclick={() => close(session)} />
