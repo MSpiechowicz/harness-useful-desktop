@@ -172,7 +172,7 @@ describe('the question of a run in its chat tab', () => {
       render(ChatPane, { session });
 
       const dialog = await screen.findByRole('dialog', undefined, { timeout: 5000 });
-      await fireEvent.click(within(dialog).getAllByRole('button')[0]);
+      await fireEvent.click(within(dialog).getAllByRole('button').find((button) => button.textContent?.trim() !== 'Show chat')!);
 
       await waitFor(() => expect(calls).toHaveLength(1));
       expect(calls[0]).toMatchObject({ key: session.key });
