@@ -306,10 +306,10 @@ fn retry(frame: &Value, kind: &str) -> AgentEvent {
     }
 }
 
-/// OMP's list of the MCP tools it mounted or unmounted under `xd://`: bookkeeping that is no use in a chat. One arrives
-/// for each server as it connects. A warning or an error from the same source still shows.
+/// OMP's list of the MCP tools it mounted or unmounted (`xd://` mounts, or the newer "Tool commands: added …" line):
+/// bookkeeping that is no use in a chat. One arrives for each server as it connects. A warning or an error from the same source still shows.
 fn is_tool_mount_notice(frame: &Value) -> bool {
-    string(frame, "source").as_deref() == Some("xdev") && string(frame, "level").as_deref() == Some("info")
+    matches!(string(frame, "source").as_deref(), Some("xdev" | "toolCommands")) && string(frame, "level").as_deref() == Some("info")
 }
 
 /// An extension handler threw; only the extension's file name and the redacted error are shown.
@@ -346,6 +346,10 @@ mod tests {
         assert_eq!(
             notices(json!({ "type": "notice", "level": "info", "message": "Compacted", "source": "other" })),
             1
+        );
+        assert_eq!(
+            notices(json!({ "type": "notice", "level": "info", "message": "Tool commands: added mcp__a", "source": "toolCommands" })),
+            0
         );
         assert_eq!(
             notices(json!({ "type": "notice", "level": "info", "message": "No source" })),
