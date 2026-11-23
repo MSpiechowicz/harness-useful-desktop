@@ -1,3 +1,11 @@
+## [0.68.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.68.0...v0.68.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **chat:** hide OMP toolCommands info notices ([24141d4](https://github.com/MSpiechowicz/harness-useful-desktop/commit/24141d4f572cf1adf26850cb59c4cc4177a8e1f5))
+* **deps:** update url to 2.5.9 (RUSTSEC-2026-0592) ([5a3c937](https://github.com/MSpiechowicz/harness-useful-desktop/commit/5a3c937afa405367f841978f7680ca2f09cde720))
+
 # [0.68.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.67.2...v0.68.0) (2026-11-09)
 
 
