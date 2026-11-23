@@ -1,3 +1,15 @@
+# [0.69.0](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.68.1...v0.69.0) (2026-11-23)
+
+
+### Bug Fixes
+
+* **deps:** update cookie to 0.18.3 (RUSTSEC-2026-0594) ([169e9d1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/169e9d1b5241d999d82a6f4eba65123bd40183ef))
+
+
+### Features
+
+* **chat:** rename the open chat from the header title ([c9c14c1](https://github.com/MSpiechowicz/harness-useful-desktop/commit/c9c14c1ff0789154b5d3e45ca668c500203c668f))
+
 ## [0.68.1](https://github.com/MSpiechowicz/harness-useful-desktop/compare/v0.68.0...v0.68.1) (2026-11-23)
 
 
